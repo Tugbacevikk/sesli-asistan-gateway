@@ -35,7 +35,7 @@ async def test_ollama_istek_ve_yanit():
 
     llm = OllamaChat(client=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://x"))
     msg = await llm.chat(HISTORY, [{"type": "function"}])
-    assert seen["think"] is False and seen["stream"] is False and seen["model"] == "qwen3.5:9b"
+    assert seen["think"] is False and seen["stream"] is False and seen["model"] == "qwen3.5:4b"
     assert msg.tool_calls[0].name == "TransferCall" and msg.tool_calls[0].arguments == {"Extension": "214"}
     assert msg.tool_calls[0].id
 
