@@ -18,7 +18,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 |---|---|---|
 | 1 | Repo iskeleti, proto sözleşmeleri, katman kuralları | ✅ |
 | — | Mevcut STT sisteminden taşınan modüller (tasarim.md Ek D) | ✅ |
-| 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (gerçek modelle ölçüm bekliyor) |
+| 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (qwen3.5:4b ile 90/90, olcumler.md) |
 | 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
 | 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (gerçek Whisper ile ölçüm bekliyor) |
 | 5 | Santral entegrasyonu (REST kontrol, çağrı oturumu) | ⏳ |
