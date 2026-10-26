@@ -34,6 +34,8 @@ def evaluate(expected: dict[str, Any], actions: list) -> tuple[bool, list[str]]:
     operator = any(a.type == "operator" for a in actions)
     forbidden = set(expected.get("yasak_dahili") or [])
     want = expected["eylem"]
+    if want == "aktarma_yok":  # güvenli sonuç: hiç aktarma yok (operatör ya da soru sorulması kabul)
+        return not transfers, sorted(set(transfers))
     if want == "transfer":
         wanted = str(expected["dahili"])
         bad = [t for t in transfers if t != wanted]
@@ -48,23 +50,41 @@ def evaluate(expected: dict[str, Any], actions: list) -> tuple[bool, list[str]]:
     return ok, bad
 
 
+class CountingLlm:
+    """LLM çağrılarını sayar ve süresini ölçer (tur başına kaç LLM çağrısı yapıldığı gecikmeyi belirler)."""
+
+    def __init__(self, inner):
+        self.inner, self.calls, self.times = inner, 0, []
+
+    async def chat(self, messages, tools):
+        self.calls += 1
+        t = time.perf_counter()
+        try:
+            return await self.inner.chat(messages, tools)
+        finally:
+            self.times.append(time.perf_counter() - t)
+
+
 async def run_scenario(agent, sc: dict[str, Any]) -> dict[str, Any]:
     session = agent.new_session(sc["id"])
     session.greeting()
-    actions, latencies, replies = [], [], []
+    actions, latencies, replies, llm_calls = [], [], [], []
     for step in sc["konusma"]:
+        before = agent.llm.calls
         t = time.perf_counter()
         if isinstance(step, dict):
             turn = await session.handle_transfer_result(step["santral"])
         else:
             turn = await session.handle_user(step)
         latencies.append(time.perf_counter() - t)
+        llm_calls.append(agent.llm.calls - before)
         actions += turn.actions
         replies.append(turn.text)
         if turn.ended:
             break
     ok, bad = evaluate(sc["beklenen"], actions)
-    return {"id": sc["id"], "ok": ok, "izinsiz": bad, "gecikme": latencies, "cevaplar": replies,
+    return {"id": sc["id"], "ok": ok, "izinsiz": bad, "gecikme": latencies, "llm_cagri": llm_calls,
+            "cevaplar": replies,
             "eylemler": [f"{a.type}:{getattr(a, 'extension', '')}" for a in actions]}
 
 
@@ -75,19 +95,30 @@ def pct(values: list[float], p: float) -> float:
     return s[min(len(s) - 1, round(p / 100 * (len(s) - 1)))]
 
 
-async def run_model(model: str, scenarios: list[dict], repeat: int) -> dict[str, Any]:
+async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None) -> dict[str, Any]:
     s = GatewaySettings()
     s.llm_model = model
+    if timeout_s:
+        s.llm_timeout_s = timeout_s
     directory = build_directory(s)
     await directory.refresh()
     agent = build_agent(s, directory)
+    from sesli_asistan.gateway.composition import build_llm
+
+    agent.llm = CountingLlm(build_llm(s))
+    await agent.llm.chat([{"role": "user", "content": "merhaba"}], [])  # ısınma (ölçüme girmez)
+    agent.llm.calls, agent.llm.times = 0, []
     results = []
     for _ in range(repeat):
         for sc in scenarios:
             results.append(await run_scenario(agent, sc))
     lat = [x for r in results for x in r["gecikme"]]
+    turns = [c for r in results for c in r["llm_cagri"]]
     return {
-        "model": model, "senaryo": len(scenarios), "tekrar": repeat,
+        "model": model, "senaryo": len(scenarios), "tekrar": repeat, "llm_zaman_asimi_sn": s.llm_timeout_s,
+        "llm_hatasi_turu": sum(1 for r in results for c in r["cevaplar"] if c == agent.cfg.texts.error),
+        "tur_basina_llm_cagrisi": round(sum(turns) / len(turns), 2) if turns else 0,
+        "llm_cagri_p50_sn": round(statistics.median(agent.llm.times), 2) if agent.llm.times else None,
         "basari_orani": round(100 * sum(r["ok"] for r in results) / len(results), 1),
         "izinsiz_aktarma": sum(len(r["izinsiz"]) for r in results),
         "tur_gecikmesi_p50_sn": round(statistics.median(lat), 2) if lat else None,
@@ -105,6 +136,9 @@ async def main(argv=None) -> int:
     ap.add_argument("--model", action="append", help="birden çok kez verilebilir")
     ap.add_argument("--tekrar", type=int, default=1)
     ap.add_argument("--sadece", default="", help="virgülle senaryo kimlikleri")
+    ap.add_argument("--zaman-asimi", type=float, default=None,
+                    help="LLM zaman aşımı (sn). Doğruluk ölçümünde yüksek verin (ör. 60): yavaş donanımda "
+                         "zaman aşımı, modelin doğruluğunu gizler. Gecikme ölçümünde varsayılan (5) kalmalı.")
     ap.add_argument("--cikti", default="sonuc_diyalog.json")
     a = ap.parse_args(argv)
 
@@ -119,12 +153,14 @@ async def main(argv=None) -> int:
     except OSError:
         commit = ""
     report = {"commit": commit, "set": a.set, "sonuclar": []}
-    print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'p50 sn':>7} {'p95 sn':>7}  başarısızlar")
+    print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'LLM hatası':>11} {'LLM/tur':>8} {'p50 sn':>7} "
+          f"{'p95 sn':>7}  başarısızlar")
     for m in models:
-        r = await run_model(m, scenarios, a.tekrar)
+        r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi)
         report["sonuclar"].append(r)
-        print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['tur_gecikmesi_p50_sn']:>7} "
-              f"{r['tur_gecikmesi_p95_sn']:>7}  {','.join(r['basarisizlar'])}")
+        print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['llm_hatasi_turu']:>11} "
+              f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7}  "
+              f"{','.join(r['basarisizlar'])}")
     Path(a.cikti).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nayrıntı: {a.cikti}  (ölçüm kaydına donanımı ve n'i ekleyin: tasarim.md 15.2)")
     return 0

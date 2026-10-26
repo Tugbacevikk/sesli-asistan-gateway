@@ -29,7 +29,9 @@ _FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",
            "op", "operator", "muh", "muhendis", "ogr", "gor", "sayin"}
 _HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
-_STOP = _TITLES | _HONORIFICS
+# Genel birim sözcükleri: "satış departmanı", "finans birimi" → "satış", "finans"
+_GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
+_STOP = _TITLES | _HONORIFICS | _GENERIC
 
 _ONES = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
 _TENS = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"]
@@ -62,8 +64,9 @@ _DIGITS = re.compile(r"\d+")
 # Hâl ekleri (katlanmış biçimde, uzundan kısaya). STT kesme işaretini çoğu zaman yazmaz:
 # "muhasebeden", "zeynep hanımı". Ek atılmış biçim yalnızca **ek aday** olarak denenir, asıl biçim
 # korunur; kök en az 4 harf kalmalı ("ayşe" → "ays" denenmez).
-_SUFFIXES = ("ndan", "nden", "dan", "den", "tan", "ten", "nin", "nun", "yla", "yle",
-             "la", "le", "ya", "ye", "yi", "yu", "da", "de", "ta", "te", "i", "u", "a", "e")
+_SUFFIXES = ("ndan", "nden", "sine", "sina", "sini", "sinda", "sinde", "dan", "den", "tan", "ten",
+             "nin", "nun", "yla", "yle", "ine", "ina", "ini", "una", "une", "unu", "la", "le", "ya", "ye",
+             "yi", "yu", "da", "de", "ta", "te", "i", "u", "a", "e")
 
 
 def strip_suffix(word: str) -> str:

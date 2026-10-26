@@ -10,6 +10,7 @@ Santral ──RTP (G.711)──► Gateway ──gRPC──► STT (Silero VAD +
 ```
 
 Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim.md](docs/tasarim.md)**.
+Ölçüm kayıtları: **[docs/olcumler.md](docs/olcumler.md)**.
 
 ## Durum
 
@@ -58,7 +59,8 @@ başında neyin aynen alındığı, neyin uyarlandığı ve neyin alınmadığı
 ```bash
 ollama pull qwen3.5:9b && ollama pull qwen3.5:4b
 python tools/sohbet/sohbet.py --ayrinti
-python tests/eval/diyalog.py --model qwen3.5:9b --model qwen3.5:4b --tekrar 3
+python tests/eval/diyalog.py --model qwen3.5:4b --tekrar 3 --zaman-asimi 60   # doğruluk
+python tests/eval/diyalog.py --model qwen3.5:4b --tekrar 3                    # gecikme (5 sn sınırı)
 ```
 
 ## Geliştirme

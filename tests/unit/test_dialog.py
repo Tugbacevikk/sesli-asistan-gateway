@@ -46,19 +46,48 @@ def agent(llm, **cfg):
     return DialogAgent(llm, ToolRegistry(_index()), DialogConfig(organization="Deneme", **cfg))
 
 
-async def test_net_talep_aktarilir():
-    llm = ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe", Department="muhasebe")),
-                      tool_msg(call("TransferCall", Extension="214")),
-                      LlmMessage("Sizi Ayşe Yılmaz'a aktarıyorum."))
+async def test_net_eslesmede_aktarma_kodla_yapilir_tek_llm_cagrisi():
+    # ADR-012: single_high → aktarma kodla; ikinci LLM turu yok, cümle sabit
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe", Department="muhasebe")))
     s = agent(llm).new_session("t1")
     assert "Deneme" in s.greeting().text
     turn = await s.handle_user("muhasebeden ayşe hanım")
     assert turn.text == "Sizi Ayşe Yılmaz'a aktarıyorum."
     assert [(a.type, a.extension) for a in turn.actions] == [("transfer", "214")]
-    # araç sonucu LLM'e match bilgisiyle gitti
-    tool_result = json.loads(llm.seen[1][-1]["content"])
-    assert tool_result["match"] == "single_high"
-    assert llm.seen[0][0]["role"] == "system"
+    assert len(llm.seen) == 1 and llm.seen[0][0]["role"] == "system"
+    tool_result = json.loads(s.history[-2]["content"])
+    assert tool_result["match"] == "single_high" and tool_result["transferred"] is True
+
+
+async def test_birim_hattina_aktarma_cumlesi():
+    llm = ScriptedLlm(tool_msg(call("InContacts", Department="finans")))
+    turn = await agent(llm).new_session("t1b").handle_user("finans birimine bağlanmak istiyorum")
+    assert turn.text == "Sizi Muhasebe birimine aktarıyorum." and turn.actions[0].extension == "210"
+
+
+async def test_otomatik_aktarma_kapatilabilir():
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="can öztürk")), tool_msg(call("TransferCall", Extension="245")),
+                      LlmMessage("Aktarıyorum."))
+    turn = await agent(llm, auto_transfer_single_high=False).new_session("t1c").handle_user("can öztürk")
+    assert [a.extension for a in turn.actions] == ["245"] and len(llm.seen) == 3
+
+
+async def test_alan_karistirilirsa_digeriyle_aranir():
+    # LLM "İK"yi Name'e yazdı: birim olarak bir kez daha denenir
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="İk")))
+    turn = await agent(llm).new_session("t1d").handle_user("ik ile görüşebilir miyim")
+    assert [a.extension for a in turn.actions] == ["260"]
+
+
+async def test_aramadan_cevap_veren_tur_sayilir():
+    # LLM aracı hiç çağırmadan "tekrar söyler misiniz" derse de deneme sayılır (döngüye hapsolmasın)
+    llm = ScriptedLlm(LlmMessage("Tekrar söyler misiniz?"), LlmMessage("Anlayamadım."), LlmMessage("Yine?"))
+    s = agent(llm).new_session("t1e")
+    t1 = await s.handle_user("şey")
+    t2 = await s.handle_user("hımm")
+    assert not t1.actions and "operatöre" in t2.text   # 2. başarısızlıkta teklif eklendi
+    t3 = await s.handle_user("ıı")
+    assert [a.reason for a in t3.actions] == ["ilerleme_yok"]
 
 
 async def test_uydurulan_dahili_reddedilir():
@@ -138,23 +167,23 @@ async def test_llm_zaman_asimi():
 
 
 async def test_tur_siniri():
-    llm = ScriptedLlm(*[tool_msg(call("InContacts", Name="can")) for _ in range(3)])
+    llm = ScriptedLlm(*[tool_msg(call("InContacts", Name="ayşe")) for _ in range(3)])  # multiple: oto aktarma yok
     turn = await agent(llm, max_tool_rounds=3).new_session("t10").handle_user("can")
     assert [a.reason for a in turn.actions] == ["tur_siniri"]
 
 
 async def test_mesgul_sonrasi_bilgi_ve_tekrar_aktarma():
-    llm = ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe Yılmaz")), tool_msg(call("TransferCall", Extension="214")),
-                      LlmMessage("Aktarıyorum."),
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe Yılmaz")),
                       LlmMessage("Ayşe Hanım meşgul. Başka birine aktarayım mı?"),
-                      tool_msg(call("InContacts", Department="muhasebe")),
-                      tool_msg(call("TransferCall", Extension="210")), LlmMessage("Birime aktarıyorum."))
+                      tool_msg(call("InContacts", Department="muhasebe")))
     s = agent(llm).new_session("t11")
-    await s.handle_user("ayşe yılmaz")
+    t = await s.handle_user("ayşe yılmaz")
+    assert [a.extension for a in t.actions] == ["214"]
     t = await s.handle_transfer_result("busy")
     assert "meşgul" in t.text and t.actions == []
-    santral_msg = llm.seen[3][-1]
+    santral_msg = llm.seen[1][-1]
     assert santral_msg["content"].startswith("[Santral] Ayşe Yılmaz meşgul")
+    assert s.state.failed_attempts == 0  # santral turu deneme sayılmaz
     t = await s.handle_user("muhasebe birimine bağlayın")
     assert [a.extension for a in t.actions] == ["210"]
     assert (await s.handle_transfer_result("answered")).ended
@@ -177,7 +206,7 @@ async def test_bos_cevapta_aktarma_metni_uretilir():
     llm = ScriptedLlm(tool_msg(call("InContacts", Name="can öztürk")), tool_msg(call("TransferCall", Extension="245")),
                       LlmMessage(""))
     turn = await agent(llm).new_session("t14").handle_user("can öztürk")
-    assert turn.text == "Sizi Can Öztürk kişisine aktarıyorum."
+    assert turn.text == "Sizi Can Öztürk'e aktarıyorum."
 
 
 def test_gecmis_kirpma_kullanici_mesajinda_baslar():

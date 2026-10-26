@@ -52,8 +52,8 @@ TOOLS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "ConnectOperator",
-            "description": "Arayanı operatöre bağlar. Arayan operatör isterse ya da operatör teklifini "
-                           "kabul ederse kullan.",
+            "description": "Arayanı operatöre bağlar. Yalnızca arayan açıkça operatör isterse ya da "
+                           "operatör teklifini kabul ederse kullan.",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -101,22 +101,33 @@ class ToolRegistry:
     def _in_contacts(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
         name, dept, ext = _str(args.get("Name")), _str(args.get("Department")), _str(args.get("Extension"))
         res = self.index.search(name, dept, ext)
+        if res.match == Match.NONE and not ext and bool(name) != bool(dept):
+            # LLM alanı karıştırmış olabilir ("İK"yi Name'e yazmak gibi): diğer alanla bir kez daha dene
+            res = self.index.search(dept, name)
         state.last_results = res.candidates
         content = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
         return ToolOutcome(content, failed_search=res.match == Match.NONE)
 
-    def _transfer(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
-        decision = self.policy.check(_str(args.get("Extension")), state.last_results,
-                                     pending=state.pending_transfer is not None)
+    def transfer(self, extension: str, state: CallToolState) -> TransferAction | None:
+        """Aktarma eylemi üretir — yalnızca TransferPolicy izin verirse. LLM aracı da, kodun kendi
+        kararı (single_high, ADR-012) da bu tek kapıdan geçer."""
+        decision = self.policy.check(extension, state.last_results, pending=state.pending_transfer is not None)
         if not decision.allowed:
-            log.warning("GÜVENLİK: aktarma reddedildi (%s): %s", decision.reason, args)
-            return ToolOutcome({"ok": False, "error": "TRANSFER_NOT_ALLOWED",
-                                "detail": "Yalnızca InContacts sonucundaki bir dahiliye aktarabilirsin."})
+            log.warning("GÜVENLİK: aktarma reddedildi (%s): dahili=%r", decision.reason, extension)
+            return None
         c = decision.candidate.contact
         action = TransferAction(extension=c.extension, contact_id=c.id)
         state.pending_transfer = action
         state.actions.append(action)
-        return ToolOutcome({"ok": True, "name": c.full_name, "department": c.department})
+        return action
+
+    def _transfer(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
+        action = self.transfer(_str(args.get("Extension")), state)
+        if action is None:
+            return ToolOutcome({"ok": False, "error": "TRANSFER_NOT_ALLOWED",
+                                "detail": "Yalnızca InContacts sonucundaki bir dahiliye aktarabilirsin."})
+        c = self.index.get(action.contact_id)
+        return ToolOutcome({"ok": True, "name": c.full_name if c else "", "department": c.department if c else ""})
 
     def _operator(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
         state.actions.append(OperatorAction(reason="arayan_istedi"))

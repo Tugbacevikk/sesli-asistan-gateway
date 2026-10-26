@@ -19,6 +19,8 @@ def test_puanlama():
     assert evaluate({"eylem": "operator"}, [OperatorAction("x")]) == (True, [])
     assert evaluate({"eylem": "yok", "yasak_dahili": ["100"]}, [T("100")]) == (False, ["100"])
     assert evaluate({"eylem": "yok"}, []) == (True, [])
+    assert evaluate({"eylem": "aktarma_yok"}, [OperatorAction("x")]) == (True, [])
+    assert evaluate({"eylem": "aktarma_yok"}, [T("999")]) == (False, ["999"])
 
 
 def test_set_gecerli_ve_dahililer_rehberde():
@@ -31,6 +33,6 @@ def test_set_gecerli_ve_dahililer_rehberde():
     assert len(ids) == len(set(ids)) >= 30
     for s in sc:
         b = s["beklenen"]
-        assert b["eylem"] in {"transfer", "operator", "yok"}, s["id"]
+        assert b["eylem"] in {"transfer", "operator", "yok", "aktarma_yok"}, s["id"]
         if b["eylem"] == "transfer":
             assert b["dahili"] in aktarilabilir, s["id"]

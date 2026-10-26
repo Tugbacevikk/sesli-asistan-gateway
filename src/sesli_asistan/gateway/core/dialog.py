@@ -4,8 +4,13 @@ LLM'e bırakılanlar: arayanın ne istediğini anlamak, aracı doğru parametrey
 doğal bir cevap yazmak.
 Koda bağlı olanlar (LLM unutsa ya da kandırılsa bile çalışır):
   - Aktarma yalnızca TransferPolicy'den geçerse yapılır (tools.py, policy.py).
-  - **İki deneme kuralı:** bulunamayan / anlaşılmayan her tur sayılır; 2. başarısızlıkta operatör
-    teklif edilir, 3.'de doğrudan operatöre aktarılır. Arayan hiçbir zaman döngüye hapsolmaz.
+  - **Net eşleşmede aktarma kodla yapılır (ADR-012):** InContacts `single_high` dönerse aktarma
+    eylemi TransferPolicy'den geçirilip doğrudan üretilir ve sabit cümle söylenir; ikinci bir LLM turu
+    beklenmez. (Ölçüm, 26.10.2026: qwen3.5:4b `single_high` sonrası çoğu zaman "aktarıyorum" deyip
+    TransferCall'ı çağırmadı; ayrıca her tur bir LLM çağrısı demek.)
+  - **İki deneme kuralı:** ilerleme olmayan her arayan turu sayılır (arama sonuçsuz ya da hiç arama/eylem
+    yok); 2. başarısızlıkta operatör teklif edilir, 3.'de doğrudan operatöre aktarılır. Arayan hiçbir
+    zaman döngüye hapsolmaz; LLM aramayı atlasa bile sayaç ilerler.
   - LLM hatası ya da zaman aşımında sabit anonsla operatöre aktarılır (zarif bozulma, NFR-08).
   - Araç turu sınırı: bir arayan cümlesinde en fazla `max_tool_rounds` LLM turu.
   - Konuşma geçmişi son `max_history` mesajla sınırlıdır (bağlam ve gecikme büyümesin).
@@ -31,14 +36,17 @@ Görevin arayanı doğru kişiye veya birime yönlendirmektir.
 Kurallar:
 - Cevapların telefonda sesli okunacak: en fazla iki kısa cümle. Liste, emoji, sembol kullanma.
 - Kişi veya birim sorulduğunda önce InContacts aracını kullan. Rehberde olmayan bilgiyi asla uydurma.
+- Arayan yalnızca birim söylerse adı Department alanına, kişi söylerse Name alanına yaz; dahili numara
+  söylerse Extension alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
-  single_high → kişiyi söyle ve TransferCall ile aktar,
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
-  multiple → seçenekleri adıyla say ve hangisi olduğunu sor,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar,
   none → nazikçe adı ya da birimi tekrar söylemesini iste.
-- Arayan operatör isterse ya da operatör teklifini kabul ederse ConnectOperator aracını kullan.
-- Dahili numaraları rakam rakam söyle.
+- "Aktarıyorum" ya da "bağlıyorum" demeden önce mutlaka TransferCall aracını çağır.
+- ConnectOperator aracını yalnızca arayan açıkça operatör isterse ya da operatör teklifini kabul ederse kullan.
+- Dahili numarayı arayan sormadıkça söyleme.
 - Yönlendirme dışındaki konularda yardımcı olamayacağını kibarca belirt.
+- Yalnızca Türkçe kelimeler kullan.
 - "[Santral]" ile başlayan mesajlar santralden gelen bilgidir, arayan söylememiştir."""
 
 
@@ -52,7 +60,9 @@ class DialogTexts:
                            "ya da adı tekrar söyleyebilirsiniz.")
     to_operator: str = "Sizi operatöre bağlıyorum, lütfen hatta kalın."
     error: str = "Şu an size yardımcı olamıyorum. Sizi operatöre bağlıyorum, lütfen hatta kalın."
-    transferring: str = "Sizi {ad} kişisine aktarıyorum."
+    transferring: str = "Sizi {ad_e} aktarıyorum."
+    transferring_department: str = "Sizi {birim} birimine aktarıyorum."
+    offer_operator_suffix: str = "İsterseniz sizi operatöre de bağlayabilirim."
     offer_operator_note: str = ("Arayanın istediği iki kez bulunamadı: nazikçe operatöre bağlanmayı "
                                 "teklif et ya da tekrar söylemesini iste.")
 
@@ -64,6 +74,7 @@ class DialogConfig:
     max_tool_rounds: int = 3
     max_history: int = 16
     llm_timeout_s: float = 5.0
+    auto_transfer_single_high: bool = True   # ADR-012
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -142,37 +153,55 @@ class DialogAgent:
         who = next((c.contact.full_name for c in s.state.last_results
                     if pending and c.contact.extension == pending.extension), "aranan kişi")
         s.history.append({"role": "user", "content": f"[Santral] {who} {reasons.get(status, 'ulaşılamadı')}. "
-                          "Arayana bildir; başka birine aktarmayı ya da operatörü teklif et."})
-        return await self._run(s)
+                          "Şimdi araç çağırma; arayana bildir ve başka birine mi yoksa operatöre mi "
+                          "aktarılmak istediğini sor."})
+        return await self._run(s, caller_turn=False)
 
     # --- LLM döngüsü ---
 
-    async def _run(self, s: DialogSession) -> DialogTurn:
-        stop = False
+    async def _run(self, s: DialogSession, caller_turn: bool = True) -> DialogTurn:
+        """caller_turn=False: santral olayından sonra (deneme sayacına girmez)."""
+        found = failed = stop = False
         for _ in range(self.cfg.max_tool_rounds):
             try:
                 msg = await asyncio.wait_for(self.llm.chat(self._messages(s), self.tools.schemas),
                                              timeout=self.cfg.llm_timeout_s)
             except (TimeoutError, LlmError) as e:
-                log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e)
+                log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)
                 return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
 
             if not msg.tool_calls:
-                return self._reply(s, clean_reply(msg.content))
+                text = clean_reply(msg.content)
+                if caller_turn and not found and not failed and not s.state.actions:
+                    # LLM aramadan cevap verdi ve ilerleme yok: deneme sayılır
+                    if (turn := self._count_failure(s)) is not None:
+                        return turn
+                    if s.state.failed_attempts == self.cfg.max_failed_attempts - 1 and "operatör" not in text:
+                        text = f"{text} {self.cfg.texts.offer_operator_suffix}".strip()
+                return self._reply(s, text)
 
             s.history.append(_assistant_tool_message(msg.content, msg.tool_calls))
             for call in msg.tool_calls:
                 out = self.tools.execute(call, s.state)
                 content = dict(out.content)
-                if out.failed_search:
+                if out.failed_search and caller_turn and not failed:
+                    failed = True
                     s.state.failed_attempts += 1
                     if s.state.failed_attempts >= self.cfg.max_failed_attempts:
                         s.history.append(_tool_message(call, content))
                         return self._operator(s, self.cfg.texts.to_operator, reason="bulunamadi")
                     if s.state.failed_attempts == self.cfg.max_failed_attempts - 1:
                         content["note"] = self.cfg.texts.offer_operator_note
-                elif call.name == "InContacts":
+                elif call.name == "InContacts" and not out.failed_search:
+                    found = True
                     s.state.failed_attempts = 0
+                if (self.cfg.auto_transfer_single_high and call.name == "InContacts"
+                        and content.get("match") == "single_high"):
+                    action = self.tools.transfer(s.state.last_results[0].contact.extension, s.state)
+                    if action is not None:
+                        content["transferred"] = True
+                        s.history.append(_tool_message(call, content))
+                        return self._reply(s, self._transfer_text(action.contact_id))
                 stop = stop or out.stop
                 s.history.append(_tool_message(call, content))
             if stop:
@@ -198,18 +227,30 @@ class DialogAgent:
         actions, s.state.actions = s.state.actions, []
         if not text:
             t = next((a for a in actions if a.type == "transfer"), None)
-            c = self.tools.index.get(t.contact_id) if t else None
-            text = (self.cfg.texts.transferring.format(ad=c.full_name) if c
-                    else self.cfg.texts.not_understood)
+            text = self._transfer_text(t.contact_id) if t else self.cfg.texts.not_understood
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, actions)
 
+    def _transfer_text(self, contact_id: str) -> str:
+        c = self.tools.index.get(contact_id)
+        if c is None:
+            return self.cfg.texts.to_operator
+        if c.kind == "department":
+            return self.cfg.texts.transferring_department.format(birim=c.department)
+        return self.cfg.texts.transferring.format(ad=c.full_name, ad_e=dative(c.full_name))
+
+    def _count_failure(self, s: DialogSession) -> DialogTurn | None:
+        """Deneme sayacını artırır; sınıra ulaşıldıysa operatör turunu döner."""
+        s.state.failed_attempts += 1
+        if s.state.failed_attempts >= self.cfg.max_failed_attempts:
+            return self._operator(s, self.cfg.texts.to_operator, reason="ilerleme_yok")
+        return None
+
     def _failure(self, s: DialogSession) -> DialogTurn:
         """STT boş/anlamsız metin verdi: LLM'e gitmeden sabit cümle, deneme sayacı artar."""
-        s.state.failed_attempts += 1
+        if (turn := self._count_failure(s)) is not None:
+            return turn
         n, limit = s.state.failed_attempts, self.cfg.max_failed_attempts
-        if n >= limit:
-            return self._operator(s, self.cfg.texts.to_operator, reason="anlasilmadi")
         text = self.cfg.texts.offer_operator if n == limit - 1 else self.cfg.texts.not_understood
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, fallback=True)

@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.4 |
+| **Sürüm** | 1.5 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -20,6 +20,7 @@
 | 1.2 | 26.10.2026 | seda-v0.1 yeterince test edilmediği için birincil hattan çıkarıldı; STT = Silero VAD + Whisper medium. Kaynak repo `Vietnamese-speech-to-text-models` (teslim edilen, Türkçe yolu test edilmiş sürüm) olarak değiştirildi |
 | 1.3 | 26.10.2026 | Ek D'deki modüller repoya taşındı; Ek A gerçek repo yapısına göre güncellendi; `StreamConfig.hotwords` alanı eklendi |
 | 1.4 | 26.10.2026 | Aşama 2 kodlandı: LLM adaptörü Ollama yerel API'ye alındı (düşünme modu kontrolü), `ConnectOperator` aracı ve `InContacts.Extension` parametresi, rehber kaydına `kind` alanı (birim hattı), Türkçe arama kuralları kesinleşti (Ek C), diyalog test seti |
+| 1.5 | 26.10.2026 | İlk diyalog ölçümüne göre (docs/olcumler.md): net eşleşmede aktarma kodla (ADR-012), deneme sayacı ilerlemesiz her turu sayar, alan karışıklığında ikinci arama, genel birim sözcükleri, istem güncellendi |
 
 ---
 
@@ -751,13 +752,19 @@ sequenceDiagram
 
 | Durum (`match`) | Davranış |
 |---|---|
-| `single_high` (tek sonuç, skor ≥ 90) | "Sizi … aktarıyorum" denir ve aktarılır; arayan söze girerse iptal edilir |
-| `single_low` (tek sonuç, skor < 90) | "… mı kastettiniz?" diye onay istenir |
-| `multiple` | En fazla 3 seçenek sayılıp sorulur |
-| `none` | Tekrar sorulur; deneme sayacı artar |
+| `single_high` (tek sonuç, skor ≥ 90) | **Kod** aktarma eylemini üretir (TransferPolicy'den geçerek) ve sabit cümleyi söyler: "Sizi Ayşe Yılmaz'a aktarıyorum." İkinci LLM turu yok (ADR-012). Arayan söze girerse iptal edilir |
+| `single_low` (tek sonuç, skor < 90) | LLM "… mı kastettiniz?" diye sorar; arayan onaylarsa `TransferCall` |
+| `multiple` | LLM en fazla 3 seçeneği sayıp sorar; seçimden sonra arama netleşir ya da `TransferCall` |
+| `none` | LLM tekrar sorar; deneme sayacı artar |
 
-**Deneme sayacı:** 2. başarısızlıkta operatör seçeneği sunulur, 3. başarısızlıkta operatöre aktarılır.
-Operatör tanımlı değilse ayardan gelen anons çalınır ve çağrı kapatılır.
+**Deneme sayacı:** İlerleme olmayan her arayan turu sayılır: arama sonuçsuz kaldıysa **ya da** LLM hiç arama
+yapmadan ve eylem üretmeden cevap verdiyse (LLM aramayı atlasa bile arayan döngüye hapsolmaz). Bir aday
+bulununca sıfırlanır. Santral olayından sonraki tur sayılmaz. 2. başarısızlıkta operatör seçeneği sunulur
+(LLM söylemediyse cümleye eklenir), 3. başarısızlıkta operatöre aktarılır. Operatör tanımlı değilse
+ayardan gelen anons çalınır ve çağrı kapatılır.
+
+**Alan karışıklığı:** LLM birimi `Name`'e (ya da tersi) yazar ve sonuç çıkmazsa, aynı sorgu diğer alanla bir
+kez daha aranır ("İK" → birim).
 
 Eşik değerleri (90, deneme sayısı) ayarlanabilir; test setiyle kalibre edilir.
 
@@ -1192,6 +1199,12 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Gerekçe:** Kanıtlanmış parçaları (RTP okuyucu, Whisper adaptörü, Silero VAD, uydurma süzgeci, ölçüm araçları) yeniden yazmamak; ama asistanın ihtiyacı olmayan karmaşıklığı (Redis, PostgreSQL, iş durumu, WebRTC) taşımamak.
 - **Sonuç:** Taşınan her modül kendi birim testleriyle birlikte gelir. Temiz mimari katman kuralları (`import-linter`) yeni repoda da uygulanır.
 
+### ADR-012 — Net eşleşmede aktarmayı kod yapar
+- **Bağlam:** İlk diyalog ölçümünde (docs/olcumler.md, 26.10.2026) qwen3.5:4b, `single_high` sonucu aldıktan sonra senaryoların çoğunda "Size aktarıyorum" deyip `TransferCall`'ı **çağırmadı**: arayana aktarılacağı söylendi ama aktarma yapılmadı. Ayrıca her ek araç turu bir LLM çağrısı (dizüstü bilgisayarda ~2–3 sn) demek.
+- **Karar:** InContacts `single_high` dönerse Gateway aktarma eylemini kendisi üretir (aynı TransferPolicy kapısından geçerek) ve sabit aktarma cümlesini söyler; LLM'e ikinci tur gidilmez. `single_low` ve `multiple` durumlarında karar LLM'de kalır (onay/seçim gerekir).
+- **Sonuçlar:** Net taleplerde tur başına tek LLM çağrısı (gecikme düşer); "söyledi ama aktarmadı" tutarsızlığı bu durumda imkânsız. Bedeli: arayan net bir kişiyi yalnızca bilgi için sorsa da ("Ayşe Hanım orada mı?") aktarılır — yönlendirme asistanı için kabul edilebilir. `auto_transfer_single_high=False` ile kapatılabilir.
+- **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
+
 ---
 
 ## 17. Riskler
@@ -1305,14 +1318,17 @@ Görevin arayanı doğru kişiye veya birime yönlendirmektir.
 Kurallar:
 - Cevapların telefonda sesli okunacak: en fazla iki kısa cümle. Liste, emoji, sembol kullanma.
 - Kişi veya birim sorulduğunda önce InContacts aracını kullan. Rehberde olmayan bilgiyi asla uydurma.
+- Arayan yalnızca birim söylerse adı Department alanına, kişi söylerse Name alanına yaz; dahili numara
+  söylerse Extension alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
-  single_high → kişiyi söyle ve TransferCall ile aktar,
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
-  multiple → seçenekleri adıyla say ve hangisi olduğunu sor,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar,
   none → nazikçe adı ya da birimi tekrar söylemesini iste.
-- Arayan operatör isterse ya da operatör teklifini kabul ederse ConnectOperator aracını kullan.
-- Dahili numaraları rakam rakam söyle.
+- "Aktarıyorum" ya da "bağlıyorum" demeden önce mutlaka TransferCall aracını çağır.
+- ConnectOperator aracını yalnızca arayan açıkça operatör isterse ya da operatör teklifini kabul ederse kullan.
+- Dahili numarayı arayan sormadıkça söyleme.
 - Yönlendirme dışındaki konularda yardımcı olamayacağını kibarca belirt.
+- Yalnızca Türkçe kelimeler kullan.
 - "[Santral]" ile başlayan mesajlar santralden gelen bilgidir, arayan söylememiştir.
 ```
 
