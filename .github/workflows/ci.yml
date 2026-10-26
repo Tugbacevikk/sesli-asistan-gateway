@@ -18,5 +18,6 @@ jobs:
           cache: pip
       - run: pip install -e ".[dev,tools,gateway]"
       - run: ruff check .
+      - run: python tools/proto/uret.py --kontrol
       - run: lint-imports
       - run: pytest -q tests/unit

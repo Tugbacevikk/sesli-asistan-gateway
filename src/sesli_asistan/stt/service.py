@@ -1,0 +1,137 @@
+"""gRPC `stt.v1.SpeechToText/Stream` uygulaması (tasarim.md 5.2, 6.3, ADR-004).
+
+Her çağrı = bir çift yönlü akış:
+    Gateway → AudioIn(config) + AudioIn(audio) × N      (20 ms G.711 kareleri)
+    STT     → SttEvent(SPEECH_STARTED) … SttEvent(FINAL) …
+
+Akış içinde iki görev çalışır ve birbirini **beklemez**:
+  1. okuyucu : kareleri alır, G.711 çözer, 8→16 kHz, VAD/cümle bölücü; SPEECH_STARTED'ı hemen gönderir,
+               biten cümleyi kuyruğa koyar.
+  2. çözücü  : kuyruktaki cümleleri sırayla Whisper'a verir (ayrı iş parçacığında), FINAL'ı gönderir.
+Whisper bir cümleyi çözerken okuyucu ses almaya devam eder. Kaynak sistemdeki ders: okuma ile tanıma
+aynı akışta olunca ses kaybediliyordu (tasarim.md 6.1).
+
+Hatalı istekler gRPC durum kodlarıyla reddedilir: ilk mesaj config değilse / codec ya da hız geçersizse
+INVALID_ARGUMENT; eşzamanlı akış sınırı doluysa RESOURCE_EXHAUSTED.
+"""
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import logging
+import time
+from collections.abc import AsyncIterator, Callable
+from typing import Protocol
+
+import grpc
+import numpy as np
+
+from sesli_asistan.contracts.stt.v1 import stt_pb2, stt_pb2_grpc
+from sesli_asistan.libs.audio import g711
+from sesli_asistan.libs.audio.resample import StreamUpsampler
+
+from .engine import SttResult
+from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utterance
+
+log = logging.getLogger(__name__)
+
+STT_RATE = 16000
+_CODECS = {stt_pb2.AUDIO_CODEC_PCMA: "pcma", stt_pb2.AUDIO_CODEC_PCMU: "pcmu", stt_pb2.AUDIO_CODEC_PCM16: "pcm16"}
+
+
+class Engine(Protocol):
+    def transcribe(self, samples: np.ndarray, hotwords: list[str] | None = None) -> SttResult: ...
+
+
+class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
+    def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
+                 segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0):
+        self.engine, self.detector_factory = engine, detector_factory
+        self.seg_cfg = segmenter_config or SegmenterConfig()
+        self.max_streams, self.timeout_s = max_streams, timeout_s
+        self.active = 0
+
+    async def Stream(self, requests: AsyncIterator[stt_pb2.AudioIn], context) -> AsyncIterator[stt_pb2.SttEvent]:  # noqa: N802
+        if self.engine is None:
+            await context.abort(grpc.StatusCode.UNAVAILABLE, "STT hazırlanıyor (model yükleniyor)")
+        if self.active >= self.max_streams:
+            await context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, f"eşzamanlı akış sınırı ({self.max_streams})")
+        self.active += 1
+        tasks: list[asyncio.Task] = []
+        try:
+            try:
+                first = await anext(aiter(requests))
+            except StopAsyncIteration:
+                return
+            cfg = first.config if first.WhichOneof("msg") == "config" else None
+            if cfg is None:
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "ilk mesaj StreamConfig olmalı")
+            codec = _CODECS.get(cfg.codec)
+            rate = cfg.sample_rate_hz
+            if codec is None or (codec != "pcm16" and rate != 8000) or rate not in (8000, 16000):
+                await context.abort(grpc.StatusCode.INVALID_ARGUMENT,
+                                    f"desteklenmeyen biçim: codec={cfg.codec} hız={rate} (G.711 yalnızca 8000 Hz)")
+            call_id = cfg.call_id or dict(context.invocation_metadata()).get("x-call-id", "?")
+            hotwords = list(cfg.hotwords)
+            log.info("[%s] STT akışı açıldı: %s %d Hz, %d ipucu", call_id, codec, rate, len(hotwords))
+
+            out: asyncio.Queue[stt_pb2.SttEvent | None] = asyncio.Queue()
+            utts: asyncio.Queue[Utterance | None] = asyncio.Queue()
+            tasks = [asyncio.create_task(self._read(requests, codec, rate, out, utts), name=f"stt-oku-{call_id}"),
+                     asyncio.create_task(self._decode(call_id, hotwords, utts, out), name=f"stt-coz-{call_id}")]
+            while (ev := await out.get()) is not None:
+                yield ev
+            log.info("[%s] STT akışı kapandı", call_id)
+        finally:
+            for t in tasks:
+                t.cancel()
+            for t in tasks:
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await t
+            self.active -= 1
+
+    async def _read(self, requests, codec: str, rate: int, out: asyncio.Queue, utts: asyncio.Queue) -> None:
+        seg = Segmenter(self.detector_factory(), self.seg_cfg)
+        up = StreamUpsampler(rate, STT_RATE) if rate != STT_RATE else None
+        try:
+            async for msg in requests:
+                if msg.WhichOneof("msg") != "audio" or not msg.audio:
+                    continue
+                x = (np.frombuffer(msg.audio, "<i2").astype(np.float32) / 32768.0 if codec == "pcm16"
+                     else g711.decode(msg.audio, codec))
+                if up is not None:
+                    x = up.process(x)
+                for e in seg.feed(x):
+                    if isinstance(e, SpeechStarted):
+                        out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.SPEECH_STARTED,
+                                                        audio_start_ms=int(e.start * 1000)))
+                    else:
+                        utts.put_nowait(e)
+            for u in seg.flush():
+                utts.put_nowait(u)
+        finally:
+            utts.put_nowait(None)
+
+    async def _decode(self, call_id: str, hotwords: list[str], utts: asyncio.Queue, out: asyncio.Queue) -> None:
+        try:
+            while (u := await utts.get()) is not None:
+                t0 = time.perf_counter()
+                try:
+                    r = await asyncio.wait_for(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None),
+                                               timeout=self.timeout_s)
+                except TimeoutError:
+                    log.warning("[%s] STT zaman aşımı (%.1f sn ses, sınır %.1f sn): FINAL atlandı",
+                                call_id, u.end - u.start, self.timeout_s)
+                    continue
+                except Exception:
+                    log.exception("[%s] STT hatası: FINAL atlandı", call_id)
+                    continue
+                dt = time.perf_counter() - t0
+                if not r.text:
+                    log.info("[%s] boş/uydurma metin atıldı (%.2f sn)", call_id, dt)
+                    continue
+                log.info("[%s] FINAL %.2f sn ses → %.2f sn: %s", call_id, u.end - u.start, dt, r.text)
+                out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.FINAL, text=r.text, confidence=r.confidence,
+                                                audio_start_ms=int(u.start * 1000), audio_end_ms=int(u.end * 1000)))
+        finally:
+            out.put_nowait(None)

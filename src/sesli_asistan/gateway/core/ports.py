@@ -66,3 +66,32 @@ class AudioOutPort(Protocol):
     """Sesi arayana çalar (Aşama 5'te RtpSender). İptal edilebilir olmalı (barge-in)."""
 
     async def play(self, pcm8k: Any) -> int: ...
+
+
+# --- Konuşmadan metne (Aşama 4) ---
+
+@dataclass(frozen=True)
+class SttEvent:
+    type: str                 # "speech_started" | "partial" | "final"
+    text: str = ""
+    confidence: float = 0.0
+    start_ms: int = 0
+    end_ms: int = 0
+
+
+class SttError(Exception):
+    """STT servisine ulaşılamadı ya da akış koptu."""
+
+
+class SttStream(Protocol):
+    """Bir çağrının STT akışı: ses kareleri gönderilir, olaylar okunur."""
+
+    async def send(self, payload: bytes) -> None: ...
+
+    def events(self) -> Any: ...      # AsyncIterator[SttEvent]
+
+    async def close(self) -> None: ...
+
+
+class SttPort(Protocol):
+    async def open(self, call_id: str, codec: str, hotwords: list[str]) -> SttStream: ...

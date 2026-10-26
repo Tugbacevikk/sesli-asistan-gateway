@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.6 |
+| **Sürüm** | 1.7 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -22,6 +22,7 @@
 | 1.4 | 26.10.2026 | Aşama 2 kodlandı: LLM adaptörü Ollama yerel API'ye alındı (düşünme modu kontrolü), `ConnectOperator` aracı ve `InContacts.Extension` parametresi, rehber kaydına `kind` alanı (birim hattı), Türkçe arama kuralları kesinleşti (Ek C), diyalog test seti |
 | 1.5 | 26.10.2026 | İlk diyalog ölçümüne göre (docs/olcumler.md): net eşleşmede aktarma kodla (ADR-012), deneme sayacı ilerlemesiz her turu sayar, alan karışıklığında ikinci arama, genel birim sözcükleri, istem güncellendi |
 | 1.6 | 26.10.2026 | Aşama 3 kodlandı: TTS boru hattı (cümle cümle, çalarken sıradakini hazırlama), sabit anons kütüphanesi, TTS önbelleği (bellek + disk), metin hazırlama (rakam → yazı), Piper HTTP sözleşmesi piper1-gpl `/synthesize` ile hizalandı |
+| 1.7 | 26.10.2026 | Aşama 4 kodlandı: gRPC STT servisi (okuyucu/çözücü ayrı görevler, standart gRPC sağlık protokolü, akış sınırı), Gateway istemcisi (bir kez yeniden bağlanma), proto kod üretimi ve CI denetimi; STT ayarları gerçek adlarıyla |
 
 ---
 
@@ -368,7 +369,12 @@ flowchart LR
 | Uydurma süzgeci | Bilinen uydurma cümleler (ör. "İzlediğiniz için teşekkürler", "Altyazı M.K.") ve tekrar eden kelimeler atılır; Whisper'a yalnızca VAD'ın konuşma bulduğu ses verilir |
 | `PARTIAL` | Bu sürümde üretilmez (Whisper akışsız). Sözleşmede alan ayrılmıştır; akışlı model eklenirse kullanılır |
 | Eşzamanlılık | Model süreç başına bir kez yüklenir; Whisper çıkarımı semaforla sınırlıdır |
-| Isınma | Servis açılışta örnek ses çözdürür; ısınma bitmeden `/health` "hazır" demez |
+| Isınma | Servis açılışta örnek ses çözdürür; ısınma bitmeden sağlık durumu NOT_SERVING, gelen akışlar UNAVAILABLE |
+| Eşzamanlılık (akış içi) | Okuyucu (çözme → 8→16 kHz → VAD) ve çözücü (Whisper, ayrı iş parçacığı) ayrı görevlerdir; Whisper çalışırken ses okunmaya ve SPEECH_STARTED gönderilmeye devam eder |
+| Sağlık | Standart gRPC sağlık protokolü (`grpc.health.v1.Health`, servis adı `stt.v1.SpeechToText`) |
+| Sınırlar | `STT_MAX_STREAMS` aşılırsa RESOURCE_EXHAUSTED; geçersiz config INVALID_ARGUMENT; cümle çözümü `STT_TIMEOUT_S`'yi aşarsa FINAL atlanır (log) |
+| Kapanış | SIGTERM'de açık akışlara 5 sn süre |
+| Çalıştırma | `python -m sesli_asistan.stt` (Kaynak: `stt/server.py`, `stt/service.py`, `stt/config.py`) |
 
 **Tasarım kararı:** VAD ve cümle sonu STT servisindedir (ADR-004). İleride akışlı bir model (ör. seda-v0.1) test edilip eklenirse Gateway değişmez.
 
@@ -1006,15 +1012,22 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
 | `GREETING_TEXT` | "{kurum}'a hoş geldiniz…" | Karşılama |
 | `ORGANIZATION_NAME` | — | Kurum adı |
-| `STT_GRPC_ADDR` | 127.0.0.1:50051 | STT servisi |
-| `STT_MODEL` | faster-whisper-medium | Yedek: faster-whisper-small |
-| `STT_DEVICE` | cuda | `cuda` / `cpu` |
+| `STT_GRPC_ADDR` | 127.0.0.1:50051 | Gateway tarafı: STT servisinin adresi |
+| *STT servisi (`stt.env`):* | | |
+| `STT_HOST` / `STT_PORT` | 127.0.0.1 / 50051 | Yalnızca yerel |
+| `STT_MAX_STREAMS` | 64 | Eşzamanlı akış üst sınırı |
+| `STT_MODEL_DIR` | models/faster-whisper-medium | Yedek: models/faster-whisper-small |
+| `STT_DEVICE` | auto | `auto` / `cuda` / `cpu` |
+| `STT_COMPUTE_TYPE` | auto | cuda'da float16, cpu'da int8 |
 | `STT_BEAM` | 2 | Ölçümde beam 5 kadar doğru, daha hızlı |
-| `STT_TIMEOUT_S` | 3 | |
-| `STT_HOTWORDS_FROM_DIRECTORY` | true | Rehber adlarını Whisper'a ipucu olarak ver |
-| `STT_LANGUAGE` | tr | Sabit |
+| `STT_NUM_WORKERS` | 1 | Aynı anda çalışan Whisper çözümü |
+| `STT_TIMEOUT_S` | 3 | Cümle başına |
+| `STT_VAD` | silero | `silero` / `energy` (yedek) |
+| `STT_VAD_MODEL` | models/silero_vad.onnx | |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
+| (dil) | tr | Sabit; ayar değil (ADR-006) |
+| (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords` ile gelir |
 | `LLM_BACKEND` | ollama | `ollama` / `openai` (llama.cpp) |
 | `LLM_BASE_URL` | http://127.0.0.1:11434 | openai için ör. http://127.0.0.1:8080/v1 |
 | `LLM_MODEL` | qwen3.5:9b | Yedek: qwen3.5:4b |
@@ -1321,22 +1334,28 @@ sesli-asistan-gateway/
 │   │   │   ├── rtp/          # packet.py, jitter.py, receiver.py, sender.py
 │   │   │   ├── llm/          # ollama.py (varsayılan), openai_compat.py (llama.cpp)
 │   │   │   ├── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
-│   │   │   └── tts/          # piper_http.py, cache.py
+│   │   │   ├── tts/          # piper_http.py, cache.py
+│   │   │   └── stt/          # grpc_client.py (Gateway → STT)
 │   │   ├── core/             # dialog.py, tools.py, policy.py, search.py, directory.py, speech.py, models.py, ports.py
 │   │   │                     #   CallManager / CallSession — Aşama 5
 │   │   ├── api/              # REST uçları (FastAPI) — Aşama 5
 │   │   ├── config.py         # GatewaySettings
 │   │   └── composition.py    # bileşenleri ayarlardan kurar
-│   └── stt/
-│       ├── engine.py         # faster-whisper medium, hotwords
-│       ├── vad.py            # Silero VAD, cümle bölücü (SpeechStarted / Utterance)
-│       ├── hallucination.py  # uydurma süzgeci
-│       └── server.py         # gRPC sunucu — Aşama 4
+│   ├── stt/
+│   │   ├── engine.py         # faster-whisper medium, hotwords
+│   │   ├── vad.py            # Silero VAD, cümle bölücü (SpeechStarted / Utterance)
+│   │   ├── hallucination.py  # uydurma süzgeci
+│   │   ├── service.py        # gRPC Stream: okuyucu + çözücü
+│   │   ├── server.py         # başlatma, ısınma, sağlık, kapanış (python -m sesli_asistan.stt)
+│   │   └── config.py         # SttSettings
+│   └── contracts/            # proto'dan ÜRETİLMİŞ kod (tools/proto/uret.py; CI denetler)
 ├── data/                     # rehber_ornek.json (uydurma kişiler, API biçiminde)
 ├── tools/
 │   ├── sohbet/               # sohbet.py: asistanla yazarak konuşma (metin test arayüzü)
 │   ├── rtp_simulator/        # rtp_gonder.py: WAV → RTP, cevabı kaydeder
 │   ├── tts/                  # seslendir.py: Piper denemesi, telefon sesi WAV, gecikme ölçümü
+│   ├── stt/                  # dene.py: WAV → G.711 → gRPC akışı, olaylar, cümle sonu → FINAL gecikmesi, WER
+│   ├── proto/                # uret.py: proto → contracts/ (--kontrol: CI)
 │   └── models/               # indir.py: models.yaml'a göre indirme + SHA256
 ├── tests/
 │   ├── unit/

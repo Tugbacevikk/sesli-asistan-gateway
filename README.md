@@ -20,7 +20,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | — | Mevcut STT sisteminden taşınan modüller (tasarim.md Ek D) | ✅ |
 | 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (gerçek modelle ölçüm bekliyor) |
 | 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
-| 4 | gRPC STT servisi | ⏳ |
+| 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (gerçek Whisper ile ölçüm bekliyor) |
 | 5 | Santral entegrasyonu (REST kontrol, çağrı oturumu) | ⏳ |
 | 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
 
@@ -76,11 +76,27 @@ python tests/eval/diyalog.py --model qwen3.5:4b --tekrar 3                    # 
 python tools/tts/seslendir.py --anonslar --olcum --tekrar 5 --url http://127.0.0.1:5500
 ```
 
+### STT servisi (Aşama 4)
+
+| Modül | Ne yapar |
+|---|---|
+| `stt/service.py` | `stt.v1.SpeechToText/Stream`: G.711 → 16 kHz → VAD → Whisper; okuma çözümü beklemez |
+| `stt/server.py` | Model yükleme + ısınma, gRPC sağlık protokolü, SIGTERM'de düzgün kapanış |
+| `gateway/adapters/stt/grpc_client.py` | Gateway tarafı akış istemcisi (bağlantı zaman aşımı, bir kez yeniden bağlanma) |
+| `contracts/` | `proto/`'dan üretilmiş kod (`python tools/proto/uret.py`; CI `--kontrol` ile denetler) |
+| `tools/stt/dene.py` | WAV'ı santral gibi gerçek zamanlı gönderir; olaylar, cümle sonu → FINAL gecikmesi, WER |
+
+```bash
+python tools/models/indir.py                       # faster-whisper-medium + silero-vad
+python -m sesli_asistan.stt                        # STT servisi (ayrı terminal)
+python tools/stt/dene.py kayit.wav --ipucu "Ayşe Yılmaz"
+```
+
 ## Geliştirme
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
-pip install -e ".[dev,tools,gateway]"  # STT servisi için ayrıca ".[stt]"
+pip install -e ".[dev,tools,gateway,stt]"
 pytest -q                               # birim testleri (model gerekmez)
 ruff check .
 lint-imports                            # servis sınırları
