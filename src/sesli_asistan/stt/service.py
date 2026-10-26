@@ -2,7 +2,7 @@
 
 Her çağrı = bir çift yönlü akış:
     Gateway → AudioIn(config) + AudioIn(audio) × N      (20 ms G.711 kareleri)
-    STT     → SttEvent(SPEECH_STARTED) … SttEvent(FINAL) …
+    STT     → SttEvent(SPEECH_STARTED) … SttEvent(FINAL | NOT_RECOGNIZED) …
 
 Akış içinde iki görev çalışır ve birbirini **beklemez**:
   1. okuyucu : kareleri alır, G.711 çözer, 8→16 kHz, VAD/cümle bölücü; SPEECH_STARTED'ı hemen gönderir,
@@ -116,20 +116,29 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
         try:
             while (u := await utts.get()) is not None:
                 t0 = time.perf_counter()
+                reason = ""
                 try:
                     r = await asyncio.wait_for(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None),
                                                timeout=self.timeout_s)
                 except TimeoutError:
-                    log.warning("[%s] STT zaman aşımı (%.1f sn ses, sınır %.1f sn): FINAL atlandı",
-                                call_id, u.end - u.start, self.timeout_s)
-                    continue
+                    # iş parçacığı durdurulamaz: çözüm arka planda biter, sonucu atılır
+                    log.warning("[%s] STT zaman aşımı (%.1f sn ses, sınır %.1f sn)", call_id, u.end - u.start,
+                                self.timeout_s)
+                    reason = "timeout"
                 except Exception:
-                    log.exception("[%s] STT hatası: FINAL atlandı", call_id)
+                    log.exception("[%s] STT hatası", call_id)
+                    reason = "error"
+                else:
+                    if not r.text:
+                        log.info("[%s] boş/uydurma metin atıldı (%.2f sn)", call_id, time.perf_counter() - t0)
+                        reason = "empty"
+                if reason:
+                    # arayan konuştu ama metin yok: Gateway sessiz kalmasın, tekrar sorsun (tasarim.md 6.3)
+                    out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.NOT_RECOGNIZED, reason=reason,
+                                                    audio_start_ms=int(u.start * 1000),
+                                                    audio_end_ms=int(u.end * 1000)))
                     continue
                 dt = time.perf_counter() - t0
-                if not r.text:
-                    log.info("[%s] boş/uydurma metin atıldı (%.2f sn)", call_id, dt)
-                    continue
                 log.info("[%s] FINAL %.2f sn ses → %.2f sn: %s", call_id, u.end - u.start, dt, r.text)
                 out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.FINAL, text=r.text, confidence=r.confidence,
                                                 audio_start_ms=int(u.start * 1000), audio_end_ms=int(u.end * 1000)))

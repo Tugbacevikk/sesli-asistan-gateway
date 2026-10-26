@@ -11,13 +11,21 @@ Uyarlanan:
   - Güven değeri (`confidence`) segmentlerin ortalama log-olasılığından üretilir.
   - Eşzamanlılık: model nesnesi başına `num_workers` kadar çözüm (kaynakta tek kilit vardı;
     o kilit Windows'taki CTranslate2 çökmesi içindi, hedef Ubuntu).
+  - CUDA kütüphaneleri pip paketlerinden yüklenir (`stt-cuda` eki; `load_cuda_libraries()`): ilk ölçümde
+    Windows'ta `cublas64_12.dll` bulunamadı ve hata yükleme sırasında değil ilk çözümde çıktı.
+  - Isınmada CUDA hatası olursa `device=auto` iken CPU'ya düşülür; `device=cuda` iken servis başlamaz.
 Alınmayan: toplu iş yolu (BatchedInferencePipeline, pack_clips, kelime zamanları, güvenlik ağı
-`rescue`), Windows CUDA DLL arama kodu, dil tespiti.
+`rescue`), dil tespiti.
 """
 from __future__ import annotations
 
+import ctypes
+import glob
+import importlib.util
 import logging
 import math
+import os
+import sys
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -89,6 +97,40 @@ def _cuda_ok() -> bool:
         return False
 
 
+def load_cuda_libraries() -> list[str]:
+    """pip ile kurulan NVIDIA kütüphanelerini (nvidia-cublas-cu12, nvidia-cudnn-cu12) CTranslate2'ye görünür kılar.
+
+    CTranslate2 cuBLAS/cuDNN'i ilk GPU işleminde arar; sistemde CUDA Toolkit yoksa bulamaz
+    ("Library cublas64_12.dll is not found"). Windows'ta DLL klasörleri arama yoluna eklenir, Linux'ta
+    `.so` dosyaları önceden yüklenir (LD_LIBRARY_PATH süreç başladıktan sonra değiştirilemez).
+    Paketler yoksa hiçbir şey yapmaz (sistem kütüphaneleri kullanılır). Dönen: eklenen klasörler."""
+    spec = importlib.util.find_spec("nvidia")
+    if spec is None or not spec.submodule_search_locations:
+        return []
+    added = []
+    for root in spec.submodule_search_locations:
+        for pkg in ("cublas", "cudnn", "cuda_nvrtc"):
+            if sys.platform == "win32":
+                d = os.path.join(root, pkg, "bin")
+                if os.path.isdir(d):
+                    os.add_dll_directory(d)
+                    os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+                    added.append(d)
+            else:
+                d = os.path.join(root, pkg, "lib")
+                libs = sorted(glob.glob(os.path.join(d, "lib*.so*")))
+                for lib in sorted(libs, key=lambda x: "cublasLt" not in x):  # cublasLt önce
+                    try:
+                        ctypes.CDLL(lib, mode=ctypes.RTLD_GLOBAL)
+                    except OSError as e:
+                        log.debug("yüklenemedi %s: %s", lib, e)
+                if libs:
+                    added.append(d)
+    if added:
+        log.info("CUDA kütüphaneleri: %s", ", ".join(added))
+    return added
+
+
 class WhisperEngine:
     def __init__(self, params: WhisperParams | None = None, model=None,
                  hallucinations: HallucinationFilter | None = None):
@@ -110,6 +152,8 @@ class WhisperEngine:
             # klasör yoksa kütüphane Hugging Face'te arar: internetsiz sunucuda anlaşılmaz hata
             # yerine ne yapılacağı söylenir
             raise FileNotFoundError(f"{folder}/model.bin yok: python tools/models/indir.py")
+        if self.p.device != "cpu":
+            load_cuda_libraries()
         cuda_ok = self.p.device != "cpu" and _cuda_ok()
         dev, c_type = resolve_device(self.p.device, self.p.compute_type, cuda_ok)
         log.info("Whisper yükleniyor: %s, device=%s, compute_type=%s", folder, dev, c_type)
@@ -124,8 +168,26 @@ class WhisperEngine:
             return WhisperModel(str(folder), device="cpu", compute_type="int8", **kw)
 
     def warmup(self) -> None:
-        """İlk çözüm yavaştır (kaynak ölçüm: ilk parça 27,5 sn). Servis hazır demeden önce çağrılır."""
-        self.transcribe(np.zeros(SR, np.float32))
+        """İlk çözüm yavaştır (kaynak ölçüm: ilk parça 27,5 sn). Servis hazır demeden önce çağrılır.
+
+        Eksik CUDA kütüphanesi ancak ilk çözümde ortaya çıkar. `device=auto` ise CPU'ya düşülür (yüksek sesle
+        loglanır: medium CPU'da gerçek zamanlı değildir); `device=cuda` açıkça istendiyse hata yükselir."""
+        try:
+            self.transcribe(np.zeros(SR, np.float32))
+        except RuntimeError as e:
+            if not self.device.startswith("cuda") or self.p.device == "cuda":
+                raise
+            log.error("GPU'da çözüm başarısız (%s). CPU'ya düşülüyor; CUDA için: pip install "
+                      "\".[stt-cuda]\" (tasarim.md 14).", e)
+            self.model = self._load_cpu()
+            self.device = "cpu"
+            self.transcribe(np.zeros(SR, np.float32))
+
+    def _load_cpu(self):
+        from faster_whisper import WhisperModel
+
+        return WhisperModel(str(Path(self.p.model_dir)), device="cpu", compute_type="int8",
+                            cpu_threads=self.p.cpu_threads, local_files_only=True, num_workers=self.p.num_workers)
 
     def transcribe(self, samples: np.ndarray, hotwords: list[str] | None = None) -> SttResult:
         """Tek cümlenin sesi (16 kHz float32, yalnızca VAD'ın konuşma bulduğu parça) → metin."""

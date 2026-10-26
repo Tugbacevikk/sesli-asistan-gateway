@@ -40,25 +40,29 @@ class StreamConfig(_message.Message):
     def __init__(self, call_id: _Optional[str] = ..., codec: _Optional[_Union[AudioCodec, str]] = ..., sample_rate_hz: _Optional[int] = ..., hotwords: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class SttEvent(_message.Message):
-    __slots__ = ("type", "text", "confidence", "audio_start_ms", "audio_end_ms")
+    __slots__ = ("type", "text", "confidence", "audio_start_ms", "audio_end_ms", "reason")
     class Type(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TYPE_UNSPECIFIED: _ClassVar[SttEvent.Type]
         SPEECH_STARTED: _ClassVar[SttEvent.Type]
         PARTIAL: _ClassVar[SttEvent.Type]
         FINAL: _ClassVar[SttEvent.Type]
+        NOT_RECOGNIZED: _ClassVar[SttEvent.Type]
     TYPE_UNSPECIFIED: SttEvent.Type
     SPEECH_STARTED: SttEvent.Type
     PARTIAL: SttEvent.Type
     FINAL: SttEvent.Type
+    NOT_RECOGNIZED: SttEvent.Type
     TYPE_FIELD_NUMBER: _ClassVar[int]
     TEXT_FIELD_NUMBER: _ClassVar[int]
     CONFIDENCE_FIELD_NUMBER: _ClassVar[int]
     AUDIO_START_MS_FIELD_NUMBER: _ClassVar[int]
     AUDIO_END_MS_FIELD_NUMBER: _ClassVar[int]
+    REASON_FIELD_NUMBER: _ClassVar[int]
     type: SttEvent.Type
     text: str
     confidence: float
     audio_start_ms: int
     audio_end_ms: int
-    def __init__(self, type: _Optional[_Union[SttEvent.Type, str]] = ..., text: _Optional[str] = ..., confidence: _Optional[float] = ..., audio_start_ms: _Optional[int] = ..., audio_end_ms: _Optional[int] = ...) -> None: ...
+    reason: str
+    def __init__(self, type: _Optional[_Union[SttEvent.Type, str]] = ..., text: _Optional[str] = ..., confidence: _Optional[float] = ..., audio_start_ms: _Optional[int] = ..., audio_end_ms: _Optional[int] = ..., reason: _Optional[str] = ...) -> None: ...

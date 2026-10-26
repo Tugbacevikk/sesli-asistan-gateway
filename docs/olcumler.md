@@ -154,3 +154,32 @@ satırlarıyla tutarlı (85 cümle, 22 050 Hz).
   olmayan). Dağıtılacak üründe kullanılamaz. `tr_TR-fahrettin-medium` ve `tr_TR-fettah-medium` model kartlarında veri
   seti **CC0**. → ADR-013, R-11.
 - **Ölçülmedi:** dinleme testi (telaffuz, 8 kHz anlaşılırlık) — Tuğba yapacak; CC0'lı seslerle tekrar ölçüm.
+
+---
+
+## STT — faster-whisper medium, ilk deneme (26 Ekim 2026) — ölçüm alınamadı
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarında). **Doğrulama:** ham JSON'larda 24 akışın hepsinde yalnızca
+`speech_started` var, `final` yok; servis logu her cümlede zaman aşımı gösteriyor. Whisper `model.bin` SHA256'sı
+Hugging Face LFS özetiyle aynı (`9b45e100…`).
+
+| | |
+|---|---|
+| Commit | `48b39ba` |
+| Donanım | RTX 3050 Ti Laptop 4 GB (sürücü 617.42, CUDA 13.4), i5-11400H, Windows; Ollama kapalı |
+| Model | faster-whisper-medium (revizyon `08e178d`, SHA256'lar `deploy/models.yaml`'da) + Silero VAD |
+| Set | Piper ile seslendirilmiş 12 asistan cümlesi (başta 0,5 sn, sonda 1,5 sn sessizlik); A: ipucusuz, B: 11 rehber ipucu |
+
+**Sonuç:** WER ve gecikme **ölçülemedi**.
+1. **GPU'da başlamadı:** `RuntimeError: Library cublas64_12.dll is not found` — hata model yüklenirken değil, ilk
+   çözümde (ısınma) çıktı; yükleme sırasındaki CPU'ya düşme kodu bu yüzden devreye girmedi ve servis çöktü.
+   → `stt-cuda` eki (pip'ten cuBLAS 12 + cuDNN 9), `load_cuda_libraries()`, ısınmada CUDA hatası olursa `auto`'da
+   CPU'ya düşme, `cuda`'da temiz çıkış.
+2. **CPU'da (int8) her cümle 3 sn sınırını aştı** (2,2 sn ses > 3 sn çözüm); FINAL atlandı ve Gateway'e **hiçbir
+   olay gitmedi** — gerçek çağrıda arayan sessizlikte kalırdı. → Yeni `NOT_RECOGNIZED` olayı (`reason`: timeout /
+   error / empty); Gateway "anlayamadım" deyip tekrar soracak.
+3. VAD çalışıyor: 24/24 akışta `speech_started` konuşma başından ~0,3–0,4 sn sonra geldi; kare kaybı 0; sessizlikte
+   uydurma metin yok.
+4. Piper: `fahrettin` / `fettah` seslerinin ana daldan katkıcıların isteğiyle kaldırıldığı görüldü → ADR-013 revize.
+
+**Sonraki ölçüm:** `pip install -e ".[stt,stt-cuda]"` ile GPU'da; CPU karşılaştırması için `STT_TIMEOUT_S=30`.

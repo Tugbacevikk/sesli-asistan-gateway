@@ -72,11 +72,12 @@ class AudioOutPort(Protocol):
 
 @dataclass(frozen=True)
 class SttEvent:
-    type: str                 # "speech_started" | "partial" | "final"
+    type: str                 # "speech_started" | "partial" | "final" | "not_recognized"
     text: str = ""
     confidence: float = 0.0
     start_ms: int = 0
     end_ms: int = 0
+    reason: str = ""          # not_recognized: "timeout" | "error" | "empty"
 
 
 class SttError(Exception):

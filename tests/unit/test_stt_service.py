@@ -80,9 +80,10 @@ async def test_akis_sonunda_yarim_cumle_de_cozulur(server):
     assert [e.type for e in evs] == ["speech_started", "final"]
 
 
-async def test_bos_metin_final_gondermez(server):
+async def test_bos_metin_taninamadi_olur(server):
     evs = await run_stream(await server(FakeEngine(text="")), frames((0.3, False), (1.0, True), (1.0, False)))
-    assert [e.type for e in evs] == ["speech_started"]
+    assert [e.type for e in evs] == ["speech_started", "not_recognized"]
+    assert evs[1].reason == "empty" and evs[1].text == "" and evs[1].end_ms > evs[1].start_ms
 
 
 async def test_cozum_surerken_okuma_durmaz(server):
@@ -109,10 +110,20 @@ async def test_cozum_surerken_okuma_durmaz(server):
     assert got.index("speech_started", 1) < got.index("final")   # 2. konuşma başlangıcı 1. FINAL'dan önce
 
 
-async def test_zaman_asiminda_final_atlanir(server):
+async def test_zaman_asiminda_arayan_sessiz_kalmaz(server):
+    # Antigravity STT ölçümü (CPU): çözüm 3 sn'yi aştı, FINAL atlandı ve Gateway'e hiçbir şey gitmedi
     evs = await run_stream(await server(FakeEngine(delay=0.5), timeout_s=0.1),
                            frames((0.3, False), (1.0, True), (1.0, False)))
-    assert [e.type for e in evs] == ["speech_started"]
+    assert [e.type for e in evs] == ["speech_started", "not_recognized"] and evs[1].reason == "timeout"
+
+
+async def test_motor_hatasi_taninamadi_olur(server):
+    class Bozuk(FakeEngine):
+        def transcribe(self, samples, hotwords=None):
+            raise RuntimeError("Library cublas64_12.dll is not found")
+
+    evs = await run_stream(await server(Bozuk()), frames((0.3, False), (1.0, True), (1.0, False)))
+    assert [(e.type, e.reason) for e in evs] == [("speech_started", ""), ("not_recognized", "error")]
 
 
 async def test_pcm16_16khz(server):

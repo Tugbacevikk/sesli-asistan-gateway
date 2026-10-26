@@ -70,8 +70,8 @@ async def serve(s: SttSettings | None = None) -> None:
     s = s or SttSettings()
     try:
         server, _, _ = await start_server(s)
-    except FileNotFoundError as e:
-        log.error("%s", e)
+    except (FileNotFoundError, RuntimeError) as e:   # model yok / CUDA kütüphanesi yok (device=cuda)
+        log.error("STT başlatılamadı: %s", e)
         raise SystemExit(1) from None
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

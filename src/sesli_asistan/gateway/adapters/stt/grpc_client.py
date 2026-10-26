@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 
 _CODEC = {"pcma": stt_pb2.AUDIO_CODEC_PCMA, "pcmu": stt_pb2.AUDIO_CODEC_PCMU, "pcm16": stt_pb2.AUDIO_CODEC_PCM16}
 _TYPE = {stt_pb2.SttEvent.SPEECH_STARTED: "speech_started", stt_pb2.SttEvent.PARTIAL: "partial",
-         stt_pb2.SttEvent.FINAL: "final"}
+         stt_pb2.SttEvent.FINAL: "final", stt_pb2.SttEvent.NOT_RECOGNIZED: "not_recognized"}
 _END = object()
 
 
@@ -100,7 +100,7 @@ class GrpcSttStream:
             try:
                 async for ev in self._call:
                     yield SttEvent(type=_TYPE.get(ev.type, "unknown"), text=ev.text, confidence=ev.confidence,
-                                   start_ms=ev.audio_start_ms, end_ms=ev.audio_end_ms)
+                                   start_ms=ev.audio_start_ms, end_ms=ev.audio_end_ms, reason=ev.reason)
                 return
             except grpc.aio.AioRpcError as e:
                 if self._closed:

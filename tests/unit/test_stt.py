@@ -104,3 +104,36 @@ def test_cihaz_secimi():
     assert resolve_device("auto", "auto", True) == ("cuda", "float16")
     assert resolve_device("auto", "auto", False) == ("cpu", "int8")
     assert resolve_device("cuda", "float16", False) == ("cpu", "int8")
+
+
+class _CudaYok:
+    """Yüklenir ama ilk çözümde düşer (Antigravity STT ölçümü: cublas64_12.dll bulunamadı)."""
+    model = SimpleNamespace(device="cuda")
+
+    def transcribe(self, *a, **k):
+        raise RuntimeError("Library cublas64_12.dll is not found or cannot be loaded")
+
+
+def test_isinmada_cuda_hatasi_auto_ise_cpuya_duser(monkeypatch):
+    eng = WhisperEngine(WhisperParams(device="auto"), model=_CudaYok())
+    assert eng.device == "cuda"
+    monkeypatch.setattr(eng, "_load_cpu", lambda: _FakeModel(["merhaba"]))
+    eng.warmup()
+    assert eng.device == "cpu" and eng.transcribe(_tone(1.0)).text == "merhaba"
+
+
+def test_isinmada_cuda_hatasi_cuda_istendiyse_yukselir():
+    import pytest
+
+    eng = WhisperEngine(WhisperParams(device="cuda"), model=_CudaYok())
+    with pytest.raises(RuntimeError, match="cublas"):
+        eng.warmup()
+
+
+def test_cuda_kutuphaneleri_paket_yoksa_bos(monkeypatch):
+    import importlib.util
+
+    from sesli_asistan.stt import engine
+
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
+    assert engine.load_cuda_libraries() == []

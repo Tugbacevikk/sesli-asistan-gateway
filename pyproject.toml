@@ -22,6 +22,11 @@ stt = [
     "protobuf>=7.35.1",    # üretilmiş kodun gerektirdiği en düşük sürüm (contracts/)
     "pydantic-settings",
 ]
+# STT GPU'da: cuBLAS 12 + cuDNN 9 pip'ten (sistemde CUDA Toolkit gerekmez; stt/engine.py load_cuda_libraries)
+stt-cuda = [
+    "nvidia-cublas-cu12",
+    "nvidia-cudnn-cu12>=9,<10",
+]
 # Gateway servisi (ayrı süreç, ayrı venv)
 gateway = [
     "fastapi",
