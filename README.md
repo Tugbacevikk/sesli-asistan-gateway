@@ -20,7 +20,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | — | Mevcut STT sisteminden taşınan modüller (tasarim.md Ek D) | ✅ |
 | 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (qwen3.5:4b ile 90/90, olcumler.md) |
 | 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
-| 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (ilk denemede GPU kütüphanesi eksikti; GPU ölçümü bekliyor) |
+| 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (GPU: WER %10, ad 12/12, konuşma sonu → metin ~1,1 sn; sentetik set, olcumler.md) |
 | 5 | Santral entegrasyonu (REST kontrol, çağrı oturumu) | ⏳ |
 | 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
 

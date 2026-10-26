@@ -183,3 +183,38 @@ Hugging Face LFS özetiyle aynı (`9b45e100…`).
 4. Piper: `fahrettin` / `fettah` seslerinin ana daldan katkıcıların isteğiyle kaldırıldığı görüldü → ADR-013 revize.
 
 **Sonraki ölçüm:** `pip install -e ".[stt,stt-cuda]"` ile GPU'da; CPU karşılaştırması için `STT_TIMEOUT_S=30`.
+
+---
+
+## STT — faster-whisper medium, GPU ölçümü (26 Ekim 2026)
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarında). **Doğrulama:** özet satırları ham JSON'lardaki olaylarla tutarlı
+(36 akış, 36 FINAL, 0 kare kaybı, 0 `not_recognized`); servis logundaki çözüm süreleri raporla aynı. Model dosyaları
+`indir.py --dogrula` ile katalogdaki SHA256'lara karşı doğrulandı.
+
+| | |
+|---|---|
+| Commit | `41633e5` (`.[stt,stt-cuda]`, CUDA kütüphaneleri pip'ten yüklendi) |
+| Donanım | RTX 3050 Ti Laptop 4 GB, i5-11400H, Windows; Ollama kapalı |
+| Model | faster-whisper-medium `08e178d`, GPU float16 / CPU int8; beam 2; cümle sonu sessizliği 700 ms |
+| Set | Piper ile seslendirilmiş 12 asistan cümlesi → 8 kHz G.711 A-law, gerçek zaman hızında (**sentetik ses, iyimser**) |
+
+| Koşu | WER | Ad/birim tam doğru | Konuşma sonu → FINAL p50 / en çok | Whisper çözümü (log) |
+|---|---|---|---|---|
+| GPU, ipucusuz | %14,0 | 11/12 | 1,06 / 1,17 sn | 0,49–0,66 sn |
+| GPU, 11 rehber ipucu | **%10,0** | **12/12** | 1,10 / 1,23 sn | 0,50–0,75 sn |
+| CPU int8, ipuçlu (`STT_TIMEOUT_S=30`) | %10,0 | 12/12 | 5,67 / 6,06 sn | 4,97–5,57 sn |
+
+- **Rehber ipucu işe yarıyor:** ipucusuz "Can Öztürk'e" → "canos ürke'yi" (güven 0,64); ipucuyla doğru (0,90). Arama
+  ipucusuz hâli de buluyor ama `single_low` (skor 70) → arayana sorardı; ipucuyla net eşleşme.
+- **Gecikme:** GPU'da konuşma bitiminden metne ~1,1 sn (≈ cümle sonu bekleme + 0,5–0,75 sn çözüm). İpucu çözümü
+  ölçülebilir yavaşlatmıyor.
+- **CPU gerçek zamanlı değil:** ~5 sn çözüm. Üretimde STT GPU'da çalışmalı (ADR-010 doğrulandı); CPU yalnızca yedek.
+- **GPU belleği:** Whisper medium float16 ölçüm sırasında ~2,2 GB. qwen3.5:4b ~3,7 GB → ikisi 4 GB'a sığmaz; sunucu
+  için en az 8 GB, birden çok kanal için daha fazlası gerekir (açık konu #3, Aşama 7'de ölçülecek).
+- Kalan hatalar ad dışı: "lütfen" → "lütfü" (3/3 koşu), "bağlar mısınız" → "bağlanmasınız", ipucuyla "orada mı" →
+  "oradama". Sentetik sesin telaffuzundan olabilir; gerçek kayıtlarla bakılacak. Hatalı çıktılarda güven düşük
+  (0,64–0,68).
+
+**Sınırlar:** n = 12, tek konuşmacı, sentetik (temiz) ses, gürültü yok. NFR-03 (ad/birim tanıma ≥ %90) için gerçek
+telefon kayıtları gerekiyor (açık konu #8).
