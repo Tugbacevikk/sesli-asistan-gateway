@@ -94,3 +94,33 @@ D12, D13, D27, D28, D30 3/3 başarılı, hepsi tek LLM çağrısıyla. D06 ("ik"
 değişiyor.
 
 **Sonraki ölçüm:** düzeltmelerden sonra yalnızca 4B, A ve B koşuları (9B: sunucu GPU'sunda).
+
+---
+
+## TTS — Piper, ilk ölçüm (26 Ekim 2026)
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarında). **Doğrulama:** özet değerler `sonuc_tts.json`'daki cümle
+satırlarıyla tutarlı (85 cümle, 22 050 Hz).
+
+| | |
+|---|---|
+| Commit | `de78ce8` |
+| Piper | piper-tts 1.8.0 (piper1-gpl, GPL-3.0-or-later), `python -m piper.http_server`, `POST /synthesize` (varsayılan biçim, ayar gerekmedi) |
+| Ses | `tr_TR-dfki-medium`, 22 050 Hz — **lisans sorunu, aşağıda** |
+| Donanım | i5-11400H, **yalnızca CPU** (onnxruntime 1.31.0) |
+| Ölçüm | `tools/tts/seslendir.py --anonslar --olcum --tekrar 5`, 3 koşu |
+
+| Koşu | Cümle | TTS p50 | TTS p95 | RTF p50 | İlk ses p50 |
+|---|---|---|---|---|---|
+| 1 | 85 | 0,104 sn | 0,193 sn | 0,041 | 0,089 sn |
+| 2 | 85 | 0,100 sn | 0,199 sn | 0,041 | 0,088 sn |
+| 3 | 85 | 0,118 sn | 0,193 sn | 0,041 | 0,086 sn |
+
+- **Hedef sağlandı:** ilk ses ≤ 250 ms (tasarim.md 11.1) — CPU'da p50 ~0,09 sn, en uzun cümle 0,24 sn. Piper gerçek
+  zamanın ~25 katı hızlı (RTF 0,041). Önbellekten ilk ses 2–3 ms.
+- Cümle cümle boru hattı çalışıyor: iki cümlelik metinlerde ilk ses yalnızca ilk cümleyi bekliyor (ör. olcum3:
+  5,75 sn ses, ilk ses 0,142 sn).
+- **Lisans bulgusu (kritik):** `tr_TR-dfki-medium` model kartında veri seti lisansı **CC BY-NC-SA 4.0** (ticari
+  olmayan). Dağıtılacak üründe kullanılamaz. `tr_TR-fahrettin-medium` ve `tr_TR-fettah-medium` model kartlarında veri
+  seti **CC0**. → ADR-013, R-11.
+- **Ölçülmedi:** dinleme testi (telaffuz, 8 kHz anlaşılırlık) — Tuğba yapacak; CC0'lı seslerle tekrar ölçüm.

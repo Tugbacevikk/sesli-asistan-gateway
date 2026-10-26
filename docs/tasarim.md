@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.8 |
+| **Sürüm** | 1.9 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -24,6 +24,7 @@
 | 1.6 | 26.10.2026 | Aşama 3 kodlandı: TTS boru hattı (cümle cümle, çalarken sıradakini hazırlama), sabit anons kütüphanesi, TTS önbelleği (bellek + disk), metin hazırlama (rakam → yazı), Piper HTTP sözleşmesi piper1-gpl `/synthesize` ile hizalandı |
 | 1.7 | 26.10.2026 | Aşama 4 kodlandı: gRPC STT servisi (okuyucu/çözücü ayrı görevler, standart gRPC sağlık protokolü, akış sınırı), Gateway istemcisi (bir kez yeniden bağlanma), proto kod üretimi ve CI denetimi; STT ayarları gerçek adlarıyla |
 | 1.8 | 26.10.2026 | İkinci diyalog ölçümü (docs/olcumler.md): varsayılan model `qwen3.5:4b` (ADR-005 güncellendi), santral turunda LLM'e araç verilmez, unvan araması, birim adı alt küme kuralı; değerlendirmede denenmiş / yanlış / izinsiz aktarma ayrımı |
+| 1.9 | 26.10.2026 | TTS ölçümü (docs/olcumler.md): ilk ses p50 ~0,09 sn (CPU). `tr_TR-dfki-medium` sesinin veri seti ticari kullanıma kapalı (CC BY-NC-SA 4.0) → ADR-013: CC0 veri setli Türkçe ses |
 
 ---
 
@@ -442,6 +443,7 @@ sequenceDiagram
 - **Hata:** cümle 3 sn'de seslendirilemezse ve henüz ses çalınmadıysa hata anonsu çalınır, sonuç `ok=False` döner;
   operatöre aktarma kararı çağrı oturumundadır (Aşama 5).
 - Piper (GPL-3.0) ayrı süreçtir; Gateway yalnızca HTTP ile konuşur.
+- **Ses:** `tr_TR-fahrettin-medium` ya da `tr_TR-fettah-medium` (veri seti CC0). `tr_TR-dfki-medium` **kullanılmaz**: veri seti CC BY-NC-SA 4.0, ticari kullanım yasak (ADR-013).
 - İleride: `tts.v1` gRPC sunucu akışı (bkz. 6.4).
 
 ### 5.5 Rehber önbelleği
@@ -1128,7 +1130,8 @@ Dağıtım paketinde `THIRD_PARTY_LICENSES.md` ve her bileşenin lisans metni bu
 | soxr (mevcut kodda yeniden örnekleme) | LGPL-2.1 — teyit edilmeli; gerekirse scipy `resample_poly` ile değiştirilir |
 | Qwen3.5 | Model kartındaki lisans |
 | Piper (piper1-gpl), espeak-ng | GPL-3.0 — yalnızca ayrı süreç (C-05) |
-| Piper Türkçe ses modeli | Sesin model kartındaki lisans |
+| Piper Türkçe ses: `tr_TR-fahrettin-medium`, `tr_TR-fettah-medium` | Veri seti CC0 (NabuCasa voice-datasets); ses deposu MIT |
+| ~~`tr_TR-dfki-medium`~~ | **Kullanılmaz:** veri seti CC BY-NC-SA 4.0 (ticari olmayan) |
 
 ---
 
@@ -1270,6 +1273,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Sonuçlar:** Net taleplerde tur başına tek LLM çağrısı (gecikme düşer); "söyledi ama aktarmadı" tutarsızlığı bu durumda imkânsız. Bedeli: arayan net bir kişiyi yalnızca bilgi için sorsa da ("Ayşe Hanım orada mı?") aktarılır — yönlendirme asistanı için kabul edilebilir. `auto_transfer_single_high=False` ile kapatılabilir.
 - **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
 
+### ADR-013 — TTS sesi: CC0 veri setli Türkçe Piper sesi
+- **Bağlam:** İlk TTS ölçümünde `tr_TR-dfki-medium` kullanıldı. Model kartına göre eğitim veri seti (dfki-ot-data) **CC BY-NC-SA 4.0**: ticari olmayan kullanım. Sistem Şirket ürünü olarak dağıtılacak.
+- **Karar:** Varsayılan ses `tr_TR-fahrettin-medium` ya da `tr_TR-fettah-medium`; ikisinin de veri seti CC0 (NabuCasa voice-datasets). Hangisinin seçileceğine telefon kalitesinde (8 kHz) dinleme testiyle karar verilir. `tr_TR-dfki-medium` hiçbir kurulumda kullanılmaz.
+- **Sonuç:** Lisans kontrolü yalnızca kod için değil, model ve ses ağırlıklarının eğitim verisi için de yapılır (R-11). Kesin onay hukuktan alınır.
+
 ---
 
 ## 17. Riskler
@@ -1284,6 +1292,7 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 | R-04 | Rehber API'sinin gecikmesi | Orta | Orta | JSON adaptörü ile geliştirme sürer |
 | R-05 | GPU kapasitesinin yetersizliği | Orta | Orta | Yük testi; 4B model; STT ve LLM'in ayrı GPU'lara dağıtılması |
 | R-06 | Piper GPL lisansının ürün dağıtımına etkisi | Düşük | Yüksek | Ayrı süreç; hukuk onayı; gerekirse lisansı uygun başka TTS |
+| R-11 | Model/ses ağırlıklarının lisansı (kodun değil, **eğitim verisinin** lisansı) ticari dağıtımı engelleyebilir | Orta | Yüksek | Her model için model kartı kontrolü (14.5); dfki sesi bu yüzden elendi (ADR-013); kurulumda lisans tablosu |
 | R-07 | Dış model linklerinin değişmesi/kaldırılması | Orta | Orta | Şirket dosya sunucusunda doğrulanmış kopyalar |
 | R-08 | LLM'in Türkçe cevaplarda tutarsızlığı | Orta | Orta | Kısa ve kurallı prompt; kodla uygulanan diyalog kuralları; test seti |
 
