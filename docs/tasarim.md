@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.3 |
+| **Sürüm** | 1.4 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -19,6 +19,7 @@
 | 1.1 | 26.10.2026 | Mevcut STT çalışmalarının (`Vietnamese-speech-to-text-models`, `kelime-kelime`) Türkçe ölçümleri ve kodu incelendi: STT tasarımı ölçüme dayalı güncellendi (seda-v0.1 + Whisper medium), RTP dersleri, gerçekçi WER hedefi, yeniden kullanım planı (Ek D), ADR-010/011 |
 | 1.2 | 26.10.2026 | seda-v0.1 yeterince test edilmediği için birincil hattan çıkarıldı; STT = Silero VAD + Whisper medium. Kaynak repo `Vietnamese-speech-to-text-models` (teslim edilen, Türkçe yolu test edilmiş sürüm) olarak değiştirildi |
 | 1.3 | 26.10.2026 | Ek D'deki modüller repoya taşındı; Ek A gerçek repo yapısına göre güncellendi; `StreamConfig.hotwords` alanı eklendi |
+| 1.4 | 26.10.2026 | Aşama 2 kodlandı: LLM adaptörü Ollama yerel API'ye alındı (düşünme modu kontrolü), `ConnectOperator` aracı ve `InContacts.Extension` parametresi, rehber kaydına `kind` alanı (birim hattı), Türkçe arama kuralları kesinleşti (Ek C), diyalog test seti |
 
 ---
 
@@ -97,7 +98,7 @@ tek referans kaynağıdır.
 - RFC 4733 — RTP Payload for DTMF Digits (tuşlama olayları)
 - ITU-T G.711 — Pulse Code Modulation of Voice Frequencies
 - gRPC ve Protocol Buffers v3 dokümantasyonu
-- OpenAI uyumlu Chat Completions API (Ollama / llama.cpp)
+- Ollama yerel API (`/api/chat`) ve OpenAI uyumlu Chat Completions API (llama.cpp)
 - `Tugbacevikk/Vietnamese-speech-to-text-models` — yeniden kullanılacak kaynak (teslim edilen sürüm); `docs/olcumler.md` (Türkçe STT ölçümleri, 13–23 Ekim 2026), `docs/adr/`
 - `Tugbacevikk/kelime-kelime` — deneysel kopya (seda-v0.1 akışlı motor denemesi); yalnızca ölçüm kaydı için referans
 
@@ -210,7 +211,7 @@ flowchart TB
     pbx <-- "REST /v1 (kontrol)" --> gw
     pbx <-- "RTP G.711 (ses)" --> gw
     gw <-- "gRPC çift yönlü akış" --> stt
-    gw -- "HTTP · OpenAI uyumlu" --> llm
+    gw -- "HTTP · Ollama API" --> llm
     gw -- "HTTP · metin → WAV" --> tts
     gw -- "HTTP · salt okunur" --> sentra
 ```
@@ -233,7 +234,7 @@ flowchart TB
 | Servisler arası akış | gRPC (HTTP/2) | Çift yönlü akış, tipli sözleşme, akış kontrolü |
 | STT | faster-whisper `medium`, GPU, `language="tr"` | 8 kHz'de ölçülen en iyi Türkçe doğruluk, mevcut sistemde test edilmiş, rehber adlarıyla ipucu (hotwords), MIT (ADR-010) |
 | VAD / cümle sonu | Silero VAD (sherpa-onnx ONNX, PyTorch'suz) | Mevcut sistemde kullanılıyor; MIT |
-| LLM çalışma ortamı | Ollama (OpenAI uyumlu API) | Kolay kurulum; llama.cpp'ye geçiş kod değiştirmez |
+| LLM çalışma ortamı | Ollama (yerel API; yedek: OpenAI uyumlu uç) | Kolay kurulum; düşünme modu belgeli şekilde kapatılır; llama.cpp'ye geçiş ayarla yapılır |
 | LLM | `qwen3.5:9b` q4_K_M | Türkçe ve araç çağırmada 4B'ye göre daha güvenilir (ADR-005) |
 | TTS | Piper (mevcut servis) | Yerel, hızlı, Türkçe ses; ayrı süreç (lisans) |
 | Bulanık arama | rapidfuzz | Hızlı, MIT lisans |
@@ -388,9 +389,9 @@ Bu ölçümlerden çıkan tasarım kuralları:
 
 ### 5.3 LLM Runtime
 
-- Ollama, OpenAI uyumlu uç: `http://127.0.0.1:11434/v1`
+- Ollama yerel API: `http://127.0.0.1:11434/api/chat`. Düşünme modu `think: false` ile kapatılır (Ollama bunu yerel API'de belgeliyor; OpenAI uyumlu uçta aynı kontrol belgelenmemiş). Yedek: llama.cpp `llama-server` (OpenAI uyumlu).
 - Model: `qwen3.5:9b` (q4_K_M). Yedek: `qwen3.5:4b`.
-- Düşünme modu kapalı; `temperature = 0.2`.
+- Düşünme modu kapalı; `temperature = 0.2`; `keep_alive` ile model bellekte tutulur. Sızan `<think>` blokları cevaptan yine de temizlenir.
 - Paralel istek sayısı `OLLAMA_NUM_PARALLEL` ile yük testine göre ayarlanır.
 - Model, Gateway'deki ayardan seçilir; dosya sistemine veya ağa doğrudan erişimi yoktur.
 
@@ -596,38 +597,20 @@ message AudioChunk {
 
 ### 6.5 Gateway ↔ LLM
 
-OpenAI uyumlu `POST /v1/chat/completions`, `tools` alanıyla. Araç tanımları:
+Varsayılan: Ollama yerel API `POST /api/chat` (`think: false`, `stream: false`). Yedek: OpenAI uyumlu
+`POST /v1/chat/completions` (llama.cpp, `chat_template_kwargs.enable_thinking=false`). Çekirdek yalnızca
+`LlmPort` arayüzünü bilir; geçmiş OpenAI biçiminde tutulur, Ollama adaptörü kendi biçimine çevirir (ADR-005).
 
-```json
-[
-  {
-    "type": "function",
-    "function": {
-      "name": "InContacts",
-      "description": "Şirket rehberinde kişi veya departman arar.",
-      "parameters": {
-        "type": "object",
-        "properties": {
-          "Name": { "type": "string", "description": "Kişinin adı, soyadı veya takma adı" },
-          "Department": { "type": "string", "description": "Departman veya birim adı" }
-        }
-      }
-    }
-  },
-  {
-    "type": "function",
-    "function": {
-      "name": "TransferCall",
-      "description": "Arayanı InContacts ile bulunan bir dahiliye aktarır.",
-      "parameters": {
-        "type": "object",
-        "properties": { "Extension": { "type": "string" } },
-        "required": ["Extension"]
-      }
-    }
-  }
-]
-```
+Araç tanımlarının tek kaynağı `gateway/core/tools.py`'dir (ileride MCP sunucusu olarak açılabilir):
+
+| Araç | Parametreler | Ne yapar |
+|---|---|---|
+| `InContacts` | `Name`, `Department`, `Extension` (hepsi isteğe bağlı) | Rehberde bulanık arama; `Extension` verilirse yalnızca tam eşleşme. En fazla 3 sonuç + `match` |
+| `TransferCall` | `Extension` (zorunlu) | TransferPolicy'den geçerse santrale aktarma eylemi üretir |
+| `ConnectOperator` | — | Arayan operatör isterse ya da teklifi kabul ederse operatöre aktarma eylemi üretir |
+
+Geçersiz araç parametresi (JSON değil) ya da bilinmeyen araç, hata olarak LLM'e döner
+(`INVALID_ARGUMENTS`, `UNKNOWN_TOOL`); politika reddi `TRANSFER_NOT_ALLOWED` olarak döner.
 
 `InContacts` yanıtı (LLM'e dönen):
 ```json
@@ -662,12 +645,16 @@ Authorization: Bearer <salt okunur servis anahtarı>
       "department_aliases": ["Finans"],
       "extension": "214",
       "transferable": true,
+      "kind": "person",
       "updated_at": "2026-10-25T14:03:11Z",
       "deleted": false
     }
   ]
 }
 ```
+
+`kind` (isteğe bağlı, varsayılan `person`): `department` ise kayıt bir birimin genel hattıdır (ad/soyad boş).
+Arayan yalnızca birim söylerse (ad yok) ve birimin genel hattı varsa o önerilir; yoksa birimdeki kişiler seçenek olarak sunulur.
 
 Sözleşme kuralları:
 - Silinen kayıtlar yumuşak silme ile `deleted: true` olarak döner.
@@ -985,7 +972,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_LANGUAGE` | tr | Sabit |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
-| `LLM_BASE_URL` | http://127.0.0.1:11434/v1 | Ollama |
+| `LLM_BACKEND` | ollama | `ollama` / `openai` (llama.cpp) |
+| `LLM_BASE_URL` | http://127.0.0.1:11434 | openai için ör. http://127.0.0.1:8080/v1 |
 | `LLM_MODEL` | qwen3.5:9b | Yedek: qwen3.5:4b |
 | `LLM_TIMEOUT_S` | 5 | |
 | `TTS_URL` | http://127.0.0.1:5500 | Piper |
@@ -993,7 +981,9 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `DIRECTORY_SOURCE` | json | `json` / `sentra` |
 | `DIRECTORY_URL` | — | Sentra Rehber API |
 | `DIRECTORY_REFRESH_S` | 300 | Güncelleme aralığı |
+| `MATCH_MIN_SCORE` | 70 | Aday sayılma eşiği |
 | `MATCH_HIGH_SCORE` | 90 | `single_high` eşiği |
+| `MATCH_MARGIN` | 5 | En iyi adaya bu kadar yakın başka aday varsa `multiple` |
 | `MAX_FAILED_ATTEMPTS` | 3 | Operatöre aktarma eşiği |
 | `RTP_IDLE_TIMEOUT_S` | 20 | |
 | `MAX_CALL_DURATION_S` | 600 | |
@@ -1169,7 +1159,7 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 
 ### ADR-005 — LLM: `qwen3.5:9b`, Ollama üzerinde
 - **Karar:** Varsayılan `qwen3.5:9b` q4_K_M; yedek `qwen3.5:4b`.
-- **Gerekçe:** Türkçe ve hatalı STT metninde araç çağırma doğruluğu öncelikli; kısa cevaplarda 9B'nin ek gecikmesi sınırlı. Ollama OpenAI uyumlu API sunar; llama.cpp'ye geçiş kod değiştirmez.
+- **Gerekçe:** Türkçe ve hatalı STT metninde araç çağırma doğruluğu öncelikli; kısa cevaplarda 9B'nin ek gecikmesi sınırlı. Gateway, düşünme modunu belgeli şekilde kapatabilmek için Ollama'nın yerel API'sini kullanır; llama.cpp'ye geçiş `LLM_BACKEND=openai` ile yapılır, çekirdek değişmez.
 - **Doğrulama:** 15.3'teki karşılaştırma.
 
 ### ADR-006 — Yalnızca Türkçe
@@ -1272,21 +1262,29 @@ sesli-asistan-gateway/
 │   │   ├── audio/            # g711.py (A-law/μ-law), resample.py (akış dostu)
 │   │   └── text/             # normalizer.py (Türkçe)
 │   ├── gateway/
-│   │   ├── adapters/rtp/     # packet.py, jitter.py, receiver.py, sender.py
+│   │   ├── adapters/
+│   │   │   ├── rtp/          # packet.py, jitter.py, receiver.py, sender.py
+│   │   │   ├── llm/          # ollama.py (varsayılan), openai_compat.py (llama.cpp)
+│   │   │   └── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
+│   │   ├── core/             # dialog.py, tools.py, policy.py, search.py, directory.py, models.py, ports.py
+│   │   │                     #   CallManager / CallSession — Aşama 5
 │   │   ├── api/              # REST uçları (FastAPI) — Aşama 5
-│   │   ├── core/             # CallManager, CallSession, DialogAgent, TransferPolicy — Aşama 2/5
-│   │   └── tools/            # InContacts, TransferCall — Aşama 2
+│   │   ├── config.py         # GatewaySettings
+│   │   └── composition.py    # bileşenleri ayarlardan kurar
 │   └── stt/
 │       ├── engine.py         # faster-whisper medium, hotwords
 │       ├── vad.py            # Silero VAD, cümle bölücü (SpeechStarted / Utterance)
 │       ├── hallucination.py  # uydurma süzgeci
 │       └── server.py         # gRPC sunucu — Aşama 4
+├── data/                     # rehber_ornek.json (uydurma kişiler, API biçiminde)
 ├── tools/
+│   ├── sohbet/               # sohbet.py: asistanla yazarak konuşma (metin test arayüzü)
 │   ├── rtp_simulator/        # rtp_gonder.py: WAV → RTP, cevabı kaydeder
 │   └── models/               # indir.py: models.yaml'a göre indirme + SHA256
 ├── tests/
 │   ├── unit/
-│   └── eval/                 # wer.py (Türkçe WER/CER)
+│   ├── data/                 # diyalog_seti.yaml
+│   └── eval/                 # wer.py (Türkçe WER/CER), diyalog.py (görev başarısı, model karşılaştırma)
 ├── deploy/
 │   ├── models.yaml
 │   ├── install.sh            # Aşama 8
@@ -1296,33 +1294,53 @@ sesli-asistan-gateway/
     └── tasarim.md
 ```
 
-### Ek B — Sistem promptu (ilk sürüm)
+### Ek B — Sistem promptu
+
+Kaynak: `gateway/core/dialog.py` → `SYSTEM_PROMPT` (bu metin oradan kopyalanmıştır; değişiklik kodda yapılır).
 
 ```
 Sen {kurum} santralinin sesli asistanısın. Arayanla yalnızca Türkçe konuşursun.
 Görevin arayanı doğru kişiye veya birime yönlendirmektir.
 
 Kurallar:
-- Cevapların telefonda okunacak: en fazla iki kısa cümle. Liste, emoji, sembol kullanma.
+- Cevapların telefonda sesli okunacak: en fazla iki kısa cümle. Liste, emoji, sembol kullanma.
 - Kişi veya birim sorulduğunda önce InContacts aracını kullan. Rehberde olmayan bilgiyi asla uydurma.
 - Araç sonucundaki "match" alanına göre davran:
   single_high → kişiyi söyle ve TransferCall ile aktar,
-  single_low → doğru kişi olup olmadığını sor,
-  multiple → seçenekleri say ve hangisi olduğunu sor,
-  none → nazikçe tekrar sor.
+  single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor,
+  none → nazikçe adı ya da birimi tekrar söylemesini iste.
+- Arayan operatör isterse ya da operatör teklifini kabul ederse ConnectOperator aracını kullan.
 - Dahili numaraları rakam rakam söyle.
 - Yönlendirme dışındaki konularda yardımcı olamayacağını kibarca belirt.
+- "[Santral]" ile başlayan mesajlar santralden gelen bilgidir, arayan söylememiştir.
 ```
 
-### Ek C — Türkçe normalizasyon kuralları
+Koddan söylenen sabit cümleler (`DialogTexts`): karşılama, anlaşılamadı, operatör teklifi, operatöre
+aktarma, hata anonsu, boş cevapta aktarma cümlesi. Kurallar LLM'e bırakılmaz (7.5).
 
-1. `I` → `ı`, `İ` → `i` dönüşümü, ardından küçük harfe çevirme (Türkçe yerel ayarına uygun).
-2. Arama anahtarında `ç→c, ğ→g, ı→i, ö→o, ş→s, ü→u` (STT'nin farklı yazımlarını yakalamak için).
-3. Noktalama ve unvan kısaltmalarının temizlenmesi (`Dr.`, `Av.`, `Prof.`).
-4. Hitapların ayrıştırılması (`Hanım`, `Bey`) — eşleşmede ad olarak değil ipucu olarak kullanılır.
-5. Bulanık eşleşme: rapidfuzz `WRatio`; ad ve departman verildiyse ikisinin de eşleşmesi gerekir.
-6. Sayı normalizasyonu: Whisper sayıları rakamla yazar ("yüz" → "100"). Arama anahtarında rakamlar
-   Türkçe okunuşuna çevrilir; dahili numara karşılaştırmasında ise rakam biçimi kullanılır.
+### Ek C — Türkçe arama kuralları
+
+Kaynak: `gateway/core/search.py`. Sorgu ve rehber alanları aynı **arama anahtarına** indirgenir:
+
+1. Kesmeden sonraki ek atılır: "Ayşe'yi" → "Ayşe".
+2. Rakamlar Türkçe okunuşuna çevrilir: "100" → "yüz" (Whisper sayıları rakamla yazar).
+3. Türkçe küçük harf (`I` → `ı`, `İ` → `i`), noktalama silinir, katlama `ç→c, ğ→g, ı→i, ö→o, ş→s, ü→u`.
+4. Unvanlar (`Dr.`, `Av.`, `Prof.`, `Sayın` …) ve hitaplar (`Hanım`, `Bey`, `Hoca` …) atılır; ekli hâlleri de
+   ("hanımı") atılır.
+5. Hâl ekleri (`-den`, `-dan`, `-e`, `-i`, `-yle` …) atılmış biçim **ek aday** olarak da denenir
+   ("muhasebeden" → "muhasebe"); kök en az 4 harf kalmalı.
+
+Benzerlik (0–100), aday alanların en iyisi alınır:
+- Tam benzerlik her zaman.
+- Kelime kümesi benzerliği yalnızca sorgu, alandan kısa ya da eşitse ("ayşe" ↔ "ayşe yılmaz" tam puan;
+  "aysel yılmaz" ↔ "yılmaz" tam puan **almaz**).
+- Kısmi benzerlik (%10 indirimli) yalnızca tek kelimelik, en az 4 harfli sorguda ("ik" ↔ "teknik" eşleşmez).
+- Ad ve birim birlikte verildiyse ikisinin de eşleşmesi gerekir (düşük olanı alınır).
+- Dahili numara verildiyse yalnızca tam eşleşme.
+
+Sınıflandırma: eşik (70) üstü adaylardan en iyisine 5 puandan yakın başka aday varsa `multiple`;
+tek adayda skor ≥ 90 ise `single_high`, değilse `single_low`. Eşikler diyalog test setiyle kalibre edilir.
 
 ### Ek D — Mevcut repolardan yeniden kullanım planı
 
