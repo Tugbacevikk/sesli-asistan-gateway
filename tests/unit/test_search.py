@@ -81,3 +81,32 @@ def test_bos_sorgu(index):
 def test_ipucu_kelimeleri(index):
     hw = index.hotwords()
     assert "Muhasebe" in hw and "Ayşe Yılmaz" in hw and "Hakan Koç" not in hw
+    assert len(hw) == len(set(hw))
+
+
+def test_ipucu_uzunluk_siniri():
+    # Whisper istemi en çok 223 belirteç: büyük rehberde ipuçları harf bütçesiyle kesilir, birimler önce
+    people = [Contact.from_api({"id": str(i), "first_name": f"Kişi{i:04d}", "last_name": "Uzunsoyadlıoğlu",
+                                "department": f"Birim{i % 5}", "extension": str(1000 + i)}) for i in range(500)]
+    hw = DirectoryIndex(people).hotwords()
+    assert sum(len(w) + 1 for w in hw) <= 400
+    assert hw[:5] == [f"Birim{i}" for i in range(5)] and len(hw) > 5
+
+
+# Whisper'ın telefon sesinde tipik hataları: Türkçe harf kaybı, ek, harf değişimi, kelime bölünmesi
+@pytest.mark.parametrize("name,dept,ext", [
+    ("ayse yilmaz", "", "214"), ("aişe yılmaz", "", "214"), ("ayşe yılmas", "", "214"),
+    ("can öz türk", "", "245"), ("canöztürk", "", "245"), ("zeynep aslan", "", "260"),
+    ("zeynap arslan", "", "260"), ("burak çelikle", "", "215"), ("elif şahini", "", "301"),
+    ("mehmet demire", "", "230"), ("mehmet temir", "", "230"), ("ayşe hanım", "muhasebe", "214"),
+    ("", "insan kaynaklarına", "260"), ("", "teknik destekten", "300"), ("", "satıştan", "229"),
+])
+def test_stt_hatalarinda_net_eslesme(index, name, dept, ext):
+    r = index.search(name=name, department=dept)
+    assert r.match == Match.SINGLE_HIGH and r.candidates[0].contact.extension == ext
+
+
+@pytest.mark.parametrize("name", ["mehmet demirci", "elif şahinler", "canan", "öztürkler"])
+def test_uzamis_ad_aktarilmadan_sorulur(index, name):
+    # "Demirci" başka bir soyadı: Mehmet Demir'e kendiliğinden aktarılmamalı (ADR-012), sorulmalı
+    assert index.search(name=name).match in (Match.SINGLE_LOW, Match.MULTIPLE)

@@ -99,6 +99,9 @@ def query_variants(key: str) -> list[str]:
     return [key] if stripped == key else [key, stripped]
 
 
+HOTWORD_CHARS = 400
+
+
 class DirectoryIndex:
     """Bellek içi arama dizini. Rehber değişince `rebuild()` ile yeniden kurulur."""
 
@@ -157,11 +160,22 @@ class DirectoryIndex:
         match = Match.SINGLE_HIGH if top >= self.high_score else Match.SINGLE_LOW
         return SearchResult((scored[0],), match)
 
-    def hotwords(self, limit: int = 60) -> list[str]:
-        """STT'ye ipucu: departmanlar önce, sonra ad soyadlar (Whisper istem uzunluğu sınırlı)."""
+    def hotwords(self, max_chars: int = HOTWORD_CHARS) -> list[str]:
+        """STT'ye ipucu: birimler önce, sonra ad soyadlar; toplam uzunluk `max_chars` ile sınırlı.
+
+        Whisper'da ipucu, önceki metin istemine yazılır ve en çok 223 belirteç (token) alır; fazlası
+        faster-whisper tarafından kesilir. Türkçe adlar belirteç başına ~2,5–3 harf olduğundan 400 harf ≈
+        130–160 belirteç. Sayıyla sınırlamak (eski: 60 öğe) uzun adlarda sınırı aşıp sonu kesiyordu.
+        Büyük rehberde tüm adlar sığmaz: birimler ve sığan adlar gider (tasarim.md 5.2, açık konu)."""
         depts = sorted({c.department for c, _, _ in self._entries if c.department})
-        names = sorted({c.full_name for c, _, _ in self._entries if c.full_name})
-        return (depts + names)[:limit]
+        names = sorted({c.full_name for c, _, _ in self._entries if c.full_name and c.kind != "department"})
+        out, used = [], 0
+        for w in depts + [n for n in names if n not in depts]:
+            if used + len(w) + 1 > max_chars:
+                continue    # daha kısa olan sonraki ad sığabilir
+            out.append(w)
+            used += len(w) + 1
+        return out
 
 
 def _keys(values: Iterable[str]) -> list[str]:
@@ -184,7 +198,26 @@ def similarity(q: str, k: str) -> float:
         s = max(s, fuzz.token_set_ratio(q, k))
     if nq == 1 and len(q) >= 4:
         s = max(s, 0.9 * fuzz.partial_ratio(q, k))
+    if s > EXTENDED_CAP and _extends_word(q, k):
+        s = EXTENDED_CAP
     return s
+
+
+# Sorgudaki kelime rehberdeki kelimeyi içerip ek olmayan harflerle uzuyorsa ("demirci" ↔ "demir", "ayşegül" ↔
+# "ayşe", "canan" ↔ "can") büyük olasılıkla başka bir addır: skor net eşleşme eşiğinin altına çekilir, aktarmadan
+# önce arayana sorulur (single_low). Hâl ekleri ("demire", "kaynaklarına") etkilenmez.
+EXTENDED_CAP = 85
+_ENDINGS = frozenset(_SUFFIXES) | {"na", "ne", "ni", "nu", "nda", "nde"}
+
+
+def _extends_word(q: str, k: str) -> bool:
+    kws = k.split()
+    for w in q.split():
+        for kw in kws:
+            if len(kw) >= 3 and len(w) > len(kw) and w.startswith(kw) and w[len(kw):] not in _ENDINGS:
+                if w not in kws:
+                    return True
+    return False
 
 
 SUBSET_SCORE = 95

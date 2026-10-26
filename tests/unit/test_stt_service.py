@@ -117,6 +117,26 @@ async def test_zaman_asiminda_arayan_sessiz_kalmaz(server):
     assert [e.type for e in evs] == ["speech_started", "not_recognized"] and evs[1].reason == "timeout"
 
 
+async def test_zaman_asimindan_sonraki_cumle_haksiz_yere_dusmez(server):
+    # Gerçek motor aynı anda tek çözüm yapar (num_workers=1): zaman aşımına uğrayan çözüm bitmeden sıradaki
+    # cümlenin süresi başlamamalı
+    import threading
+
+    class TekSlot(FakeEngine):
+        def __init__(self):
+            super().__init__()
+            self.lock, self.delays = threading.Lock(), [0.5, 0.05]
+
+        def transcribe(self, samples, hotwords=None):
+            with self.lock:
+                time.sleep(self.delays.pop(0))
+                return SttResult("ikinci", 0.9)
+
+    audio = frames((0.3, False), (0.8, True), (0.9, False), (0.8, True), (0.9, False))
+    evs = await run_stream(await server(TekSlot(), timeout_s=0.2), audio)
+    assert [e.type for e in evs if e.type != "speech_started"] == ["not_recognized", "final"]
+
+
 async def test_motor_hatasi_taninamadi_olur(server):
     class Bozuk(FakeEngine):
         def transcribe(self, samples, hotwords=None):

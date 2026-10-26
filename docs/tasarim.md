@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 2.0 |
+| **Sürüm** | 2.1 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -26,6 +26,7 @@
 | 1.8 | 26.10.2026 | İkinci diyalog ölçümü (docs/olcumler.md): varsayılan model `qwen3.5:4b` (ADR-005 güncellendi), santral turunda LLM'e araç verilmez, unvan araması, birim adı alt küme kuralı; değerlendirmede denenmiş / yanlış / izinsiz aktarma ayrımı |
 | 1.9 | 26.10.2026 | TTS ölçümü (docs/olcumler.md): ilk ses p50 ~0,09 sn (CPU). `tr_TR-dfki-medium` sesinin veri seti ticari kullanıma kapalı (CC BY-NC-SA 4.0) → ADR-013: CC0 veri setli Türkçe ses |
 | 2.0 | 26.10.2026 | `fahrettin` / `fettah` sesleri katkıcıların isteğiyle Piper ses deposundan kaldırılmış (30.12.2025) → ADR-013 revize: ticari kullanıma uygun hazır Türkçe Piper sesi yok, şirkete ait ses önerisi. STT ilk ölçümü: Windows'ta cuBLAS eksikti, CPU'da zaman aşımı → `NOT_RECOGNIZED` olayı, `stt-cuda` eki, ısınmada CPU'ya düşme; Whisper revizyonu ve SHA256'ları sabitlendi |
+| 2.1 | 26.10.2026 | Arama: uzamış kelime kuralı ("Demirci" ↔ "Demir" net eşleşme değil), STT hata tablosu testi; Whisper ipucu 400 harf bütçesi; zaman aşımı sonrası sıradaki cümle haksız yere düşmez |
 
 ---
 
@@ -368,7 +369,7 @@ flowchart LR
 | Cümle sonu | ~700 ms sessizlik (ayarlanabilir); en kısa konuşma 300 ms; en uzun cümle 12 sn |
 | Model | faster-whisper `medium`, GPU (float16); GPU yoksa CPU (int8) |
 | Whisper ayarları | `language="tr"`, `beam_size=2`, `condition_on_previous_text=False`, `no_speech_threshold`, `compression_ratio_threshold`, `log_prob_threshold` |
-| Rehber ipucu | Rehberdeki ad, soyad ve departmanlar Whisper'a `hotwords` olarak verilir (özel adların doğru yazılması için) |
+| Rehber ipucu | Rehberdeki birimler ve ad soyadlar Whisper'a `hotwords` olarak verilir (özel adların doğru yazılması için). Whisper bu istemde en çok 223 belirteç alır; bu yüzden toplam 400 harfle sınırlıdır, birimler önce gelir. Büyük rehberde bütün adlar sığmaz; ipucunun yararı STT ölçümüyle (ipuçlu / ipucusuz) doğrulanır |
 | Uydurma süzgeci | Bilinen uydurma cümleler (ör. "İzlediğiniz için teşekkürler", "Altyazı M.K.") ve tekrar eden kelimeler atılır; Whisper'a yalnızca VAD'ın konuşma bulduğu ses verilir |
 | `PARTIAL` | Bu sürümde üretilmez (Whisper akışsız). Sözleşmede alan ayrılmıştır; akışlı model eklenirse kullanılır |
 | Eşzamanlılık | Model süreç başına bir kez yüklenir; Whisper çıkarımı semaforla sınırlıdır |
@@ -609,7 +610,7 @@ Sözleşme kuralları:
 - Alan numaraları değiştirilmez; yalnızca yeni alan eklenir. Uyumsuz değişiklik `stt.v2` paketiyle yapılır.
 - Gateway her istekte `x-call-id` meta verisini ve izleme bağlamını (trace context) gönderir.
 - Gateway tarafında bağlantı kurma zaman aşımı 2 sn; akış koparsa bir kez yeniden bağlanılır, olmazsa çağrı operatöre yönlenir.
-- Konuşma algılanıp (`SPEECH_STARTED`) metin üretilemezse (çözüm `STT_TIMEOUT_S`'yi aştı, hata, boş ya da uydurma sonuç) STT her cümle için `NOT_RECOGNIZED` gönderir; arayan sessizlikte bırakılmaz, Gateway "anlayamadım" deyip tekrar sorar. Zaman aşımında Whisper işi arka planda biter, sonucu atılır.
+- Konuşma algılanıp (`SPEECH_STARTED`) metin üretilemezse (çözüm `STT_TIMEOUT_S`'yi aştı, hata, boş ya da uydurma sonuç) STT her cümle için `NOT_RECOGNIZED` gönderir; arayan sessizlikte bırakılmaz, Gateway "anlayamadım" deyip tekrar sorar. Zaman aşımında Whisper işi arka planda biter, sonucu atılır; aynı akıştaki sıradaki cümlenin süresi bu iş bitince başlar (yoksa motor boşalmadan zaman aşımına düşerdi).
 
 ### 6.4 Gateway ↔ TTS
 
@@ -1446,6 +1447,12 @@ Benzerlik (0–100), aday alanların en iyisi alınır:
 - Kısmi benzerlik (%10 indirimli) yalnızca tek kelimelik, en az 4 harfli sorguda ("ik" ↔ "teknik" eşleşmez).
 - Ad ve birim birlikte verildiyse ikisinin de eşleşmesi gerekir (düşük olanı alınır).
 - Dahili numara verildiyse yalnızca tam eşleşme.
+- **Uzamış kelime:** sorgudaki kelime rehberdeki kelimeyle başlayıp ek olmayan harflerle uzuyorsa ("demirci" ↔
+  "demir", "ayşegül" ↔ "ayşe", "canan" ↔ "can") skor en çok 85 olur: büyük olasılıkla başka bir kişidir, net
+  eşleşme sayılmaz, kendiliğinden aktarılmaz (ADR-012), arayana sorulur. Hâl ekleri ("demire",
+  "kaynaklarına") etkilenmez.
+- Whisper'ın tipik telefon hataları (Türkçe harf kaybı, "Arslan" → "Aslan", "Öztürk" → "Öz Türk", ekler) birim
+  testinde tablo olarak denetlenir (`tests/unit/test_search.py`).
 
 Sınıflandırma: eşik (70) üstü adaylardan en iyisine 5 puandan yakın başka aday varsa `multiple`;
 tek adayda skor ≥ 90 ise `single_high`, değilse `single_low`. Eşikler diyalog test setiyle kalibre edilir.

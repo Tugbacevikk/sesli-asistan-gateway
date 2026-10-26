@@ -47,10 +47,12 @@ async def run_file(client: GrpcStt, path: str, hotwords: list[str], speed: float
             now = time.perf_counter() - t0
             row = {"tip": e.type, "t_sn": round(now, 3), "metin": e.text, "guven": round(e.confidence, 3),
                    "bas_ms": e.start_ms, "son_ms": e.end_ms}
+            if e.type == "not_recognized":
+                row["neden"] = e.reason
             if e.type == "final" and speed > 0:
                 row["cumle_sonu_final_sn"] = round(now - e.end_ms / 1000 / speed, 3)
             events.append(row)
-            print(f"  {now:6.2f} sn  {e.type:15} {e.text}")
+            print(f"  {now:6.2f} sn  {e.type:15} {e.text or e.reason}")
 
     task = asyncio.create_task(reader())
     for i in range(0, len(payload), FRAME):
@@ -64,6 +66,7 @@ async def run_file(client: GrpcStt, path: str, hotwords: list[str], speed: float
     finals = [e for e in events if e["tip"] == "final"]
     return {"dosya": path, "ses_sn": round(len(payload) / RATE, 2), "olaylar": events,
             "metin": " ".join(e["metin"] for e in finals), "atilan_kare": st.dropped,
+            "taninamadi": [e["neden"] for e in events if e["tip"] == "not_recognized"],
             "gecikmeler": [e["cumle_sonu_final_sn"] for e in finals if "cumle_sonu_final_sn" in e]}
 
 
@@ -89,10 +92,11 @@ async def main(argv=None) -> int:
 
     lat = [x for r in results for x in r["gecikmeler"]]
     report = {"hedef": a.hedef, "hiz": a.hiz, "ipucu": a.ipucu, "dosyalar": results,
-              "ozet": {"final_sayisi": len(lat),
+              "ozet": {"final_sayisi": sum(1 for r in results for e in r["olaylar"] if e["tip"] == "final"),
                        "cumle_sonu_final_sn_p50": round(statistics.median(lat), 3) if lat else None,
                        "cumle_sonu_final_sn_en_cok": round(max(lat), 3) if lat else None,
-                       "atilan_kare": sum(r["atilan_kare"] for r in results)}}
+                       "atilan_kare": sum(r["atilan_kare"] for r in results),
+                       "taninamadi": sum(len(r["taninamadi"]) for r in results)}}
     if a.tsv:
         import jiwer
 

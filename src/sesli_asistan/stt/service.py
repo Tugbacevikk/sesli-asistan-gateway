@@ -113,17 +113,25 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
             utts.put_nowait(None)
 
     async def _decode(self, call_id: str, hotwords: list[str], utts: asyncio.Queue, out: asyncio.Queue) -> None:
+        orphan: asyncio.Future | None = None
         try:
             while (u := await utts.get()) is not None:
+                if orphan is not None:
+                    # zaman aşımına uğrayan çözüm hâlâ motoru tutuyor: bitmesini bekle; yoksa sıradaki cümlenin
+                    # süresi motor boşalmadan başlar ve o da haksız yere zaman aşımına düşer
+                    with contextlib.suppress(Exception):
+                        await orphan
+                    orphan = None
                 t0 = time.perf_counter()
                 reason = ""
+                job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None))
                 try:
-                    r = await asyncio.wait_for(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None),
-                                               timeout=self.timeout_s)
+                    r = await asyncio.wait_for(asyncio.shield(job), timeout=self.timeout_s)
                 except TimeoutError:
                     # iş parçacığı durdurulamaz: çözüm arka planda biter, sonucu atılır
                     log.warning("[%s] STT zaman aşımı (%.1f sn ses, sınır %.1f sn)", call_id, u.end - u.start,
                                 self.timeout_s)
+                    orphan = job
                     reason = "timeout"
                 except Exception:
                     log.exception("[%s] STT hatası", call_id)
