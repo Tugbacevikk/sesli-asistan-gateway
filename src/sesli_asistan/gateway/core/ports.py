@@ -38,3 +38,31 @@ class DirectorySource(Protocol):
     """Rehber kaynağı: Sentra Rehber API ya da aynı formatta JSON dosyası (tasarim.md 6.6)."""
 
     async def fetch(self, updated_since: str | None = None) -> DirectoryPage: ...
+
+
+# --- Ses çıkışı (Aşama 3) ---
+
+@dataclass(frozen=True)
+class Audio:
+    """Mono int16 PCM."""
+
+    pcm: Any            # np.ndarray[int16]
+    rate: int
+
+    @property
+    def seconds(self) -> float:
+        return len(self.pcm) / self.rate if self.rate else 0.0
+
+
+class TtsError(Exception):
+    """TTS servisine ulaşılamadı, zaman aşımı ya da geçersiz ses."""
+
+
+class TtsPort(Protocol):
+    async def synthesize(self, text: str) -> Audio: ...
+
+
+class AudioOutPort(Protocol):
+    """Sesi arayana çalar (Aşama 5'te RtpSender). İptal edilebilir olmalı (barge-in)."""
+
+    async def play(self, pcm8k: Any) -> int: ...

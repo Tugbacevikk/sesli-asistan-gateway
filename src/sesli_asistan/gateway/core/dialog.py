@@ -115,6 +115,13 @@ def dative(name: str) -> str:
     return f"{word}'{suffix}"
 
 
+def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
+    """Koddan söylenen sabit cümleler: açılışta seslendirilip saklanır (speech.PromptLibrary)."""
+    t, org = cfg.texts, cfg.organization
+    return {"greeting": t.greeting.format(kurum=org, kurum_e=dative(org)), "not_understood": t.not_understood,
+            "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error}
+
+
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
 _BRACKETS = re.compile(r"[\[\]]")
@@ -134,6 +141,9 @@ class DialogAgent:
 
     def new_session(self, call_id: str) -> DialogSession:
         return DialogSession(self, call_id)
+
+    def fixed_prompts(self) -> dict[str, str]:
+        return fixed_prompts(self.cfg)
 
     # --- giriş noktaları ---
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.5 |
+| **Sürüm** | 1.6 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -21,6 +21,7 @@
 | 1.3 | 26.10.2026 | Ek D'deki modüller repoya taşındı; Ek A gerçek repo yapısına göre güncellendi; `StreamConfig.hotwords` alanı eklendi |
 | 1.4 | 26.10.2026 | Aşama 2 kodlandı: LLM adaptörü Ollama yerel API'ye alındı (düşünme modu kontrolü), `ConnectOperator` aracı ve `InContacts.Extension` parametresi, rehber kaydına `kind` alanı (birim hattı), Türkçe arama kuralları kesinleşti (Ek C), diyalog test seti |
 | 1.5 | 26.10.2026 | İlk diyalog ölçümüne göre (docs/olcumler.md): net eşleşmede aktarma kodla (ADR-012), deneme sayacı ilerlemesiz her turu sayar, alan karışıklığında ikinci arama, genel birim sözcükleri, istem güncellendi |
+| 1.6 | 26.10.2026 | Aşama 3 kodlandı: TTS boru hattı (cümle cümle, çalarken sıradakini hazırlama), sabit anons kütüphanesi, TTS önbelleği (bellek + disk), metin hazırlama (rakam → yazı), Piper HTTP sözleşmesi piper1-gpl `/synthesize` ile hizalandı |
 
 ---
 
@@ -398,9 +399,42 @@ Bu ölçümlerden çıkan tasarım kuralları:
 
 ### 5.4 TTS Service
 
-- İlk sürüm: mevcut Piper servisi (:5500), HTTP, metin → WAV.
-- Gateway cevabı cümlelere böler; ilk cümle hazır olunca RTP gönderimi başlar.
-- Sabit anonslar açılışta bir kez seslendirilip önbelleğe alınır (TTS çökse bile çalınabilir).
+Kaynak: `gateway/core/speech.py`, `gateway/adapters/tts/`.
+
+```mermaid
+sequenceDiagram
+    participant D as DialogAgent
+    participant S as Speaker
+    participant C as TTS önbelleği
+    participant P as Piper (:5500)
+    participant O as Ses çıkışı (RTP)
+    D->>S: say("Muhasebede iki kişi var: … Hangisiyle görüşmek istersiniz?")
+    S->>S: cümlelere böl, rakamları yazıya çevir
+    S->>C: 1. cümle
+    C->>P: (önbellekte yoksa) POST /synthesize
+    P-->>C: WAV 22,05 kHz
+    C-->>S: ses
+    S->>C: 2. cümle (arka planda)
+    S->>O: 1. cümle — 8 kHz, tepe sınırlı
+    C-->>S: 2. cümle hazır
+    S->>O: 2. cümle
+```
+
+- **Cümle cümle boru hattı:** ilk cümle hazır olunca çalmaya başlar; n. cümle çalınırken (n+1). seslendirilir.
+- **Sabit anons kütüphanesi (`PromptLibrary`):** karşılama, anlaşılamadı, operatör teklifi, operatöre aktarma
+  ve hata anonsu açılışta bir kez seslendirilir; aynı metin istenince TTS'e hiç gidilmez (gecikme ~0).
+  Seslendirilemeyen anons varsa servis "hazır değil" sayılır.
+- **TTS önbelleği (`CachingTts`):** bellek (LRU, 256 cümle) + isteğe bağlı disk (`/var/cache/sesli-asistan/tts`).
+  Anahtar `sha256(ses kimliği | metin)`; ses ya da hız değişince eski kayıtlar kullanılmaz. Disk önbelleği,
+  TTS açılışta kapalıyken bile daha önce seslendirilmiş anonsların yüklenmesini sağlar.
+- **Metin hazırlama:** rakamlar Türkçe okunuşa çevrilir ("214" → "iki yüz on dört", "2-1-4" → "iki bir dört",
+  "%5" → "yüzde beş"); işaretler atılır. Cümle bölme kısaltmalarda ("Dr.") bölmez, 160 karakteri aşan cümleyi
+  virgülden böler.
+- **Telefon sesi:** TTS çıktısı 8 kHz'e indirilir, tepe değeri ≈ -1 dBFS'yi aşarsa kısılır (G.711'de kırpılma olmasın).
+- **Barge-in:** konuşma görevi iptal edilince bekleyen seslendirme de iptal edilir.
+- **Hata:** cümle 3 sn'de seslendirilemezse ve henüz ses çalınmadıysa hata anonsu çalınır, sonuç `ok=False` döner;
+  operatöre aktarma kararı çağrı oturumundadır (Aşama 5).
+- Piper (GPL-3.0) ayrı süreçtir; Gateway yalnızca HTTP ile konuşur.
 - İleride: `tts.v1` gRPC sunucu akışı (bkz. 6.4).
 
 ### 5.5 Rehber önbelleği
@@ -566,13 +600,15 @@ Sözleşme kuralları:
 
 ### 6.4 Gateway ↔ TTS
 
-**İlk sürüm (HTTP):**
+**İlk sürüm (HTTP):** piper1-gpl `python -m piper.http_server` sözleşmesi:
 ```
-POST http://127.0.0.1:5500/
-{ "text": "Sizi muhasebeden Ayşe Yılmaz'a aktarıyorum." }
-→ 200 audio/wav
+POST http://127.0.0.1:5500/synthesize
+{ "text": "Sizi Ayşe Yılmaz'a aktarıyorum.", "voice": "tr_TR-…" (isteğe bağlı), "length_scale": 1.0 (isteğe bağlı) }
+→ 200 audio/wav (16 bit mono; örnekleme hızı sese göre, ör. 22050 Hz)
 ```
-Mevcut servisin istek formatı farklıysa yalnızca `PiperHttpClient` adaptörü uyarlanır.
+Mevcut servisin (ilk şemadaki :5500) yolu ya da biçimi farklıysa kod değişmez, ayar değişir:
+`TTS_PATH` (ör. `/`) ve `TTS_FORMAT` = `json` (varsayılan) | `plain` (düz metin gövde) | `query` (`GET ?text=`).
+Servisin gerçek biçimi `tools/tts/seslendir.py --url … --yol … --bicim …` ile denenir.
 
 **Hedef sürüm (gRPC, `tts.v1`):**
 ```protobuf
@@ -984,7 +1020,13 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_MODEL` | qwen3.5:9b | Yedek: qwen3.5:4b |
 | `LLM_TIMEOUT_S` | 5 | |
 | `TTS_URL` | http://127.0.0.1:5500 | Piper |
-| `TTS_TIMEOUT_S` | 3 | |
+| `TTS_PATH` | /synthesize | Mevcut servise göre |
+| `TTS_FORMAT` | json | `json` / `plain` / `query` |
+| `TTS_VOICE` | (boş) | Piper ses adı; boşsa servisin varsayılanı |
+| `TTS_LENGTH_SCALE` | (boş) | Konuşma hızı (1 = normal) |
+| `TTS_TIMEOUT_S` | 3 | Cümle başına |
+| `TTS_CACHE_ITEMS` | 256 | Bellek önbelleği |
+| `TTS_CACHE_DIR` | (boş) | Üretimde `/var/cache/sesli-asistan/tts` |
 | `DIRECTORY_SOURCE` | json | `json` / `sentra` |
 | `DIRECTORY_URL` | — | Sentra Rehber API |
 | `DIRECTORY_REFRESH_S` | 300 | Güncelleme aralığı |
@@ -1278,8 +1320,9 @@ sesli-asistan-gateway/
 │   │   ├── adapters/
 │   │   │   ├── rtp/          # packet.py, jitter.py, receiver.py, sender.py
 │   │   │   ├── llm/          # ollama.py (varsayılan), openai_compat.py (llama.cpp)
-│   │   │   └── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
-│   │   ├── core/             # dialog.py, tools.py, policy.py, search.py, directory.py, models.py, ports.py
+│   │   │   ├── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
+│   │   │   └── tts/          # piper_http.py, cache.py
+│   │   ├── core/             # dialog.py, tools.py, policy.py, search.py, directory.py, speech.py, models.py, ports.py
 │   │   │                     #   CallManager / CallSession — Aşama 5
 │   │   ├── api/              # REST uçları (FastAPI) — Aşama 5
 │   │   ├── config.py         # GatewaySettings
@@ -1293,6 +1336,7 @@ sesli-asistan-gateway/
 ├── tools/
 │   ├── sohbet/               # sohbet.py: asistanla yazarak konuşma (metin test arayüzü)
 │   ├── rtp_simulator/        # rtp_gonder.py: WAV → RTP, cevabı kaydeder
+│   ├── tts/                  # seslendir.py: Piper denemesi, telefon sesi WAV, gecikme ölçümü
 │   └── models/               # indir.py: models.yaml'a göre indirme + SHA256
 ├── tests/
 │   ├── unit/

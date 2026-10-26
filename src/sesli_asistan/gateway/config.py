@@ -36,3 +36,13 @@ class GatewaySettings(BaseSettings):
     max_failed_attempts: int = Field(3, ge=1)
     max_tool_rounds: int = Field(3, ge=1)
     max_history: int = Field(16, ge=4)
+
+    # TTS (tasarim.md 5.4, 6.4)
+    tts_url: str = "http://127.0.0.1:5500"
+    tts_path: str = "/synthesize"
+    tts_format: Literal["json", "plain", "query"] = "json"
+    tts_voice: str | None = None              # boş: servisin varsayılan sesi
+    tts_length_scale: float | None = None     # konuşma hızı (1 = normal; büyüdükçe yavaş)
+    tts_timeout_s: float = Field(3.0, gt=0)
+    tts_cache_items: int = Field(256, ge=0)
+    tts_cache_dir: str | None = None           # üretimde: /var/cache/sesli-asistan/tts (boş: yalnızca bellek)

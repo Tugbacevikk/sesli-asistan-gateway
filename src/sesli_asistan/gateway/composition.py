@@ -4,11 +4,14 @@ from __future__ import annotations
 from .adapters.directory.json_dir import JsonDirectory
 from .adapters.llm.ollama import OllamaChat
 from .adapters.llm.openai_compat import OpenAiCompatChat
+from .adapters.tts.cache import CachingTts
+from .adapters.tts.piper_http import PiperHttpTts
 from .config import GatewaySettings
 from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.ports import LlmPort
 from .core.search import DirectoryIndex
+from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
 
 
@@ -30,3 +33,18 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
                        llm_timeout_s=s.llm_timeout_s)
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
+
+
+def build_tts(s: GatewaySettings) -> CachingTts:
+    piper = PiperHttpTts(s.tts_url, s.tts_path, s.tts_format, s.tts_voice, s.tts_length_scale, s.tts_timeout_s)
+    return CachingTts(piper, max_items=s.tts_cache_items, disk_dir=s.tts_cache_dir)
+
+
+async def build_speaker(s: GatewaySettings, agent: DialogAgent,
+                        tts: CachingTts | None = None) -> tuple[Speaker, list[str]]:
+    """Konuşmacıyı kurar ve sabit anonsları önceden seslendirir. Dönen liste: seslendirilemeyen anonslar
+    (boş değilse servis "hazır değil" sayılmalı; tasarim.md 9.1)."""
+    tts = tts or build_tts(s)
+    library = PromptLibrary()
+    missing = await library.preload(tts, agent.fixed_prompts())
+    return Speaker(tts, library, timeout_s=s.tts_timeout_s), missing

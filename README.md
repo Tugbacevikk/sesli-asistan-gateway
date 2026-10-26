@@ -19,7 +19,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | 1 | Repo iskeleti, proto sözleşmeleri, katman kuralları | ✅ |
 | — | Mevcut STT sisteminden taşınan modüller (tasarim.md Ek D) | ✅ |
 | 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (gerçek modelle ölçüm bekliyor) |
-| 3 | TTS entegrasyonu | ⏳ |
+| 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
 | 4 | gRPC STT servisi | ⏳ |
 | 5 | Santral entegrasyonu (REST kontrol, çağrı oturumu) | ⏳ |
 | 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
@@ -61,6 +61,19 @@ ollama pull qwen3.5:9b && ollama pull qwen3.5:4b
 python tools/sohbet/sohbet.py --ayrinti
 python tests/eval/diyalog.py --model qwen3.5:4b --tekrar 3 --zaman-asimi 60   # doğruluk
 python tests/eval/diyalog.py --model qwen3.5:4b --tekrar 3                    # gecikme (5 sn sınırı)
+```
+
+### TTS (Aşama 3)
+
+| Modül | Ne yapar |
+|---|---|
+| `gateway/core/speech.py` | Cümle bölme, rakam → yazı, 8 kHz telefon sesi, `Speaker` (boru hattı, barge-in, yedek anons), `PromptLibrary` |
+| `gateway/adapters/tts/piper_http.py` | Piper HTTP (`/synthesize`; yol/biçim ayarlanabilir) |
+| `gateway/adapters/tts/cache.py` | Bellek + disk önbelleği |
+| `tools/tts/seslendir.py` | Piper denemesi, telefonda duyulacak WAV'lar, gecikme ölçümü (`sonuc_tts.json`) |
+
+```bash
+python tools/tts/seslendir.py --anonslar --olcum --tekrar 5 --url http://127.0.0.1:5500
 ```
 
 ## Geliştirme
