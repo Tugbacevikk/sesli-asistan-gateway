@@ -1,0 +1,41 @@
+# Model kataloğu: kaynak, lisans, doğrulama (tasarim.md 14.3).
+# Kaynak: Vietnamese-speech-to-text-models `infrastructure/catalog.py` (yalnızca Türkçe asistanın modelleri).
+#
+# sha256: dosya → özet. Boşsa (ilk indirme) araç özetleri hesaplayıp MANIFEST.json'a yazar ve
+# "doğrulanmamış" uyarısı verir; doğrulanan özetler buraya işlenir ve bundan sonra her kurulumda
+# kontrol edilir. Revizyonlar sabitlendiğinde (hf_revision) her indirme aynı dosyaları getirir.
+#
+# Dağıtımda dosyalar şirketin dosya sunucusundaki doğrulanmış kopyalardan indirilir (mirror);
+# mirror tanımlı değilse aşağıdaki asıl kaynaklar kullanılır.
+
+mirror: null   # ör. https://dosya.sirket.local/sesli-asistan/models
+
+models:
+  faster-whisper-medium:
+    rol: stt                     # varsayılan (ADR-010)
+    varsayilan: true
+    lisans: MIT
+    hf_repo: Systran/faster-whisper-medium
+    hf_revision: null            # TODO: doğrulanan commit ile sabitlenecek
+    hedef: faster-whisper-medium
+    dosyalar: [model.bin, config.json, tokenizer.json, vocabulary.txt]
+    sha256: {}
+
+  faster-whisper-small:
+    rol: stt-yedek               # GPU yetmezse (tasarim.md 13: STT_MODEL)
+    varsayilan: false
+    lisans: MIT
+    hf_repo: Systran/faster-whisper-small
+    hf_revision: null
+    hedef: faster-whisper-small
+    dosyalar: [model.bin, config.json, tokenizer.json, vocabulary.txt]
+    sha256: {}
+
+  silero-vad:
+    rol: vad
+    varsayilan: true
+    lisans: MIT
+    url: https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx
+    hedef: silero_vad.onnx
+    sha256:   # 26.10.2026'da kaynaktan indirilen dosyanın özeti
+      silero_vad.onnx: 9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6

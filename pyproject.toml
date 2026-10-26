@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sesli-asistan-gateway"
+version = "0.1.0"
+description = "Santral sesli yönlendirme asistanı (yalnızca Türkçe): RTP → STT → LLM + rehber → TTS → RTP"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy",
+    "scipy",          # yeniden örnekleme (resample_poly); soxr (LGPL) yerine
+]
+
+[project.optional-dependencies]
+# STT servisi (ayrı süreç, ayrı venv)
+stt = [
+    "faster-whisper>=1.1",
+    "sherpa-onnx>=1.12",   # Silero VAD (ONNX, PyTorch'suz)
+]
+# Gateway servisi (ayrı süreç, ayrı venv)
+gateway = [
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "rapidfuzz",
+    "pydantic-settings",
+]
+tools = [
+    "soundfile",
+    "pyyaml",
+    "huggingface_hub",
+]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "import-linter",
+    "jiwer",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+asyncio_mode = "auto"
+markers = ["models: modeller indirilmiş olmalı (models/ klasörü)"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+
+# Servis sınırları kodla denetlenir (tasarim.md 4.3, ADR-003):
+#   - libs hiçbir servisi bilmez (ortak, saf kod).
+#   - gateway ile stt birbirini import etmez; yalnızca gRPC sözleşmesiyle konuşur.
+[tool.importlinter]
+root_package = "sesli_asistan"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+name = "libs servisleri bilmez"
+type = "forbidden"
+source_modules = ["sesli_asistan.libs"]
+forbidden_modules = ["sesli_asistan.gateway", "sesli_asistan.stt"]
+
+[[tool.importlinter.contracts]]
+name = "gateway ve stt birbirinden bağımsız (gRPC sözleşmesi)"
+type = "independence"
+modules = ["sesli_asistan.gateway", "sesli_asistan.stt"]
+
+[[tool.importlinter.contracts]]
+name = "Gateway model kütüphanesi bilmez"
+type = "forbidden"
+source_modules = ["sesli_asistan.gateway"]
+forbidden_modules = ["faster_whisper", "ctranslate2", "sherpa_onnx", "onnxruntime"]

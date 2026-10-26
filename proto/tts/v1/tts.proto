@@ -1,0 +1,22 @@
+// Metinden sese çevirme servisi (tasarim.md 6.4) — hedef sürüm.
+// İlk sürümde Gateway mevcut Piper HTTP servisini (:5500) kullanır; bu sözleşme
+// Piper'ın önüne gRPC katmanı yazıldığında devreye girer.
+syntax = "proto3";
+
+package tts.v1;
+
+service TextToSpeech {
+  rpc Synthesize(SynthesizeRequest) returns (stream AudioChunk);
+}
+
+message SynthesizeRequest {
+  string call_id = 1;
+  string text = 2;
+  int32 sample_rate_hz = 3;   // 8000 istenirse servis dönüştürür
+}
+
+message AudioChunk {
+  bytes pcm16 = 1;            // little-endian 16 bit mono
+  int32 sample_rate_hz = 2;
+  bool last = 3;
+}

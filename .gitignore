@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv*/
+
+# modeller repoya girmez (deploy/models.yaml + tools/models/indir.py)
+models/*
+!models/README.md
+
+# ses ve ölçüm çıktıları
+*.wav
+*.flac
+*.tar.bz2
+sonuc_*.json
+
+# ortam ve gizli ayarlar
+.env
+.env.*
+!.env.example
+.vscode/
+.coverage
+htmlcov/
+.import_linter_cache/

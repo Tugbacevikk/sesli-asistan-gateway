@@ -1,0 +1,22 @@
+# Her push ve PR'da: stil, servis sınırları (import-linter), birim testleri.
+# Modeller indirilmez; model gerektiren ölçümler (tests/eval) gerçek donanımda elle çalıştırılır.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -e ".[dev,tools]"
+      - run: ruff check .
+      - run: lint-imports
+      - run: pytest -q tests/unit

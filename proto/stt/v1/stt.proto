@@ -1,0 +1,52 @@
+// Türkçe konuşmadan metne çevirme servisi (tasarim.md 6.3).
+//
+// Her çağrı için tek bir çift yönlü akış açılır: Gateway ses karelerini akıtır,
+// STT servisi olayları döndürür. VAD ve cümle sonu kararı servistedir (ADR-004).
+//
+// Sözleşme kuralları:
+//   - Alan numaraları değiştirilmez, silinen alan numarası yeniden kullanılmaz.
+//   - Uyumsuz değişiklik yeni pakette yapılır (stt.v2).
+//   - Gateway her akışta `x-call-id` meta verisini gönderir.
+syntax = "proto3";
+
+package stt.v1;
+
+service SpeechToText {
+  rpc Stream(stream AudioIn) returns (stream SttEvent);
+}
+
+message AudioIn {
+  oneof msg {
+    StreamConfig config = 1;   // akışın ilk mesajı, yalnızca bir kez
+    bytes audio = 2;           // ses kareleri (20 ms)
+  }
+}
+
+message StreamConfig {
+  string call_id = 1;
+  AudioCodec codec = 2;
+  int32 sample_rate_hz = 3;    // 8000
+  // Rehberden gelen ad/departman ipuçları (Whisper hotwords). Boş olabilir.
+  repeated string hotwords = 4;
+}
+
+enum AudioCodec {
+  AUDIO_CODEC_UNSPECIFIED = 0;
+  AUDIO_CODEC_PCMA = 1;
+  AUDIO_CODEC_PCMU = 2;
+  AUDIO_CODEC_PCM16 = 3;
+}
+
+message SttEvent {
+  enum Type {
+    TYPE_UNSPECIFIED = 0;
+    SPEECH_STARTED = 1;        // barge-in için
+    PARTIAL = 2;               // ara sonuç (bu sürümde üretilmez; akışlı model için ayrıldı)
+    FINAL = 3;                 // cümle sonucu
+  }
+  Type type = 1;
+  string text = 2;
+  float confidence = 3;
+  int64 audio_start_ms = 4;    // akış başından itibaren
+  int64 audio_end_ms = 5;
+}
