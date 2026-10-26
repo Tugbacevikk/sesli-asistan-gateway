@@ -36,8 +36,9 @@ Görevin arayanı doğru kişiye veya birime yönlendirmektir.
 Kurallar:
 - Cevapların telefonda sesli okunacak: en fazla iki kısa cümle. Liste, emoji, sembol kullanma.
 - Kişi veya birim sorulduğunda önce InContacts aracını kullan. Rehberde olmayan bilgiyi asla uydurma.
-- Arayan yalnızca birim söylerse adı Department alanına, kişi söylerse Name alanına yaz; dahili numara
-  söylerse Extension alanına rakamlarla yaz.
+- Arayan yalnızca birim söylerse adı Department alanına, kişi söylerse Name alanına yaz; unvan söylerse
+  ("satış müdürü", "muhasebe uzmanı") unvanın tamamını Name alanına yaz; dahili numara söylerse Extension
+  alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
   multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar,
@@ -174,7 +175,10 @@ class DialogAgent:
         found = failed = stop = False
         for _ in range(self.cfg.max_tool_rounds):
             try:
-                msg = await asyncio.wait_for(self.llm.chat(self._messages(s), self.tools.schemas),
+                # Santral olayından sonra LLM yalnızca konuşur: araç verilmez (ölçüm 26.10.2026, D24/D25:
+                # "araç çağırma" istemine rağmen operatöre bağladı / aynı kişiye tekrar aktardı)
+                tools = self.tools.schemas if caller_turn else []
+                msg = await asyncio.wait_for(self.llm.chat(self._messages(s), tools),
                                              timeout=self.cfg.llm_timeout_s)
             except (TimeoutError, LlmError) as e:
                 log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)

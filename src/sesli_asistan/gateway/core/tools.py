@@ -13,7 +13,7 @@ from typing import Any
 from .models import Candidate, Match, OperatorAction, TransferAction
 from .policy import TransferPolicy
 from .ports import ToolCall
-from .search import DirectoryIndex
+from .search import DirectoryIndex, has_role_word
 
 log = logging.getLogger(__name__)
 
@@ -27,7 +27,8 @@ TOOLS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "Name": {"type": "string", "description": "Kişinin adı, soyadı ya da unvanı; bilinmiyorsa boş"},
+                    "Name": {"type": "string",
+                             "description": "Kişinin adı, soyadı ya da unvanı (ör. 'satış müdürü'); bilinmiyorsa boş"},
                     "Department": {"type": "string", "description": "Birim/departman adı; bilinmiyorsa boş"},
                     "Extension": {"type": "string",
                                   "description": "Arayan dahili numarayı söylediyse rakamlarla (ör. 214); yoksa boş"},
@@ -100,6 +101,9 @@ class ToolRegistry:
 
     def _in_contacts(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
         name, dept, ext = _str(args.get("Name")), _str(args.get("Department")), _str(args.get("Extension"))
+        if dept and not name and has_role_word(dept):
+            # "satış müdürü" birim değil, unvanıyla bir kişi: unvan araması (ölçüm 26.10.2026, D07)
+            name, dept = dept, ""
         res = self.index.search(name, dept, ext)
         if res.match == Match.NONE and not ext and bool(name) != bool(dept):
             # LLM alanı karıştırmış olabilir ("İK"yi Name'e yazmak gibi): diğer alanla bir kez daha dene

@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 1.7 |
+| **Sürüm** | 1.8 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -23,6 +23,7 @@
 | 1.5 | 26.10.2026 | İlk diyalog ölçümüne göre (docs/olcumler.md): net eşleşmede aktarma kodla (ADR-012), deneme sayacı ilerlemesiz her turu sayar, alan karışıklığında ikinci arama, genel birim sözcükleri, istem güncellendi |
 | 1.6 | 26.10.2026 | Aşama 3 kodlandı: TTS boru hattı (cümle cümle, çalarken sıradakini hazırlama), sabit anons kütüphanesi, TTS önbelleği (bellek + disk), metin hazırlama (rakam → yazı), Piper HTTP sözleşmesi piper1-gpl `/synthesize` ile hizalandı |
 | 1.7 | 26.10.2026 | Aşama 4 kodlandı: gRPC STT servisi (okuyucu/çözücü ayrı görevler, standart gRPC sağlık protokolü, akış sınırı), Gateway istemcisi (bir kez yeniden bağlanma), proto kod üretimi ve CI denetimi; STT ayarları gerçek adlarıyla |
+| 1.8 | 26.10.2026 | İkinci diyalog ölçümü (docs/olcumler.md): varsayılan model `qwen3.5:4b` (ADR-005 güncellendi), santral turunda LLM'e araç verilmez, unvan araması, birim adı alt küme kuralı; değerlendirmede denenmiş / yanlış / izinsiz aktarma ayrımı |
 
 ---
 
@@ -205,7 +206,7 @@ flowchart TB
     subgraph host[Uygulama sunucusu]
         gw[Gateway Service<br/>Python · FastAPI · asyncio]
         stt[STT Service<br/>Python · gRPC<br/>Silero VAD + Whisper medium]
-        llm[LLM Runtime<br/>Ollama · qwen3.5:9b]
+        llm[LLM Runtime<br/>Ollama · qwen3.5:4b]
         tts[TTS Service<br/>Piper · :5500]
     end
 
@@ -238,7 +239,7 @@ flowchart TB
 | STT | faster-whisper `medium`, GPU, `language="tr"` | 8 kHz'de ölçülen en iyi Türkçe doğruluk, mevcut sistemde test edilmiş, rehber adlarıyla ipucu (hotwords), MIT (ADR-010) |
 | VAD / cümle sonu | Silero VAD (sherpa-onnx ONNX, PyTorch'suz) | Mevcut sistemde kullanılıyor; MIT |
 | LLM çalışma ortamı | Ollama (yerel API; yedek: OpenAI uyumlu uç) | Kolay kurulum; düşünme modu belgeli şekilde kapatılır; llama.cpp'ye geçiş ayarla yapılır |
-| LLM | `qwen3.5:9b` q4_K_M | Türkçe ve araç çağırmada 4B'ye göre daha güvenilir (ADR-005) |
+| LLM | `qwen3.5:4b` q4_K_M | Diyalog setinde 9B'den doğru (%88,9'a %64,4) ve daha hızlı (tur p50 2,85 sn'ye 7,41 sn, dizüstü GPU) (ADR-005) |
 | TTS | Piper (mevcut servis) | Yerel, hızlı, Türkçe ses; ayrı süreç (lisans) |
 | Bulanık arama | rapidfuzz | Hızlı, MIT lisans |
 | Ayarlar | pydantic-settings | Tip kontrollü ayar, ortam değişkeni desteği |
@@ -398,7 +399,7 @@ Bu ölçümlerden çıkan tasarım kuralları:
 ### 5.3 LLM Runtime
 
 - Ollama yerel API: `http://127.0.0.1:11434/api/chat`. Düşünme modu `think: false` ile kapatılır (Ollama bunu yerel API'de belgeliyor; OpenAI uyumlu uçta aynı kontrol belgelenmemiş). Yedek: llama.cpp `llama-server` (OpenAI uyumlu).
-- Model: `qwen3.5:9b` (q4_K_M). Yedek: `qwen3.5:4b`.
+- Model: `qwen3.5:4b` (q4_K_M). Alternatif: `qwen3.5:9b` (ADR-005; sunucu GPU'sunda yeniden değerlendirilir).
 - Düşünme modu kapalı; `temperature = 0.2`; `keep_alive` ile model bellekte tutulur. Sızan `<think>` blokları cevaptan yine de temizlenir.
 - Paralel istek sayısı `OLLAMA_NUM_PARALLEL` ile yük testine göre ayarlanır.
 - Model, Gateway'deki ayardan seçilir; dosya sistemine veya ağa doğrudan erişimi yoktur.
@@ -934,8 +935,8 @@ kısa ve net taleplerde tek LLM turuyla aktarma; test edildikten sonra akışlı
 | Bileşen | GPU belleği |
 |---|---|
 | faster-whisper medium (float16) | 2,1–2,6 GB (ölçülen, mevcut sistem) |
-| qwen3.5:9b q4_K_M + bağlam | ~7–8 GB |
-| **Toplam** | **~10 GB** (12 GB+ önerilir) |
+| qwen3.5:4b q4_K_M + bağlam | ~3,7 GB (ölçülen, `ollama ps`, bağlam 4096) |
+| **Toplam** | **~6–7 GB** (8 GB+ önerilir; 9B ile ~10 GB) |
 
 Silero VAD ve Piper CPU'da çalışır; GPU'yu Whisper ve LLM paylaşır.
 
@@ -1030,7 +1031,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords` ile gelir |
 | `LLM_BACKEND` | ollama | `ollama` / `openai` (llama.cpp) |
 | `LLM_BASE_URL` | http://127.0.0.1:11434 | openai için ör. http://127.0.0.1:8080/v1 |
-| `LLM_MODEL` | qwen3.5:9b | Yedek: qwen3.5:4b |
+| `LLM_MODEL` | qwen3.5:4b | Alternatif: qwen3.5:9b |
 | `LLM_TIMEOUT_S` | 5 | |
 | `TTS_URL` | http://127.0.0.1:5500 | Piper |
 | `TTS_PATH` | /synthesize | Mevcut servise göre |
@@ -1166,7 +1167,7 @@ commit, ayarlar ve tekrar sayısı yazılır; tek kayıtlı sonuçlar "yön gös
 
 ### 15.3 Model seçimi
 
-`qwen3.5:9b` ve `qwen3.5:4b` diyalog setinde karşılaştırılır. NFR-01 ve NFR-04'ü sağlayan en küçük model seçilir.
+`qwen3.5:9b` ve `qwen3.5:4b` diyalog setinde karşılaştırılır. NFR-01 ve NFR-04'ü sağlayan en küçük model seçilir. Doğruluk yüksek zaman aşımıyla (`--zaman-asimi 60`), gecikme varsayılan sınırla ayrı ölçülür (yavaş donanımda zaman aşımı doğruluğu gizler). İlk iki ölçümün sonucu: docs/olcumler.md, karar: ADR-005.
 
 ### 15.4 Yük testi
 
@@ -1219,10 +1220,19 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Karar:** Konuşma algılama STT servisi içinde yapılır; Gateway yalnızca ses akıtır.
 - **Gerekçe:** STT modeli akışlı bir modelle değiştirildiğinde Gateway değişmez; barge-in olayı aynı akıştan gelir.
 
-### ADR-005 — LLM: `qwen3.5:9b`, Ollama üzerinde
-- **Karar:** Varsayılan `qwen3.5:9b` q4_K_M; yedek `qwen3.5:4b`.
-- **Gerekçe:** Türkçe ve hatalı STT metninde araç çağırma doğruluğu öncelikli; kısa cevaplarda 9B'nin ek gecikmesi sınırlı. Gateway, düşünme modunu belgeli şekilde kapatabilmek için Ollama'nın yerel API'sini kullanır; llama.cpp'ye geçiş `LLM_BACKEND=openai` ile yapılır, çekirdek değişmez.
-- **Doğrulama:** 15.3'teki karşılaştırma.
+### ADR-005 — LLM: `qwen3.5:4b`, Ollama üzerinde
+- **İlk karar (v1.0):** `qwen3.5:9b` — büyük modelin Türkçe araç çağırmada daha güvenilir olacağı varsayımıyla.
+- **Güncel karar (v1.8, ölçüme dayalı):** Varsayılan `qwen3.5:4b` q4_K_M; `qwen3.5:9b` alternatif.
+- **Gerekçe (docs/olcumler.md, ikinci ölçüm, 60714a5, 30 senaryo × 3):** Zaman aşımı kaldırılarak ölçülen doğrulukta
+  4B %88,9, 9B %64,4. 9B çoğu senaryoda aracı hiç çağırmadan "bağlantı kuruyorum, bekleyin" dedi ve bir senaryoda
+  rehberde olmayan kişi adları uydurdu; 4B'nin kalan hataları kodla düzeltilebilir türdendi (v1.8). 4B'nin tek LLM
+  çağrısı da daha kısa sürdü (p50 2,63 sn'ye 7,72 sn; tur p50 2,85 sn'ye 7,41 sn, dizüstü GPU). Tur başına LLM
+  çağrısı 4B'de 1,28, 9B'de 1,04 — 9B'nin düşük olması aracı atlamasındandır, avantaj değildir. Varsayım ölçümle
+  çürüdüğü için karar değişti.
+- **Sınır:** Ölçüm 4 GB'lık dizüstü GPU'da (modeller kısmen CPU'da) ve 30 senaryoluk örnek setle yapıldı. Sunucu
+  GPU'sunda ve genişletilmiş setle iki model yeniden karşılaştırılır; 9B ancak doğrulukta açık fark verirse seçilir.
+- Gateway, düşünme modunu belgeli şekilde kapatabilmek için Ollama'nın yerel API'sini kullanır; llama.cpp'ye geçiş
+  `LLM_BACKEND=openai` ile yapılır, çekirdek değişmez.
 
 ### ADR-006 — Yalnızca Türkçe
 - **Karar:** Dil sabit `tr`; dil algılama yok.

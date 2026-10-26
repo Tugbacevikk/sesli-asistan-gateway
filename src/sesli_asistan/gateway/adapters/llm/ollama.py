@@ -20,7 +20,7 @@ from sesli_asistan.gateway.core.ports import LlmError, LlmMessage, ToolCall
 
 
 class OllamaChat:
-    def __init__(self, base_url: str = "http://127.0.0.1:11434", model: str = "qwen3.5:9b",
+    def __init__(self, base_url: str = "http://127.0.0.1:11434", model: str = "qwen3.5:4b",
                  temperature: float = 0.2, timeout_s: float = 5.0, think: bool = False,
                  keep_alive: str = "30m", client: httpx.AsyncClient | None = None):
         self.model, self.temperature, self.think, self.keep_alive = model, temperature, think, keep_alive

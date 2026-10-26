@@ -5,7 +5,7 @@ bulan ve çağrıyı ilgili dahiliye aktaran sesli asistan.
 
 ```
 Santral ──RTP (G.711)──► Gateway ──gRPC──► STT (Silero VAD + Whisper medium)
-   ▲                        │  └──HTTP──► LLM (Ollama, qwen3.5:9b) + InContacts / TransferCall
+   ▲                        │  └──HTTP──► LLM (Ollama, qwen3.5:4b) + InContacts / TransferCall
    └──RTP + REST (aktar)────┘  └──HTTP──► TTS (Piper)
 ```
 

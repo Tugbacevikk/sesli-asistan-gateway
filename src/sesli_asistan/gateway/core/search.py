@@ -33,6 +33,14 @@ _HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abl
 _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
 _STOP = _TITLES | _HONORIFICS | _GENERIC
 
+# Görev/unvan sözcükleri: birim alanında geçerse sorgu bir kişiyi (unvanıyla) arıyordur: "satış müdürü"
+ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "sorumlu", "sorumlusu",
+              "yonetici", "yoneticisi", "direktor", "direktoru", "asistan", "asistani", "sekreter", "sekreteri"}
+
+
+def has_role_word(text: str) -> bool:
+    return any(w in ROLE_WORDS or strip_suffix(w) in ROLE_WORDS for w in search_key(text).split())
+
 _ONES = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
 _TENS = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"]
 
@@ -131,7 +139,7 @@ class DirectoryIndex:
             if qn:
                 parts.append(_best(vn, name_keys))
             if qd:
-                parts.append(_best(vd, dept_keys))
+                parts.append(_best(vd, dept_keys, subset=True))
             score = min(parts)  # verilen her alan eşleşmeli
             if score >= self.min_score:
                 scored.append(Candidate(c, score))
@@ -179,7 +187,20 @@ def similarity(q: str, k: str) -> float:
     return s
 
 
-def _best(queries: list[str], keys: list[str]) -> int:
+SUBSET_SCORE = 95
+
+
+def _best(queries: list[str], keys: list[str], subset: bool = False) -> int:
+    """subset=True (yalnızca birim alanı): birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE.
+    "arıza kaydı" → "arıza" birimi; "muhasebe işleri" → "muhasebe". Ad alanında kapalıdır: "aysel yılmaz"
+    sorgusu yalnızca soyadı tutan herkesle eşleşmesin."""
     if not keys:
         return 0
-    return round(max(similarity(q, k) for q in queries for k in keys))
+    best = max(similarity(q, k) for q in queries for k in keys)
+    if subset and best < SUBSET_SCORE:
+        for q in queries:
+            qt = set(q.split())
+            if any(set(k.split()) <= qt for k in keys):
+                best = SUBSET_SCORE
+                break
+    return round(best)

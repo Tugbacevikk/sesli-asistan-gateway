@@ -228,3 +228,30 @@ def test_cevap_temizleme():
                                       ("Ödemiş", "Ödemiş'e"), ("Ordu", "Ordu'ya")])
 def test_yonelme_eki(name, out):
     assert dative(name) == out
+
+
+async def test_santral_turunda_llm_e_arac_verilmez():
+    class Recording(ScriptedLlm):
+        async def chat(self, messages, tools):
+            self.tools_seen = getattr(self, "tools_seen", []) + [tools]
+            return await super().chat(messages, tools)
+
+    llm = Recording(tool_msg(call("InContacts", Name="Zeynep Arslan")), LlmMessage("Cevap vermiyor, operatör mü?"))
+    s = agent(llm).new_session("t20")
+    await s.handle_user("zeynep arslan")
+    t = await s.handle_transfer_result("no_answer")
+    assert llm.tools_seen[0] and llm.tools_seen[1] == [] and t.actions == []
+
+
+async def test_unvan_birim_alanina_yazilirsa_kisi_aranir():
+    # D07: LLM "satış müdürü"nü Department'a yazdı → birim hattı değil, Mehmet Demir
+    llm = ScriptedLlm(tool_msg(call("InContacts", Department="Satış Müdürü")))
+    turn = await agent(llm).new_session("t21").handle_user("satış müdürünü arıyorum")
+    assert [a.extension for a in turn.actions] == ["230"]
+
+
+async def test_birim_adi_ek_kelimelerle():
+    # D05: "arıza kaydı" → Teknik Destek (birim adı sorgunun içinde)
+    llm = ScriptedLlm(tool_msg(call("InContacts", Department="arıza kaydı")))
+    turn = await agent(llm).new_session("t22").handle_user("arıza kaydı için aradım")
+    assert [a.extension for a in turn.actions] == ["300"]

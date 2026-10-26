@@ -19,7 +19,7 @@ class GatewaySettings(BaseSettings):
     # LLM (ADR-005)
     llm_backend: Literal["ollama", "openai"] = "ollama"
     llm_base_url: str = "http://127.0.0.1:11434"         # openai için ör. http://127.0.0.1:8080/v1
-    llm_model: str = "qwen3.5:9b"                        # yedek: qwen3.5:4b
+    llm_model: str = "qwen3.5:4b"                        # ADR-005; alternatif: qwen3.5:9b
     llm_temperature: float = Field(0.2, ge=0, le=2)
     llm_timeout_s: float = Field(5.0, gt=0)
 

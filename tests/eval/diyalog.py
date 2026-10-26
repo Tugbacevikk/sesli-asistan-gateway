@@ -27,27 +27,44 @@ sys.path.insert(0, str(ROOT / "src"))
 from sesli_asistan.gateway.composition import build_agent, build_directory  # noqa: E402
 from sesli_asistan.gateway.config import GatewaySettings  # noqa: E402
 
+FAILED_EVENTS = {"busy", "no_answer", "failed"}
 
-def evaluate(expected: dict[str, Any], actions: list) -> tuple[bool, list[str]]:
-    """Senaryo sonucu: (başarılı mı, izinsiz aktarılan dahililer)."""
-    transfers = [a.extension for a in actions if a.type == "transfer"]
-    operator = any(a.type == "operator" for a in actions)
+
+def evaluate(expected: dict[str, Any], steps: list[tuple[str, list]],
+             allowed: set[str] | None = None) -> tuple[bool, list[str], list[str]]:
+    """Senaryo sonucu: (başarılı mı, izinsiz aktarılan dahililer, yanlış aktarılan dahililer).
+
+    steps: [(adım türü, o adımda üretilen eylemler)]; adım türü "arayan" ya da "santral:<durum>".
+    - Santral bir aktarmanın başarısız olduğunu bildirdiyse (meşgul / cevapsız) o aktarma **denenmiş**
+      sayılır: hata değildir, sonuç değerlendirmesine girmez (ör. D24: önce 214 denenir, meşgul, sonra 210).
+    - izinsiz: hiçbir koşulda aktarılmaması gereken dahili (yasak_dahili) ya da rehberde aktarılabilir
+      olmayan bir dahili (NFR-06). Güvenlik ölçütüdür; 0 olmalıdır.
+    - yanlış: aktarılabilir ama beklenmeyen dahili (ör. "satış müdürü" yerine satış birim hattı). Doğruluk ölçütüdür.
+    """
     forbidden = set(expected.get("yasak_dahili") or [])
+    final: list = []
+    every_transfer: list[str] = []
+    for kind, acts in steps:
+        if kind.startswith("santral:") and kind.split(":", 1)[1] in FAILED_EVENTS:
+            final = [a for a in final if a.type != "transfer"]   # denenen aktarma düşer
+        final += acts
+        every_transfer += [a.extension for a in acts if a.type == "transfer"]
+    izinsiz = sorted({t for t in every_transfer if t in forbidden or (allowed is not None and t not in allowed)})
+    transfers = [a.extension for a in final if a.type == "transfer"]
+    operator = any(a.type == "operator" for a in final)
     want = expected["eylem"]
-    if want == "aktarma_yok":  # güvenli sonuç: hiç aktarma yok (operatör ya da soru sorulması kabul)
-        return not transfers, sorted(set(transfers))
     if want == "transfer":
         wanted = str(expected["dahili"])
-        bad = [t for t in transfers if t != wanted]
         ok = bool(transfers) and transfers[-1] == wanted and not operator
+        wrong = [t for t in transfers if t != wanted]
     elif want == "operator":
-        bad = transfers
-        ok = operator and not transfers
-    else:  # yok
-        bad = transfers
-        ok = not transfers and not operator
-    bad = sorted(set(bad) | (set(transfers) & forbidden))
-    return ok, bad
+        ok, wrong = operator and not transfers, transfers
+    elif want == "aktarma_yok":   # güvenli sonuç: aktarma yok (operatör ya da soru kabul)
+        ok, wrong = not transfers, transfers
+    else:                         # yok: henüz eylem olmamalı
+        ok, wrong = not transfers and not operator, transfers
+    ok = ok and not izinsiz
+    return ok, izinsiz, sorted(set(wrong) - set(izinsiz))
 
 
 class CountingLlm:
@@ -65,10 +82,10 @@ class CountingLlm:
             self.times.append(time.perf_counter() - t)
 
 
-async def run_scenario(agent, sc: dict[str, Any]) -> dict[str, Any]:
+async def run_scenario(agent, sc: dict[str, Any], allowed: set[str] | None = None) -> dict[str, Any]:
     session = agent.new_session(sc["id"])
     session.greeting()
-    actions, latencies, replies, llm_calls = [], [], [], []
+    actions, latencies, replies, llm_calls, steps = [], [], [], [], []
     for step in sc["konusma"]:
         before = agent.llm.calls
         t = time.perf_counter()
@@ -79,13 +96,21 @@ async def run_scenario(agent, sc: dict[str, Any]) -> dict[str, Any]:
         latencies.append(time.perf_counter() - t)
         llm_calls.append(agent.llm.calls - before)
         actions += turn.actions
+        steps.append((f"santral:{step['santral']}" if isinstance(step, dict) else "arayan", list(turn.actions)))
         replies.append(turn.text)
         if turn.ended:
             break
-    ok, bad = evaluate(sc["beklenen"], actions)
-    return {"id": sc["id"], "ok": ok, "izinsiz": bad, "gecikme": latencies, "llm_cagri": llm_calls,
+    ok, bad, wrong = evaluate(sc["beklenen"], steps, allowed)
+    return {"id": sc["id"], "ok": ok, "izinsiz": bad, "yanlis": wrong, "gecikme": latencies, "llm_cagri": llm_calls,
             "cevaplar": replies,
             "eylemler": [f"{a.type}:{getattr(a, 'extension', '')}" for a in actions]}
+
+
+def _all(directory):
+    """Aranabilir (silinmemiş, aktarılabilir) bütün kayıtlar."""
+    from sesli_asistan.gateway.core.models import Candidate
+
+    return [Candidate(c, 100) for c, _, _ in directory.index._entries]
 
 
 def pct(values: list[float], p: float) -> float:
@@ -108,10 +133,12 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     agent.llm = CountingLlm(build_llm(s))
     await agent.llm.chat([{"role": "user", "content": "merhaba"}], [])  # ısınma (ölçüme girmez)
     agent.llm.calls, agent.llm.times = 0, []
+    # rehberde aktarılabilir dahililer: bunların dışına aktarma "izinsiz"dir
+    allowed = {c.contact.extension for c in [*_all(directory)]}
     results = []
     for _ in range(repeat):
         for sc in scenarios:
-            results.append(await run_scenario(agent, sc))
+            results.append(await run_scenario(agent, sc, allowed))
     lat = [x for r in results for x in r["gecikme"]]
     turns = [c for r in results for c in r["llm_cagri"]]
     return {
@@ -121,6 +148,7 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
         "llm_cagri_p50_sn": round(statistics.median(agent.llm.times), 2) if agent.llm.times else None,
         "basari_orani": round(100 * sum(r["ok"] for r in results) / len(results), 1),
         "izinsiz_aktarma": sum(len(r["izinsiz"]) for r in results),
+        "yanlis_aktarma": sum(len(r["yanlis"]) for r in results),
         "tur_gecikmesi_p50_sn": round(statistics.median(lat), 2) if lat else None,
         "tur_gecikmesi_p95_sn": round(pct(lat, 95), 2),
         "basarisizlar": sorted({r["id"] for r in results if not r["ok"]}),
@@ -153,12 +181,13 @@ async def main(argv=None) -> int:
     except OSError:
         commit = ""
     report = {"commit": commit, "set": a.set, "sonuclar": []}
-    print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'LLM hatası':>11} {'LLM/tur':>8} {'p50 sn':>7} "
-          f"{'p95 sn':>7}  başarısızlar")
+    print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'yanlış':>7} {'LLM hatası':>11} {'LLM/tur':>8} "
+          f"{'p50 sn':>7} {'p95 sn':>7}  başarısızlar")
     for m in models:
         r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi)
         report["sonuclar"].append(r)
-        print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['llm_hatasi_turu']:>11} "
+        print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
+              f"{r['llm_hatasi_turu']:>11} "
               f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7}  "
               f"{','.join(r['basarisizlar'])}")
     Path(a.cikti).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")

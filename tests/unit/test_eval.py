@@ -13,14 +13,37 @@ def T(ext):
     return TransferAction(extension=ext, contact_id="x")
 
 
+def U(*acts):
+    return ("arayan", list(acts))
+
+
+def S(status):
+    return (f"santral:{status}", [])
+
+
+ALLOWED = {"214", "210", "231", "260"}
+
+
 def test_puanlama():
-    assert evaluate({"eylem": "transfer", "dahili": "214"}, [T("214")]) == (True, [])
-    assert evaluate({"eylem": "transfer", "dahili": "214"}, [T("231")]) == (False, ["231"])
-    assert evaluate({"eylem": "operator"}, [OperatorAction("x")]) == (True, [])
-    assert evaluate({"eylem": "yok", "yasak_dahili": ["100"]}, [T("100")]) == (False, ["100"])
-    assert evaluate({"eylem": "yok"}, []) == (True, [])
-    assert evaluate({"eylem": "aktarma_yok"}, [OperatorAction("x")]) == (True, [])
-    assert evaluate({"eylem": "aktarma_yok"}, [T("999")]) == (False, ["999"])
+    assert evaluate({"eylem": "transfer", "dahili": "214"}, [U(T("214"))], ALLOWED) == (True, [], [])
+    assert evaluate({"eylem": "transfer", "dahili": "214"}, [U(T("231"))], ALLOWED) == (False, [], ["231"])
+    assert evaluate({"eylem": "operator"}, [U(OperatorAction("x"))], ALLOWED) == (True, [], [])
+    assert evaluate({"eylem": "yok", "yasak_dahili": ["100"]}, [U(T("100"))], ALLOWED) == (False, ["100"], [])
+    assert evaluate({"eylem": "yok"}, [U()], ALLOWED) == (True, [], [])
+    assert evaluate({"eylem": "aktarma_yok"}, [U(OperatorAction("x"))], ALLOWED) == (True, [], [])
+    assert evaluate({"eylem": "aktarma_yok"}, [U(T("999"))], ALLOWED) == (False, ["999"], [])  # rehberde yok
+
+
+def test_santralin_reddettigi_aktarma_denenmis_sayilir():
+    # D24: 214 denendi, meşgul; sonra birime (210) aktarıldı → başarılı, izinsiz/yanlış yok
+    steps = [U(T("214")), S("busy"), U(T("210"))]
+    assert evaluate({"eylem": "transfer", "dahili": "210"}, steps, ALLOWED) == (True, [], [])
+    # D25: 260 denendi, cevapsız; arayan operatör istedi
+    steps = [U(T("260")), S("no_answer"), U(OperatorAction("x"))]
+    assert evaluate({"eylem": "operator"}, steps, ALLOWED) == (True, [], [])
+    # santral olayından sonra tekrar aynı kişiye aktarma: yanlış
+    steps = [U(T("260")), S("no_answer"), U(T("260")), U(OperatorAction("x"))]
+    assert evaluate({"eylem": "operator"}, steps, ALLOWED) == (False, [], ["260"])
 
 
 def test_set_gecerli_ve_dahililer_rehberde():
