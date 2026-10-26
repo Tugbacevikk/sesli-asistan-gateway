@@ -75,6 +75,8 @@ class DirectoryCache:
             self._task.cancel()
 
     async def _loop(self) -> None:
+        if self.ready:   # ilk yükleme açılışta yapıldıysa hemen ikinci kez çekilmez
+            await asyncio.sleep(self.refresh_s)
         while True:
             await self.refresh()
             await asyncio.sleep(self.refresh_s)

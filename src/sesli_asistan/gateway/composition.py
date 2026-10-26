@@ -1,18 +1,30 @@
 """Bileşenleri ayarlardan kurar (bağımlılıkların tek birleştiği yer)."""
 from __future__ import annotations
 
+import asyncio
+import logging
+
+import httpx
+
 from .adapters.directory.json_dir import JsonDirectory
 from .adapters.llm.ollama import OllamaChat
 from .adapters.llm.openai_compat import OpenAiCompatChat
+from .adapters.pbx.rest import PbxRestClient
+from .adapters.rtp.media import RtpMedia
+from .adapters.stt.grpc_client import GrpcStt
 from .adapters.tts.cache import CachingTts
 from .adapters.tts.piper_http import PiperHttpTts
 from .config import GatewaySettings
+from .core.call import CallConfig, CallSession
 from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
-from .core.ports import LlmPort
+from .core.manager import CallManager, NewCall, PortPool
+from .core.ports import LlmPort, MediaPort
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
+
+log = logging.getLogger(__name__)
 
 
 def build_llm(s: GatewaySettings) -> LlmPort:
@@ -48,3 +60,110 @@ async def build_speaker(s: GatewaySettings, agent: DialogAgent,
     library = PromptLibrary()
     missing = await library.preload(tts, agent.fixed_prompts())
     return Speaker(tts, library, timeout_s=s.tts_timeout_s), missing
+
+
+# --- Aşama 5: çalışan servis ---------------------------------------------------------------------------------
+
+class GatewayRuntime:
+    """Gateway servisinin bütün parçaları ve yaşam döngüsü (açılış, sağlık, kapanış).
+
+    Açılış sırası (tasarim.md 9.1 "modeller henüz ısınmadı"): rehber yüklenir, sabit anonslar seslendirilir,
+    LLM belleğe alınır; bunlar ve STT hazır olana kadar `/v1/health` 503 döner ve yeni çağrı reddedilir.
+    Sağlık arka planda `health_interval_s`'de bir kontrol edilir (her istekte değil).
+    Testler sahte LLM / STT / santral / TTS / medya verebilir.
+    """
+
+    def __init__(self, s: GatewaySettings, llm: LlmPort | None = None, stt=None, pbx=None, tts=None,
+                 media_factory=None, health_interval_s: float = 10.0):
+        self.s = s
+        self.directory = build_directory(s)
+        self.llm = llm or build_llm(s)
+        self.agent = build_agent(s, self.directory, self.llm)
+        self.tts = tts or build_tts(s)
+        self.stt = stt or GrpcStt(s.stt_grpc_addr)
+        self.pbx = pbx or PbxRestClient(s.pbx_base_url, s.pbx_api_key.get_secret_value(), s.pbx_timeout_s)
+        self.speaker: Speaker | None = None
+        self.components = {"stt": "starting", "llm": "starting", "tts": "starting", "directory": "starting"}
+        self.health_interval_s = health_interval_s
+        self.manager = CallManager(media_factory or self._open_media, self._new_session,
+                                   PortPool(s.rtp_port_min, s.rtp_port_max), s.max_concurrent_calls,
+                                   ready=lambda: self.ready)
+        self._prompts_missing = False
+        self._health_task: asyncio.Task | None = None
+
+    @property
+    def ready(self) -> bool:
+        return self.speaker is not None and all(v == "ok" for v in self.components.values())
+
+    def health(self) -> dict:
+        return {"status": "ok" if self.ready else "degraded", "components": dict(self.components),
+                "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls}
+
+    async def _open_media(self, port: int, req: NewCall) -> MediaPort:
+        return await RtpMedia.open(self.s.rtp_host, port, req.codec, req.rtp_remote, self.s.allowed_ips)
+
+    def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
+        cfg = CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
+                         transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in)
+        return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
+                           self.pbx, cfg, hotwords=self.directory.index.hotwords())
+
+    async def start(self) -> None:
+        await self.directory.refresh()
+        self.directory.start()
+        self.speaker, missing = await build_speaker(self.s, self.agent, self.tts)
+        self._prompts_missing = bool(missing)
+        if missing:
+            log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)
+        warm = getattr(self.llm, "warmup", None)
+        if warm:
+            try:
+                await asyncio.wait_for(warm(), timeout=60)
+            except Exception as e:
+                log.error("LLM ısıtılamadı: %s", e)
+        await self.check_health()
+        self._health_task = asyncio.create_task(self._health_loop(), name="saglik")
+        log.info("Gateway %s: %s", "hazır" if self.ready else "HAZIR DEĞİL", self.components)
+
+    async def _health_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self.health_interval_s)
+            try:
+                await self.check_health()
+            except Exception:
+                log.exception("sağlık kontrolü hatası")
+
+    async def check_health(self) -> None:
+        before = dict(self.components)
+        self.components["directory"] = "ok" if self.directory.ready else "down"
+        stt_ready = getattr(self.stt, "ready", None)
+        self.components["stt"] = "ok" if stt_ready is None or await stt_ready() else "down"
+        self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
+        if self._prompts_missing or self.speaker is None:
+            self.components["tts"] = "down"
+        elif isinstance(self.tts, CachingTts):
+            self.components["tts"] = await _http_up(self.s.tts_url)
+        else:
+            self.components["tts"] = "ok"
+        if self.components != before:
+            log.info("bileşen durumu: %s", self.components)
+
+    async def stop(self) -> None:
+        if self._health_task:
+            self._health_task.cancel()
+        await self.manager.shutdown()
+        await self.directory.stop()
+        for c in (self.stt, self.pbx, self.llm):
+            close = getattr(c, "aclose", None)
+            if close:
+                await close()
+
+
+async def _http_up(url: str) -> str:
+    """Servis HTTP'ye cevap veriyor mu (durum kodu önemsiz: 404 de "ayakta" demektir)."""
+    try:
+        async with httpx.AsyncClient(timeout=2.0) as c:
+            await c.get(url)
+        return "ok"
+    except httpx.HTTPError:
+        return "down"

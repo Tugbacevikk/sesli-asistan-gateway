@@ -96,3 +96,29 @@ class SttStream(Protocol):
 
 class SttPort(Protocol):
     async def open(self, call_id: str, codec: str, hotwords: list[str]) -> SttStream: ...
+
+
+# --- Santral (Aşama 5) ---
+
+class MediaPort(Protocol):
+    """Bir çağrının ses yolu (RTP): gelen 20 ms G.711 kareleri + arayana ses çalma (tasarim.md 6.1)."""
+
+    def frames(self) -> Any: ...          # AsyncIterator[bytes]; akış bitince durur
+
+    async def play(self, pcm8k: Any) -> int: ...
+
+    def idle_s(self) -> float: ...        # son RTP paketinden bu yana geçen süre (hiç gelmediyse açılıştan)
+
+    def stats(self) -> dict[str, int]: ...
+
+    def close(self) -> None: ...
+
+
+class PbxError(Exception):
+    """Santral eylem isteği (yeniden denemelerden sonra da) başarısız."""
+
+
+class PbxPort(Protocol):
+    """Gateway → santral eylemleri (tasarim.md 6.2.2). Sonuç asenkron olarak /events ile gelir."""
+
+    async def send_action(self, call_id: str, action: dict[str, Any]) -> None: ...

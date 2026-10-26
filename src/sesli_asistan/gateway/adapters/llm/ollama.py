@@ -54,9 +54,12 @@ class OllamaChat:
                                   arguments=args if isinstance(args, dict) else {}, raw_arguments=raw))
         return LlmMessage(content=msg.get("content") or "", tool_calls=calls)
 
-    async def warmup(self) -> None:
-        """Modeli belleğe yükler (ilk çağrı yavaş olmasın)."""
-        await self.chat([{"role": "user", "content": "merhaba"}], [])
+    async def warmup(self, timeout_s: float = 120.0) -> None:
+        """Modeli belleğe yükler (ilk çağrı yavaş olmasın). Yükleme, tur zaman aşımından (5 sn) uzun sürebilir."""
+        r = await self.http.post("/api/chat", timeout=timeout_s, json={
+            "model": self.model, "messages": [{"role": "user", "content": "merhaba"}], "stream": False,
+            "think": self.think, "keep_alive": self.keep_alive, "options": {"num_predict": 1}})
+        r.raise_for_status()
 
 
 def to_ollama(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:

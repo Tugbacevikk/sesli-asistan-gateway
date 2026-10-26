@@ -93,5 +93,12 @@ type = "forbidden"
 source_modules = ["sesli_asistan.gateway"]
 forbidden_modules = ["faster_whisper", "ctranslate2", "sherpa_onnx", "onnxruntime"]
 
+[[tool.importlinter.contracts]]
+name = "Gateway çekirdeği adaptörleri ve çerçeveleri bilmez (hexagonal)"
+type = "forbidden"
+source_modules = ["sesli_asistan.gateway.core"]
+forbidden_modules = ["sesli_asistan.gateway.adapters", "sesli_asistan.gateway.api", "sesli_asistan.gateway.composition",
+                     "sesli_asistan.contracts", "fastapi", "uvicorn", "httpx", "grpc"]
+
 [tool.ruff.lint.per-file-ignores]
 "src/sesli_asistan/contracts/**" = ["E", "F", "W", "I", "B", "UP"]   # üretilmiş kod

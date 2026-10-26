@@ -21,7 +21,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | 2 | Diyalog: LLM + InContacts / TransferCall / ConnectOperator, aktarma güvenlik kuralı, Türkçe rehber araması, diyalog kuralları, test seti | ✅ (qwen3.5:4b ile 90/90, olcumler.md) |
 | 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
 | 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (GPU: WER %10, ad 12/12, konuşma sonu → metin ~1,1 sn; sentetik set, olcumler.md) |
-| 5 | Santral entegrasyonu (REST kontrol, çağrı oturumu) | ⏳ |
+| 5 | Santral entegrasyonu: REST kontrol API'si, çağrı oturumu (durum makinesi, barge-in, aktarma akışı, zaman aşımları), RTP medya, santral simülatörü | ✅ (simülatörde; gerçek santral test ortamı bekliyor) |
 | 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
 
 ### Taşınan modüller
@@ -91,6 +91,24 @@ python tools/models/indir.py                       # faster-whisper-medium + sil
 pip install -e ".[stt,stt-cuda]"                   # GPU: cuBLAS 12 + cuDNN 9 (CUDA Toolkit gerekmez)
 python -m sesli_asistan.stt                        # STT servisi (ayrı terminal)
 python tools/stt/dene.py kayit.wav --ipucu "Ayşe Yılmaz"
+```
+
+### Santral entegrasyonu (Aşama 5)
+
+| Modül | Ne yapar |
+|---|---|
+| `gateway/api/app.py` | `POST /v1/calls`, `/events`, `DELETE`, `/v1/health`; Bearer anahtar + IP izin listesi; ortak hata gövdesi |
+| `gateway/core/manager.py` | Port havuzu, eşzamanlı çağrı sınırı, hazır değilken ret (503), idempotent bitirme |
+| `gateway/core/call.py` | Çağrı durum makinesi: karşılama → dinleme → düşünme → konuşma → aktarma; barge-in, aktarma sonucu, DTMF, zaman aşımları, zarif bozulma |
+| `gateway/adapters/rtp/media.py` | Çağrının RTP yolu (giriş + simetrik çıkış) |
+| `gateway/adapters/pbx/rest.py` | Gateway → santral eylemleri (`transfer`, `operator`), 3 deneme |
+| `gateway/composition.py` | `GatewayRuntime`: açılış (rehber, anonslar, LLM ısınma), arka planda sağlık, kapanış |
+| `tools/cagri/cagri.py` | Santral simülatörü: çağrı açar, WAV'ları RTP ile söyler, eylemlere cevap verir; **uçtan uca tur gecikmesi** |
+
+```bash
+python -m sesli_asistan.stt                                   # 1. terminal
+PBX_BASE_URL=http://127.0.0.1:8100 python -m sesli_asistan.gateway   # 2. terminal (Ollama + Piper açık)
+python tools/cagri/cagri.py ayse.wav --cevap cevap.wav        # 3. terminal: santral gibi ara
 ```
 
 ## Geliştirme

@@ -1,18 +1,19 @@
 """Gateway ayarları (tasarim.md 13). Ortam değişkeninden ya da `/etc/sesli-asistan/gateway.env`'den okunur.
 
-Bu dosya Aşama 2'nin (diyalog) ayarlarını içerir; santral, RTP ve STT ayarları ilgili aşamalarda eklenir.
-Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması).
+Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması). Gizli değerler (`API_KEY`,
+`PBX_API_KEY`) `/etc/sesli-asistan/secrets.env`'de tutulur (izin 600) ve loglara yazılmaz.
 """
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class GatewaySettings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=(".env", "/etc/sesli-asistan/gateway.env"), extra="ignore")
+    model_config = SettingsConfigDict(env_file=(".env", "/etc/sesli-asistan/gateway.env",
+                                                "/etc/sesli-asistan/secrets.env"), extra="ignore")
 
     organization_name: str = "Şirket"
 
@@ -46,3 +47,36 @@ class GatewaySettings(BaseSettings):
     tts_timeout_s: float = Field(3.0, gt=0)
     tts_cache_items: int = Field(256, ge=0)
     tts_cache_dir: str | None = None           # üretimde: /var/cache/sesli-asistan/tts (boş: yalnızca bellek)
+
+    # Santral REST + RTP (tasarim.md 6.1, 6.2, 13)
+    gateway_api_host: str = "0.0.0.0"
+    gateway_api_port: int = Field(8000, gt=0, lt=65536)
+    api_key: SecretStr = SecretStr("")        # santralin Gateway'e gönderdiği Bearer anahtar; boş: kimlik doğrulama yok
+    rtp_host: str = "0.0.0.0"
+    rtp_port_min: int = Field(10000, gt=0, lt=65536)
+    rtp_port_max: int = Field(10999, gt=0, lt=65536)
+    pbx_allowed_ips: str = ""                 # virgülle; boş: her kaynaktan RTP ve REST kabul (yalnızca geliştirme)
+    pbx_base_url: str = "http://127.0.0.1:8100"
+    pbx_api_key: SecretStr = SecretStr("")
+    pbx_timeout_s: float = Field(3.0, gt=0)
+    max_concurrent_calls: int = Field(30, ge=1)
+    rtp_idle_timeout_s: float = Field(20, gt=0)
+    max_call_duration_s: float = Field(600, gt=0)
+    transfer_result_timeout_s: float = Field(30, gt=0)
+    barge_in: bool = True
+
+    # STT servisi (Gateway tarafı)
+    stt_grpc_addr: str = "127.0.0.1:50051"
+
+    @model_validator(mode="after")
+    def _check(self) -> GatewaySettings:
+        if self.rtp_port_min > self.rtp_port_max:
+            raise ValueError(f"RTP_PORT_MIN ({self.rtp_port_min}) > RTP_PORT_MAX ({self.rtp_port_max})")
+        if self.rtp_port_max - self.rtp_port_min + 1 < self.max_concurrent_calls:
+            raise ValueError("RTP port aralığı MAX_CONCURRENT_CALLS'tan küçük")
+        return self
+
+    @property
+    def allowed_ips(self) -> set[str] | None:
+        ips = {x.strip() for x in self.pbx_allowed_ips.split(",") if x.strip()}
+        return ips or None

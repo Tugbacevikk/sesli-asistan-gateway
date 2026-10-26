@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 2.1 |
+| **Sürüm** | 2.2 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -27,6 +27,7 @@
 | 1.9 | 26.10.2026 | TTS ölçümü (docs/olcumler.md): ilk ses p50 ~0,09 sn (CPU). `tr_TR-dfki-medium` sesinin veri seti ticari kullanıma kapalı (CC BY-NC-SA 4.0) → ADR-013: CC0 veri setli Türkçe ses |
 | 2.0 | 26.10.2026 | `fahrettin` / `fettah` sesleri katkıcıların isteğiyle Piper ses deposundan kaldırılmış (30.12.2025) → ADR-013 revize: ticari kullanıma uygun hazır Türkçe Piper sesi yok, şirkete ait ses önerisi. STT ilk ölçümü: Windows'ta cuBLAS eksikti, CPU'da zaman aşımı → `NOT_RECOGNIZED` olayı, `stt-cuda` eki, ısınmada CPU'ya düşme; Whisper revizyonu ve SHA256'ları sabitlendi |
 | 2.1 | 26.10.2026 | Arama: uzamış kelime kuralı ("Demirci" ↔ "Demir" net eşleşme değil), STT hata tablosu testi; Whisper ipucu 400 harf bütçesi; zaman aşımı sonrası sıradaki cümle haksız yere düşmez |
+| 2.2 | 26.10.2026 | Aşama 5 kodlandı: REST kontrol API'si (FastAPI), CallManager (port havuzu, kapasite, idempotent bitirme), CallSession durum makinesi (5.1.1 güncellendi: `HANDED_OFF`), RTP medya yolu (simetrik), santral eylem istemcisi (yeniden deneme), çalışan servis (`python -m sesli_asistan.gateway`), santral simülatörü (`tools/cagri/cagri.py`); 5.1.2 çağrı kuralları; çekirdek için hexagonal import kuralı |
 
 ---
 
@@ -321,32 +322,45 @@ flowchart TB
 
 #### 5.1.1 Çağrı durum makinesi
 
+Kod: `gateway/core/call.py`. Durum yalnızca oturumun olay döngüsünde değişir; RTP okuma, STT olayları, zamanlayıcı
+ve konuşma (TTS → RTP) ayrı görevlerdir ve olayları sıraya koyar (yarış koşulu yok, ağır iş okumayı bekletmez).
+
 ```mermaid
 stateDiagram-v2
     [*] --> Greeting: POST /v1/calls
-    Greeting --> Listening: karşılama bitti
-    Listening --> Thinking: STT FINAL
-    Listening --> Listening: boş / anlamsız metin
-    Thinking --> Speaking: LLM cevabı
-    Thinking --> Transferring: TransferCall onaylandı
-    Thinking --> Fallback: LLM hatası / zaman aşımı
-    Speaking --> Listening: seslendirme bitti
-    Speaking --> Listening: barge-in (SPEECH_STARTED)
-    Transferring --> Ended: transfer_result = answered
-    Transferring --> Speaking: busy / no_answer / failed
-    Fallback --> Ended: operatöre aktarıldı
-    Listening --> Fallback: deneme sınırı aşıldı
-    Greeting --> Ended: DELETE / zaman aşımı
-    Listening --> Ended: DELETE / RTP zaman aşımı
-    Speaking --> Ended: DELETE
-    Thinking --> Ended: DELETE
+    Greeting --> Listening: karşılama bitti / söze girildi
+    Listening --> Thinking: STT FINAL / NOT_RECOGNIZED
+    Thinking --> Speaking: diyalog cevabı
+    Speaking --> Listening: seslendirme bitti (eylem yok)
+    Speaking --> Listening: barge-in (SPEECH_STARTED) — aktarma cümlesiyse aktarma iptal
+    Speaking --> Transferring: aktarma cümlesi bitti → santrale transfer
+    Speaking --> HandedOff: operatör (söze girilse de)
+    Transferring --> HandedOff: transfer_result = answered
+    Transferring --> Thinking: busy / no_answer / failed / 30 sn sonuç yok
+    Listening --> HandedOff: DTMF 0 / süre aşımı / deneme sınırı → operatör
+    HandedOff --> Ended: DELETE
+    Listening --> Ended: DELETE / 20 sn RTP yok
     Ended --> [*]
 ```
 
-Kurallar:
-- Her durum geçişi `call_id` ile loglanır.
-- `Thinking` durumundayken yeni bir `FINAL` gelirse önceki LLM isteği iptal edilir ve en güncel metin işlenir.
-- `Ended` durumunda tüm görevler iptal edilir; port, gRPC akışı ve geçmiş serbest bırakılır.
+`Thinking` sırasında arayan konuşursa cümleler sıraya girer ve sonraki turda birleştirilir; o konuşmanın
+SPEECH_STARTED'ı, ondan sonra başlayan cevabı kesmez. Her durumdan `DELETE` ile `Ended`'a geçilir.
+
+#### 5.1.2 Çağrı kuralları (kodla)
+
+| Durum | Davranış |
+|---|---|
+| Söze girme (barge-in) | Seslendirme o pakette durur (FR-11). Kesilen cümle aktarma cümlesiyse ("Sizi … aktarıyorum") aktarma **yapılmaz**, bekleyen aktarma silinir: arayan büyük olasılıkla düzeltiyor ("hayır, satış") |
+| Operatöre aktarma | Söze girilse de yapılır (güvenli son çare) |
+| `NOT_RECOGNIZED` | "Anlayamadım" + deneme sayacı. `empty` nedenli ve 600 ms'den kısa sesler gürültü sayılır, cevaplanmaz |
+| Aktarma sonucu gelmez | 30 sn sonra `failed` sayılır; diyalog arayana bildirir |
+| Santral eylemi başarısız | 3 deneme (üstel bekleme); aktarma ise `failed` akışı, operatör ise çağrı kapatılır |
+| STT açılamaz / koparsa | Hata anonsu (hazır ses) + operatör |
+| RTP 20 sn gelmez | Oturum kapatılır |
+| Çağrı 10 dk'yı aşar | Dinleme sırasında operatöre aktarılır |
+| DTMF `0` | Operatör (FR-15) |
+| Beklenmeyen hata | Hata anonsu + operatör; diğer çağrılar etkilenmez |
+| Santral DELETE göndermez | Süre sınırı + 60 sn sonra oturum silinir |
 
 ### 5.2 STT Service
 
@@ -1058,6 +1072,11 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `RTP_IDLE_TIMEOUT_S` | 20 | |
 | `MAX_CALL_DURATION_S` | 600 | |
 | `TRANSFER_RESULT_TIMEOUT_S` | 30 | |
+| `GATEWAY_API_HOST` / `RTP_HOST` | 0.0.0.0 | Dinlenen adres (iç ağ arayüzü verilebilir) |
+| `API_KEY` | (secrets.env) | Santralin Gateway'e gönderdiği Bearer anahtar; boşsa uyarı, kimlik doğrulama yok |
+| `PBX_API_KEY` | (secrets.env) | Gateway'in santrale gönderdiği Bearer anahtar |
+| `PBX_TIMEOUT_S` | 3 | Santral eylem isteği (3 deneme) |
+| `BARGE_IN` | true | Söze girince seslendirme durur |
 | `LOG_LEVEL` | INFO | |
 
 ---
@@ -1347,7 +1366,8 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 
 Tek Python paketi (`sesli_asistan`), servisler alt paketlerdir. Servis sınırları `import-linter`
 sözleşmeleriyle denetlenir (`pyproject.toml`): `libs` hiçbir servisi bilmez; `gateway` ile `stt`
-birbirini import etmez; `gateway` model kütüphanelerini (faster-whisper, sherpa-onnx) bilmez.
+birbirini import etmez; `gateway` model kütüphanelerini (faster-whisper, sherpa-onnx) bilmez; `gateway.core`
+adaptörleri, API'yi ve çerçeveleri (FastAPI, httpx, gRPC) bilmez (hexagonal).
 Her servis kendi bağımlılık grubuyla ayrı venv'e kurulur (`pip install .[stt]`, `.[gateway]`).
 
 ```
@@ -1365,12 +1385,14 @@ sesli-asistan-gateway/
 │   │   │   ├── llm/          # ollama.py (varsayılan), openai_compat.py (llama.cpp)
 │   │   │   ├── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
 │   │   │   ├── tts/          # piper_http.py, cache.py
-│   │   │   └── stt/          # grpc_client.py (Gateway → STT)
-│   │   ├── core/             # dialog.py, tools.py, policy.py, search.py, directory.py, speech.py, models.py, ports.py
-│   │   │                     #   CallManager / CallSession — Aşama 5
-│   │   ├── api/              # REST uçları (FastAPI) — Aşama 5
+│   │   │   ├── stt/          # grpc_client.py (Gateway → STT)
+│   │   │   └── pbx/          # rest.py: Gateway → santral eylemleri (yeniden deneme)
+│   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog.py, tools.py,
+│   │   │                     #   policy.py, search.py, directory.py, speech.py, models.py, ports.py
+│   │   ├── api/              # app.py: REST uçları (FastAPI)
 │   │   ├── config.py         # GatewaySettings
-│   │   └── composition.py    # bileşenleri ayarlardan kurar
+│   │   ├── composition.py    # bileşenleri ayarlardan kurar; GatewayRuntime (açılış, sağlık, kapanış)
+│   │   └── server.py         # python -m sesli_asistan.gateway
 │   ├── stt/
 │   │   ├── engine.py         # faster-whisper medium, hotwords
 │   │   ├── vad.py            # Silero VAD, cümle bölücü (SpeechStarted / Utterance)
@@ -1383,6 +1405,7 @@ sesli-asistan-gateway/
 ├── tools/
 │   ├── sohbet/               # sohbet.py: asistanla yazarak konuşma (metin test arayüzü)
 │   ├── rtp_simulator/        # rtp_gonder.py: WAV → RTP, cevabı kaydeder
+│   ├── cagri/                # cagri.py: santral simülatörü (REST + RTP + eylemler), uçtan uca tur gecikmesi
 │   ├── tts/                  # seslendir.py: Piper denemesi, telefon sesi WAV, gecikme ölçümü
 │   ├── stt/                  # dene.py: WAV → G.711 → gRPC akışı, olaylar, cümle sonu → FINAL gecikmesi, WER
 │   ├── proto/                # uret.py: proto → contracts/ (--kontrol: CI)
