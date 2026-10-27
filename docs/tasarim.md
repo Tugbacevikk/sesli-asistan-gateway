@@ -1080,6 +1080,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
+| `CLARIFY_BY_CODE` | true | ADR-017: birden çok adayda soru ve cevaptan seçim LLM'siz |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
@@ -1397,6 +1398,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Bağlam:** Uçtan uca ölçümde (27.10.2026) tur gecikmesinin %60–65'i LLM (dizüstünde 2,3–3,9 sn). Çağrıların çoğu "X'i istiyorum" kadar net; bunlarda LLM'in tek işi rehberi aramak.
 - **Karar:** Arayanın sözü, LLM'den önce rehberde taranır (1–3 kelimelik pencereler). Aktarma **yalnızca** şu durumda LLM'siz yapılır: (a) bir kişinin **ad + soyadı** ≥ 95 puanla (unvan ya da takma adla değil) ya da (b) bir **birimin genel hattı** ≥ 95 puanla geçiyor, **tek** aday var, sözde olumsuzluk / tereddüt sözcüğü ("değil", "hayır", "başka", "operatör", "ya"…) yok; birim için ayrıca sözde bir kişinin adı ya da unvan sözcüğü geçmiyor ("muhasebeden Ayşe Hanım" birim hattına gitmez). Aktarma yine TransferPolicy'den geçer; geçmişe araç çağrısı ve sonucu yazılır (LLM sonraki turda bağlamı görür). Şüphede LLM normal akışla devam eder.
 - **Sonuç:** Net isteklerde tur gecikmesi ≈ cümle sonu bekleme + STT + TTS (dizüstünde ~1,5 sn; LLM 0). Söze girme ve aktarma iptali aynen çalışır. `FAST_PATH=false` ile kapatılır. Doğrulama: diyalog seti ve uçtan uca ölçüm.
+
+### ADR-017 — Belirsiz aramada soru ve seçim kodla
+- **Bağlam:** Arayüz denemesinde (27.10.2026) "ayşe hanım" → "Hangi Ayşe?" sorusu 5,7 sn sürdü: LLM önce aracı çağırıyor, sonra soruyu yazıyor (iki LLM turu). Rehberde aynı adlı kişiler en sık belirsizlik.
+- **Karar:** (1) Sözde yalnızca birden çok kişiye yüksek puanla uyan bir ad varsa (birim, unvan, olumsuzluk, tam ad yoksa) arama ve soru LLM'siz yapılır. (2) LLM'in aradığı ve `multiple` dönen sonuçta ikinci LLM turu beklenmez. Soru koddan kurulur, Türkçe eklerle: "Muhasebeden Ayşe Yılmaz mı, Satıştan Ayşe Kaya mı?" (birimler aynıysa yalnız adlarla; ad ve birim aynıysa ayırt edilemez → LLM sorar). (3) Arayanın cevabı bir tur boyunca adaylara karşı denetlenir: birim ya da birim takma adı ("muhasebedeki", "finans"), soyad, tam ad ya da sıra ("ilki", "ikincisi"). Tek aday seçilirse TransferPolicy'den geçen aktarma; olumsuzluk, birden çok ya da hiç eşleşme → LLM, geçmişte arama + sonuç + soru durur.
+- **Sonuç:** En sık belirsiz durum LLM'siz iki tur (~1,5 sn + ~1,5 sn). `CLARIFY_BY_CODE=false` ile kapatılır.
 
 ### ADR-015 — Kadın sesi: Seslen TTS servisi
 - **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.

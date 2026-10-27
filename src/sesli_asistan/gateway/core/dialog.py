@@ -24,7 +24,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import DialogTurn, Match, OperatorAction
+from sesli_asistan.libs.text.normalizer import turkish_lower
+
+from .models import Candidate, DialogTurn, Match, OperatorAction
 from .ports import LlmError, LlmPort, ToolCall
 from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
 from .tools import CallToolState, ToolRegistry
@@ -86,6 +88,7 @@ class DialogConfig:
     auto_transfer_single_high: bool = True   # ADR-012
     fast_path: bool = True                   # ADR-016: net tam ad / birim hattında LLM beklenmez
     fast_path_min_score: int = 95
+    clarify_by_code: bool = True             # ADR-017: birden çok adayda "X mı, Y mi?" sorusu ve seçimi LLM'siz
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -180,9 +183,103 @@ class DialogAgent:
         if not text:
             return self._failure(s)
         s.history.append({"role": "user", "content": text})
+        choice, s.state.choice = s.state.choice, ()
+        if choice and self.cfg.clarify_by_code and (turn := self._resolve_choice(s, text, choice)) is not None:
+            return turn
         if self.cfg.fast_path and (turn := self._fast_path(s, text)) is not None:
             return turn
+        if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
+            return turn
         return await self._run(s)
+
+    # --- belirsiz aramada soru ve seçim (ADR-017) ---
+
+    def _clarify(self, s: DialogSession, candidates: tuple[Candidate, ...]) -> DialogTurn | None:
+        """2–3 kişilik adaydan "Muhasebeden Ayşe Yılmaz mı, satıştan Ayşe Kaya mı?" sorusu (LLM'siz). Adaylar
+        sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun."""
+        if not 2 <= len(candidates) <= 3 or any(c.contact.kind != "person" for c in candidates):
+            return None
+        q = which_question([c.contact for c in candidates])
+        if q is None:
+            return None
+        s.state.choice = candidates
+        return self._reply(s, q)
+
+    def _fast_clarify(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Sözde yalnızca birden çok kişiye uyan bir ad var ("ayşe hanım"): LLM beklemeden sorulur. Sözde bir birim,
+        unvan ya da olumsuzluk varsa LLM'e bırakılır (birimle birlikte arama gerekir)."""
+        words = search_key(text).split()
+        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+            return None
+        if has_role_word(text) or self._mentions_department(words):
+            return None
+        index = self.tools.index
+        if any(index.search(name=" ".join(words[i:i + 2])).match == Match.SINGLE_HIGH for i in range(len(words) - 1)):
+            return None                                 # sözde bir tam ad da var ("Ayşe Yılmaz mı Ayşe Kaya mı")
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                window = " ".join(words[i:i + n])
+                res = index.search(name=window)
+                if res.match != Match.MULTIPLE or not all(
+                        c.score >= index.high_score and c.contact.kind == "person" for c in res.candidates):
+                    continue
+                call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments={"Name": window})
+                out = self.tools.execute(call, s.state)
+                if out.content.get("match") != "multiple":
+                    return None
+                turn = self._clarify(s, s.state.last_results)
+                if turn is None:
+                    return None
+                # LLM sonraki turda bağlamı görsün: araç çağrısı + sonucu sorudan önceye yazılır
+                s.history[-1:-1] = [_assistant_tool_message("", [call]), _tool_message(call, out.content)]
+                s.state.failed_attempts = 0
+                turn.fast = True
+                log.info("[%s] hızlı soru: %r → %s", s.call_id, text, [c.contact.extension for c in s.state.choice])
+                return turn
+        return None
+
+    def _mentions_department(self, words: list[str]) -> bool:
+        keys = {k for c in self.tools.index.contacts() for k in
+                (search_key(c.department), *map(search_key, c.department_aliases)) if k}
+        text = " ".join(strip_suffix(w) for w in words)
+        return any(f" {strip_suffix(k)} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
+                   for k in keys)
+
+    def _resolve_choice(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Sorulan adaylardan birini cevaptan seçer: birim ("muhasebedeki"), soyad ("Yılmaz"), tam ad ya da sıra
+        ("ilki", "ikincisi"). Tek aday seçilmezse ya da arayan reddederse None: LLM devam eder."""
+        words = search_key(text).split()
+        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+            return None
+        picked: set[int] = set()
+        for i, cand in enumerate(choice):
+            c = cand.contact
+            dept_keys = [k for k in (search_key(c.department), *map(search_key, c.department_aliases)) if k]
+            last = search_key(c.last_name)
+            for w in words:
+                variants = query_variants(w)
+                if last and any(similarity(v, last) >= 90 for v in variants):
+                    picked.add(i)
+                if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= 90)
+                       for k in dept_keys if " " not in k):
+                    picked.add(i)
+            if any(" " in k and k in " ".join(words) for k in dept_keys):
+                picked.add(i)
+        for word, idx in _ORDINALS.items():
+            if word in words and -len(choice) <= idx < len(choice):
+                picked.add(idx % len(choice))
+        if len(picked) != 1:
+            return None
+        cand = choice[picked.pop()]
+        s.state.last_results = choice
+        action = self.tools.transfer(cand.contact.extension, s.state)
+        if action is None:
+            return None
+        s.state.failed_attempts = 0
+        log.info("[%s] seçim: %r → %s", s.call_id, text, cand.contact.extension)
+        turn = self._reply(s, self._transfer_text(action.contact_id))
+        turn.fast = True
+        return turn
 
     # --- hızlı yol (ADR-016) ---
 
@@ -301,6 +398,12 @@ class DialogAgent:
                 elif call.name == "InContacts" and not out.failed_search:
                     found = True
                     s.state.failed_attempts = 0
+                if (self.cfg.clarify_by_code and caller_turn and call.name == "InContacts"
+                        and content.get("match") == "multiple" and len(msg.tool_calls) == 1):
+                    s.history.append(_tool_message(call, content))
+                    if (turn := self._clarify(s, s.state.last_results)) is not None:
+                        return turn               # ikinci LLM turu beklenmez (ADR-017)
+                    s.history.pop()
                 if (self.cfg.auto_transfer_single_high and call.name == "InContacts"
                         and content.get("match") == "single_high"):
                     action = self.tools.transfer(s.state.last_results[0].contact.extension, s.state)
@@ -365,6 +468,45 @@ class DialogAgent:
         s.state.actions = []
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, [OperatorAction(reason=reason)], fallback=True)
+
+
+_ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
+             "ikinciye": 1, "ucuncu": 2, "ucuncusu": 2, "son": -1, "sonuncu": -1, "sonuncusu": -1, "sonuncuya": -1}
+_VOWELS = "aıoueiöü"
+
+
+def _last_vowel(word: str) -> str:
+    return next((ch for ch in reversed(turkish_lower(word)) if ch in _VOWELS), "e")
+
+
+def question_particle(word: str) -> str:
+    """Soru eki (ünlü uyumu): Yılmaz → mı, Demir → mi, Koç → mu, Öztürk → mü."""
+    return {"a": "mı", "ı": "mı", "o": "mu", "u": "mu", "e": "mi", "i": "mi", "ö": "mü", "ü": "mü"}[_last_vowel(word)]
+
+
+def ablative(word: str) -> str:
+    """Ayrılma hâli: Muhasebe → Muhasebeden, Satış → Satıştan, Bilgi İşlem → Bilgi İşlemden,
+    İnsan Kaynakları → İnsan Kaynaklarından."""
+    w = word.strip()
+    last = turkish_lower(w)[-1:]
+    # tamlama ("İnsan Kaynakları", "Müşteri Hizmetleri"): iyelik ekinden sonra -n- kaynaştırma → Kaynaklarından
+    buffer = "n" if " " in w and last in "ıiuü" else ""
+    hard = not buffer and last in set("fstkçşhp")
+    return w + buffer + ("t" if hard else "d") + ("a" if _last_vowel(w) in "aıou" else "e") + "n"
+
+
+def which_question(contacts: list[Any]) -> str | None:
+    """"Muhasebeden Ayşe Yılmaz mı, Satıştan Ayşe Kaya mı?" — birimler farklıysa birimle, adlar farklıysa adla.
+    Hiçbiri ayırt etmiyorsa None."""
+    names = [c.full_name for c in contacts]
+    depts = [c.department for c in contacts]
+    use_dept = all(depts) and len({search_key(d) for d in depts}) == len(depts)
+    if not use_dept and len({search_key(n) for n in names}) < len(names):
+        return None
+    parts = [f"{ablative(d) + ' ' if use_dept else ''}{n} {question_particle(n)}" for n, d in zip(names, depts,
+                                                                                                strict=True)]
+    text = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
+    return text[0].upper() + text[1:]
 
 
 def _assistant_tool_message(content: str, calls: list[ToolCall]) -> dict[str, Any]:

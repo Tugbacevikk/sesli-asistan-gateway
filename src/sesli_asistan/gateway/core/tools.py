@@ -66,6 +66,7 @@ class CallToolState:
     """Bir çağrının araç durumu (tasarim.md 8.1)."""
 
     last_results: tuple[Candidate, ...] = ()
+    choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
     pending_transfer: TransferAction | None = None
     failed_attempts: int = 0
     actions: list[TransferAction | OperatorAction] = field(default_factory=list)

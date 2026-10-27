@@ -45,6 +45,7 @@ def tool_msg(*calls):
 def agent(llm, **cfg):
     # LLM davranışını sınayan testler: hızlı yol (ADR-016) kapalı; onun testleri aşağıda ayrı
     cfg.setdefault("fast_path", False)
+    cfg.setdefault("clarify_by_code", False)
     return DialogAgent(llm, ToolRegistry(_index()), DialogConfig(organization="Deneme", **cfg))
 
 
@@ -278,13 +279,12 @@ def test_kurum_adi_yoksa_kurumsuz_karsilama():
 ])
 async def test_hizli_yol_llm_beklemeden_aktarir(text, ext):
     llm = ScriptedLlm()
-    turn = await agent(llm, fast_path=True).new_session("h").handle_user(text)
+    turn = await agent(llm, fast_path=True, clarify_by_code=True).new_session("h").handle_user(text)
     assert turn.fast and [a.extension for a in turn.actions] == [ext] and llm.seen == []
 
 
 @pytest.mark.parametrize("text", [
     "muhasebeden ayşe hanım",            # birim + kişi: birim hattına değil, LLM sorsun / kişiyi bulsun
-    "ayşe",                              # yalnız ad: iki Ayşe var
     "hayır mehmet demir değil",          # olumsuzluk
     "ayşe yılmaz mı ayşe kaya mı",       # iki aday
     "satış müdürünü arıyorum",           # unvan
@@ -316,3 +316,66 @@ async def test_hizli_yol_takma_adin_tam_haliyle():
     turn = await a.new_session("h").handle_user("ayşe abla lütfen")
     assert turn.fast and [x.extension for x in turn.actions] == ["214"]
     assert not (await a.new_session("h2").handle_user("ayşe abla değil")).fast        # olumsuzluk: LLM
+
+
+# --- belirsiz aramada soru ve seçim (ADR-017) ---
+
+def clarifier(*replies):
+    return agent(ScriptedLlm(*replies), fast_path=True, clarify_by_code=True)
+
+
+@pytest.mark.parametrize("answer,ext", [
+    ("muhasebedeki", "214"), ("muhasebe", "214"), ("satıştaki ayşe hanım", "231"), ("yılmaz", "214"),
+    ("ayşe kaya", "231"), ("kaya olan", "231"), ("ilki", "231"), ("ikincisi", "214"), ("finans", "214"),
+])
+async def test_ad_birden_cok_kisiye_uyuyorsa_llm_siz_sorar_ve_secer(answer, ext):
+    a = clarifier()
+    s = a.new_session("c")
+    q = await s.handle_user("ayşe hanım lütfen")
+    assert q.fast and q.actions == [] and a.llm.seen == []
+    assert q.text == "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?"
+    t = await s.handle_user(answer)
+    assert t.fast and [x.extension for x in t.actions] == [ext] and a.llm.seen == []
+
+
+async def test_secim_belirsizse_ya_da_reddedilirse_llm_devam_eder():
+    a = clarifier(LlmMessage("Kimi aramıştınız?"), LlmMessage("Peki."))
+    s = a.new_session("c")
+    await s.handle_user("ayşe")
+    t = await s.handle_user("hayır ikisi de değil")
+    assert t.actions == [] and len(a.llm.seen) == 1
+    msgs = a.llm.seen[0]
+    # LLM bağlamı görür: arama, sonucu ve sorulan soru
+    assert any(m.get("tool_calls") for m in msgs) and any(m["role"] == "tool" for m in msgs)
+    assert any(m["role"] == "assistant" and m["content"].endswith("mı?") for m in msgs)
+    assert s.state.choice == ()                  # soru bir tur geçerli
+
+
+async def test_llm_aramasi_coklu_donerse_ikinci_llm_turu_beklenmez():
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe"))), clarify_by_code=True)
+    s = a.new_session("c")
+    t = await s.handle_user("ayşe hanımla görüşecektim muhasebe değil sanırım")
+    assert t.text.endswith("mı?") and len(a.llm.seen) == 1
+    t = await s.handle_user("satış")
+    assert [x.extension for x in t.actions] == ["231"] and len(a.llm.seen) == 1
+
+
+@pytest.mark.parametrize("text", ["muhasebeden ayşe hanım", "satış müdürü ayşe", "ayşe yılmaz mı ayşe kaya mı",
+                                  "ayşe değil"])
+async def test_hizli_soru_supheli_durumda_llm_e_birakir(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert not t.fast and len(a.llm.seen) == 1
+
+
+def test_soru_dil_bilgisi():
+    from sesli_asistan.gateway.core.dialog import ablative, question_particle, which_question
+    words = ("Yılmaz", "Demir", "Koç", "Öztürk", "Kaya")
+    assert [question_particle(w) for w in words] == ["mı", "mi", "mu", "mü", "mı"]
+    assert [ablative(d) for d in ("Muhasebe", "Satış", "Bilgi İşlem", "İnsan Kaynakları", "Teknik Destek")] == [
+        "Muhasebeden", "Satıştan", "Bilgi İşlemden", "İnsan Kaynaklarından", "Teknik Destekten"]
+    a = Contact("1", "Ayşe", "Yılmaz", "Muhasebe", "214")
+    b = Contact("2", "Ayşe", "Kaya", "Muhasebe", "231")
+    c = Contact("3", "Ayşe", "Kaya", "Muhasebe", "232")
+    assert which_question([a, b]) == "Ayşe Yılmaz mı, Ayşe Kaya mı?"     # aynı birim: adla
+    assert which_question([b, c]) is None                                 # ayırt edilemez: LLM sorsun
