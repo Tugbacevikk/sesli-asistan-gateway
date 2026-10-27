@@ -1323,6 +1323,12 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Karar:** Ayrı süreç olarak `sesli_asistan.tts` servisi (`python -m sesli_asistan.tts`, port 5600, varsayılan `ayse`, nötr ton). Piper'la **aynı HTTP sözleşmesi** (`POST /synthesize`): Gateway değişmez, yalnızca `TTS_URL` bu servise çevrilir. Piper seçenek olarak kalır.
 - **Sonuç:** Kadın sesi bugün denenebilir. Karşılama "Ben sesli asistanım" dediği için yapay zekâ bildirimi sağlanıyor. Ağırlıklar değiştirilmeden kullanıldığı sürece aynı-lisans şartı modelin kendisine uygulanır; üretilen seslerin durumu ve atıf biçimi hukukça onaylanmalı. Şirkete ait ses (ADR-013) uzun vadeli seçenek olarak kalır; Seslen ekibinin ticari ses hizmeti de bir yol.
 - **Açık:** Model dosyalarının sürümü ve SHA256'sı `deploy/models.yaml`'a işlenecek (internetsiz kurulum: `TTS_SESLEN_MODEL_DIR`).
+- **Varsayılan ölçüme bağlı (27.10.2026 kararı):** Gateway'in varsayılan `TTS_URL`'i Piper olarak kalır. Seslen ancak ölçümde şunları sağlarsa varsayılan yapılır; sağlamazsa kadın sesinden vazgeçilir:
+  1. İlk ses p50 ≤ 0,5 sn, p95 ≤ 1 sn (sunucu CPU'sunda; `tools/tts/seslendir.py --olcum`),
+  2. Anonslar ve aktarma cümleleri hatasız seslendirilir (`ok: false` yok),
+  3. 8 kHz dinleme testinde isimler ("Öztürk", "Çelik", "Arslan") ve birimler anlaşılır,
+  4. Uçtan uca tur gecikmesine katkısı Piper'a göre ≤ 0,3 sn,
+  5. Hukuk, CC BY-SA 4.0 ve yapay zekâ bildirimi şartlarını onaylar.
 
 ### ADR-014 — Arayüz: tarayıcıdan deneme çağrısı ve izleme, Gateway'in içinde
 - **Bağlam:** Sistemin kullanıcısı santral; arayüz tasarımda kapsam dışıydı. Ancak teslim, sunum ve santral olmadan gerçek sesle deneme için terminal araçları yetmiyor; destek ekibinin servis durumu ve çağrı dökümünü görmesi gerekiyor.
