@@ -205,6 +205,8 @@ class DialogAgent:
             return None
         index = self.tools.index
         found: dict[str, tuple[Any, str]] = {}
+        if (c := index.alias_match(text)) is not None and c.kind == "person":
+            found[c.id] = (c, "alias")                # "Ayşe Abla": takma adın tam hâli tek kişiye ait
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
@@ -228,7 +230,8 @@ class DialogAgent:
         if len(found) != 1:
             return None                                # hiç ya da birden çok aday: LLM karar versin
         contact, kind = next(iter(found.values()))
-        args = {"Name": contact.full_name} if kind == "name" else {"Department": contact.department}
+        args = ({"Department": contact.department} if kind == "department"
+                else {"Name": contact.full_name})
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
         out = self.tools.execute(call, s.state)
         if out.content.get("match") != "single_high":

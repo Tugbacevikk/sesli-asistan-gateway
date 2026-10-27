@@ -1,4 +1,5 @@
 """Kurulum dosyaları (deploy/): ayar şablonları geçerli, kilitler pyproject ile uyumlu, systemd birimleri tutarlı."""
+import os
 import re
 import shutil
 import subprocess
@@ -75,14 +76,15 @@ def test_lisans_listesi_kilitlerle_guncel():
     assert r.returncode == 0, r.stdout
 
 
-@pytest.mark.skipif(shutil.which("shellcheck") is None, reason="shellcheck yok")
+@pytest.mark.skipif(os.name == "nt" or shutil.which("shellcheck") is None, reason="shellcheck yok / Windows")
 def test_betikler_shellcheck():
     r = subprocess.run(["shellcheck", "-S", "warning", "deploy/install.sh", "deploy/paket.sh",
                         "tools/kurulum/kilit.sh"], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash yok (Windows)")
+# Windows'ta "bash" çoğunlukla WSL yönlendiricisidir (C:\ yollarını tanımaz): betikler Linux içindir, orada denenir
+@pytest.mark.skipif(os.name == "nt" or shutil.which("bash") is None, reason="Linux betikleri; bash yok / Windows")
 def test_betikler_bash_sozdizimi():
     for f in ("deploy/install.sh", "deploy/paket.sh", "tools/kurulum/kilit.sh"):
-        assert subprocess.run(["bash", "-n", str(ROOT / f)]).returncode == 0, f
+        assert subprocess.run(["bash", "-n", f], cwd=ROOT).returncode == 0, f

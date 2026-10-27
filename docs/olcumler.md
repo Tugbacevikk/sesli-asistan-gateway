@@ -282,3 +282,41 @@ satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileş
   ~0,9 sn. Fark tek koşuda görüldü (n = 1); o ölçümde GPU dolu ve Ollama ile paylaşımlıydı. → Teşhis için STT'ye
   cümle sesi kaydı eklendi (`STT_DEBUG_DIR`): Whisper'a giden ses ve sonuç dosyaya yazılır; tekrar görülürse ses
   dinlenip karşılaştırılacak.
+
+---
+
+## Yük testi — dizüstü, hızlı yol açık (27 Ekim 2026)
+
+**Ölçen:** Antigravity. **Araç:** `tools/yuk/yuk.py` (her çağrı santral gibi: REST + kesintisiz RTP, aktarmaya
+`answered`). Arayan sesi: Piper ile üretilmiş "Ayşe Yılmaz ile görüşmek istiyorum." (temiz ses; gerçek hat daha gürültülü).
+
+| | |
+|---|---|
+| Commit | `6ac445b` |
+| Donanım | Dizüstü, RTX 3050 Laptop 4 GB (yük sırasında 3776 / 4096 MiB dolu: Whisper medium + qwen3.5:4b aynı GPU'da) |
+| Servisler | STT (GPU), Ollama qwen3.5:4b, Piper, Gateway (`LLM_TIMEOUT_S=15`, hızlı yol açık) |
+
+| Eşzamanlı | Çağrı | Başarılı / reddedilen / hata | Aktarma | Tur p50 | p90 | **p95** | En çok | Karşılama p50 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 6 | 6 / 0 / 0 | 5 | 1,50 sn | 2,69 | 3,26 | 3,83 | 0,007 sn |
+| 3 | 12 | 12 / 0 / 0 | 12 | 1,47 sn | 1,85 | **2,05** | 2,25 | 0,015 sn |
+| 5 | 20 | 20 / 0 / 0 | 20 | 1,51 sn | 2,29 | **2,66** | 3,01 | 0,007 sn |
+
+- **Tur gecikmesi yarıdan aza indi:** ilk uçtan uca ölçümde (24 satır yukarıda) tur 3,9–6,4 sn idi; şimdi p50 ≈ 1,5 sn.
+  Neden hızlı yol (ADR-016): net tam ad söylenince LLM hiç çağrılmıyor; kalan süre cümle sonu bekleme (0,7 sn) + STT
+  (~0,6 sn) + TTS. p50 eşzamanlılıkla değişmiyor: darboğaz kuyruk değil.
+- **Kuyruk (p95) eşzamanlılıkla artıyor:** 3 çağrıda 2,05 sn (NFR-01 sınırı 2 sn), 5 çağrıda 2,66 sn. Aynı GPU'daki
+  Whisper çözümleri sıraya giriyor (`STT_NUM_WORKERS=1`). 1 eşzamanlıdaki yüksek p95 tek örnekten (6 tur; bir çağrı
+  aktarmadı, büyük olasılıkla o tur LLM'e gitti) — istatistik olarak anlamlı değil.
+- **Bu dizüstünün kapasitesi ≈ 3 eşzamanlı çağrı** (p95 ≈ 2 sn). Sunucu kapasitesi kendi GPU'sunda aynı araçla
+  ölçülür (tasarim.md 11.3); `MAX_CONCURRENT_CALLS` bulunan değerin %80'i.
+- Hiç reddedilen, hatalı ya da cevapsız tur yok; karşılama hazır sesten çalındığı için ~10 ms.
+
+**Aynı raporda bulunan iki sorun (düzeltildi):**
+1. Ayar ekranından eklenen "Ayşe Abla" takma adı işe yaramadı: arama anahtarı hitapları ("abla", "hanım") attığı
+   için "ayse"ye indi ve iki Ayşe'yle çakıştı ("Hangi Ayşe?"). → Ayar ekranında eklenen takma adlar artık **tam
+   hâliyle** (hitabıyla) de eşleşiyor: "ayşe abla (lütfen)" yalnızca Ayşe Yılmaz; hızlı yolda LLM'siz aktarılıyor.
+   Rehber kaynağındaki genel hitaplı takma adlar ("Ayşe Hanım") bulanık aramada kalıyor (aynı adlı başkası da
+   öyle aranabilir).
+2. Windows'ta `bash` WSL yönlendiricisi olduğu için kurulum betiği sözdizimi testi `C:\` yolunu bulamadı → Windows'ta
+   atlanıyor (betikler Linux içindir; CI'da Linux'ta çalışıyor).

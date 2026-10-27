@@ -127,3 +127,17 @@ def test_stt_hatalarinda_net_eslesme(index, name, dept, ext):
 def test_uzamis_ad_aktarilmadan_sorulur(index, name):
     # "Demirci" başka bir soyadı: Mehmet Demir'e kendiliğinden aktarılmamalı (ADR-012), sorulmalı
     assert index.search(name=name).match in (Match.SINGLE_LOW, Match.MULTIPLE)
+
+
+def test_takma_adin_tam_hali_hitabiyla_tek_kisiyi_bulur(index):
+    # "Ayşe Abla" arama anahtarında "ayse"ye iner; tam söylenince yalnızca takma adın sahibi (27.10.2026 deneme)
+    idx = DirectoryIndex(index.contacts())
+    idx.set_extra_aliases({"c-101": ["Ayşe Abla"]})
+    r = idx.search("Ayşe abla")
+    assert r.match == Match.SINGLE_HIGH and r.candidates[0].contact.extension == "214"
+    assert idx.search("ayşe ablaya").candidates[0].contact.extension == "214"       # ek
+    assert idx.search("ayşe abla lütfen").match == Match.SINGLE_HIGH                # cümle içinde
+    assert idx.search("Ayşe").match == Match.MULTIPLE                              # hitapsız: yine iki Ayşe
+    assert idx.search("Ayşe hanım").match == Match.MULTIPLE
+    idx.set_extra_aliases({"c-101": ["Ayşe Abla"], "c-102": ["ayşe abla"]})          # iki kişide aynı takma ad
+    assert idx.search("Ayşe abla").match == Match.MULTIPLE

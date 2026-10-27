@@ -93,6 +93,14 @@ def search_key(text: str) -> str:
     return " ".join(w for w in t.split() if w not in _STOP and strip_suffix(w) not in _STOP)
 
 
+def alias_key(text: str) -> str:
+    """Takma ad için anahtar: unvan / hitap **atılmaz** ("Ayşe Abla" ↔ "Ayşe Hanım" ayrı), ekler atılır."""
+    t = unicodedata.normalize("NFC", text or "")
+    t = re.sub(r"['’]\w*", "", t)
+    t = strip_punct(turkish_lower(t)).translate(_FOLD)
+    return " ".join(strip_suffix(w) for w in t.split())
+
+
 def query_variants(key: str) -> list[str]:
     """Arama anahtarı + ekleri atılmış biçimi (farklıysa)."""
     stripped = " ".join(strip_suffix(w) for w in key.split())
@@ -134,12 +142,33 @@ class DirectoryIndex:
             depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
+        # Ayar ekranında eklenen takma adların tam biçimi: "Ayşe Abla" arama anahtarında "ayse"ye iner ve iki Ayşe'yle
+        # çakışır; tam söylenirse (hitabıyla) yalnızca sahibi bulunur (27.10.2026 deneme). Yalnız yerel takma adlar:
+        # yönetici bunu bilerek, bulunamayan bir aramadan ekler. Rehber kaynağındaki "Ayşe Hanım" gibi genel hitaplı
+        # takma adlar bulanık aramada kalır (aynı adlı başka biri de "Ayşe Hanım" diye aranabilir).
+        self._aliases: dict[str, set[str]] = {}
+        for c, _, _ in entries:
+            for a in self.extra_aliases.get(c.id, ()):
+                if k := alias_key(a):
+                    self._aliases.setdefault(k, set()).add(c.id)
         # kişilerin ad ve soyad sözcükleri (unvan hariç): "sözde bir kişi geçiyor mu" sorusu için
         self.person_words = {w for c, _, _ in entries if c.kind == "person"
                              for w in search_key(f"{c.first_name} {c.last_name}").split() if len(w) >= 3}
 
     def __len__(self) -> int:
         return len(self._entries)
+
+    def alias_match(self, text: str) -> Contact | None:
+        """Sözde bir takma ad **tam** (hitabıyla) geçiyorsa ve tek kişiye aitse o kişi. Tek kelimelik takma ad yalnız
+        sözün tamamıysa sayılır (ör. "IT")."""
+        q = alias_key(text)
+        if not q:
+            return None
+        ids: set[str] = set()
+        for k, owners in self._aliases.items():
+            if k == q or (" " in k and f" {k} " in f" {q} "):
+                ids |= owners
+        return self.get(next(iter(ids))) if len(ids) == 1 else None
 
     def get(self, contact_id: str) -> Contact | None:
         return next((c for c, _, _ in self._entries if c.id == contact_id), None)
@@ -149,6 +178,8 @@ class DirectoryIndex:
         if ext:  # arayan dahili numarayı söyledi: yalnızca tam eşleşme
             hits = [Candidate(c, 100) for c, _, _ in self._entries if c.extension == ext]
             return SearchResult(tuple(hits[:1]), Match.SINGLE_HIGH if hits else Match.NONE)
+        if name and not department and (c := self.alias_match(name)) is not None:
+            return SearchResult((Candidate(c, 100),), Match.SINGLE_HIGH)
         qn, qd = search_key(name), search_key(department)
         vn, vd = query_variants(qn), query_variants(qd)
         if not qn and not qd:
