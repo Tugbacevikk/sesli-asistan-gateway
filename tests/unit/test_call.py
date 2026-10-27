@@ -18,7 +18,16 @@ from sesli_asistan.gateway.core.manager import (
     Unavailable,
 )
 from sesli_asistan.gateway.core.models import Contact
-from sesli_asistan.gateway.core.ports import Audio, LlmError, LlmMessage, PbxError, SttError, SttEvent, ToolCall
+from sesli_asistan.gateway.core.ports import (
+    Audio,
+    LlmDelta,
+    LlmError,
+    LlmMessage,
+    PbxError,
+    SttError,
+    SttEvent,
+    ToolCall,
+)
 from sesli_asistan.gateway.core.search import DirectoryIndex
 from sesli_asistan.gateway.core.speech import PromptLibrary, Speaker
 from sesli_asistan.gateway.core.tools import ToolRegistry
@@ -507,3 +516,90 @@ async def test_ipucu_desteklemeyen_akis_sorun_cikarmaz():
     async with Call(llm) as c:
         c.say("ayşe")
         await c.until(lambda: c.session.state == CallState.LISTENING and c.session.stats.turns)
+
+
+# --- akışlı cevap (ADR-018) -------------------------------------------------------------------------------
+
+class StreamLlm:
+    """chat_stream: verilen parçaları aralarında `gap` sn bekleyerek akıtır; sonunda bütün mesaj."""
+    supports_stream = True
+
+    def __init__(self, *scripts, gap=0.15):
+        self.scripts, self.gap, self.done_at, self.seen = list(scripts), gap, [], []
+
+    async def chat(self, messages, tools):
+        raise AssertionError("akış varken chat çağrılmamalı")
+
+    async def chat_stream(self, messages, tools):
+        self.seen.append(messages)
+        parts, calls = self.scripts.pop(0)
+        for p in parts:
+            await asyncio.sleep(self.gap)
+            yield LlmDelta(text=p)
+        self.done_at.append(asyncio.get_running_loop().time())
+        yield LlmDelta(message=LlmMessage("".join(parts), calls))
+
+
+class TimedMedia(Media):
+    def __init__(self, play_s=0.05):
+        super().__init__(play_s)
+        self.play_at = []
+
+    async def play(self, pcm):
+        self.play_at.append(asyncio.get_running_loop().time())
+        return await super().play(pcm)
+
+
+def stream_call(llm, play_s=0.05, **cfg):
+    c = Call(llm, play_s=play_s, **cfg)
+    c.media = TimedMedia(play_s)
+    c.session.media = c.media
+    return c
+
+
+async def test_akista_ilk_cumle_llm_bitmeden_seslendirilir():
+    llm = StreamLlm((["Sizi anlayamadım. ", "Adı tekrar ", "söyler misiniz?"], []), gap=0.2)
+    async with stream_call(llm, thinking_sound=False) as c:
+        n0 = len(c.media.play_at)
+        c.say("şey")
+        await c.until(lambda: c.session.state == CallState.LISTENING and c.session.stats.turns)
+        plays = c.media.play_at[n0:]
+        assert plays and plays[0] < llm.done_at[0]                       # ilk ses LLM bitmeden
+        t = c.session.stats.turns[0]
+        assert t.reply == "Sizi anlayamadım. Adı tekrar söyler misiniz?" and not t.barged
+        assert len(plays) == 2                                            # iki cümle, ikisi de çalındı (tekrar yok)
+
+
+async def test_akista_soze_girilirse_konusma_durur_diyalog_tamamlanir():
+    llm = StreamLlm((["Bir saniye. ", "Uzun bir açıklama ", "yapıyorum şimdi."], []), gap=0.25)
+    async with stream_call(llm, play_s=0.05, thinking_sound=False) as c:
+        c.say("merhaba")
+        await c.until(lambda: c.session.state == CallState.SPEAKING)
+        await asyncio.sleep(0.1)
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))          # LLM hâlâ yazıyor
+        await c.until(lambda: c.session.stats.barge_ins == 1)
+        await c.until(lambda: c.session.stats.turns and c.session.state != CallState.SPEAKING, timeout=3)
+        assert c.session.stats.turns[0].barged
+        assert c.session.dialog.history[-1]["content"].endswith("yapıyorum şimdi.")   # geçmiş eksiksiz
+
+
+async def test_akista_once_metin_sonra_arac_aktarma_yapilir():
+    llm = StreamLlm((["Hemen bakıyorum. "], [ToolCall("c1", "InContacts", {"Name": "Ayşe Yılmaz"})]))
+    async with stream_call(llm, thinking_sound=False) as c:
+        c.say("ayşe yılmazı arıyorum")
+        await c.until(lambda: c.pbx.actions)
+        assert c.pbx.actions[0]["type"] == "transfer" and c.pbx.actions[0]["extension"] == "214"
+        assert c.session.stats.turns[0].reply == "Sizi Ayşe Yılmaz'a aktarıyorum."
+
+
+async def test_akis_operatore_donusebilecek_turda_kullanilmaz():
+    # 3. başarısızlık operatöre gider: LLM'in cümlesi önceden söylenmemeli (sink kullanılmaz → chat)
+    class Both(StreamLlm):
+        async def chat(self, messages, tools):
+            return LlmMessage("Anlayamadım.")
+    llm = Both(gap=0.01)
+    async with stream_call(llm, thinking_sound=False) as c:
+        c.session.dialog.state.failed_attempts = 2
+        c.say("hımm")
+        await c.until(lambda: c.pbx.actions)
+        assert c.pbx.actions[0]["type"] == "operator" and llm.seen == []

@@ -21,6 +21,12 @@ from .ports import Audio, LlmError, LlmMessage, SttError, TtsError
 log = logging.getLogger(__name__)
 
 
+def supports_stream(llm: Any) -> bool:
+    """LLM akışlı cevap veriyor mu (sarmalayıcılar içteki adaptöre bakar)."""
+    flag = getattr(llm, "supports_stream", None)
+    return bool(flag) if flag is not None else callable(getattr(llm, "chat_stream", None))
+
+
 class CircuitBreaker:
     def __init__(self, name: str, failures: int = 3, reset_s: float = 30.0,
                  clock: Callable[[], float] = time.monotonic):
@@ -75,6 +81,21 @@ class BreakerLlm:
             raise
         self.breaker.success()
         return out
+
+    async def chat_stream(self, messages, tools):
+        if not self.breaker.allow():
+            raise LlmError(f"devre açık: {self.breaker.name}")
+        try:
+            async for d in self.inner.chat_stream(messages, tools):
+                yield d
+        except (LlmError, asyncio.CancelledError, TimeoutError):
+            self.breaker.failure()
+            raise
+        self.breaker.success()
+
+    @property
+    def supports_stream(self) -> bool:
+        return supports_stream(self.inner)
 
 
 class BreakerTts:

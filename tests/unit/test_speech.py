@@ -211,3 +211,45 @@ async def test_onbellek_bozuk_dosyayi_yeniden_uretir(tmp_path):
     (tmp_path / f"{c.key('bir')}.wav").write_bytes(b"bozuk")
     a = await c.synthesize("bir")
     assert isinstance(a, Audio) and len(c.inner.calls) == 1
+
+
+# --- akışlı seslendirme (ADR-018) ---
+
+async def _parts(*items, gap=0.0):
+    for x in items:
+        await asyncio.sleep(gap)
+        yield x
+
+
+async def test_akisli_seslendirme_cumle_geldikce():
+    tts, out = FakeTts(delay=0.02), Out(play_s=0.05)
+    r = await Speaker(tts).say_stream(_parts("Bir. İki.", "Üç.", gap=0.1), out)
+    assert r.ok and r.sentences == 3 and tts.calls == ["Bir.", "İki.", "Üç."]
+    assert r.first_audio_s < 0.2                   # ikinci parça (0,2 sn) beklenmedi
+
+
+async def test_akisli_seslendirme_hata_ve_iptal():
+    lib = PromptLibrary()
+    await lib.preload(FakeTts(), {"error": "Hata anonsu."})
+    out = Out()
+    r = await Speaker(FakeTts(fail_on={1}), lib).say_stream(_parts("Merhaba."), out)
+    assert not r.ok and r.fallback_played
+    tts, out = FakeTts(delay=0.5), Out()
+    task = asyncio.create_task(Speaker(tts).say_stream(_parts("Bir.", "İki.", gap=0.05), out))
+    await asyncio.sleep(0.15)
+    task.cancel()                                  # söze girme
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert out.parts == []
+
+
+@pytest.mark.parametrize("buf,done,rest", [
+    ("Merhaba. Dr. Ayşe Yılmaz toplant", ["Merhaba."], "Dr. Ayşe Yılmaz toplant"),
+    ("Anlamadım. ", ["Anlamadım."], ""),
+    ("Tamam.", [], "Tamam."),                    # sonrası gelmedi: sayı / kısaltma devam edebilir
+    ("Merhaba. Ayşe ", ["Merhaba."], "Ayşe "),   # boşluk korunur (sonraki parça yapışmasın)
+    ("Sayın Dr. ", [], "Sayın Dr. "),
+])
+def test_akan_metinde_tamamlanan_cumleler(buf, done, rest):
+    from sesli_asistan.gateway.core.dialog import complete_sentences
+    assert complete_sentences(buf) == (done, rest)

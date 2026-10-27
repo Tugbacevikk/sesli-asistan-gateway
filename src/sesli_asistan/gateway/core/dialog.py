@@ -21,6 +21,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -28,7 +29,9 @@ from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Candidate, DialogTurn, Match, OperatorAction
 from .ports import LlmError, LlmPort, ToolCall
+from .resilience import supports_stream
 from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
+from .speech import ABBREVIATIONS, split_sentences
 from .tools import CallToolState, ToolRegistry
 
 log = logging.getLogger(__name__)
@@ -89,6 +92,7 @@ class DialogConfig:
     fast_path: bool = True                   # ADR-016: net tam ad / birim hattında LLM beklenmez
     fast_path_min_score: int = 95
     clarify_by_code: bool = True             # ADR-017: birden çok adayda "X mı, Y mi?" sorusu ve seçimi LLM'siz
+    stream_replies: bool = True              # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -105,6 +109,8 @@ class DialogSession:
         self.call_id = call_id
         self.state = CallToolState()
         self.history: list[dict[str, Any]] = []
+        # ADR-018: çağrı oturumu verirse LLM cevabının tamamlanan cümleleri buraya akıtılır (seslendirme başlasın)
+        self.sink: Callable[[str], None] | None = None
 
     def greeting(self) -> DialogTurn:
         text = greeting_text(self.agent.cfg)
@@ -367,8 +373,9 @@ class DialogAgent:
                 # Santral olayından sonra LLM yalnızca konuşur: araç verilmez (ölçüm 26.10.2026, D24/D25:
                 # "araç çağırma" istemine rağmen operatöre bağladı / aynı kişiye tekrar aktardı)
                 tools = self.tools.schemas if caller_turn else []
-                msg = await asyncio.wait_for(self.llm.chat(self._messages(s), tools),
-                                             timeout=self.cfg.llm_timeout_s)
+                # akış: yalnız bu tur operatöre dönüşemeyecekse (söylenen cümle geri alınamaz)
+                may_stream = not caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts
+                msg = await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
             except (TimeoutError, LlmError) as e:
                 log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)
                 return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
@@ -420,6 +427,25 @@ class DialogAgent:
         return self._operator(s, self.cfg.texts.error, reason="tur_siniri")
 
     # --- yardımcılar ---
+
+    async def _chat(self, s: DialogSession, tools: list[dict[str, Any]], may_stream: bool) -> Any:
+        if not (may_stream and s.sink and self.cfg.stream_replies and supports_stream(self.llm)):
+            return await self.llm.chat(self._messages(s), tools)
+        buf, final = "", None
+        async for d in self.llm.chat_stream(self._messages(s), tools):
+            if d.message is not None:
+                final = d.message
+                break
+            buf += d.text
+            if "<think>" in buf and "</think>" not in buf:
+                continue                                   # düşünme bloğu bitmeden konuşma
+            done, buf = complete_sentences(buf)
+            for sentence in done:
+                if text := clean_reply(sentence):
+                    s.sink(text)
+        if final is None:
+            raise LlmError("akış mesajsız bitti")
+        return final
 
     def _messages(self, s: DialogSession) -> list[dict[str, Any]]:
         """Sistem istemi + son `max_history` mesaj; kesim bir kullanıcı mesajında başlar
@@ -507,6 +533,19 @@ def which_question(contacts: list[Any]) -> str | None:
                                                                                                 strict=True)]
     text = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
     return text[0].upper() + text[1:]
+
+
+def complete_sentences(buf: str) -> tuple[list[str], str]:
+    """Akan metinden tamamlanmış cümleler + kalan (ADR-018). Son parça ancak noktalamayla bitip ardından boşluk
+    gelmişse (sıradaki parça başladıysa) tamamdır; "Dr." gibi kısaltmalar cümle sonu sayılmaz (split_sentences)."""
+    parts = split_sentences(buf)
+    if not parts:
+        return [], buf
+    last = parts[-1]
+    word = last.split()[-1].lower().rstrip(".") if last.split() else ""
+    if buf != buf.rstrip() and last[-1:] in ".!?…" and word not in ABBREVIATIONS:
+        return parts, ""
+    return parts[:-1], buf[buf.rfind(last):]
 
 
 def _assistant_tool_message(content: str, calls: list[ToolCall]) -> dict[str, Any]:

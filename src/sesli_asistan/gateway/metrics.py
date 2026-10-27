@@ -119,6 +119,24 @@ class TimedLlm:
             self.m.llm_latency.observe(time.perf_counter() - t0)
 
 
+    @property
+    def supports_stream(self) -> bool:
+        from .core.resilience import supports_stream
+
+        return supports_stream(self.inner)
+
+    async def chat_stream(self, messages, tools):
+        t0 = time.perf_counter()
+        try:
+            async for d in self.inner.chat_stream(messages, tools):
+                yield d
+        except Exception:
+            self.m.llm_errors.inc()
+            raise
+        finally:
+            self.m.llm_latency.observe(time.perf_counter() - t0)
+
+
 class TimedTts:
     def __init__(self, inner: Any, m: GatewayMetrics):
         self.inner, self.m = inner, m

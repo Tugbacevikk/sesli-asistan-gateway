@@ -23,8 +23,19 @@ class LlmError(Exception):
     """LLM'e ulaşılamadı, zaman aşımı ya da geçersiz yanıt."""
 
 
+@dataclass(frozen=True)
+class LlmDelta:
+    """Akışlı LLM cevabının parçası: metin parçası ya da (son öğe) bütün mesaj."""
+
+    text: str = ""
+    message: LlmMessage | None = None
+
+
 class LlmPort(Protocol):
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> LlmMessage: ...
+
+    # İsteğe bağlı: def chat_stream(messages, tools) -> AsyncIterator[LlmDelta] — metin parçaları, sonunda
+    # `message` dolu tek öğe. Uygulamayan adaptörde diyalog akışsız çalışır (ADR-018).
 
 
 @dataclass(frozen=True)

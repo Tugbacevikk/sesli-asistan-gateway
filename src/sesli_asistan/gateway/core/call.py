@@ -311,7 +311,19 @@ class CallSession:
         self._emit("heard", text=heard)
         self.state = CallState.THINKING
         t0 = self.clock()
-        turn = await self._thinking(self.dialog.handle_user(heard))
+        if getattr(self.dialog.agent.cfg, "stream_replies", False):
+            # ADR-018: LLM cevabının ilk cümlesi hazır olunca konuşmaya başla, kalanı geldikçe
+            q: asyncio.Queue[str] = asyncio.Queue()
+            self.dialog.sink = q.put_nowait
+            work = asyncio.create_task(self.dialog.handle_user(heard), name=f"diyalog-{self.call_id}")
+            first = await self._thinking(_first_of(q, work))
+            if first is not None:
+                self._start_stream_speech(first, q, work, heard_at=inputs[0].at, heard=heard, t0=t0)
+                return
+            self.dialog.sink = None
+            turn = await work
+        else:
+            turn = await self._thinking(self.dialog.handle_user(heard))
         dialog_s = self.clock() - t0
         log.info("[%s] tur: %r → %r %s (%.2f sn)", self.call_id, heard, turn.text,
                  [a.type for a in turn.actions], dialog_s)
@@ -338,12 +350,77 @@ class CallSession:
             for i in range(0, len(pcm), 4000):        # 0,5 sn'lik parçalar
                 await self.media.play(pcm[i:i + 4000])
 
-    def _start_speech(self, turn: DialogTurn, heard_at: float | None, heard: str, dialog_s: float = 0.0) -> None:
+    def _route(self, turn: DialogTurn) -> DialogTurn:
         if self.office != OPEN and any(isinstance(a, OperatorAction) for a in turn.actions):
             # mesai dışı: operatör yok — "operatöre bağlıyorum" yerine bilgi verip kapat
             reason = next(a.reason for a in turn.actions if isinstance(a, OperatorAction))
             turn = DialogTurn(self.dialog.agent.cfg.texts.no_operator, [HangupAction(f"operator_yok:{reason}")],
                               fallback=True)
+        return turn
+
+    def _start_stream_speech(self, first: str, q: asyncio.Queue, work: asyncio.Task, heard_at: float,
+                             heard: str, t0: float) -> None:
+        """Diyalog sürerken konuşma (ADR-018). Olay döngüsü serbest kalır: söze girme ve DTMF işlenir. Turun
+        eylemleri diyalog bitince (konuşmanın sonunda ya da söze girilince) uygulanır."""
+        self.state = CallState.SPEAKING
+        self._speech_id += 1
+        self._speech_began = self.clock()
+        meta = {"id": self._speech_id, "turn": None, "work": work, "heard_at": heard_at, "heard": heard,
+                "dialog_s": 0.0, "t0": t0}
+        self._speech_meta = meta
+
+        async def chunks():
+            spoken = [first]
+            yield first
+            while True:
+                nxt = await _first_of(q, work)
+                if nxt is None:
+                    break
+                spoken.append(nxt)
+                yield nxt
+            turn = await self._finish_work(meta)
+            said = " ".join(spoken)
+            rest = turn.text[len(said):].strip() if turn.text.startswith(said) else turn.text
+            if rest:
+                yield rest
+
+        self._speech = asyncio.create_task(self._speak_stream(chunks(), self._speech_id),
+                                           name=f"konusma-{self.call_id}")
+
+    async def _finish_work(self, meta: dict[str, Any]) -> DialogTurn:
+        """Akışlı konuşmanın diyalog sonucu (bir kez): yönlendirme, ölçüm, log, ipuçları."""
+        if meta["turn"] is None:
+            try:
+                # shield: söze girme konuşmayı iptal eder ama diyalog yarıda kalmamalı (geçmiş ve eylem tutarlı kalsın)
+                turn = await asyncio.shield(meta["work"])
+            finally:
+                self.dialog.sink = None
+            meta["turn"] = self._route(turn)
+            meta["dialog_s"] = self.clock() - meta["t0"]
+            turn = meta["turn"]
+            log.info("[%s] tur (akışlı): %r → %r %s (%.2f sn)", self.call_id, meta["heard"], turn.text,
+                     [a.type for a in turn.actions], meta["dialog_s"])
+            if turn.text:
+                self._emit("reply", text=turn.text)
+            await self._update_hints()
+        return meta["turn"]
+
+    async def _speak_stream(self, chunks: Any, speech_id: int) -> None:
+        said_at = self.clock()
+        completed, first, tts_ok, heard_any = False, None, True, True
+        try:
+            res = await self.speaker.say_stream(chunks, self.media)
+            first, tts_ok, heard_any = res.first_audio_s, res.ok, res.sentences > 0
+            completed = True
+        finally:
+            with contextlib.suppress(Exception):
+                await chunks.aclose()
+            self._q.put_nowait(_Event("speech_done", {"speech_id": speech_id, "completed": completed,
+                                                      "said_at": said_at, "first_audio_s": first,
+                                                      "tts_ok": tts_ok, "heard_any": heard_any}, self.clock()))
+
+    def _start_speech(self, turn: DialogTurn, heard_at: float | None, heard: str, dialog_s: float = 0.0) -> None:
+        turn = self._route(turn)
         if self.state != CallState.GREETING:
             self.state = CallState.SPEAKING
         self._speech_id += 1
@@ -374,7 +451,7 @@ class CallSession:
         if self._speech_meta.get("id") != speech_id:
             return   # yerine yenisi başlatılmış (DTMF, acil operatör) konuşmanın bitişi
         meta, self._speech_meta = self._speech_meta, {}
-        turn: DialogTurn = meta["turn"]
+        turn: DialogTurn = meta["turn"] if meta["turn"] is not None else await self._finish_work(meta)
         latency = None
         if meta["heard_at"] is not None and first_audio_s is not None:
             latency = round(said_at - meta["heard_at"] + first_audio_s, 3)
@@ -536,6 +613,23 @@ class CallSession:
         with contextlib.suppress(Exception):
             await asyncio.wait_for(self.speaker.say(text, self.media), timeout=15)
         await self._send_operator(reason)
+
+
+async def _first_of(q: asyncio.Queue, work: asyncio.Task) -> str | None:
+    """Kuyruktaki sıradaki cümle; diyalog bitip kuyruk boşsa None."""
+    if not q.empty():
+        return q.get_nowait()
+    if work.done():
+        return None
+    getter = asyncio.create_task(q.get())
+    try:
+        await asyncio.wait({getter, work}, return_when=asyncio.FIRST_COMPLETED)
+    finally:
+        if not getter.done():
+            getter.cancel()
+    if getter.done() and not getter.cancelled():
+        return getter.result()
+    return q.get_nowait() if not q.empty() else None
 
 
 _KEYBOARD = None

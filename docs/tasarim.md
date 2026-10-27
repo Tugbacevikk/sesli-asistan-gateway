@@ -1092,6 +1092,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
 | `CLARIFY_BY_CODE` | true | ADR-017: birden çok adayda soru ve cevaptan seçim LLM'siz |
+| `STREAM_REPLIES` | true | ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
@@ -1437,6 +1438,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Bağlam:** Arayüz denemesinde (27.10.2026) "ayşe hanım" → "Hangi Ayşe?" sorusu 5,7 sn sürdü: LLM önce aracı çağırıyor, sonra soruyu yazıyor (iki LLM turu). Rehberde aynı adlı kişiler en sık belirsizlik.
 - **Karar:** (1) Sözde yalnızca birden çok kişiye yüksek puanla uyan bir ad varsa (birim, unvan, olumsuzluk, tam ad yoksa) arama ve soru LLM'siz yapılır. (2) LLM'in aradığı ve `multiple` dönen sonuçta ikinci LLM turu beklenmez. Soru koddan kurulur, Türkçe eklerle: "Muhasebeden Ayşe Yılmaz mı, Satıştan Ayşe Kaya mı?" (birimler aynıysa yalnız adlarla; ad ve birim aynıysa ayırt edilemez → LLM sorar). (3) Arayanın cevabı bir tur boyunca adaylara karşı denetlenir: birim ya da birim takma adı ("muhasebedeki", "finans"), soyad, tam ad ya da sıra ("ilki", "ikincisi"). Tek aday seçilirse TransferPolicy'den geçen aktarma; olumsuzluk, birden çok ya da hiç eşleşme → LLM, geçmişte arama + sonuç + soru durur.
 - **Sonuç:** En sık belirsiz durum LLM'siz iki tur (~1,5 sn + ~1,5 sn). `CLARIFY_BY_CODE=false` ile kapatılır.
+
+### ADR-018 — LLM cevabı akışla seslendirilir
+- **Bağlam:** LLM'in yazdığı cevaplarda (bulunamadı, sohbet, meşgul sonrası) arayan, cevabın tamamı üretilene kadar bekliyordu; iki cümlelik cevapta ilk cümlenin sesi ikinci cümle bitene kadar gecikiyordu.
+- **Karar:** Ollama akışlı uç (`stream: true`) kullanılır. Diyalog, tamamlanan her cümleyi (noktalama + ardından boşluk; "Dr." gibi kısaltmalar hariç) çağrı oturumuna akıtır; oturum ilk cümle gelince düşünme sesini keser ve konuşmaya başlar, sonrakiler geldikçe seslendirilir (seslendirme çalarken sıradaki hazırlanır). Konuşma sırasında olay döngüsü serbesttir: söze girme ve DTMF işlenir. Turun eylemi (aktarma, operatör) diyalog bitince uygulanır; söze girilse de diyalog yarıda kesilmez (geçmiş tutarlı kalır), aktarma cümlesine söze girilirse aktarma yine yapılmaz. Metinden sonra araç çağrısı gelirse ("Hemen bakıyorum." → aktarma) söylenen cümleden sonra aktarma cümlesi söylenir. **Akış yalnız o tur operatöre dönüşemeyecekse kullanılır** (3. başarısızlıkta söylenmiş cümle geri alınamaz). Akış desteklemeyen LLM adaptöründe (openai) eski yol. Sarmalayıcılar (devre kesici, metrik) akışı da kapsar.
+- **Sonuç:** Çok cümleli LLM cevaplarında ilk ses ≈ ilk cümlenin üretim süresi. Net isteklerde LLM zaten kullanılmıyor (ADR-016/017). `STREAM_REPLIES=false` ile kapatılır.
 
 ### ADR-015 — Kadın sesi: Seslen TTS servisi
 - **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.

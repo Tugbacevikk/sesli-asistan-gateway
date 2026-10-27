@@ -89,3 +89,53 @@ async def test_artimli_guncelleme_sunucu_saatini_kullanir():
     await cache.refresh()
     await cache.refresh()
     assert calls == [None, "T1"] and len(cache.index) == 0
+
+
+async def test_ollama_akisli_cevap():
+    lines = [{"message": {"content": "Sizi "}}, {"message": {"content": "anlayamadım. "}},
+             {"message": {"content": "Tekrar söyler misiniz?",
+                          "tool_calls": [{"function": {"name": "InContacts", "arguments": {"Name": "Ayşe"}}}]}},
+             {"done": True, "message": {"content": ""}}]
+
+    def handler(req):
+        body = json.loads(req.content)
+        assert body["stream"] is True and body["think"] is False
+        return httpx.Response(200, content="\n".join(json.dumps(x) for x in lines).encode())
+
+    llm = OllamaChat(client=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://x"))
+    out = [d async for d in llm.chat_stream([{"role": "user", "content": "x"}], [])]
+    assert [d.text for d in out[:-1]] == ["Sizi ", "anlayamadım. ", "Tekrar söyler misiniz?"]
+    msg = out[-1].message
+    assert msg.content == "Sizi anlayamadım. Tekrar söyler misiniz?" and msg.tool_calls[0].arguments == {"Name": "Ayşe"}
+
+
+async def test_ollama_akis_hatasi_llmerror():
+    llm = OllamaChat(client=httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, content=b'{"error": "model yok"}')),
+        base_url="http://x"))
+    with pytest.raises(LlmError, match="model yok"):
+        [d async for d in llm.chat_stream([], [])]
+
+
+async def test_sarmalayicilar_akisi_iletir_ve_olcer():
+    from sesli_asistan.gateway.core.ports import LlmDelta, LlmMessage
+    from sesli_asistan.gateway.core.resilience import BreakerLlm, CircuitBreaker, supports_stream
+    from sesli_asistan.gateway.metrics import GatewayMetrics, TimedLlm
+
+    class S:
+        supports_stream = True
+
+        async def chat_stream(self, m, t):
+            yield LlmDelta(text="a")
+            yield LlmDelta(message=LlmMessage("a"))
+
+    class Plain:
+        async def chat(self, m, t):
+            return LlmMessage("x")
+
+    m = GatewayMetrics()
+    b = CircuitBreaker("llm", failures=1)
+    w = BreakerLlm(TimedLlm(S(), m), b)
+    assert supports_stream(w) and not supports_stream(BreakerLlm(TimedLlm(Plain(), m), b))
+    assert [d.text async for d in w.chat_stream([], [])] == ["a", ""]
+    assert m.registry.get_sample_value("llm_latency_seconds_count") == 1

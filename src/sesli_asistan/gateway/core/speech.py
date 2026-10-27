@@ -16,6 +16,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 
@@ -31,7 +32,9 @@ LINE_RATE = 8000
 # --- metin hazırlama -------------------------------------------------------------------------
 
 # Nokta ile biten ama cümle bitirmeyen kısaltmalar
-_ABBREV = {"dr", "av", "prof", "doç", "uzm", "op", "müh", "öğr", "gör", "vb", "vs", "örn", "no", "tel", "sn", "bkz"}
+ABBREVIATIONS = {"dr", "av", "prof", "doç", "uzm", "op", "müh", "öğr", "gör", "vb", "vs", "örn", "no", "tel", "sn",
+                 "bkz"}
+_ABBREV = ABBREVIATIONS
 _SENT_END = re.compile(r"([.!?…]+)(\s+|$)")
 _SEPARATED_DIGITS = re.compile(r"\b\d(?:[-–]\d)+\b")    # "2-1-4" → tek tek
 _DECIMAL = re.compile(r"\b(\d+),(\d+)\b")              # "3,5" → "üç virgül beş"
@@ -170,6 +173,42 @@ class Speaker:
         finally:
             if nxt is not None and not nxt.done():
                 nxt.cancel()  # barge-in ya da hata: bekleyen seslendirme boşa çalışmasın
+
+    async def say_stream(self, chunks: Any, out: AudioOutPort) -> SpeakResult:
+        """Metin parça parça gelirken seslendirir (ADR-018): her cümle gelir gelmez seslendirmeye başlanır, çalınırken
+        sıradakiler hazırlanır. `chunks`: async iterator (str). Söze girmede (iptal) bekleyen seslendirmeler durur."""
+        t0 = time.perf_counter()
+        res = SpeakResult(True)
+        q: asyncio.Queue = asyncio.Queue()
+
+        async def produce() -> None:
+            try:
+                async for text in chunks:
+                    for sentence in split_sentences(text):
+                        ready = self.library.by_text(sentence)
+                        q.put_nowait(ready if ready is not None else asyncio.create_task(self._synth(sentence)))
+            finally:
+                q.put_nowait(None)
+
+        prod = asyncio.create_task(produce())
+        try:
+            while (item := await q.get()) is not None:
+                try:
+                    pcm = await item if isinstance(item, asyncio.Task) else item
+                except (TtsError, TimeoutError) as e:
+                    return await self._failed(res, out, f"cümle {res.sentences + 1}: {e or type(e).__name__}")
+                if res.first_audio_s is None:
+                    res.first_audio_s = time.perf_counter() - t0
+                await out.play(pcm)
+                res.sentences += 1
+            await prod                                  # üreticinin hatası (diyalog) yukarı çıksın
+            return res
+        finally:
+            prod.cancel()
+            while not q.empty():
+                item = q.get_nowait()
+                if isinstance(item, asyncio.Task):
+                    item.cancel()
 
     async def _synth(self, sentence: str) -> np.ndarray:
         audio = await asyncio.wait_for(self.tts.synthesize(prepare_for_tts(sentence)), timeout=self.timeout_s)

@@ -63,6 +63,7 @@ class GatewaySettings(BaseSettings):
     max_history: int = Field(16, ge=4)
     fast_path: bool = True                    # ADR-016: net tam ad / birim hattında LLM beklenmez
     clarify_by_code: bool = True              # ADR-017: birden çok adayda soru ve seçim LLM'siz
+    stream_replies: bool = True               # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
 
     # TTS (tasarim.md 5.4, 6.4)
     tts_url: str = "http://127.0.0.1:5500"

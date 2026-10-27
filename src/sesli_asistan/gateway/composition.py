@@ -49,7 +49,7 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
     cfg = DialogConfig(organization=s.organization_name, max_failed_attempts=s.max_failed_attempts,
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
                        llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts(), fast_path=s.fast_path,
-                       clarify_by_code=s.clarify_by_code)
+                       clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies)
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
 
 
