@@ -302,7 +302,7 @@ satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileş
 | 3 | 12 | 12 / 0 / 0 | 12 | 1,47 sn | 1,85 | **2,05** | 2,25 | 0,015 sn |
 | 5 | 20 | 20 / 0 / 0 | 20 | 1,51 sn | 2,29 | **2,66** | 3,01 | 0,007 sn |
 
-- **Tur gecikmesi yarıdan aza indi:** ilk uçtan uca ölçümde (24 satır yukarıda) tur 3,9–6,4 sn idi; şimdi p50 ≈ 1,5 sn.
+- **Tur gecikmesi yarıdan aza indi:** "Uçtan uca çağrı — ilk ölçüm"de tur 3,9–6,4 sn idi; şimdi p50 ≈ 1,5 sn.
   Neden hızlı yol (ADR-016): net tam ad söylenince LLM hiç çağrılmıyor; kalan süre cümle sonu bekleme (0,7 sn) + STT
   (~0,6 sn) + TTS. p50 eşzamanlılıkla değişmiyor: darboğaz kuyruk değil.
 - **Kuyruk (p95) eşzamanlılıkla artıyor:** 3 çağrıda 2,05 sn (NFR-01 sınırı 2 sn), 5 çağrıda 2,66 sn. Aynı GPU'daki
