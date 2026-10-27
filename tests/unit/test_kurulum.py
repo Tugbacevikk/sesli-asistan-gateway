@@ -82,6 +82,7 @@ def test_betikler_shellcheck():
     assert r.returncode == 0, r.stdout
 
 
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash yok (Windows)")
 def test_betikler_bash_sozdizimi():
     for f in ("deploy/install.sh", "deploy/paket.sh", "tools/kurulum/kilit.sh"):
         assert subprocess.run(["bash", "-n", str(ROOT / f)]).returncode == 0, f
