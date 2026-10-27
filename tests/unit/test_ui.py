@@ -152,3 +152,15 @@ def test_yazarak_deneme():
         ws.send_text(json.dumps({"type": "hangup"}))
         summary, _ = recv_until(ws, "summary")
     assert summary["channel"] == "web-metin" and summary["turns"][0]["heard"] == "muhasebeden ayşe hanım"
+
+
+def test_mesai_durumu_arayuzden_zorlanir_ve_saglikta_gorunur():
+    tc, rt = client()
+    with tc, tc.websocket_connect("/v1/ui/ws?mod=metin&mesai=tatil") as ws:
+        act, seen = recv_until(ws, "pbx_action")
+        assert act["action"] == "hangup"
+        assert next(e for e in seen if e["type"] == "reply")["text"].startswith("Bugün tatil")
+        ws.send_text(json.dumps({"type": "hangup"}))
+        summary, _ = recv_until(ws, "summary")
+        assert summary["outcome"] == "closed" and summary["reason"] == "tatil"
+        assert tc.get("/v1/admin/health").json()["office"] == "acik"     # kural yok: hep açık

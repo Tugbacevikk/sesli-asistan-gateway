@@ -5,6 +5,8 @@ import asyncio
 import logging
 import time
 from dataclasses import replace
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -22,6 +24,7 @@ from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.manager import CallManager, NewCall, PortPool
 from .core.ports import LlmPort, MediaPort
+from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
@@ -102,6 +105,8 @@ class GatewayRuntime:
                         if s.call_history_db else MemoryCallHistory(self.manager))
         self._prompts_missing = False
         self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
+        self.office = s.office()
+        self._tz = ZoneInfo(s.timezone.strip()) if s.timezone.strip() else None
         self._health_task: asyncio.Task | None = None
         self._last_purge = time.monotonic()
 
@@ -117,9 +122,14 @@ class GatewayRuntime:
                 out[name] = "devre_acik"
         return out
 
+    def office_status(self) -> str:
+        """acik | mesai_disi | tatil (tasarim.md 5.1.3)."""
+        return self.office.status(datetime.now(self._tz))
+
     def health(self) -> dict:
         return {"status": "ok" if self.ready else "degraded", "components": self.effective_components(),
-                "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls}
+                "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls,
+                "office": self.office_status()}
 
     async def _open_media(self, port: int, req: NewCall) -> MediaPort:
         return await RtpMedia.open(self.s.rtp_host, port, req.codec, req.rtp_remote, self.s.allowed_ips)
@@ -127,17 +137,21 @@ class GatewayRuntime:
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
                            self.pbx, self._call_config(), hotwords=self.directory.index.hotwords(),
-                           thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"))
+                           thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"),
+                           office=self.office_status())
 
     def _call_config(self) -> CallConfig:
         return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
                           transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
                           no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max,
-                          thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s)
+                          thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s,
+                          after_hours_mode=self.s.after_hours_mode)
 
-    def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False) -> CallSession:
+    def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False,
+                    office: str | None = None) -> CallSession:
         """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
-        text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer)."""
+        text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer).
+        office: mesai durumunu denemek için zorla (acik | mesai_disi | tatil); None: saate göre."""
         cfg = self._call_config()
         channel = "web-metin" if text_mode else "web"
         stats = self.metrics.observer(channel)
@@ -150,7 +164,8 @@ class GatewayRuntime:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
         return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
                            cfg, hotwords=self.directory.index.hotwords(), observer=both,
-                           thinking_pcm=self.thinking_pcm, channel=channel)
+                           thinking_pcm=self.thinking_pcm, channel=channel,
+                           office=office if office in (OPEN, AFTER_HOURS, HOLIDAY) else self.office_status())
 
     async def _record(self, call_id: str, stats) -> None:
         await asyncio.to_thread(self.history.add, call_id, stats)

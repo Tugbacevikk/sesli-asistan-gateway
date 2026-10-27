@@ -12,9 +12,10 @@ from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .core.dialog import DialogTexts
+from .core.schedule import OfficeHours
 
 _TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
-                "transferring_department")
+                "transferring_department", "closed", "holiday", "no_operator")
 
 
 class GatewaySettings(BaseSettings):
@@ -80,6 +81,13 @@ class GatewaySettings(BaseSettings):
     thinking_sound_file: str = ""             # kendi sesiniz (WAV, mono/stereo, herhangi hız); boş: kodla üretilen ses.
                                               # Lisansı ürüne uygun olmalı (ADR-013, R-11)
 
+    # Mesai saatleri ve tatiller (tasarim.md 5.1.3). Boş: her zaman açık
+    office_hours: str = ""                    # ör. "pzt-cum 08:30-12:30,13:30-18:00; cmt 09:00-13:00"
+    holidays: str = ""                        # ör. "01-01, 04-23, 2027-03-19..2027-03-21, 2026-10-28@13:00"
+    after_hours_mode: Literal["announce", "assistant"] = "announce"
+    #   announce: kapanış anonsu + kapat; assistant: asistan çalışır, operatör yerine anons + kapat
+    timezone: str = "Europe/Istanbul"         # boş: sunucunun yerel saati
+
     # Koddan söylenen cümleler (tasarim.md 13). Boş: varsayılan metin (core/dialog.py DialogTexts).
     # Yer tutucular: {kurum} {kurum_e} (karşılama), {ad} {ad_e} (kişiye aktarma), {birim} (birime aktarma).
     greeting_text: str = ""
@@ -90,6 +98,9 @@ class GatewaySettings(BaseSettings):
     error_text: str = ""
     transferring_text: str = ""
     transferring_department_text: str = ""
+    closed_text: str = ""
+    holiday_text: str = ""
+    no_operator_text: str = ""
 
     # Çağrı geçmişi (kalıcı, SQLite). Boş: yalnız bellekte son 100 çağrı. Kişisel veri: saklama süresi dolunca silinir
     call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db
@@ -124,9 +135,23 @@ class GatewaySettings(BaseSettings):
                                  "{ad} {ad_e} {birim})") from None
             if any(n not in text for n in needs):
                 raise ValueError(f"{name} şunu içermeli: {', '.join(needs)}")
+        self.office()          # biçim hatası açılışta görünsün
+        if self.timezone.strip():
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+            try:
+                ZoneInfo(self.timezone.strip())
+            except (ZoneInfoNotFoundError, ValueError):
+                raise ValueError(f"TIMEZONE bilinmiyor: {self.timezone!r} (Windows'ta 'tzdata' paketi gerekir)") \
+                    from None
         if "{ad" not in t.transferring:
             raise ValueError("TRANSFERRING_TEXT {ad} ya da {ad_e} içermeli")
         return self
+
+    def office(self) -> OfficeHours:
+        try:
+            return OfficeHours.parse(self.office_hours, self.holidays)
+        except ValueError as e:
+            raise ValueError(f"OFFICE_HOURS / HOLIDAYS: {e}") from None
 
     @property
     def ui_ips(self) -> set[str] | None:

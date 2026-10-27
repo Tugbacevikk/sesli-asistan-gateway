@@ -80,7 +80,15 @@ class OperatorAction:
     type: str = "operator"
 
 
-Action = TransferAction | OperatorAction
+@dataclass(frozen=True)
+class HangupAction:
+    """Kapanış anonsundan sonra çağrıyı kapat (mesai dışı / tatil, tasarim.md 5.1.3)."""
+
+    reason: str
+    type: str = "hangup"
+
+
+Action = TransferAction | OperatorAction | HangupAction
 
 
 @dataclass

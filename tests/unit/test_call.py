@@ -126,13 +126,13 @@ def index():
 class Call:
     """Bir oturum + sahteleri; olay gönderme ve bekleme yardımcıları."""
 
-    def __init__(self, llm=None, stt=None, pbx=None, play_s=0.05, **cfg):
+    def __init__(self, llm=None, stt=None, pbx=None, play_s=0.05, office="acik", **cfg):
         self.llm, self.stt, self.pbx = llm or Llm(), stt or Stt(), pbx or Pbx()
         self.media = Media(play_s)
         agent = DialogAgent(self.llm, ToolRegistry(index()), DialogConfig(organization="Deneme", fast_path=False))
         self.session = CallSession("c1", "pcma", self.media, self.stt, Speaker(Tts(), PromptLibrary()),
                                    agent.new_session("c1"), self.pbx,
-                                   CallConfig(tick_s=0.02, **cfg), hotwords=["Ayşe Yılmaz"])
+                                   CallConfig(tick_s=0.02, **cfg), hotwords=["Ayşe Yılmaz"], office=office)
         self.task = None
 
     async def __aenter__(self):

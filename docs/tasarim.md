@@ -368,6 +368,24 @@ SPEECH_STARTED'ı, ondan sonra başlayan cevabı kesmez. Her durumdan `DELETE` i
 | Beklenmeyen hata | Hata anonsu + operatör; diğer çağrılar etkilenmez |
 | Santral DELETE göndermez | Süre sınırı + 60 sn sonra oturum silinir |
 
+#### 5.1.3 Mesai saatleri ve tatiller
+
+Çağrı açılırken saat (`TIMEZONE`, varsayılan Europe/Istanbul) kurallara göre değerlendirilir: **açık**, **mesai dışı** ya da **tatil**. Durum çağrı boyunca değişmez (18:00'i geçen görüşme kesilmez).
+
+```
+OFFICE_HOURS = "pzt-cum 08:30-12:30,13:30-18:00; cmt 09:00-13:00"   # yazılmayan gün kapalı; boş: hep açık
+HOLIDAYS     = "01-01, 04-23, 05-01, 05-19, 07-15, 08-30, 10-29,      # AA-GG: her yıl
+                2027-03-19..2027-03-21,                               # dini bayramlar her yıl ayrıca yazılır
+                2026-10-28@13:00"                                     # arife: 13:00'te kapanır
+```
+
+| `AFTER_HOURS_MODE` | Davranış |
+|---|---|
+| `announce` (varsayılan) | Karşılama yerine kapanış anonsu (`CLOSED_TEXT` / `HOLIDAY_TEXT`), ardından santrale `hangup`. LLM ve STT kullanılmaz. Anonsa söze girilemez, 0 tuşu işlemez |
+| `assistant` | Asistan normal çalışır (7/24 dahililere, ör. güvenlik, aktarır). Operatöre gidecek her durum (arayan istedi, bulunamadı, 0 tuşu, sessizlik, süre) operatörün yokluğunu bildiren anons (`NO_OPERATOR_TEXT`) + `hangup` olur |
+
+Sonuç `closed` (gerekçe `mesai_disi`, `tatil` ya da `operator_yok:<neden>`), geçmişe ve `calls_total{outcome="closed"}` metriğine yazılır. Teknik hatalarda (STT/TTS çöktü) santrale yine `operator` gönderilir; o saatte operatör yoksa santralin kendi gece yönlendirmesi devreye girer. Kurallar hatalıysa Gateway açılmaz (hata mesajı hangi kalemin bozuk olduğunu söyler). Arayüzde "Mesai durumu" seçiciyle kurallar saati beklemeden denenir; izleme sekmesi anlık durumu gösterir.
+
 ### 5.2 STT Service
 
 STT servisi, mevcut sistemde test edilmiş Türkçe hattı izler (ADR-010):
@@ -998,7 +1016,7 @@ en yüksek N bulunur ve `max_concurrent_calls` bunun %80'ine ayarlanır.
 | Metrik | Tür | Açıklama |
 |---|---|---|
 | `calls_active` | gauge | Açık oturum sayısı |
-| `calls_total{outcome}` | counter | `transferred`, `operator`, `hangup`, `error` |
+| `calls_total{outcome}` | counter | `transferred`, `operator`, `closed`, `hangup`, `error` |
 | `turn_latency_seconds` | histogram | Arayan sustu → asistan sesi başladı |
 | `stt_latency_seconds` | histogram | Utterance → FINAL |
 | `llm_latency_seconds{round}` | histogram | LLM tur süresi |
@@ -1045,6 +1063,10 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
+| `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
+| `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
+| `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
+| `CLOSED_TEXT` / `HOLIDAY_TEXT` / `NO_OPERATOR_TEXT` | (varsayılan metin) | Mesai dışı anonsları |
 | `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
 | `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
 | `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |

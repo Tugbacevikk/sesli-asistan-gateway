@@ -14,6 +14,7 @@ WebSocket protokolü:
                        metin: {"type": "text", "text": ...} (yazarak konuşma) | {"type": "transfer_result", ...}
                               | {"type": "dtmf", "digit": ...} | {"type": "hangup"}
   `?mod=metin`: yazarak deneme (mikrofon yok); ses yine çalınır, sessizlik uyarısı ve ses zaman aşımı kapalı.
+  `?mesai=acik|mesai_disi|tatil`: mesai durumunu zorla (kuralları saati beklemeden denemek için).
   Gateway → tarayıcı   ikili: çalınacak 8 kHz mono PCM16, gerçek zaman hızında (20 ms'lik parçalar)
                        metin: {"type": "call", "call_id"} | {"type": "state" | "heard" | "reply" | "turn" | "action"
                               | "barge_in" | "ended", ...} | {"type": "clear"} (çalmayı hemen kes) | {"type": "error"}
@@ -196,9 +197,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         out = _Outbox(websocket)
         call_id = f"web-{secrets.token_hex(3)}"
         text_mode = websocket.query_params.get("mod") == "metin"
+        office = websocket.query_params.get("mesai") or None     # deneme: acik | mesai_disi | tatil
         media, pbx = WsMedia(out, text_mode=text_mode), WebPbx(out)
         session = web_session(call_id, media, pbx, lambda kind, data: out.put({**data, "type": kind}),
-                              text_mode=text_mode)
+                              text_mode=text_mode, office=office)
         try:
             task = manager.attach(session)
         except CallError as e:

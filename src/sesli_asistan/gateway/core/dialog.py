@@ -65,6 +65,12 @@ class DialogTexts:
     error: str = "Şu an size yardımcı olamıyorum. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     transferring: str = "Sizi {ad_e} aktarıyorum."
     transferring_department: str = "Sizi {birim} birimine aktarıyorum."
+    closed: str = ("Şu an mesai saatlerimiz dışındayız. Lütfen mesai saatlerimiz içinde tekrar arayın. "
+                   "İyi günler dileriz.")
+    holiday: str = ("Bugün tatil nedeniyle hizmet veremiyoruz. Lütfen mesai saatlerimiz içinde tekrar arayın. "
+                    "İyi günler dileriz.")
+    no_operator: str = ("Şu an operatörümüz hizmet vermiyor. Lütfen mesai saatlerimiz içinde tekrar arayın. "
+                        "İyi günler dileriz.")
     offer_operator_suffix: str = "İsterseniz sizi operatöre de bağlayabilirim."
     offer_operator_note: str = ("Arayanın istediği iki kez bulunamadı: nazikçe operatöre bağlanmayı "
                                 "teklif et ya da tekrar söylemesini iste.")
@@ -140,7 +146,7 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     t = cfg.texts
     return {"greeting": greeting_text(cfg), "not_understood": t.not_understood,
             "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
-            "no_input": t.no_input}
+            "no_input": t.no_input, "closed": t.closed, "holiday": t.holiday, "no_operator": t.no_operator}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)

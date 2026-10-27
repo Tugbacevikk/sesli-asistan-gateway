@@ -36,8 +36,9 @@ from enum import StrEnum
 from typing import Any
 
 from .dialog import DialogSession
-from .models import Action, DialogTurn, OperatorAction, TransferAction
+from .models import Action, DialogTurn, HangupAction, OperatorAction, TransferAction
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
+from .schedule import HOLIDAY, OPEN
 from .speech import Speaker, keyboard_sound
 
 log = logging.getLogger(__name__)
@@ -69,6 +70,7 @@ class CallConfig:
     tick_s: float = 1.0
     thinking_sound: bool = True        # düşünürken klavye sesi (sessizlik "hat koptu mu?" dedirtmesin)
     thinking_sound_delay_s: float = 0.4   # cevap bundan hızlı gelirse ses hiç çalınmaz
+    after_hours_mode: str = "announce"    # mesai dışı: announce (anons + kapat) | assistant (operatör yerine anons)
 
 
 @dataclass
@@ -89,7 +91,7 @@ class CallStats:
     barge_ins: int = 0
     tts_failures: int = 0
     no_inputs: int = 0
-    outcome: str = ""                  # transferred | operator | hangup | error
+    outcome: str = ""                  # transferred | operator | closed | hangup | error
     reason: str = ""
     stt_dropped: int = 0
     rtp: dict[str, int] = field(default_factory=dict)
@@ -111,10 +113,11 @@ class CallSession:
                  dialog: DialogSession, pbx: PbxPort, cfg: CallConfig | None = None,
                  hotwords: list[str] | None = None, clock: Callable[[], float] = time.monotonic,
                  observer: Callable[[str, dict[str, Any]], None] | None = None, channel: str = "santral",
-                 thinking_pcm: Any = None):
+                 thinking_pcm: Any = None, office: str = OPEN):
         """observer(olay, veri): durum değişimi, duyulan metin, cevap, eylem, tur ölçümü, bitiş — arayüz için.
         Gözlemcideki hata çağrıyı etkilemez."""
         self.observer = observer
+        self.office = office                      # acik | mesai_disi | tatil (çağrı başındaki durum, 5.1.3)
         self.thinking_pcm = thinking_pcm          # 8 kHz int16; None: kodla üretilen klavye sesi
         self.call_id, self.codec = call_id, codec
         self.media, self.stt, self.speaker, self.dialog, self.pbx = media, stt, speaker, dialog, pbx
@@ -192,7 +195,10 @@ class CallSession:
                          asyncio.create_task(self._stt_events(), name=f"stt-{self.call_id}"),
                          asyncio.create_task(self._ticks(), name=f"bekci-{self.call_id}"),
                          asyncio.create_task(self._loop(), name=f"dongu-{self.call_id}")]
-                self._start_speech(self.dialog.greeting(), heard_at=None, heard="")
+                if self.office != OPEN and self.cfg.after_hours_mode == "announce":
+                    self._start_speech(self._closed_turn(), heard_at=None, heard="")
+                else:
+                    self._start_speech(self.dialog.greeting(), heard_at=None, heard="")
             try:
                 # güvenlik: santral DELETE göndermezse oturum sonsuza kadar açık kalmasın
                 await asyncio.wait_for(self._stop.wait(), self.cfg.max_call_duration_s + 60)
@@ -269,7 +275,7 @@ class CallSession:
         if k == "speech_started":
             # konuşma başlamadan önce algılanmış ses (asistan düşünürken) bu konuşmayı kesmez
             if (self._speaking() and self.cfg.barge_in and ev.at >= self._speech_began
-                    and self.state in (CallState.SPEAKING, CallState.GREETING)):
+                    and self.state in (CallState.SPEAKING, CallState.GREETING) and not self._closing()):
                 log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
                 self.stats.barge_ins += 1
                 self._emit("barge_in")
@@ -285,7 +291,7 @@ class CallSession:
             await self._transfer_result(ev.data["status"])
         elif k == "dtmf":
             if ev.data["digit"] == self.cfg.dtmf_operator_digit and self.state not in (
-                    CallState.HANDED_OFF, CallState.TRANSFERRING):
+                    CallState.HANDED_OFF, CallState.TRANSFERRING) and not self._closing():
                 log.info("[%s] DTMF %s: operatöre", self.call_id, ev.data["digit"])
                 if self._speaking():
                     self._speech.cancel()
@@ -330,6 +336,11 @@ class CallSession:
                 await self.media.play(pcm[i:i + 4000])
 
     def _start_speech(self, turn: DialogTurn, heard_at: float | None, heard: str, dialog_s: float = 0.0) -> None:
+        if self.office != OPEN and any(isinstance(a, OperatorAction) for a in turn.actions):
+            # mesai dışı: operatör yok — "operatöre bağlıyorum" yerine bilgi verip kapat
+            reason = next(a.reason for a in turn.actions if isinstance(a, OperatorAction))
+            turn = DialogTurn(self.dialog.agent.cfg.texts.no_operator, [HangupAction(f"operator_yok:{reason}")],
+                              fallback=True)
         if self.state != CallState.GREETING:
             self.state = CallState.SPEAKING
         self._speech_id += 1
@@ -388,7 +399,10 @@ class CallSession:
             return
         op = next((a for a in turn.actions if isinstance(a, OperatorAction)), None)
         tr = next((a for a in turn.actions if isinstance(a, TransferAction)), None)
-        if op is not None:
+        hu = next((a for a in turn.actions if isinstance(a, HangupAction)), None)
+        if hu is not None:
+            await self._send_hangup(hu.reason)
+        elif op is not None:
             await self._send_operator(op.reason)
         elif tr is not None and completed:
             await self._send_transfer(tr)
@@ -420,6 +434,15 @@ class CallSession:
         except PbxError as e:
             log.error("[%s] santral operatör isteğini almadı (%s): çağrı kapatılıyor", self.call_id, e)
             self.stats.outcome, self.stats.reason = "error", "santral_eylem_hatasi"
+            self._stop.set()
+
+    async def _send_hangup(self, reason: str) -> None:
+        self._emit("action", action="hangup", reason=reason)
+        self._handed_off("closed", reason)
+        try:
+            await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "hangup"})
+        except PbxError as e:
+            log.error("[%s] santral kapatma isteğini almadı (%s)", self.call_id, e)
             self._stop.set()
 
     async def _transfer_result(self, status: str) -> None:
@@ -473,6 +496,16 @@ class CallSession:
         self.stats.outcome, self.stats.reason = outcome, reason
         self._inputs.clear()
 
+    def _closed_turn(self) -> DialogTurn:
+        t = self.dialog.agent.cfg.texts
+        return DialogTurn(t.holiday if self.office == HOLIDAY else t.closed, [HangupAction(self.office)],
+                          fallback=True)
+
+    def _closing(self) -> bool:
+        """Kapanış anonsu çalıyor: söze girilse de kesilmez (arayan bilgiyi duymalı, ardından çağrı kapanır)."""
+        turn = self._speech_meta.get("turn")
+        return turn is not None and any(isinstance(a, HangupAction) for a in turn.actions)
+
     def _operator_turn(self, reason: str) -> DialogTurn:
         return DialogTurn(self.dialog.agent.cfg.texts.to_operator, [OperatorAction(reason)], fallback=True)
 
@@ -502,4 +535,6 @@ def _action_id() -> str:
 
 
 def _describe(a: Action) -> str:
-    return f"transfer:{a.extension}" if isinstance(a, TransferAction) else f"operator:{a.reason}"
+    if isinstance(a, TransferAction):
+        return f"transfer:{a.extension}"
+    return f"{a.type}:{a.reason}"

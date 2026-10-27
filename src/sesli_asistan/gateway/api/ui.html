@@ -120,6 +120,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .call-btn:disabled { opacity: .5; cursor: not-allowed; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; }
 .ghost { border: 1px solid var(--rule); background: var(--panel); border-radius: 10px; padding: 8px 12px; }
+select.ghost { color: var(--ink); font: inherit; width: 100%; }
 .ghost:disabled { opacity: .45; cursor: not-allowed; }
 .meter { height: 8px; border-radius: 4px; background: var(--panel); overflow: hidden; margin: 12px 0 4px; }
 .meter div { height: 100%; width: 0; background: var(--ok); transition: width 60ms linear; }
@@ -208,6 +209,16 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
           <h2>Tuşlama</h2>
           <p>Arayan 0'a basarsa operatöre aktarılır.</p>
           <button class="ghost" id="dtmf0" disabled>0'a bas</button>
+        </div>
+        <div class="box">
+          <h2><label for="office">Mesai durumu</label></h2>
+          <p>Mesai dışı kurallarını saati beklemeden denemek için.</p>
+          <select id="office" class="ghost">
+            <option value="">Saate göre</option>
+            <option value="acik">Mesai içi</option>
+            <option value="mesai_disi">Mesai dışı</option>
+            <option value="tatil">Tatil</option>
+          </select>
         </div>
       </div>
     </div>
@@ -386,6 +397,7 @@ function onEvent(m) {
     case "action":
       if (m.action === "transfer") add(`Asistan ${esc(m.extension)} numaralı dahiliye aktarmak istedi.`, "event ok");
       else if (m.action === "operator") add(`Operatöre aktarıldı (${esc(reasonText(m.reason))}).`, "event");
+      else if (m.action === "hangup") add(`Asistan çağrıyı kapattı (${esc(reasonText(m.reason))}).`, "event");
       break;
     case "pbx_action":
       if (m.action === "transfer") {
@@ -401,16 +413,20 @@ function onEvent(m) {
   }
 }
 
-const OUTCOMES = { transferred: "aktarıldı", operator: "operatöre verildi", hangup: "kapatıldı", error: "hata" };
+const OUTCOMES = { transferred: "aktarıldı", operator: "operatöre verildi", closed: "mesai dışı kapatıldı",
+  hangup: "kapatıldı", error: "hata" };
 const REASONS = {
   arayan_istedi: "arayan istedi", bulunamadi: "üç denemede bulunamadı", llm_hatasi: "dil modeli cevap vermedi",
   ilerleme_yok: "ilerleme olmadı", tts_hatasi: "seslendirme hatası", stt_yok: "konuşma tanıma yok",
   stt_koptu: "konuşma tanıma koptu", sessiz: "arayan konuşmadı", dtmf: "0'a basıldı", sure_asimi: "süre doldu",
   cevaplandi: "cevaplandı", hangup: "kapatıldı", rtp_zaman_asimi: "ses gelmedi", ic_hata: "iç hata",
+  mesai_disi: "mesai dışı", tatil: "tatil",
 };
 const outcomeText = (o) => OUTCOMES[o] || o || "–";
 const channelText = (c) => c === "web" ? "Arayüz, sesli" : c === "web-metin" ? "Arayüz, yazılı" : "Santral";
-const reasonText = (r) => REASONS[r] || r;
+const reasonText = (r) => r?.startsWith("operator_yok:")
+  ? "operatör yok, " + (REASONS[r.slice(13)] || r.slice(13)) : REASONS[r] || r;
+const OFFICE = { acik: "mesai içi", mesai_disi: "mesai dışı", tatil: "tatil" };
 
 for (const b of $("pbxButtons").querySelectorAll("button")) {
   b.onclick = () => {
@@ -444,6 +460,7 @@ async function startCall(text = false, firstMessage = "") {
   const q = new URLSearchParams();
   if (KEY) q.set("anahtar", KEY);
   if (text) q.set("mod", "metin");
+  if ($("office").value) q.set("mesai", $("office").value);
   ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws?${q}`);
   ws.binaryType = "arraybuffer";
   pendingText = firstMessage;
@@ -514,7 +531,7 @@ async function refresh() {
     $("health").innerHTML = Object.entries(SERVICES).map(([k, label]) => {
       const st = h.components?.[k];
       return `<div class="svc ${st === "ok" ? "ok" : "bad"}"><i></i><div><strong>${label}</strong><span>${st === "ok" ? "çalışıyor" : esc(st || "bilinmiyor")}</span></div></div>`;
-    }).join("");
+    }).join("") + (h.office ? `<div class="svc ${h.office === "acik" ? "ok" : ""}"><i></i><div><strong>Mesai</strong><span>${esc(OFFICE[h.office] || h.office)}</span></div></div>` : "");
     const t = c.today || { toplam: 0, sonuc: {} };
     $("today").textContent = t.toplam
       ? `Son 24 saat: ${t.toplam} çağrı · ` + Object.entries(t.sonuc).map(([k, v]) => `${v} ${outcomeText(k)}`).join(", ")
