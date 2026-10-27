@@ -29,10 +29,22 @@ def test_konusma_baslangici_ve_cumle_sonu():
     assert 0.9 <= ev[1].end - ev[1].start <= 1.6  # konuşma + ön pay + kuyruk payı
 
 
-def test_cok_kisa_ses_atilir():
+def test_cok_kisa_ses_atilir_ve_asistani_susturmaz():
+    # öksürük / "hı" / yankı: ne cümle olur ne de SPEECH_STARTED (barge-in) gönderilir
     seg = Segmenter(EnergyDetector())
-    ev = seg.feed(np.concatenate([_silence(0.3), _tone(0.15), _silence(1.0)]))
-    assert not [e for e in ev if isinstance(e, Utterance)]
+    ev = seg.feed(np.concatenate([_silence(0.3), _tone(0.2), _silence(1.0)]))
+    assert ev == []
+
+
+def test_konusma_baslangici_esikten_sonra_bildirilir():
+    seg = Segmenter(EnergyDetector())
+    ev = seg.feed(np.concatenate([_silence(0.5), _tone(0.25)]))
+    assert ev == []                                           # 250 ms: henüz söze girme sayılmaz
+    ev = seg.feed(_tone(0.1))
+    assert len(ev) == 1 and isinstance(ev[0], SpeechStarted)  # 300 ms'yi geçti
+    assert 0.1 <= ev[0].start <= 0.5                          # başlangıç zamanı yine konuşmanın başı
+    ev = seg.feed(_silence(1.0))
+    assert len(ev) == 1 and isinstance(ev[0], Utterance)      # susturan her ses bir cümle sonucu da üretir
 
 
 def test_uzun_konusma_bolunur():

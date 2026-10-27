@@ -15,6 +15,10 @@ Kurallar (kodla):
   - STT "anlaşılamadı" derse diyalog "anlayamadım" der ve deneme sayacı artar; çok kısa gürültüler sayılmaz.
   - Arayan, asistan düşünürken konuşursa cümleler sıraya girer; sonraki turda birleştirilip işlenir.
   - STT akışı açılamaz ya da koparsa, santral eylemi başarısız olursa: hata anonsu + operatör (zarif bozulma).
+  - TTS cevabı seslendiremezse ve arayan cevaptan hiçbir şey duymadıysa operatöre aktarılır (yedek anons zaten
+    "operatöre bağlıyorum" der; tasarim.md 9.1). Kısmen duyduysa çağrı sürer, art arda ikinci hatada operatör.
+  - Arayan dinleme sırasında `no_input_s` boyunca hiç konuşmazsa "Sizi duyamıyorum…" denir; `no_input_max`'ıncı
+    sessizlikte operatöre aktarılır (santral sessizken de RTP gönderdiği için RTP zaman aşımı bunu yakalamaz).
 """
 from __future__ import annotations
 
@@ -57,6 +61,8 @@ class CallConfig:
     barge_in: bool = True
     min_noise_ms: int = 600            # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
     dtmf_operator_digit: str = "0"     # FR-15: tuşlayınca operatör
+    no_input_s: float = 8.0            # dinlemede bu kadar sessizlik → "Sizi duyamıyorum"
+    no_input_max: int = 2              # kaçıncı sessizlikte operatöre
     tick_s: float = 1.0
 
 
@@ -76,6 +82,8 @@ class TurnRecord:
 class CallStats:
     turns: list[TurnRecord] = field(default_factory=list)
     barge_ins: int = 0
+    tts_failures: int = 0
+    no_inputs: int = 0
     outcome: str = ""                  # transferred | operator | hangup | error
     reason: str = ""
     stt_dropped: int = 0
@@ -110,6 +118,10 @@ class CallSession:
         self._transfer_deadline: float | None = None
         self._stream: SttStream | None = None
         self._stop = asyncio.Event()
+        self._listen_since = 0.0                 # dinlemeye geçildiği / arayanın son konuştuğu an
+        self._caller_talking = False             # SPEECH_STARTED geldi, sonucu (FINAL/NOT_RECOGNIZED) gelmedi
+        self._silences = 0                       # art arda sessiz dinleme sayısı
+        self._tts_fail_streak = 0
 
     # --- dışarıdan (REST) ---------------------------------------------------------------------------------
 
@@ -208,6 +220,10 @@ class CallSession:
 
     async def _handle(self, ev: _Event) -> None:
         k = ev.kind
+        if k in ("speech_started", "final", "not_recognized"):
+            self._caller_talking = k == "speech_started"
+            self._listen_since = ev.at
+            self._silences = 0
         if k == "speech_started":
             # konuşma başlamadan önce algılanmış ses (asistan düşünürken) bu konuşmayı kesmez
             if (self._speaking() and self.cfg.barge_in and ev.at >= self._speech_began
@@ -260,20 +276,21 @@ class CallSession:
 
     async def _speak(self, text: str, speech_id: int) -> None:
         said_at = self.clock()
-        completed, first = False, None
+        completed, first, tts_ok, heard_any = False, None, True, True
         try:
             if text:
                 res = await self.speaker.say(text, self.media)
-                first = res.first_audio_s
+                first, tts_ok = res.first_audio_s, res.ok
+                heard_any = res.sentences > 0 or res.from_library
             completed = True
         finally:
             # iptal edilse de döngüye haber verilir (barge-in)
             self._q.put_nowait(_Event("speech_done", {"speech_id": speech_id, "completed": completed,
-                                                      "said_at": said_at,
-                                                      "first_audio_s": first}, self.clock()))
+                                                      "said_at": said_at, "first_audio_s": first,
+                                                      "tts_ok": tts_ok, "heard_any": heard_any}, self.clock()))
 
     async def _speech_done(self, speech_id: int, completed: bool, said_at: float,
-                           first_audio_s: float | None) -> None:
+                           first_audio_s: float | None, tts_ok: bool = True, heard_any: bool = True) -> None:
         if self._speech_meta.get("id") != speech_id:
             return   # yerine yenisi başlatılmış (DTMF, acil operatör) konuşmanın bitişi
         meta, self._speech_meta = self._speech_meta, {}
@@ -284,6 +301,18 @@ class CallSession:
         if meta["heard_at"] is not None or meta["heard"]:
             self.stats.turns.append(TurnRecord(meta["heard"], turn.text, [_describe(a) for a in turn.actions],
                                                round(meta["dialog_s"], 3), latency, barged=not completed))
+        if not tts_ok:
+            self.stats.tts_failures += 1
+            self._tts_fail_streak += 1
+            if not heard_any or self._tts_fail_streak >= 2:
+                # arayan cevabı duymadı (yalnızca "operatöre bağlıyorum" yedek anonsunu duydu) ya da TTS art arda
+                # çöküyor: sohbet sürdürülemez
+                log.error("[%s] TTS cevabı seslendiremedi (%d. kez): operatöre", self.call_id, self._tts_fail_streak)
+                if self.state not in (CallState.HANDED_OFF, CallState.ENDED):
+                    await self._send_operator("tts_hatasi")
+                return
+        else:
+            self._tts_fail_streak = 0
         await self._apply(turn, completed)
 
     async def _apply(self, turn: DialogTurn, completed: bool) -> None:
@@ -302,7 +331,7 @@ class CallSession:
             if turn.ended:
                 self._handed_off("transferred", "aktarma_tamam")
             else:
-                self.state = CallState.LISTENING
+                self._listen()
 
     async def _send_transfer(self, tr: TransferAction) -> None:
         self.state = CallState.TRANSFERRING
@@ -349,8 +378,22 @@ class CallSession:
         elif now - self.started_at > self.cfg.max_call_duration_s and self.state == CallState.LISTENING:
             log.warning("[%s] çağrı süresi aşıldı: operatöre", self.call_id)
             self._start_speech(self._operator_turn("sure_asimi"), heard_at=None, heard="[süre]")
+        elif (self.state == CallState.LISTENING and not self._inputs and not self._caller_talking
+              and not self._speaking() and now - self._listen_since > self.cfg.no_input_s):
+            self._silences += 1
+            self.stats.no_inputs += 1
+            log.info("[%s] arayan %.0f sn konuşmadı (%d. kez)", self.call_id, self.cfg.no_input_s, self._silences)
+            if self._silences >= self.cfg.no_input_max:
+                self._start_speech(self._operator_turn("sessiz"), heard_at=None, heard="[sessizlik]")
+            else:
+                self._start_speech(DialogTurn(self.dialog.agent.cfg.texts.no_input, fallback=True),
+                                   heard_at=None, heard="[sessizlik]")
 
     # --- yardımcılar --------------------------------------------------------------------------------------
+
+    def _listen(self) -> None:
+        self.state = CallState.LISTENING
+        self._listen_since = self.clock()
 
     def _speaking(self) -> bool:
         return self._speech is not None and not self._speech.done()

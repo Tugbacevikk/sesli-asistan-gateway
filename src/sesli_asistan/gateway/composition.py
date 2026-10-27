@@ -43,7 +43,7 @@ def build_directory(s: GatewaySettings) -> DirectoryCache:
 def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | None = None) -> DialogAgent:
     cfg = DialogConfig(organization=s.organization_name, max_failed_attempts=s.max_failed_attempts,
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
-                       llm_timeout_s=s.llm_timeout_s)
+                       llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts())
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
 
 
@@ -104,7 +104,8 @@ class GatewayRuntime:
 
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
         cfg = CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
-                         transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in)
+                         transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
+                         no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max)
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
                            self.pbx, cfg, hotwords=self.directory.index.hotwords())
 

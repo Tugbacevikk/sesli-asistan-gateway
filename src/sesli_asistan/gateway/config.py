@@ -5,10 +5,16 @@ Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması
 """
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from .core.dialog import DialogTexts
+
+_TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
+                "transferring_department")
 
 
 class GatewaySettings(BaseSettings):
@@ -64,9 +70,27 @@ class GatewaySettings(BaseSettings):
     max_call_duration_s: float = Field(600, gt=0)
     transfer_result_timeout_s: float = Field(30, gt=0)
     barge_in: bool = True
+    no_input_s: float = Field(8.0, gt=0)      # dinlemede sessizlik → "Sizi duyamıyorum"
+    no_input_max: int = Field(2, ge=1)        # kaçıncı sessizlikte operatöre
+
+    # Koddan söylenen cümleler (tasarim.md 13). Boş: varsayılan metin (core/dialog.py DialogTexts).
+    # Yer tutucular: {kurum} {kurum_e} (karşılama), {ad} {ad_e} (kişiye aktarma), {birim} (birime aktarma).
+    greeting_text: str = ""
+    not_understood_text: str = ""
+    offer_operator_text: str = ""
+    no_input_text: str = ""
+    to_operator_text: str = ""
+    error_text: str = ""
+    transferring_text: str = ""
+    transferring_department_text: str = ""
 
     # STT servisi (Gateway tarafı)
     stt_grpc_addr: str = "127.0.0.1:50051"
+
+    def dialog_texts(self) -> DialogTexts:
+        """Ayardan verilen metinler varsayılanların üzerine yazılır."""
+        given = {f: getattr(self, f"{f}_text") for f in _TEXT_FIELDS if getattr(self, f"{f}_text").strip()}
+        return replace(DialogTexts(), **given)
 
     @model_validator(mode="after")
     def _check(self) -> GatewaySettings:
@@ -74,6 +98,18 @@ class GatewaySettings(BaseSettings):
             raise ValueError(f"RTP_PORT_MIN ({self.rtp_port_min}) > RTP_PORT_MAX ({self.rtp_port_max})")
         if self.rtp_port_max - self.rtp_port_min + 1 < self.max_concurrent_calls:
             raise ValueError("RTP port aralığı MAX_CONCURRENT_CALLS'tan küçük")
+        t = self.dialog_texts()
+        for name, text, needs in (("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_TEXT", t.transferring, ()),
+                                  ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department, ("{birim}",))):
+            try:
+                text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B")
+            except (KeyError, IndexError, ValueError) as e:
+                raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
+                                 "{ad} {ad_e} {birim})") from None
+            if any(n not in text for n in needs):
+                raise ValueError(f"{name} şunu içermeli: {', '.join(needs)}")
+        if "{ad" not in t.transferring:
+            raise ValueError("TRANSFERRING_TEXT {ad} ya da {ad_e} içermeli")
         return self
 
     @property

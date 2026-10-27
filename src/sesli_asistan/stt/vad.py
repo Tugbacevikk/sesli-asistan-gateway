@@ -110,6 +110,10 @@ class SegmenterConfig:
     pre_roll_ms: int = 350             # konuşma başlamadan önceki sesi de al (ilk hece kesilmesin)
     start_frames: int = 3              # konuşma başladı demek için ardışık konuşma çerçevesi (~96 ms)
     min_voiced_sec: float = 0.3        # toplam sesli süre bundan azsa (öksürük, tık) at
+    # SpeechStarted (barge-in) ancak bu kadar sesli konuşmadan sonra gönderilir. Kısa sesler (öksürük, "hı", hattaki
+    # yankı) asistanı susturmaz; eşik min_voiced_sec ile aynı olduğu için susturan her ses bir cümle sonucu
+    # (FINAL / NOT_RECOGNIZED) da üretir: arayan susturup cevapsız kalmaz.
+    speech_started_ms: int = 300
     tail_keep_ms: int = 200            # cümle sonundaki sessizlikten bırakılacak pay
 
 
@@ -129,7 +133,7 @@ class Segmenter:
     """Sürekli sesi konuşma parçalarına (cümle) böler.
 
     `feed()` 16 kHz mono float32 örnek alır, ortaya çıkan olayları döner:
-      SpeechStarted → konuşma başladı (barge-in)
+      SpeechStarted → konuşma başladı (barge-in); en az `speech_started_ms` sesli konuşmadan sonra
       Utterance     → cümle bitti, Whisper'a gidecek ses
     """
 
@@ -146,6 +150,7 @@ class Segmenter:
         self._voiced = 0
         self._frames_seen = 0
         self._start_frame = 0
+        self._announced = False
 
     @property
     def stream_time(self) -> float:
@@ -166,6 +171,7 @@ class Segmenter:
         self._frames = []
         self._in_speech = False
         self._speech_run = self._silence_run = self._voiced = 0
+        self._announced = False
 
         if voiced_sec < self.cfg.min_voiced_sec:
             return None
@@ -193,12 +199,13 @@ class Segmenter:
                     self._start_frame = frame_idx + 1 - len(self._frames)
                     self._voiced = self._speech_run
                     self._silence_run = 0
-                    events.append(SpeechStarted(start=round(self._start_frame * FRAME_SEC, 2)))
+                    self._announce(events)
                 continue
 
             self._frames.append(frame)
             self._silence_run = 0 if speech else self._silence_run + 1
             self._voiced += int(speech)
+            self._announce(events)
             length_sec = len(self._frames) * FRAME_SEC
 
             if self._silence_run * FRAME_SEC * 1000 >= self.cfg.end_silence_ms:
@@ -208,6 +215,11 @@ class Segmenter:
                 if utt := self._close(trim=False):
                     events.append(utt)
         return events
+
+    def _announce(self, events: list) -> None:
+        if not self._announced and self._voiced * FRAME_SEC * 1000 >= self.cfg.speech_started_ms:
+            self._announced = True
+            events.append(SpeechStarted(start=round(self._start_frame * FRAME_SEC, 2)))
 
     def flush(self) -> list[Utterance]:
         """Akış kapanırken yarım kalan konuşmayı kesinleştirir."""

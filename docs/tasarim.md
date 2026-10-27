@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 2.2 |
+| **Sürüm** | 2.3 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -28,6 +28,7 @@
 | 2.0 | 26.10.2026 | `fahrettin` / `fettah` sesleri katkıcıların isteğiyle Piper ses deposundan kaldırılmış (30.12.2025) → ADR-013 revize: ticari kullanıma uygun hazır Türkçe Piper sesi yok, şirkete ait ses önerisi. STT ilk ölçümü: Windows'ta cuBLAS eksikti, CPU'da zaman aşımı → `NOT_RECOGNIZED` olayı, `stt-cuda` eki, ısınmada CPU'ya düşme; Whisper revizyonu ve SHA256'ları sabitlendi |
 | 2.1 | 26.10.2026 | Arama: uzamış kelime kuralı ("Demirci" ↔ "Demir" net eşleşme değil), STT hata tablosu testi; Whisper ipucu 400 harf bütçesi; zaman aşımı sonrası sıradaki cümle haksız yere düşmez |
 | 2.2 | 26.10.2026 | Aşama 5 kodlandı: REST kontrol API'si (FastAPI), CallManager (port havuzu, kapasite, idempotent bitirme), CallSession durum makinesi (5.1.1 güncellendi: `HANDED_OFF`), RTP medya yolu (simetrik), santral eylem istemcisi (yeniden deneme), çalışan servis (`python -m sesli_asistan.gateway`), santral simülatörü (`tools/cagri/cagri.py`); 5.1.2 çağrı kuralları; çekirdek için hexagonal import kuralı |
+| 2.3 | 27.10.2026 | Mimari eksikler: TTS cevabı seslendiremezse operatöre aktarma, sessiz arayan zaman aşımı ("Sizi duyamıyorum" → operatör), söze girme eşiği (SPEECH_STARTED ≥ 300 ms sesli konuşmadan sonra), koddan söylenen bütün cümleler ayardan (`*_TEXT`, yer tutucu doğrulaması) |
 
 ---
 
@@ -350,7 +351,7 @@ SPEECH_STARTED'ı, ondan sonra başlayan cevabı kesmez. Her durumdan `DELETE` i
 
 | Durum | Davranış |
 |---|---|
-| Söze girme (barge-in) | Seslendirme o pakette durur (FR-11). Kesilen cümle aktarma cümlesiyse ("Sizi … aktarıyorum") aktarma **yapılmaz**, bekleyen aktarma silinir: arayan büyük olasılıkla düzeltiyor ("hayır, satış") |
+| Söze girme (barge-in) | STT, ancak 300 ms sesli konuşmadan sonra SPEECH_STARTED gönderir (`STT_SPEECH_STARTED_MS`): öksürük, "hı", hattaki yankı asistanı susturmaz; eşik, cümle sayılma eşiğiyle aynı olduğundan susturan her ses bir sonuç (FINAL / NOT_RECOGNIZED) da üretir. Seslendirme o pakette durur (FR-11). Kesilen cümle aktarma cümlesiyse ("Sizi … aktarıyorum") aktarma **yapılmaz**, bekleyen aktarma silinir: arayan büyük olasılıkla düzeltiyor ("hayır, satış") |
 | Operatöre aktarma | Söze girilse de yapılır (güvenli son çare) |
 | `NOT_RECOGNIZED` | "Anlayamadım" + deneme sayacı. `empty` nedenli ve 600 ms'den kısa sesler gürültü sayılır, cevaplanmaz |
 | Aktarma sonucu gelmez | 30 sn sonra `failed` sayılır; diyalog arayana bildirir |
@@ -359,6 +360,8 @@ SPEECH_STARTED'ı, ondan sonra başlayan cevabı kesmez. Her durumdan `DELETE` i
 | RTP 20 sn gelmez | Oturum kapatılır |
 | Çağrı 10 dk'yı aşar | Dinleme sırasında operatöre aktarılır |
 | DTMF `0` | Operatör (FR-15) |
+| Arayan konuşmuyor | Dinlemede 8 sn ses yoksa "Sizi duyamıyorum…" (`NO_INPUT_S`); 2. sessizlikte operatör (`NO_INPUT_MAX`). Santral sessizken de RTP gönderdiği için RTP zaman aşımı bunu yakalamaz |
+| TTS cevabı seslendiremez | Arayan cevaptan hiçbir şey duymadıysa (yalnızca "…operatöre bağlıyorum" yedek anonsunu duydu) ya da art arda 2. hataysa operatöre aktarılır. Hazır anonslar (karşılama, anlayamadım, operatör) TTS'siz çalınır |
 | Beklenmeyen hata | Hata anonsu + operatör; diğer çağrılar etkilenmez |
 | Santral DELETE göndermez | Süre sınırı + 60 sn sonra oturum silinir |
 
@@ -606,7 +609,7 @@ enum AudioCodec {
 message SttEvent {
   enum Type {
     TYPE_UNSPECIFIED = 0;
-    SPEECH_STARTED = 1;        // barge-in için
+    SPEECH_STARTED = 1;        // barge-in için; en az STT_SPEECH_STARTED_MS (300 ms) sesli konuşmadan sonra
     PARTIAL = 2;               // ara sonuç (akışlı modellerde)
     FINAL = 3;                 // cümle sonucu
     NOT_RECOGNIZED = 4;        // konuşma vardı ama metin üretilemedi (neden: reason); Gateway tekrar sorar
@@ -871,7 +874,7 @@ Bu sürümde kalıcı veri yoktur. Loglar ve metrikler dışında diske yazılan
 | STT gecikmesi | `FINAL` 3 sn içinde gelmez | Uyarı logu; çağrı sürer |
 | LLM erişilemez / zaman aşımı | HTTP hatası / 5 sn | Önbellekteki anonsla operatöre aktar |
 | LLM geçersiz araç parametresi | JSON şema doğrulaması | Hata araç sonucu olarak LLM'e döner (en fazla 3 tur) |
-| TTS erişilemez | HTTP hatası / 3 sn | Önbellekteki anonslarla devam; serbest metin gerekiyorsa operatöre aktar |
+| TTS erişilemez | HTTP hatası / 3 sn | Hazır anonslar çalınır; serbest metin seslendirilemezse operatöre aktarılır (5.1.2) |
 | Rehber API erişilemez | HTTP hatası | Son kopyayla devam; kopya yaşı metriği ve uyarı |
 | Santral eylem isteği başarısız | HTTP hatası | Üstel bekleme ile 3 deneme; sonra loglanır ve oturum kapatılır |
 | Aktarma sonucu gelmez | 30 sn | Aktarma başarısız sayılır, konuşma sürer |
@@ -1032,7 +1035,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `PBX_ALLOWED_IPS` | — | Santral IP izin listesi |
 | `PBX_BASE_URL` | — | Santral kontrol API adresi |
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
-| `GREETING_TEXT` | "{kurum}'a hoş geldiniz…" | Karşılama |
+| `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
+| `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `ORGANIZATION_NAME` | — | Kurum adı |
 | `STT_GRPC_ADDR` | 127.0.0.1:50051 | Gateway tarafı: STT servisinin adresi |
 | *STT servisi (`stt.env`):* | | |
@@ -1047,6 +1051,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_VAD` | silero | `silero` / `energy` (yedek) |
 | `STT_VAD_MODEL` | models/silero_vad.onnx | |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
+| `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
 | (dil) | tr | Sabit; ayar değil (ADR-006) |
 | (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords` ile gelir |

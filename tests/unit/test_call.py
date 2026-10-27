@@ -340,3 +340,73 @@ async def test_yonetici_hazir_degil_ve_gecersiz_codec():
         await m.create(NewCall("a", codec="opus"))
     with pytest.raises(BadRequest):
         await m.create(NewCall(""))
+
+
+# --- TTS hatası, sessiz arayan ----------------------------------------------------------------------------
+
+class BrokenTts:
+    """İlk n seslendirme çalışır (anonslar), sonra servis düşer."""
+
+    def __init__(self):
+        self.down = False
+
+    async def synthesize(self, text):
+        from sesli_asistan.gateway.core.ports import TtsError
+
+        if self.down:
+            raise TtsError("Piper yok")
+        return Audio(np.zeros(1600, np.int16), 8000)
+
+
+async def _call_with_tts(tts, llm, **cfg):
+    c = Call(llm, **cfg)
+    lib = PromptLibrary()
+    await lib.preload(tts, c.session.dialog.agent.fixed_prompts())
+    c.session.speaker = Speaker(tts, lib)
+    return c
+
+
+async def test_tts_cevabi_seslendiremezse_operator():
+    # Piper çöktü: arayan yalnızca "…operatöre bağlıyorum" yedek anonsunu duyar → gerçekten operatöre aktarılmalı
+    tts = BrokenTts()
+    llm = Llm(LlmMessage("Kimi aramıştınız, adını söyler misiniz?"))
+    c = await _call_with_tts(tts, llm)
+    async with c:
+        tts.down = True
+        c.say("merhaba")
+        await c.until(lambda: c.pbx.actions)
+        assert c.pbx.actions[0]["type"] == "operator" and c.session.state == CallState.HANDED_OFF
+    assert c.stats.outcome == "operator" and c.stats.reason == "tts_hatasi" and c.stats.tts_failures == 1
+
+
+async def test_hazir_anonslar_tts_yokken_de_calisir():
+    # "Anlayamadım" hazır sesten çalınır: TTS düşük olsa da çağrı sürer
+    tts = BrokenTts()
+    c = await _call_with_tts(tts, Llm())
+    async with c:
+        tts.down = True
+        c.stt.stream.ev.put_nowait(SttEvent("not_recognized", start_ms=0, end_ms=2000, reason="timeout"))
+        await c.until(lambda: c.session.stats.turns)
+        await c.until(lambda: c.session.state == CallState.LISTENING)
+        assert c.pbx.actions == [] and c.session.stats.tts_failures == 0
+
+
+async def test_sessiz_arayan_once_uyarilir_sonra_operatore():
+    async with Call(no_input_s=0.15, no_input_max=2) as c:
+        await c.until(lambda: c.session.stats.turns)
+        assert c.session.stats.no_inputs == 1 and c.session.stats.turns[-1].reply == TEXTS.no_input
+        assert c.pbx.actions == []
+        await c.until(lambda: c.pbx.actions)
+        assert c.pbx.actions[0]["type"] == "operator" and c.session.stats.no_inputs == 2
+    assert c.stats.reason == "sessiz"
+
+
+async def test_konusan_arayan_sessiz_sayilmaz():
+    llm = Llm(LlmMessage("Kimi aramıştınız?"), LlmMessage("Adını tekrar söyler misiniz?"))
+    async with Call(llm, no_input_s=0.3) as c:
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))     # uzun konuşma sürüyor, FINAL henüz yok
+        await asyncio.sleep(0.5)
+        assert c.session.stats.no_inputs == 0
+        c.stt.stream.ev.put_nowait(SttEvent("final", "şey", 0.9, 0, 3000))
+        await c.until(lambda: c.session.stats.turns)
+        assert c.session.stats.no_inputs == 0

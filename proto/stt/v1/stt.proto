@@ -40,7 +40,7 @@ enum AudioCodec {
 message SttEvent {
   enum Type {
     TYPE_UNSPECIFIED = 0;
-    SPEECH_STARTED = 1;        // barge-in için
+    SPEECH_STARTED = 1;        // barge-in için; en az STT_SPEECH_STARTED_MS (300 ms) sesli konuşmadan sonra
     PARTIAL = 2;               // ara sonuç (bu sürümde üretilmez; akışlı model için ayrıldı)
     FINAL = 3;                 // cümle sonucu
     NOT_RECOGNIZED = 4;        // konuşma vardı ama metin üretilemedi (neden: reason); Gateway tekrar sorar

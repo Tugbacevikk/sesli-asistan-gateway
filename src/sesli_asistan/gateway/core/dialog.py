@@ -59,6 +59,7 @@ class DialogTexts:
     not_understood: str = "Sizi anlayamadım. Görüşmek istediğiniz kişinin adını ya da birimi tekrar söyler misiniz?"
     offer_operator: str = ("Sizi yine anlayamadım. İsterseniz sizi operatöre bağlayabilirim, "
                            "ya da adı tekrar söyleyebilirsiniz.")
+    no_input: str = "Sizi duyamıyorum. Görüşmek istediğiniz kişinin adını ya da birimi söyleyebilirsiniz."
     to_operator: str = "Sizi operatöre bağlıyorum, lütfen hatta kalın."
     error: str = "Şu an size yardımcı olamıyorum. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     transferring: str = "Sizi {ad_e} aktarıyorum."
@@ -120,7 +121,8 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     """Koddan söylenen sabit cümleler: açılışta seslendirilip saklanır (speech.PromptLibrary)."""
     t, org = cfg.texts, cfg.organization
     return {"greeting": t.greeting.format(kurum=org, kurum_e=dative(org)), "not_understood": t.not_understood,
-            "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error}
+            "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
+            "no_input": t.no_input}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)

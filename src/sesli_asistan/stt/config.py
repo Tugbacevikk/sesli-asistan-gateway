@@ -29,4 +29,5 @@ class SttSettings(BaseSettings):
     vad_model: str = "models/silero_vad.onnx"
     vad_threshold: float = Field(0.5, gt=0, lt=1)
     endpoint_silence_ms: int = Field(700, ge=100)
+    speech_started_ms: int = Field(300, ge=0)   # bu kadar sesli konuşmadan sonra SPEECH_STARTED (barge-in)
     max_utterance_s: float = Field(12.0, gt=1)
