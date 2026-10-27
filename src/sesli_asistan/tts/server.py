@@ -113,6 +113,8 @@ def create_app(s: TtsSettings, engine: Engine | None = None) -> FastAPI:
 def main() -> None:
     import uvicorn
 
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    from sesli_asistan.libs.obs import setup_logging
+
+    setup_logging("tts")
     s = TtsSettings()
     uvicorn.run(create_app(s), host=s.host, port=s.port, log_level="warning")

@@ -76,9 +76,12 @@ class GatewayRuntime:
 
     def __init__(self, s: GatewaySettings, llm: LlmPort | None = None, stt=None, pbx=None, tts=None,
                  media_factory=None, health_interval_s: float = 10.0):
+        from .metrics import GatewayMetrics, TimedLlm
+
         self.s = s
+        self.metrics = GatewayMetrics(self)
         self.directory = build_directory(s)
-        self.llm = llm or build_llm(s)
+        self.llm = TimedLlm(llm or build_llm(s), self.metrics)
         self.agent = build_agent(s, self.directory, self.llm)
         self.tts = tts or build_tts(s)
         self.stt = stt or GrpcStt(s.stt_grpc_addr)
@@ -107,7 +110,7 @@ class GatewayRuntime:
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
                            self.pbx, self._call_config(), hotwords=self.directory.index.hotwords(),
-                           thinking_pcm=self.thinking_pcm)
+                           thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"))
 
     def _call_config(self) -> CallConfig:
         return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
@@ -119,17 +122,25 @@ class GatewayRuntime:
         """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
         text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer)."""
         cfg = self._call_config()
+        channel = "web-metin" if text_mode else "web"
+        stats = self.metrics.observer(channel)
+
+        def both(kind, data):
+            observer(kind, data)
+            stats(kind, data)
+
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
         return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
-                           cfg, hotwords=self.directory.index.hotwords(), observer=observer,
-                           thinking_pcm=self.thinking_pcm,
-                           channel="web-metin" if text_mode else "web")
+                           cfg, hotwords=self.directory.index.hotwords(), observer=both,
+                           thinking_pcm=self.thinking_pcm, channel=channel)
 
     async def start(self) -> None:
         await self.directory.refresh()
         self.directory.start()
-        self.speaker, missing = await build_speaker(self.s, self.agent, self.tts)
+        from .metrics import TimedTts
+
+        self.speaker, missing = await build_speaker(self.s, self.agent, TimedTts(self.tts, self.metrics))
         self._prompts_missing = bool(missing)
         if missing:
             log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)

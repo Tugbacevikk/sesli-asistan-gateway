@@ -66,7 +66,7 @@ def _error(status: int, code: str, message: str, call_id: str | None = None) -> 
 
 def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_key: str = "",
                allowed_ips: set[str] | None = None, lifespan=None, web_session=None,
-               ui_allowed_ips: set[str] | None = None) -> FastAPI:
+               ui_allowed_ips: set[str] | None = None, metrics_registry=None) -> FastAPI:
     """web_session verilirse arayüz açılır (api/ui.py); arayüz yollarında santral IP listesi yerine
     `ui_allowed_ips` uygulanır."""
     app = FastAPI(title="Sesli Asistan Gateway", version="1", openapi_url="/v1/openapi.json",
@@ -78,6 +78,10 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
         host = request.client.host if request.client else ""
+        if path == "/metrics":      # Prometheus: arayüzle aynı erişim kuralı (UI_ALLOWED_IPS + anahtar)
+            if (why := _ui_access(host, request_key(request), api_key, ui_allowed_ips)) is not None:
+                return _error(401, "UNAUTHORIZED", why)
+            return await call_next(request)
         if path.startswith(UI_PREFIXES):
             if web_session is None:
                 return _error(404, "NOT_FOUND", "arayüz kapalı (UI_ENABLED=false)")
@@ -128,6 +132,13 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
 
     if web_session is not None:
         mount_ui(app, manager, web_session, health, api_key, ui_allowed_ips)
+
+    if metrics_registry is not None:
+        from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+
+        @app.get("/metrics", include_in_schema=False)
+        async def metrics() -> Response:
+            return Response(generate_latest(metrics_registry), media_type=CONTENT_TYPE_LATEST)
 
     @app.get("/v1/health")
     async def get_health() -> JSONResponse:

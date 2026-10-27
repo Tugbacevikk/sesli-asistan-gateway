@@ -24,3 +24,12 @@ sonuc_*.json
 .coverage
 htmlcov/
 .import_linter_cache/
+
+# teşhis kayıtları ve yerel deneme dosyaları (ses kaydı / kişisel veri: repoya girmez)
+stt_teshis/
+stt_sentetik_pad/
+stt_sentetik/
+ses_*/
+cevap_*.wav
+*.jpeg
+*.jpg

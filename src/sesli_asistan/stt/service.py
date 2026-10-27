@@ -38,6 +38,37 @@ from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utte
 
 log = logging.getLogger(__name__)
 
+
+class _Metrics:
+    """STT metrikleri (prometheus-client kuruluysa; yoksa hiçbir şey yapmaz). `STT_METRICS_PORT`'tan yayınlanır."""
+
+    def __init__(self):
+        try:
+            from prometheus_client import Counter, Gauge, Histogram
+        except ImportError:
+            self.ok = False
+            return
+        self.ok = True
+        b = (0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 5.0)
+        self.decode = Histogram("stt_decode_seconds", "Cümle çözüm süresi (Whisper)", buckets=b)
+        self.audio = Histogram("stt_utterance_seconds", "Cümle ses uzunluğu", buckets=(0.5, 1, 2, 3, 5, 8, 12))
+        self.results = Counter("stt_results_total", "Cümle sonuçları", ["result"])
+        self.active = Gauge("stt_streams_active", "Açık akış")
+
+    def result(self, kind: str, decode_s: float, audio_s: float) -> None:
+        if self.ok:
+            self.results.labels(kind).inc()
+            self.audio.observe(audio_s)
+            if kind != "timeout":
+                self.decode.observe(decode_s)
+
+    def streams(self, n: int) -> None:
+        if self.ok:
+            self.active.set(n)
+
+
+_M = _Metrics()
+
 STT_RATE = 16000
 _CODECS = {stt_pb2.AUDIO_CODEC_PCMA: "pcma", stt_pb2.AUDIO_CODEC_PCMU: "pcmu", stt_pb2.AUDIO_CODEC_PCM16: "pcm16"}
 
@@ -67,6 +98,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
         if self.active >= self.max_streams:
             await context.abort(grpc.StatusCode.RESOURCE_EXHAUSTED, f"eşzamanlı akış sınırı ({self.max_streams})")
         self.active += 1
+        _M.streams(self.active)
         tasks: list[asyncio.Task] = []
         try:
             try:
@@ -99,6 +131,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await t
             self.active -= 1
+            _M.streams(self.active)
 
     async def _read(self, requests, codec: str, rate: int, out: asyncio.Queue, utts: asyncio.Queue) -> None:
         seg = Segmenter(self.detector_factory(), self.seg_cfg)
@@ -154,6 +187,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                         reason = "empty"
                 if self.debug_dir:
                     self._dump(call_id, n, u, hotwords, "" if reason else r.text, reason)
+                _M.result(reason or "final", time.perf_counter() - t0, u.end - u.start)
                 if reason:
                     # arayan konuştu ama metin yok: Gateway sessiz kalmasın, tekrar sorsun (tasarim.md 6.3)
                     out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.NOT_RECOGNIZED, reason=reason,

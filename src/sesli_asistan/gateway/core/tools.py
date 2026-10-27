@@ -83,6 +83,7 @@ class ToolRegistry:
     def __init__(self, index: DirectoryIndex, policy: TransferPolicy | None = None):
         self.index = index
         self.policy = policy or TransferPolicy()
+        self.rejections = 0          # TransferPolicy'nin reddettiği aktarmalar (metrik: güvenlik incelemesi)
 
     @property
     def schemas(self) -> list[dict[str, Any]]:
@@ -120,6 +121,7 @@ class ToolRegistry:
         kararı (single_high, ADR-012) da bu tek kapıdan geçer."""
         decision = self.policy.check(extension, state.last_results, pending=state.pending_transfer is not None)
         if not decision.allowed:
+            self.rejections += 1
             log.warning("GÜVENLİK: aktarma reddedildi (%s): dahili=%r", decision.reason, extension)
             return None
         c = decision.candidate.contact

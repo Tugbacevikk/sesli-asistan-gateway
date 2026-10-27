@@ -10,6 +10,8 @@ from contextlib import asynccontextmanager
 
 import uvicorn
 
+from sesli_asistan.libs.obs import setup_logging
+
 from .api.app import create_app
 from .composition import GatewayRuntime
 from .config import GatewaySettings
@@ -28,11 +30,11 @@ def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None =
 
     return create_app(rt.manager, rt.health, api_key=s.api_key.get_secret_value(), allowed_ips=s.allowed_ips,
                       lifespan=lifespan, web_session=rt.web_session if s.ui_enabled else None,
-                      ui_allowed_ips=s.ui_ips)
+                      ui_allowed_ips=s.ui_ips, metrics_registry=rt.metrics.registry)
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    setup_logging("gateway")
     s = GatewaySettings()
     if not s.api_key.get_secret_value():
         logging.getLogger(__name__).warning("API_KEY boş: kontrol API'si kimlik doğrulamasız (yalnızca geliştirme)")

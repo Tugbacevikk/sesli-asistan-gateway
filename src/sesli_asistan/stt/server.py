@@ -69,6 +69,14 @@ async def start_server(s: SttSettings, engine: Engine | None = None, bind: str |
 
 async def serve(s: SttSettings | None = None) -> None:
     s = s or SttSettings()
+    if s.metrics_port:
+        try:
+            from prometheus_client import start_http_server
+
+            start_http_server(s.metrics_port, addr="127.0.0.1")
+            log.info("metrikler: http://127.0.0.1:%d/metrics", s.metrics_port)
+        except (ImportError, OSError) as e:
+            log.warning("metrikler açılamadı: %s", e)
     try:
         server, _, _ = await start_server(s)
     except (FileNotFoundError, RuntimeError) as e:   # model yok / CUDA kütüphanesi yok (device=cuda)
@@ -89,7 +97,9 @@ async def serve(s: SttSettings | None = None) -> None:
 
 
 def main() -> None:
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
+    from sesli_asistan.libs.obs import setup_logging
+
+    setup_logging("stt")
     try:
         asyncio.run(serve())
     except KeyboardInterrupt:
