@@ -31,6 +31,7 @@ stt-cuda = [
 gateway = [
     "fastapi",
     "uvicorn",
+    "websockets",          # arayüzün WebSocket'i (uvicorn)
     "httpx",
     "rapidfuzz",
     "pydantic-settings",
@@ -55,6 +56,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+"sesli_asistan.gateway.api" = ["ui.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

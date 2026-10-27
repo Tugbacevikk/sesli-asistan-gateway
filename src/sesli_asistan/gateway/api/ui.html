@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sesli Asistan</title>
+<style>
+:root {
+  --panel: #F2F4F0; --surface: #FFFFFF; --ink: #123634; --muted: #5E716D; --rule: #D5DDD7;
+  --lamp: #E3A13B; --lamp-glow: rgba(227,161,59,.35); --ok: #2F7D55; --bad: #B9412C; --caller: #E3ECE6;
+  --focus: #1F6FB2; --on-ok: #FFFFFF;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --panel: #0F1E1D; --surface: #162826; --ink: #E2ECE8; --muted: #93A7A2; --rule: #2A3F3C;
+    --lamp: #F0B556; --lamp-glow: rgba(240,181,86,.30); --ok: #5DB585; --bad: #E2735E; --caller: #1D3431;
+    --focus: #7FB6E8; --on-ok: #0F1E1D; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --panel: #0F1E1D; --surface: #162826; --ink: #E2ECE8; --muted: #93A7A2; --rule: #2A3F3C;
+  --lamp: #F0B556; --lamp-glow: rgba(240,181,86,.30); --ok: #5DB585; --bad: #E2735E; --caller: #1D3431;
+  --focus: #7FB6E8; --on-ok: #0F1E1D; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--panel); color: var(--ink);
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+header.top {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  padding: 14px 24px; border-bottom: 1px solid var(--rule); background: var(--surface);
+}
+header.top h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -.01em; }
+nav.tabs { display: flex; gap: 4px; }
+nav.tabs button {
+  border: 1px solid transparent; background: none; padding: 6px 14px; border-radius: 999px; color: var(--muted);
+}
+nav.tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--rule); background: var(--panel); font-weight: 600; }
+
+main { max-width: 1180px; margin: 0 auto; padding: 24px; }
+.cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px; align-items: start; }
+@media (max-width: 860px) {
+  .cols { grid-template-columns: 1fr; } main { padding: 16px; } header.top { padding: 12px 16px; }
+  .cols > .side { display: contents; }   /* dar ekranda: arama düğmesi, döküm, diğer kutular */
+  .side .callbox { order: -1; } .side .box:not(.callbox) { order: 1; } .log { min-height: 260px; }
+}
+
+/* hat lambaları: çağrı durum makinesi */
+.line {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; margin: 0 0 20px;
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 16px 8px 12px;
+}
+.lamp { display: flex; flex-direction: column; align-items: center; gap: 8px; position: relative; text-align: center; }
+.lamp::before {
+  content: ""; position: absolute; top: 9px; left: -50%; width: 100%; height: 2px; background: var(--rule); z-index: 0;
+}
+.lamp:first-child::before { display: none; }
+.lamp i {
+  width: 20px; height: 20px; border-radius: 50%; background: var(--panel); border: 2px solid var(--rule);
+  position: relative; z-index: 1; transition: background .15s, box-shadow .15s, border-color .15s;
+}
+.lamp span { font-size: .82rem; color: var(--muted); }
+.lamp.on i { background: var(--lamp); border-color: var(--lamp); box-shadow: 0 0 0 6px var(--lamp-glow); }
+.lamp.on span { color: var(--ink); font-weight: 600; }
+.lamp.done i { background: var(--ok); border-color: var(--ok); }
+@media (prefers-reduced-motion: reduce) { .lamp i { transition: none; } }
+@media (max-width: 560px) {
+  .lamp span { font-size: .72rem; }
+  .lamp:not(.on) span { visibility: hidden; }   /* dar ekranda yalnızca yanan lambanın adı */
+}
+
+/* konuşma dökümü */
+.log {
+  background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 8px 20px 20px;
+  min-height: 420px; max-height: 64vh; overflow-y: auto;
+}
+.log .empty { color: var(--muted); padding: 48px 8px; max-width: 46ch; }
+.msg { margin: 16px 0 0; max-width: 62ch; }
+.msg .who { font-size: .8rem; color: var(--muted); margin-bottom: 2px; }
+.msg .text { padding: 10px 14px; border-radius: 12px; }
+.msg.caller { margin-left: auto; }
+.msg.caller .who { text-align: right; }
+.msg.caller .text { background: var(--caller); border-bottom-right-radius: 4px; }
+.msg.bot .text { border: 1px solid var(--rule); border-bottom-left-radius: 4px; }
+.msg.bot.barged .text { border-style: dashed; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: .82rem; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 600; }
+.event { margin: 14px 0 0; font-size: .88rem; color: var(--muted); padding-left: 12px; border-left: 3px solid var(--rule); }
+.event.ok { border-color: var(--ok); color: var(--ink); }
+.event.bad { border-color: var(--bad); color: var(--ink); }
+
+/* sağ sütun */
+.side { display: flex; flex-direction: column; gap: 16px; }
+.box { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 18px; }
+.box h2 { margin: 0 0 10px; font-size: 1rem; }
+.box p { margin: 0 0 12px; color: var(--muted); font-size: .92rem; }
+.call-btn {
+  width: 100%; padding: 14px; border-radius: 12px; border: 0; font-weight: 700; font-size: 1.05rem;
+  background: var(--ok); color: var(--on-ok);
+}
+.call-btn.end { background: var(--bad); color: var(--on-ok); }
+.call-btn:disabled { opacity: .5; cursor: not-allowed; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.ghost { border: 1px solid var(--rule); background: var(--panel); border-radius: 10px; padding: 8px 12px; }
+.ghost:disabled { opacity: .45; cursor: not-allowed; }
+.meter { height: 8px; border-radius: 4px; background: var(--panel); overflow: hidden; margin: 12px 0 4px; }
+.meter div { height: 100%; width: 0; background: var(--ok); transition: width 60ms linear; }
+.small { font-size: .82rem; color: var(--muted); }
+.big { font-size: 2.6rem; font-weight: 700; line-height: 1.1; letter-spacing: -.02em; }
+.pbx[hidden] { display: none; }
+.pbx { border-color: var(--lamp); }
+
+/* izleme */
+.health { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+@media (max-width: 640px) { .health { grid-template-columns: repeat(2, 1fr); } }
+.svc { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 14px 16px; display: flex; gap: 12px; align-items: center; }
+.svc i { width: 14px; height: 14px; border-radius: 50%; background: var(--muted); flex: none; }
+.svc.ok i { background: var(--ok); }
+.svc.bad i { background: var(--bad); }
+.svc strong { display: block; }
+.svc span { font-size: .85rem; color: var(--muted); }
+h2.sec { font-size: 1.05rem; margin: 28px 0 10px; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--rule); font-size: .92rem; vertical-align: top; }
+th { color: var(--muted); font-weight: 600; background: var(--panel); }
+tr:last-child td { border-bottom: 0; }
+.tablewrap { overflow-x: auto; }
+details summary { cursor: pointer; }
+details ol { margin: 8px 0 0; padding-left: 20px; }
+.outcome-transferred { color: var(--ok); font-weight: 600; }
+.outcome-operator { color: var(--lamp); font-weight: 600; }
+.outcome-error { color: var(--bad); font-weight: 600; }
+.note { color: var(--muted); font-size: .9rem; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Sesli asistan</h1>
+  <nav class="tabs" role="tablist" aria-label="Bölümler">
+    <button role="tab" id="tab-call" aria-selected="true" aria-controls="view-call">Deneme çağrısı</button>
+    <button role="tab" id="tab-watch" aria-selected="false" aria-controls="view-watch">İzleme</button>
+  </nav>
+</header>
+
+<main>
+  <section id="view-call" role="tabpanel" aria-labelledby="tab-call">
+    <div class="line" aria-label="Çağrı durumu">
+      <div class="lamp" data-state="greeting"><i></i><span>Karşılama</span></div>
+      <div class="lamp" data-state="listening"><i></i><span>Dinliyor</span></div>
+      <div class="lamp" data-state="thinking"><i></i><span>Düşünüyor</span></div>
+      <div class="lamp" data-state="speaking"><i></i><span>Konuşuyor</span></div>
+      <div class="lamp" data-state="transferring"><i></i><span>Aktarılıyor</span></div>
+    </div>
+    <div class="cols">
+      <div class="log" id="log" aria-live="polite">
+        <p class="empty" id="empty">Aramayı başlatın ve telefonda konuşur gibi konuşun: "Muhasebeden Ayşe Hanım'ı
+          bağlar mısınız?" Asistanın duyduğu, cevabı ve ne kadar sürede cevap verdiği burada görünür. Ses, gerçek
+          hattaki gibi telefon kalitesine indirilir.</p>
+      </div>
+      <div class="side">
+        <div class="box callbox">
+          <button class="call-btn" id="callBtn">Aramayı başlat</button>
+          <div class="meter" aria-hidden="true"><div id="meter"></div></div>
+          <div class="small" id="callInfo">Mikrofon izni istenecek. Kulaklık kullanmanız önerilir.</div>
+        </div>
+        <div class="box">
+          <h2>Son cevap süresi</h2>
+          <div class="big" id="lastLatency">–</div>
+          <p class="small" id="latencyNote">Konuşmanızın metni geldikten sonra asistanın ilk sesine kadar geçen süre.</p>
+        </div>
+        <div class="box pbx" id="pbxBox" hidden>
+          <h2 id="pbxTitle">Santral</h2>
+          <p id="pbxText"></p>
+          <div class="row" id="pbxButtons">
+            <button class="ghost" data-status="answered">Cevaplandı</button>
+            <button class="ghost" data-status="busy">Meşgul</button>
+            <button class="ghost" data-status="no_answer">Cevap yok</button>
+            <button class="ghost" data-status="failed">Başarısız</button>
+          </div>
+        </div>
+        <div class="box">
+          <h2>Tuşlama</h2>
+          <p>Arayan 0'a basarsa operatöre aktarılır.</p>
+          <button class="ghost" id="dtmf0" disabled>0'a bas</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="view-watch" role="tabpanel" aria-labelledby="tab-watch" hidden>
+    <div class="health" id="health"></div>
+    <h2 class="sec">Süren çağrılar</h2>
+    <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Kanal</th><th>Durum</th><th>Başlangıç</th><th>Tur</th></tr></thead>
+      <tbody id="active"></tbody></table></div>
+    <h2 class="sec">Son çağrılar</h2>
+    <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Sonuç</th><th>Başlangıç</th><th>Süre</th><th>Konuşma</th></tr></thead>
+      <tbody id="recent"></tbody></table></div>
+    <h2 class="sec">Rehberde bulunamayan aramalar</h2>
+    <p class="note">Sık geçenler rehbere takma ad olarak eklenebilir.</p>
+    <div class="tablewrap"><table><thead><tr><th>Aranan</th><th>Kaç kez</th></tr></thead><tbody id="misses"></tbody></table></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const KEY = new URLSearchParams(location.search).get("anahtar") || "";
+const $ = (id) => document.getElementById(id);
+const fmt = (s) => s == null ? "–" : s.toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " sn";
+const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+/* ---------- sekmeler ---------- */
+const tabs = { call: [$("tab-call"), $("view-call")], watch: [$("tab-watch"), $("view-watch")] };
+let watchTimer = null;
+function show(name) {
+  for (const [k, [tab, view]] of Object.entries(tabs)) {
+    tab.setAttribute("aria-selected", String(k === name));
+    view.hidden = k !== name;
+  }
+  clearInterval(watchTimer);
+  if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); }
+}
+$("tab-call").onclick = () => show("call");
+$("tab-watch").onclick = () => show("watch");
+
+/* ---------- deneme çağrısı ---------- */
+// Mikrofon: tarayıcının hızından 8 kHz'e indirilir (kutu süzgeci + seyreltme), 20 ms'lik PCM16 parçalar gönderilir.
+const WORKLET = `
+class Down extends AudioWorkletProcessor {
+  constructor() { super(); this.ratio = sampleRate / 8000; this.acc = 0; this.n = 0; this.pos = 0;
+    this.out = new Int16Array(160); this.k = 0; this.peak = 0; }
+  process(inputs) {
+    const ch = inputs[0][0];
+    if (!ch) return true;
+    for (let i = 0; i < ch.length; i++) {
+      this.acc += ch[i]; this.n++; this.pos++;
+      if (this.pos >= this.ratio) {
+        this.pos -= this.ratio;
+        const v = Math.max(-1, Math.min(1, this.acc / this.n));
+        this.acc = 0; this.n = 0;
+        this.peak = Math.max(this.peak, Math.abs(v));
+        this.out[this.k++] = v * 32767;
+        if (this.k === 160) {
+          this.port.postMessage({ pcm: this.out.buffer.slice(0), peak: this.peak });
+          this.k = 0; this.peak = 0;
+        }
+      }
+    }
+    return true;
+  }
+}
+registerProcessor("down8k", Down);`;
+
+let ws = null, ctx = null, micStream = null, node = null, playAt = 0, sources = [], lastBot = null, inCall = false;
+
+function lamp(state) {
+  const order = ["greeting", "listening", "thinking", "speaking", "transferring"];
+  const idx = order.indexOf(state);
+  for (const el of document.querySelectorAll(".lamp")) {
+    el.classList.toggle("on", order.indexOf(el.dataset.state) === idx);
+    el.classList.toggle("done", state === "handed_off" && el.dataset.state === "transferring");
+  }
+}
+
+function add(html, cls) {
+  $("empty")?.remove();
+  const div = document.createElement("div");
+  div.className = cls;
+  div.innerHTML = html;
+  $("log").appendChild(div);
+  $("log").scrollTop = $("log").scrollHeight;
+  return div;
+}
+
+function play(buf) {
+  const pcm = new Int16Array(buf);
+  const f = new Float32Array(pcm.length);
+  for (let i = 0; i < pcm.length; i++) f[i] = pcm[i] / 32768;
+  const ab = ctx.createBuffer(1, f.length, 8000);
+  ab.copyToChannel(f, 0);
+  const src = ctx.createBufferSource();
+  src.buffer = ab;
+  src.connect(ctx.destination);
+  playAt = Math.max(playAt, ctx.currentTime + 0.05);
+  src.start(playAt);
+  playAt += ab.duration;
+  sources.push(src);
+  src.onended = () => { sources = sources.filter((s) => s !== src); };
+}
+
+function stopPlayback() {
+  for (const s of sources) { try { s.stop(); } catch (_) {} }
+  sources = []; playAt = 0;
+}
+
+function onEvent(m) {
+  switch (m.type) {
+    case "call": $("callInfo").textContent = `Çağrı ${m.call_id} açık. Konuşabilirsiniz.`; break;
+    case "state":
+      lamp(m.state);
+      if (m.state === "handed_off") {
+        add("Çağrı devredildi. Gerçek hatta buradan sonrasını santral yürütür; deneme çağrısı kapatılıyor.", "event ok");
+        setTimeout(() => endCall(), 1500);
+      }
+      break;
+    case "heard":
+      add(`<div class="who">Arayan</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`, "msg caller");
+      break;
+    case "reply":
+      lastBot = add(`<div class="who">Asistan</div><div class="text">${esc(m.text)}</div><div class="meta"></div>`, "msg bot");
+      break;
+    case "turn": {
+      if (!lastBot) break;
+      const meta = lastBot.querySelector(".meta");
+      const parts = [];
+      if (m.final_to_audio_s != null) parts.push(`İlk ses <b>${fmt(m.final_to_audio_s)}</b>`);
+      if (m.dialog_s) parts.push(`Dil modeli ve rehber ${fmt(m.dialog_s)}`);
+      if (m.barged) { parts.push("Söze girildi"); lastBot.classList.add("barged"); }
+      meta.innerHTML = parts.join("<span aria-hidden='true'></span>");
+      if (m.final_to_audio_s != null) $("lastLatency").textContent = fmt(m.final_to_audio_s);
+      break;
+    }
+    case "barge_in": stopPlayback(); break;
+    case "clear": stopPlayback(); break;
+    case "action":
+      if (m.action === "transfer") add(`Asistan ${esc(m.extension)} numaralı dahiliye aktarmak istedi.`, "event ok");
+      else if (m.action === "operator") add(`Operatöre aktarıldı (${esc(reasonText(m.reason))}).`, "event");
+      break;
+    case "pbx_action":
+      if (m.action === "transfer") {
+        $("pbxTitle").textContent = `Aktarma: ${m.extension}`;
+        $("pbxText").textContent = "Gerçek hatta bu noktada santral aramayı aktarır. Sonucu siz seçin; asistan ona göre devam eder.";
+        $("pbxButtons").hidden = false;
+        $("pbxBox").hidden = false;
+      }
+      break;
+    case "ended": add(`Çağrı bitti: ${esc(outcomeText(m.outcome))}${m.reason ? " (" + esc(reasonText(m.reason)) + ")" : ""}.`, m.outcome === "error" ? "event bad" : "event"); break;
+    case "summary": $("callInfo").textContent = `Çağrı bitti. ${m.turns.length} tur, ${fmt(m.duration_s)}.`; break;
+    case "error": add(esc(m.message), "event bad"); $("callInfo").textContent = m.message; break;
+  }
+}
+
+const OUTCOMES = { transferred: "aktarıldı", operator: "operatöre verildi", hangup: "kapatıldı", error: "hata" };
+const REASONS = {
+  arayan_istedi: "arayan istedi", bulunamadi: "üç denemede bulunamadı", llm_hatasi: "dil modeli cevap vermedi",
+  ilerleme_yok: "ilerleme olmadı", tts_hatasi: "seslendirme hatası", stt_yok: "konuşma tanıma yok",
+  stt_koptu: "konuşma tanıma koptu", sessiz: "arayan konuşmadı", dtmf: "0'a basıldı", sure_asimi: "süre doldu",
+  cevaplandi: "cevaplandı", hangup: "kapatıldı", rtp_zaman_asimi: "ses gelmedi", ic_hata: "iç hata",
+};
+const outcomeText = (o) => OUTCOMES[o] || o || "–";
+const reasonText = (r) => REASONS[r] || r;
+
+for (const b of $("pbxButtons").querySelectorAll("button")) {
+  b.onclick = () => {
+    ws?.send(JSON.stringify({ type: "transfer_result", status: b.dataset.status }));
+    add(`Santral sonucu: ${b.textContent.toLowerCase()}.`, b.dataset.status === "answered" ? "event ok" : "event");
+    $("pbxBox").hidden = true;
+  };
+}
+$("dtmf0").onclick = () => ws?.send(JSON.stringify({ type: "dtmf", digit: "0" }));
+
+async function startCall() {
+  $("callBtn").disabled = true;
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+  } catch (e) {
+    $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı).";
+    $("callBtn").disabled = false;
+    return;
+  }
+  ctx = new AudioContext();
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
+  node = new AudioWorkletNode(ctx, "down8k");
+  ctx.createMediaStreamSource(micStream).connect(node);
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws${KEY ? "?anahtar=" + encodeURIComponent(KEY) : ""}`);
+  ws.binaryType = "arraybuffer";
+  node.port.onmessage = (e) => {
+    $("meter").style.width = Math.min(100, e.data.peak * 140) + "%";
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(e.data.pcm);
+  };
+  ws.onmessage = (e) => typeof e.data === "string" ? onEvent(JSON.parse(e.data)) : play(e.data);
+  ws.onopen = () => {
+    inCall = true;
+    $("log").innerHTML = "";
+    $("lastLatency").textContent = "–";
+    $("callBtn").textContent = "Aramayı bitir";
+    $("callBtn").classList.add("end");
+    $("callBtn").disabled = false;
+    $("dtmf0").disabled = false;
+  };
+  ws.onclose = (e) => { if (e.code === 1008) $("callInfo").textContent = e.reason || "Bağlantı reddedildi."; endCall(false); };
+  ws.onerror = () => { $("callInfo").textContent = "Gateway'e bağlanılamadı."; };
+}
+
+function endCall(sendHangup = true) {
+  if (sendHangup && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "hangup" }));
+  if (!inCall && !ws) return;
+  inCall = false;
+  stopPlayback();
+  micStream?.getTracks().forEach((t) => t.stop());
+  if (node) { node.port.onmessage = null; node.disconnect(); }
+  setTimeout(() => ctx?.close(), 300);
+  ws = null; micStream = null; node = null;
+  lamp("ended");
+  $("pbxBox").hidden = true;
+  $("meter").style.width = "0";
+  $("callBtn").textContent = "Aramayı başlat";
+  $("callBtn").classList.remove("end");
+  $("callBtn").disabled = false;
+  $("dtmf0").disabled = true;
+}
+$("callBtn").onclick = () => (inCall ? endCall() : startCall());
+
+/* ---------- izleme ---------- */
+const SERVICES = { stt: "Konuşma tanıma", llm: "Dil modeli", tts: "Seslendirme", directory: "Rehber" };
+const STATES = { greeting: "karşılama", listening: "dinliyor", thinking: "düşünüyor", speaking: "konuşuyor",
+  transferring: "aktarılıyor", handed_off: "devredildi", ended: "bitti" };
+const headers = KEY ? { Authorization: "Bearer " + KEY } : {};
+
+async function refresh() {
+  try {
+    const [h, c] = await Promise.all([
+      fetch("/v1/admin/health", { headers }).then((r) => r.json()),
+      fetch("/v1/admin/calls", { headers }).then((r) => r.json()),
+    ]);
+    $("health").innerHTML = Object.entries(SERVICES).map(([k, label]) => {
+      const st = h.components?.[k];
+      return `<div class="svc ${st === "ok" ? "ok" : "bad"}"><i></i><div><strong>${label}</strong><span>${st === "ok" ? "çalışıyor" : esc(st || "bilinmiyor")}</span></div></div>`;
+    }).join("");
+    $("active").innerHTML = c.active.length ? c.active.map((a) =>
+      `<tr><td>${esc(a.call_id)}</td><td>${a.channel === "web" ? "Arayüz" : "Santral"}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")
+      : `<tr><td colspan="5" class="note">Şu an süren çağrı yok.</td></tr>`;
+    $("recent").innerHTML = c.recent.length ? c.recent.map((r) => {
+      const turns = r.turns.map((t) => `<li>${esc(t.heard || "–")} <span class="note">/</span> ${esc(t.reply)}${t.actions.length ? " <span class='note'>(" + esc(t.actions.join(", ")) + ")</span>" : ""}${t.final_to_audio_s != null ? " <span class='note'>" + fmt(t.final_to_audio_s) + "</span>" : ""}</li>`).join("");
+      return `<tr><td>${esc(r.call_id)}<div class="note">${r.channel === "web" ? "Arayüz" : "Santral"}</div></td>
+        <td class="outcome-${esc(r.outcome)}">${esc(outcomeText(r.outcome))}${reasonText(r.reason) !== outcomeText(r.outcome) ? `<div class="note">${esc(reasonText(r.reason))}</div>` : ""}</td>
+        <td>${esc(r.started.replace("T", " "))}</td><td>${fmt(r.duration_s)}</td>
+        <td>${r.turns.length ? `<details><summary>${r.turns.length} tur</summary><ol>${turns}</ol></details>` : "<span class='note'>konuşma yok</span>"}</td></tr>`;
+    }).join("") : `<tr><td colspan="5" class="note">Henüz biten çağrı yok. Deneme çağrısı sekmesinden bir arama yapın.</td></tr>`;
+    $("misses").innerHTML = c.misses.length ? c.misses.map((m) => `<tr><td>${esc(m.text)}</td><td>${m.count}</td></tr>`).join("")
+      : `<tr><td colspan="2" class="note">Bulunamayan arama yok.</td></tr>`;
+  } catch (e) {
+    $("health").innerHTML = `<div class="svc bad"><i></i><div><strong>Gateway</strong><span>bağlanılamadı</span></div></div>`;
+  }
+}
+</script>
+</body>
+</html>

@@ -22,6 +22,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | 3 | TTS: cümle cümle boru hattı, sabit anons kütüphanesi, önbellek, Piper HTTP adaptörü | ✅ (gerçek Piper ile ölçüm bekliyor) |
 | 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (GPU: WER %10, ad 12/12, konuşma sonu → metin ~1,1 sn; sentetik set, olcumler.md) |
 | 5 | Santral entegrasyonu: REST kontrol API'si, çağrı oturumu (durum makinesi, barge-in, aktarma akışı, zaman aşımları), RTP medya, santral simülatörü | ✅ (simülatörde; gerçek santral test ortamı bekliyor) |
+| — | Arayüz: tarayıcıdan deneme çağrısı + izleme (ADR-014) | ✅ |
 | 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
 
 ### Taşınan modüller
@@ -110,6 +111,17 @@ python -m sesli_asistan.stt                                   # 1. terminal
 PBX_BASE_URL=http://127.0.0.1:8100 python -m sesli_asistan.gateway   # 2. terminal (Ollama + Piper açık)
 python tools/cagri/cagri.py ayse.wav --cevap cevap.wav        # 3. terminal: santral gibi ara
 ```
+
+### Arayüz
+
+Gateway çalışırken **http://127.0.0.1:8000/ui**:
+
+- **Deneme çağrısı:** mikrofona konuşursunuz, asistan sesli cevap verir. Sesiniz telefon kalitesine indirilip santral
+  çağrısıyla aynı yoldan geçer. Ekranda duyulan metin, cevap, aktarma isteği ve ilk ses süresi görünür; aktarma
+  sonucunu (cevaplandı / meşgul / cevap yok) siz seçersiniz.
+- **İzleme:** servis durumu, süren ve son çağrılar (tur tur), rehberde bulunamayan aramalar.
+
+Mikrofon yalnızca `localhost` ya da HTTPS'te açılır. Erişim: `UI_ALLOWED_IPS`, `API_KEY` (`/ui?anahtar=...`).
 
 ## Geliştirme
 

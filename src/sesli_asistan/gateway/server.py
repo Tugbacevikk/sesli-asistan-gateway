@@ -27,7 +27,8 @@ def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None =
         await rt.stop()
 
     return create_app(rt.manager, rt.health, api_key=s.api_key.get_secret_value(), allowed_ips=s.allowed_ips,
-                      lifespan=lifespan)
+                      lifespan=lifespan, web_session=rt.web_session if s.ui_enabled else None,
+                      ui_allowed_ips=s.ui_ips)
 
 
 def main() -> None:
@@ -35,6 +36,9 @@ def main() -> None:
     s = GatewaySettings()
     if not s.api_key.get_secret_value():
         logging.getLogger(__name__).warning("API_KEY boş: kontrol API'si kimlik doğrulamasız (yalnızca geliştirme)")
+    if s.ui_enabled:
+        logging.getLogger(__name__).info("arayüz: http://%s:%d/ui", "127.0.0.1" if s.gateway_api_host == "0.0.0.0"
+                                         else s.gateway_api_host, s.gateway_api_port)
     uvicorn.run(build_app(s), host=s.gateway_api_host, port=s.gateway_api_port, log_level="info",
                 timeout_graceful_shutdown=10)
 

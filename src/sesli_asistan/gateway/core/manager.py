@@ -107,12 +107,7 @@ class CallManager:
             raise BadRequest("call_id boş")
         if req.codec not in CODECS:
             raise BadRequest(f"desteklenmeyen codec: {req.codec} (pcma | pcmu)")
-        if req.call_id in self.sessions or req.call_id in self._reserved:
-            raise CallExists(f"açık oturum var: {req.call_id}", req.call_id)
-        if not self.ready():
-            raise Unavailable("bağımlı servisler hazır değil")
-        if self.active >= self.max_calls:
-            raise Unavailable(f"kapasite dolu ({self.max_calls})")
+        self._admit(req.call_id)
         self._reserved.add(req.call_id)   # await'ler sırasında aynı call_id ikinci kez açılamasın
         try:
             media, port = await self._open_media(req)
@@ -127,6 +122,24 @@ class CallManager:
         log.info("[%s] çağrı açıldı: port %d, %s, aktif %d", req.call_id, port, req.codec, self.active)
         return port
 
+    def _admit(self, call_id: str) -> None:
+        if call_id in self.sessions or call_id in self._reserved:
+            raise CallExists(f"açık oturum var: {call_id}", call_id)
+        if not self.ready():
+            raise Unavailable("bağımlı servisler hazır değil")
+        if self.active >= self.max_calls:
+            raise Unavailable(f"kapasite dolu ({self.max_calls})")
+
+    def attach(self, session: CallSession) -> asyncio.Task:
+        """RTP portu gerektirmeyen oturum (arayüzden tarayıcı ile deneme): aynı kapasite ve hazır olma kuralları,
+        izlemede diğer çağrılarla birlikte görünür. Dönen görev oturum bitince tamamlanır."""
+        self._admit(session.call_id)
+        self.sessions[session.call_id] = session
+        task = asyncio.create_task(self._run(session.call_id, session, None), name=f"cagri-{session.call_id}")
+        self._tasks[session.call_id] = task
+        log.info("[%s] çağrı açıldı (%s), aktif %d", session.call_id, session.stats.channel, self.active)
+        return task
+
     async def _open_media(self, req: NewCall) -> tuple[MediaPort, int]:
         for _ in range(self.ports.available):
             port = self.ports.take()
@@ -139,7 +152,7 @@ class CallManager:
                 self.ports.give_back(port)
         raise Unavailable("boş RTP portu yok")
 
-    async def _run(self, call_id: str, session: CallSession, port: int) -> None:
+    async def _run(self, call_id: str, session: CallSession, port: int | None) -> None:
         try:
             stats = await session.run()
             self.results.append((call_id, stats))
@@ -148,7 +161,8 @@ class CallManager:
         finally:
             self.sessions.pop(call_id, None)
             self._tasks.pop(call_id, None)
-            self.ports.give_back(port)
+            if port is not None:
+                self.ports.give_back(port)
 
     def event(self, call_id: str, kind: str, data: dict) -> None:
         s = self.sessions.get(call_id)

@@ -69,6 +69,7 @@ class CallToolState:
     pending_transfer: TransferAction | None = None
     failed_attempts: int = 0
     actions: list[TransferAction | OperatorAction] = field(default_factory=list)
+    misses: list[str] = field(default_factory=list)   # bulunamayan aramalar (rehbere takma ad eklemek için)
 
 
 @dataclass(frozen=True)
@@ -109,6 +110,8 @@ class ToolRegistry:
             # LLM alanı karıştırmış olabilir ("İK"yi Name'e yazmak gibi): diğer alanla bir kez daha dene
             res = self.index.search(dept, name)
         state.last_results = res.candidates
+        if res.match == Match.NONE:
+            state.misses.append(" / ".join(x for x in (name, dept, ext) if x))
         content = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
         return ToolOutcome(content, failed_search=res.match == Match.NONE)
 

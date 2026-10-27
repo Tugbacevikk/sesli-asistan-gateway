@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 2.3 |
+| **Sürüm** | 2.4 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -29,6 +29,7 @@
 | 2.1 | 26.10.2026 | Arama: uzamış kelime kuralı ("Demirci" ↔ "Demir" net eşleşme değil), STT hata tablosu testi; Whisper ipucu 400 harf bütçesi; zaman aşımı sonrası sıradaki cümle haksız yere düşmez |
 | 2.2 | 26.10.2026 | Aşama 5 kodlandı: REST kontrol API'si (FastAPI), CallManager (port havuzu, kapasite, idempotent bitirme), CallSession durum makinesi (5.1.1 güncellendi: `HANDED_OFF`), RTP medya yolu (simetrik), santral eylem istemcisi (yeniden deneme), çalışan servis (`python -m sesli_asistan.gateway`), santral simülatörü (`tools/cagri/cagri.py`); 5.1.2 çağrı kuralları; çekirdek için hexagonal import kuralı |
 | 2.3 | 27.10.2026 | Mimari eksikler: TTS cevabı seslendiremezse operatöre aktarma, sessiz arayan zaman aşımı ("Sizi duyamıyorum" → operatör), söze girme eşiği (SPEECH_STARTED ≥ 300 ms sesli konuşmadan sonra), koddan söylenen bütün cümleler ayardan (`*_TEXT`, yer tutucu doğrulaması) |
+| 2.4 | 27.10.2026 | Arayüz (ADR-014): tarayıcıdan deneme çağrısı (mikrofon → WebSocket → aynı çağrı oturumu) ve izleme (servis durumu, süren/son çağrılar, bulunamayan aramalar); kurum adı koddan çıkarıldı (`ORGANIZATION_NAME`) |
 
 ---
 
@@ -1082,6 +1083,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `PBX_API_KEY` | (secrets.env) | Gateway'in santrale gönderdiği Bearer anahtar |
 | `PBX_TIMEOUT_S` | 3 | Santral eylem isteği (3 deneme) |
 | `BARGE_IN` | true | Söze girince seslendirme durur |
+| `UI_ENABLED` | true | Arayüz (`/ui`, ADR-014) |
+| `UI_ALLOWED_IPS` | 127.0.0.1,::1 | Arayüze erişebilecek adresler; `*` her yer (API_KEY ile) |
 | `LOG_LEVEL` | INFO | |
 
 ---
@@ -1303,6 +1306,15 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Sonuçlar:** Net taleplerde tur başına tek LLM çağrısı (gecikme düşer); "söyledi ama aktarmadı" tutarsızlığı bu durumda imkânsız. Bedeli: arayan net bir kişiyi yalnızca bilgi için sorsa da ("Ayşe Hanım orada mı?") aktarılır — yönlendirme asistanı için kabul edilebilir. `auto_transfer_single_high=False` ile kapatılabilir.
 - **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
 
+### ADR-014 — Arayüz: tarayıcıdan deneme çağrısı ve izleme, Gateway'in içinde
+- **Bağlam:** Sistemin kullanıcısı santral; arayüz tasarımda kapsam dışıydı. Ancak teslim, sunum ve santral olmadan gerçek sesle deneme için terminal araçları yetmiyor; destek ekibinin servis durumu ve çağrı dökümünü görmesi gerekiyor.
+- **Karar:** Gateway `/ui` altında tek sayfa sunar (dış bağlantı yok: çevrimdışı sunucuda da açılır).
+  1. **Deneme çağrısı:** Tarayıcının mikrofonu 8 kHz PCM16'ya indirilip WebSocket'le (`/v1/ui/ws`) gelir, G.711'e çevrilip **santral çağrısıyla aynı** `CallSession`'a verilir; yalnızca ses yolu (`WsMedia`) ve santral (`WebPbx`: aktarma sonucunu arayüzdeki kişi seçer) farklıdır. Telefon kalitesiyle denendiği için arayüzde görülen davranış hattakiyle aynıdır. Çağrı izlemede ve kapasite sınırında santral çağrılarıyla birlikte sayılır.
+  2. **İzleme:** servis durumu, süren çağrılar, son çağrıların tur tur dökümü (duyulan, cevap, eylem, süre), rehberde bulunamayan aramalar (takma ad eklemek için). Kaynak: `/v1/admin/calls`, `/v1/admin/health`.
+  3. **Çekirdek değişmez:** `CallSession` yalnızca bir gözlemciye (observer) olay bildirir; arayüz bir giriş adaptörüdür.
+- **Erişim:** `UI_ENABLED` (varsayılan açık), `UI_ALLOWED_IPS` (varsayılan yalnızca bu makine), `API_KEY` tanımlıysa anahtar (`?anahtar=`). Tarayıcı mikrofonu yalnızca `localhost` ya da HTTPS'te açar; sunucuda başka makineden kullanmak için ters vekil (reverse proxy) ile HTTPS gerekir.
+- **Sonuç:** Santral beklemeden gerçek konuşmayla uçtan uca deneme; ölçümler (ilk ses süresi) her turda görünür. Yönetim/ayar ekranı (metinler, mesai saatleri, takma adlar) ileride aynı sayfaya eklenebilir.
+
 ### ADR-013 — TTS sesi: ticari kullanıma uygun Türkçe ses (revize 26.10.2026)
 - **Bağlam:** İlk TTS ölçümünde `tr_TR-dfki-medium` kullanıldı; model kartına göre eğitim veri seti (dfki-ot-data) **CC BY-NC-SA 4.0** (ticari olmayan). İlk karar `tr_TR-fahrettin-medium` / `tr_TR-fettah-medium` idi (veri seti CC0). İkinci TTS denemesinde bu seslerin `rhasspy/piper-voices` deposunun ana dalından **katkıcıların isteğiyle kaldırıldığı** görüldü (commit `b145f2a`, 30.12.2025: "Remove fahrettin and fettah voices at request of contributors"); yalnızca eski `v1.0.0` sürümünde duruyorlar. Sistem ticari ürün olarak dağıtılacak.
 - **Karar:**
@@ -1394,7 +1406,7 @@ sesli-asistan-gateway/
 │   │   │   └── pbx/          # rest.py: Gateway → santral eylemleri (yeniden deneme)
 │   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog.py, tools.py,
 │   │   │                     #   policy.py, search.py, directory.py, speech.py, models.py, ports.py
-│   │   ├── api/              # app.py: REST uçları (FastAPI)
+│   │   ├── api/              # app.py: REST uçları (FastAPI); ui.py + ui.html: arayüz (ADR-014)
 │   │   ├── config.py         # GatewaySettings
 │   │   ├── composition.py    # bileşenleri ayarlardan kurar; GatewayRuntime (açılış, sağlık, kapanış)
 │   │   └── server.py         # python -m sesli_asistan.gateway

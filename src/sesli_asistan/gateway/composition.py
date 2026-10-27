@@ -103,11 +103,19 @@ class GatewayRuntime:
         return await RtpMedia.open(self.s.rtp_host, port, req.codec, req.rtp_remote, self.s.allowed_ips)
 
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
-        cfg = CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
-                         transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
-                         no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max)
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
-                           self.pbx, cfg, hotwords=self.directory.index.hotwords())
+                           self.pbx, self._call_config(), hotwords=self.directory.index.hotwords())
+
+    def _call_config(self) -> CallConfig:
+        return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
+                          transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
+                          no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max)
+
+    def web_session(self, call_id: str, media: MediaPort, pbx, observer) -> CallSession:
+        """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze."""
+        return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
+                           self._call_config(), hotwords=self.directory.index.hotwords(), observer=observer,
+                           channel="web")
 
     async def start(self) -> None:
         await self.directory.refresh()

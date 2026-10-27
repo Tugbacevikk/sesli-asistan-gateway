@@ -84,6 +84,10 @@ class GatewaySettings(BaseSettings):
     transferring_text: str = ""
     transferring_department_text: str = ""
 
+    # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
+    ui_enabled: bool = True
+    ui_allowed_ips: str = "127.0.0.1,::1"      # virgülle; "*" her yerden (API_KEY ile birlikte kullanın)
+
     # STT servisi (Gateway tarafı)
     stt_grpc_addr: str = "127.0.0.1:50051"
 
@@ -111,6 +115,12 @@ class GatewaySettings(BaseSettings):
         if "{ad" not in t.transferring:
             raise ValueError("TRANSFERRING_TEXT {ad} ya da {ad_e} içermeli")
         return self
+
+    @property
+    def ui_ips(self) -> set[str] | None:
+        if self.ui_allowed_ips.strip() == "*":
+            return None
+        return {x.strip() for x in self.ui_allowed_ips.split(",") if x.strip()}
 
     @property
     def allowed_ips(self) -> set[str] | None:

@@ -28,7 +28,8 @@ import logging
 import secrets
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
+from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
@@ -88,6 +89,10 @@ class CallStats:
     reason: str = ""
     stt_dropped: int = 0
     rtp: dict[str, int] = field(default_factory=dict)
+    channel: str = "santral"           # santral | web (arayüzden deneme)
+    started: str = ""                  # yerel saat, ISO
+    duration_s: float = 0.0
+    misses: list[str] = field(default_factory=list)   # rehberde bulunamayan aramalar
 
 
 @dataclass
@@ -100,14 +105,18 @@ class _Event:
 class CallSession:
     def __init__(self, call_id: str, codec: str, media: MediaPort, stt: SttPort, speaker: Speaker,
                  dialog: DialogSession, pbx: PbxPort, cfg: CallConfig | None = None,
-                 hotwords: list[str] | None = None, clock: Callable[[], float] = time.monotonic):
+                 hotwords: list[str] | None = None, clock: Callable[[], float] = time.monotonic,
+                 observer: Callable[[str, dict[str, Any]], None] | None = None, channel: str = "santral"):
+        """observer(olay, veri): durum değişimi, duyulan metin, cevap, eylem, tur ölçümü, bitiş — arayüz için.
+        Gözlemcideki hata çağrıyı etkilemez."""
+        self.observer = observer
         self.call_id, self.codec = call_id, codec
         self.media, self.stt, self.speaker, self.dialog, self.pbx = media, stt, speaker, dialog, pbx
         self.cfg = cfg or CallConfig()
         self.hotwords = list(hotwords or [])
         self.clock = clock
         self.state = CallState.GREETING
-        self.stats = CallStats()
+        self.stats = CallStats(channel=channel, started=datetime.now().isoformat(timespec="seconds"))
         self.started_at = clock()
         self._q: asyncio.Queue[_Event] = asyncio.Queue()
         self._inputs: list[_Event] = []          # sıradaki tur için duyulanlar
@@ -122,6 +131,23 @@ class CallSession:
         self._caller_talking = False             # SPEECH_STARTED geldi, sonucu (FINAL/NOT_RECOGNIZED) gelmedi
         self._silences = 0                       # art arda sessiz dinleme sayısı
         self._tts_fail_streak = 0
+
+    @property
+    def state(self) -> CallState:
+        return self._state
+
+    @state.setter
+    def state(self, value: CallState) -> None:
+        if getattr(self, "_state", None) != value:
+            self._state = value
+            self._emit("state", state=value.value)
+
+    def _emit(self, kind: str, **data: Any) -> None:
+        if self.observer is not None:
+            try:
+                self.observer(kind, data)
+            except Exception:
+                log.exception("[%s] gözlemci hatası (%s)", self.call_id, kind)
 
     # --- dışarıdan (REST) ---------------------------------------------------------------------------------
 
@@ -176,7 +202,10 @@ class CallSession:
                 if cancel:
                     cancel()
             self.stats.rtp = self.media.stats()
+            self.stats.duration_s = round(self.clock() - self.started_at, 1)
+            self.stats.misses = list(self.dialog.state.misses)
             self.media.close()
+            self._emit("ended", outcome=self.stats.outcome, reason=self.stats.reason)
             log.info("[%s] çağrı bitti: %s (%s), %d tur, %d söze girme", self.call_id, self.stats.outcome,
                      self.stats.reason, len(self.stats.turns), self.stats.barge_ins)
         return self.stats
@@ -230,6 +259,7 @@ class CallSession:
                     and self.state in (CallState.SPEAKING, CallState.GREETING)):
                 log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
                 self.stats.barge_ins += 1
+                self._emit("barge_in")
                 self._speech.cancel()
         elif k in ("final", "not_recognized"):
             if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
@@ -257,6 +287,7 @@ class CallSession:
     async def _turn(self) -> None:
         inputs, self._inputs = self._inputs, []
         heard = " ".join(e.data["text"] for e in inputs if e.kind == "final" and e.data["text"])
+        self._emit("heard", text=heard)
         self.state = CallState.THINKING
         t0 = self.clock()
         turn = await self.dialog.handle_user(heard)
@@ -273,6 +304,8 @@ class CallSession:
         self._speech_meta = {"id": self._speech_id, "turn": turn, "heard_at": heard_at, "heard": heard,
                              "dialog_s": dialog_s}
         self._speech = asyncio.create_task(self._speak(turn.text, self._speech_id), name=f"konusma-{self.call_id}")
+        if turn.text:
+            self._emit("reply", text=turn.text)
 
     async def _speak(self, text: str, speech_id: int) -> None:
         said_at = self.clock()
@@ -299,8 +332,10 @@ class CallSession:
         if meta["heard_at"] is not None and first_audio_s is not None:
             latency = round(said_at - meta["heard_at"] + first_audio_s, 3)
         if meta["heard_at"] is not None or meta["heard"]:
-            self.stats.turns.append(TurnRecord(meta["heard"], turn.text, [_describe(a) for a in turn.actions],
-                                               round(meta["dialog_s"], 3), latency, barged=not completed))
+            rec = TurnRecord(meta["heard"], turn.text, [_describe(a) for a in turn.actions],
+                             round(meta["dialog_s"], 3), latency, barged=not completed)
+            self.stats.turns.append(rec)
+            self._emit("turn", **asdict(rec))
         if not tts_ok:
             self.stats.tts_failures += 1
             self._tts_fail_streak += 1
@@ -335,6 +370,7 @@ class CallSession:
 
     async def _send_transfer(self, tr: TransferAction) -> None:
         self.state = CallState.TRANSFERRING
+        self._emit("action", action="transfer", extension=tr.extension)
         self._transfer_deadline = self.clock() + self.cfg.transfer_result_timeout_s
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "transfer",
@@ -345,6 +381,7 @@ class CallSession:
 
     async def _send_operator(self, reason: str) -> None:
         self._handed_off("operator", reason)
+        self._emit("action", action="operator", reason=reason)
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "operator"})
         except PbxError as e:

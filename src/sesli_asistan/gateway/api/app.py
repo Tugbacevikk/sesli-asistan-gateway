@@ -22,6 +22,8 @@ from pydantic import BaseModel, Field, ValidationError
 
 from sesli_asistan.gateway.core.manager import CallError, CallManager, NewCall
 
+from .ui import UI_PREFIXES, _ui_access, mount_ui, request_key
+
 log = logging.getLogger(__name__)
 
 
@@ -63,15 +65,25 @@ def _error(status: int, code: str, message: str, call_id: str | None = None) -> 
 
 
 def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_key: str = "",
-               allowed_ips: set[str] | None = None, lifespan=None) -> FastAPI:
+               allowed_ips: set[str] | None = None, lifespan=None, web_session=None,
+               ui_allowed_ips: set[str] | None = None) -> FastAPI:
+    """web_session verilirse arayüz açılır (api/ui.py); arayüz yollarında santral IP listesi yerine
+    `ui_allowed_ips` uygulanır."""
     app = FastAPI(title="Sesli Asistan Gateway", version="1", openapi_url="/v1/openapi.json",
                   docs_url="/v1/docs", redoc_url=None, lifespan=lifespan)
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        if request.url.path in ("/v1/openapi.json", "/v1/docs"):
+        path = request.url.path
+        if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
         host = request.client.host if request.client else ""
+        if path.startswith(UI_PREFIXES):
+            if web_session is None:
+                return _error(404, "NOT_FOUND", "arayüz kapalı (UI_ENABLED=false)")
+            if (why := _ui_access(host, request_key(request), api_key, ui_allowed_ips)) is not None:
+                return _error(401, "UNAUTHORIZED", why)
+            return await call_next(request)
         if allowed_ips is not None and host not in allowed_ips:
             log.warning("izin listesinde olmayan kaynaktan istek: %s %s", host, request.url.path)
             return _error(401, "FORBIDDEN_SOURCE", "kaynak adres izinli değil")
@@ -113,6 +125,9 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
                 return _error(400, "BAD_REQUEST", str(e.errors()[0]["msg"]), call_id)
         await manager.end(call_id, reason)
         return Response(status_code=204)
+
+    if web_session is not None:
+        mount_ui(app, manager, web_session, health, api_key, ui_allowed_ips)
 
     @app.get("/v1/health")
     async def get_health() -> JSONResponse:
