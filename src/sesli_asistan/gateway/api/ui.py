@@ -28,7 +28,6 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import dataclasses
-import hmac
 import json
 import logging
 import secrets
@@ -44,6 +43,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sesli_asistan.gateway.core.call import CallSession
 from sesli_asistan.gateway.core.manager import CallError, CallManager
 from sesli_asistan.libs.audio import g711
+
+from .access import VIEWER, Principal, UiAccess
 
 log = logging.getLogger(__name__)
 
@@ -146,14 +147,6 @@ class WebPbx:
                       "action_id": action["action_id"]})
 
 
-def _ui_access(host: str, key_given: str, api_key: str, allowed: set[str] | None) -> str | None:
-    if allowed is not None and host not in allowed:
-        return "kaynak adres izinli değil (UI_ALLOWED_IPS)"
-    if api_key and not hmac.compare_digest(key_given.encode(), api_key.encode()):
-        return "geçersiz ya da eksik anahtar"
-    return None
-
-
 def _err(status: int, code: str, msg: str) -> JSONResponse:
     return JSONResponse({"error": {"code": code, "message": msg, "call_id": None}}, status_code=status)
 
@@ -163,9 +156,22 @@ def request_key(request: Request) -> str:
     return auth[7:] if auth.startswith("Bearer ") else request.query_params.get("anahtar", "")
 
 
+def _actor(request: Request) -> dict[str, str]:
+    p: Principal = getattr(request.state, "principal", None) or Principal("?", VIEWER)
+    return {"kim": p.name, "rol": p.role, "ip": request.client.host if request.client else "?"}
+
+
+def _forbidden(request: Request) -> JSONResponse | None:
+    p = getattr(request.state, "principal", None)
+    if p is None or not p.is_admin:
+        return _err(403, "FORBIDDEN", "bu işlem yönetici rolü ister (izleyici yalnızca görür)")
+    return None
+
+
 def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
              health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None,
-             history: Any = None, settings: Any = None) -> None:
+             history: Any = None, settings: Any = None, access: UiAccess | None = None) -> None:
+    access = access or UiAccess(api_key, None, allowed_ips)
     if history is None:
         from sesli_asistan.gateway.adapters.history.sqlite import MemoryCallHistory
 
@@ -181,11 +187,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         return JSONResponse(health())
 
     @app.get("/v1/admin/settings", include_in_schema=False)
-    async def admin_settings() -> JSONResponse:
+    async def admin_settings(request: Request) -> JSONResponse:
         if settings is None:
-            return JSONResponse({"error": {"code": "NOT_FOUND", "message": "ayar ekranı yok", "call_id": None}},
-                                status_code=404)
-        return JSONResponse(settings.view())
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        return JSONResponse(settings.view(request.state.principal))
 
     @app.put("/v1/admin/settings", include_in_schema=False)
     async def admin_settings_save(request: Request) -> JSONResponse:
@@ -194,12 +199,14 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
 
         if settings is None:
             return err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
         # yalnız JSON: başka bir sitenin form gönderimi (CSRF) tarayıcı ön kontrolüne takılır
         if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
             return err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
         try:
             data = json.loads(await request.body() or b"{}")
-            view = await settings.update(data)
+            view = await settings.update(data, actor=_actor(request))
         except ValueError as e:
             return err(400, "BAD_REQUEST", str(e))
         log.info("ayarlar arayüzden kaydedildi (%s)", request.client.host if request.client else "?")
@@ -210,23 +217,33 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         """Rehbere yerel kayıt (kaynak rehber değişmez; tasarim.md 13.1)."""
         if settings is None:
             return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
         if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
             return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
         try:
-            view = await settings.add_contact(json.loads(await request.body() or b"{}"))
+            view = await settings.add_contact(json.loads(await request.body() or b"{}"), actor=_actor(request))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view, status_code=201)
 
     @app.delete("/v1/admin/contacts/{contact_id}", include_in_schema=False)
-    async def admin_contact_remove(contact_id: str) -> JSONResponse:
+    async def admin_contact_remove(contact_id: str, request: Request) -> JSONResponse:
         if settings is None:
             return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
         try:
-            view = await settings.remove_contact(contact_id)
+            view = await settings.remove_contact(contact_id, actor=_actor(request))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view)
+
+    @app.get("/v1/admin/changes", include_in_schema=False)
+    async def admin_changes() -> JSONResponse:
+        """Ayar ve rehber değişiklik geçmişi (kim, ne zaman, nereden, ne)."""
+        get = getattr(history, "changes", None)
+        return JSONResponse({"changes": await asyncio.to_thread(get, 50) if get else []})
 
     @app.get("/v1/admin/calls", include_in_schema=False)
     async def admin_calls() -> JSONResponse:
@@ -241,7 +258,8 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
     async def ws(websocket: WebSocket) -> None:
         host = websocket.client.host if websocket.client else ""
         key = websocket.query_params.get("anahtar", "")
-        if (why := _ui_access(host, key, api_key, allowed_ips)) is not None:
+        principal, why = access.check(host, key)
+        if principal is None:
             log.warning("arayüz bağlantısı reddedildi (%s): %s", host, why)
             await websocket.close(code=1008, reason=why)
             return

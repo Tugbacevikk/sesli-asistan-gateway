@@ -189,20 +189,20 @@ class SettingsService:
             out.append(c)
         return out
 
-    async def add_contact(self, contact: dict[str, Any]) -> dict[str, Any]:
+    async def add_contact(self, contact: dict[str, Any], actor: dict[str, str] | None = None) -> dict[str, Any]:
         if not isinstance(contact, dict):
             raise ValueError("kayıt JSON nesnesi olmalı")
         view = await self.update({**self.local, "contacts": [*self.local.get("contacts", []),
-                                                              {**contact, "id": ""}]})
+                                                              {**contact, "id": ""}]}, actor=actor, action="rehber")
         log.info("yerel kayıt eklendi: %s", self.local["contacts"][-1]["extension"])
         return view
 
-    async def remove_contact(self, contact_id: str) -> dict[str, Any]:
+    async def remove_contact(self, contact_id: str, actor: dict[str, str] | None = None) -> dict[str, Any]:
         rest = [c for c in self.local.get("contacts", []) if c["id"] != contact_id]
         if len(rest) == len(self.local.get("contacts", [])):
             raise ValueError("yalnız arayüzden eklenen (yerel) kayıtlar silinebilir")
         aliases = {k: v for k, v in self.local.get("aliases", {}).items() if k != contact_id}
-        return await self.update({**self.local, "contacts": rest, "aliases": aliases})
+        return await self.update({**self.local, "contacts": rest, "aliases": aliases}, actor=actor, action="rehber")
 
     # --- ayar ekranı --------------------------------------------------------------------------------------
 
@@ -210,14 +210,16 @@ class SettingsService:
     def writable(self) -> bool:
         return self.store is not None
 
-    def view(self) -> dict[str, Any]:
+    def view(self, principal: Any = None) -> dict[str, Any]:
         rt, s, base = self.rt, self.rt.s, self.base_texts()
         # yerel kayıt sonradan kaynak rehbere de girdiyse (aynı dahili): yerel olan silinebilir diye uyarılır
         source_ext = {c.extension: c.full_name for c in rt.directory.index.source_contacts()}
         texts = rt.agent.cfg.texts
         local_texts = self.local.get("texts", {})
+        role = getattr(principal, "role", "yonetici")
         return {
-            "writable": self.writable,
+            "writable": self.writable and role == "yonetici",
+            "user": {"name": getattr(principal, "name", ""), "role": role},
             "texts": [{"name": n, "label": TEXT_LABELS[n][0], "placeholders": TEXT_LABELS[n][1],
                        "value": getattr(texts, n), "default": getattr(base, n), "changed": n in local_texts}
                       for n in TEXT_FIELDS],
@@ -235,11 +237,13 @@ class SettingsService:
             "prompts_missing": rt._prompts_missing,
         }
 
-    async def update(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def update(self, data: dict[str, Any], actor: dict[str, str] | None = None,
+                     action: str = "ayarlar") -> dict[str, Any]:
         if self.store is None:
             raise ValueError("ayar ekranı salt okunur (LOCAL_SETTINGS_FILE boş)")
         async with self._lock:
             clean = self.normalize(data)
+            changes = describe_changes(self.local, clean, self.rt.directory.index)
             before = self.rt.agent.cfg.texts
             await asyncio.to_thread(self.store.save, clean)
             self.local = clean
@@ -250,9 +254,60 @@ class SettingsService:
                 self.rt._prompts_missing = bool(missing)
             log.info("ayarlar kaydedildi: %d anons, %d kişiye takma ad", len(clean.get("texts", {})),
                      len(clean.get("aliases", {})))
-        view = self.view()
+            if changes:
+                a = actor or {"kim": "?", "rol": "?", "ip": "?"}
+                try:
+                    await asyncio.to_thread(self.rt.history.change_add, a["kim"], a["rol"], a["ip"], action, changes)
+                except Exception:      # denetim kaydı yazılamadı: değişiklik yine geçerli, loglanır
+                    log.exception("değişiklik geçmişi yazılamadı")
+                log.info("değişiklik (%s, %s): %s", a["kim"], a["ip"], "; ".join(changes))
+        view = self.view(_Who(actor))
         view["missing"] = missing
         return view
+
+
+class _Who:
+    def __init__(self, actor: dict[str, str] | None):
+        self.name = (actor or {}).get("kim", "")
+        self.role = (actor or {}).get("rol", "yonetici")
+
+
+def describe_changes(old: dict[str, Any], new: dict[str, Any], index: Any) -> list[str]:
+    """Değişiklik geçmişi için insan okunur özet: "Karşılama anonsu değişti", "takma ad eklendi: …"."""
+    out: list[str] = []
+    ot, nt = old.get("texts", {}), new.get("texts", {})
+    for name in TEXT_FIELDS:
+        if ot.get(name) != nt.get(name):
+            label = TEXT_LABELS[name][0]
+            out.append(f"{label} anonsu {'varsayılana döndü' if name not in nt else 'değişti'}: "
+                       f"{nt.get(name, '')[:80]}".rstrip(": "))
+    for key, label in (("office_hours", "çalışma saatleri"), ("holidays", "tatiller"),
+                       ("after_hours_mode", "mesai dışı davranış")):
+        if old.get(key) != new.get(key):
+            out.append(f"{label}: {new.get(key, '(ayar dosyasındaki)')}")
+    names = {c["id"]: f"{c['first_name']} {c['last_name']}".strip() or c["department"]
+             for c in (*old.get("contacts", []), *new.get("contacts", []))}
+
+    def who(cid: str) -> str:
+        c = index.get(cid)
+        return names.get(cid) or (c.full_name if c else cid)
+
+    oa, na = old.get("aliases", {}), new.get("aliases", {})
+    for cid in sorted(set(oa) | set(na)):
+        added = [a for a in na.get(cid, []) if a not in oa.get(cid, [])]
+        removed = [a for a in oa.get(cid, []) if a not in na.get(cid, [])]
+        if added:
+            out.append(f"takma ad eklendi: {who(cid)} ← {', '.join(added)}")
+        if removed:
+            out.append(f"takma ad silindi: {who(cid)} ← {', '.join(removed)}")
+    oc = {c["id"]: c for c in old.get("contacts", [])}
+    nc = {c["id"]: c for c in new.get("contacts", [])}
+    for cid in nc.keys() - oc.keys():
+        c = nc[cid]
+        out.append(f"yerel kayıt eklendi: {names[cid]} ({c['department'] or '-'}, {c['extension']})")
+    for cid in oc.keys() - nc.keys():
+        out.append(f"yerel kayıt silindi: {names[cid]} ({oc[cid]['extension']})")
+    return out
 
 
 def _label_error(msg: str) -> str:

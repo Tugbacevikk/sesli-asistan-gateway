@@ -347,6 +347,10 @@ td input { min-width: 160px; }
       <button class="send" id="setSave">Kaydet</button>
       <span id="setStatus" role="status" aria-live="polite"></span>
     </div>
+    <h2 class="sec">Değişiklik geçmişi</h2>
+    <p class="note">Ayar ve rehber değişiklikleri: kim, ne zaman, nereden. 1 yıl saklanır.</p>
+    <div class="tablewrap"><table><thead><tr><th>Zaman</th><th>Kim</th><th>Değişiklik</th></tr></thead>
+      <tbody id="setChanges"></tbody></table></div>
   </section>
 </main>
 
@@ -682,10 +686,26 @@ async function loadSettings() {
     ]);
     settings = st;
     renderSettings(st, calls.misses || []);
-    setStatus(st.writable ? "" : "Salt okunur: LOCAL_SETTINGS_FILE boş.", st.writable ? "" : "status-bad");
+    setStatus(st.writable ? "" : readOnlyReason(st), st.writable ? "" : "status-bad");
+    loadChanges();
   } catch (e) {
     setStatus("Ayarlar okunamadı.", "status-bad");
   }
+}
+
+function readOnlyReason(st) {
+  return st.user?.role === "izleyici" ? `${st.user.name}: izleyici rolündesiniz, değişiklik yapamazsınız.`
+    : "Salt okunur: LOCAL_SETTINGS_FILE boş.";
+}
+
+async function loadChanges() {
+  try {
+    const c = await fetch("/v1/admin/changes", { headers }).then((r) => r.json());
+    $("setChanges").innerHTML = c.changes.length ? c.changes.map((x) => `<tr>
+        <td>${esc(x.ts.replace("T", " "))}</td><td>${esc(x.kim)}<div class="note">${esc(x.rol)} · ${esc(x.ip)}</div></td>
+        <td>${x.ayrinti.map((d) => `<div>${esc(d)}</div>`).join("")}</td></tr>`).join("")
+      : `<tr><td colspan="3" class="note">Henüz değişiklik yok.</td></tr>`;
+  } catch (e) { /* geçmiş okunamazsa ayarlar yine çalışır */ }
 }
 
 function renderSettings(st, misses) {
@@ -749,6 +769,7 @@ $("setSave").onclick = async () => {
     renderSettings(data, [...$("missPick").options].map((o) => ({ text: o.value })));
     setStatus(data.missing?.length ? `Kaydedildi; seslendirilemeyen anons: ${data.missing.join(", ")} (TTS çalışıyor mu?)`
       : "Kaydedildi.", data.missing?.length ? "status-bad" : "status-ok");
+    loadChanges();
   } catch (e) {
     setStatus("Gateway'e ulaşılamadı.", "status-bad");
   } finally {
@@ -792,7 +813,7 @@ function renderDirectory() {
   $("dirRows").innerHTML = html || `<tr><td colspan="4" class="note">Eşleşen kayıt yok.</td></tr>`;
   for (const b of $("dirRows").querySelectorAll("[data-del]")) b.onclick = () => removeContact(b.dataset.del);
   for (const el of $("dirForm").querySelectorAll("input, select, button")) el.disabled = !directory.writable;
-  if (!directory.writable) $("nfStatus").textContent = "Salt okunur: LOCAL_SETTINGS_FILE boş.";
+  if (!directory.writable) $("nfStatus").textContent = readOnlyReason(directory);
 }
 
 $("dirFilter").oninput = renderDirectory;

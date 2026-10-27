@@ -12,7 +12,7 @@ import json
 import logging
 import sqlite3
 import threading
-from collections import Counter
+from collections import Counter, deque
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
@@ -34,7 +34,14 @@ CREATE INDEX IF NOT EXISTS calls_started ON calls(started);
 CREATE TABLE IF NOT EXISTS misses (started TEXT NOT NULL, text TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS misses_started ON misses(started);
 CREATE TABLE IF NOT EXISTS transfers (started TEXT NOT NULL, extension TEXT NOT NULL);
+-- ayar / rehber değişiklikleri (denetim kaydı): kim, ne zaman, nereden, ne
+CREATE TABLE IF NOT EXISTS changes (
+    ts TEXT NOT NULL, who TEXT NOT NULL, role TEXT NOT NULL, ip TEXT NOT NULL,
+    action TEXT NOT NULL, detail TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS changes_ts ON changes(ts);
 """
+CHANGES_DAYS = 365          # denetim kaydı çağrı geçmişinden uzun tutulur
 
 
 class SqliteCallHistory:
@@ -76,6 +83,19 @@ class SqliteCallHistory:
                                     "ORDER BY c DESC LIMIT ?", (since, limit)).fetchall()
         return [{"text": t, "count": c} for t, c in rows]
 
+    def change_add(self, who: str, role: str, ip: str, action: str, detail: list[str]) -> None:
+        with self._lock, self._db:
+            self._db.execute("INSERT INTO changes VALUES (?,?,?,?,?,?)",
+                             (datetime.now().isoformat(timespec="seconds"), who, role, ip, action,
+                              json.dumps(detail, ensure_ascii=False)))
+
+    def changes(self, limit: int = 50) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._db.execute("SELECT ts, who, role, ip, action, detail FROM changes ORDER BY ts DESC, rowid DESC"
+                                    " LIMIT ?", (limit,)).fetchall()
+        return [{"ts": r[0], "kim": r[1], "rol": r[2], "ip": r[3], "islem": r[4], "ayrinti": json.loads(r[5])}
+                for r in rows]
+
     def top_extensions(self, limit: int = 50, days: int = 30) -> list[tuple[str, int]]:
         """En çok aktarılan dahililer (Whisper ipucu önceliği için)."""
         since = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
@@ -96,6 +116,8 @@ class SqliteCallHistory:
             n = self._db.execute("DELETE FROM calls WHERE started < ?", (cutoff,)).rowcount
             self._db.execute("DELETE FROM misses WHERE started < ?", (cutoff,))
             self._db.execute("DELETE FROM transfers WHERE started < ?", (cutoff,))
+            old = (datetime.now() - timedelta(days=CHANGES_DAYS)).isoformat(timespec="seconds")
+            self._db.execute("DELETE FROM changes WHERE ts < ?", (old,))
         if n:
             log.info("çağrı geçmişi: %d eski kayıt silindi (%d günden eski)", n, self.retention_days)
         return n
@@ -110,6 +132,7 @@ class MemoryCallHistory:
 
     def __init__(self, manager: Any):
         self.manager = manager
+        self._changes: deque[dict[str, Any]] = deque(maxlen=200)
 
     def add(self, call_id: str, stats: Any) -> None:
         pass   # yönetici zaten bellekte tutuyor
@@ -125,6 +148,13 @@ class MemoryCallHistory:
         c = Counter(a.split(":", 1)[1] for _, st in self.manager.results for t in st.turns for a in t.actions
                     if a.startswith("transfer:"))
         return c.most_common(limit)
+
+    def change_add(self, who: str, role: str, ip: str, action: str, detail: list[str]) -> None:
+        self._changes.appendleft({"ts": datetime.now().isoformat(timespec="seconds"), "kim": who, "rol": role,
+                                  "ip": ip, "islem": action, "ayrinti": detail})
+
+    def changes(self, limit: int = 50) -> list[dict[str, Any]]:
+        return list(self._changes)[:limit]
 
     def summary(self, days: int = 1) -> dict[str, Any]:
         c = Counter(st.outcome for _, st in self.manager.results)

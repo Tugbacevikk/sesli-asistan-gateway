@@ -128,6 +128,9 @@ class GatewaySettings(BaseSettings):
     # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
     ui_enabled: bool = True
     ui_allowed_ips: str = "127.0.0.1,::1"      # virgülle; "*" her yerden (API_KEY ile birlikte kullanın)
+    # Arayüz kullanıcıları (secrets.env): "ad:yonetici|izleyici:anahtar, …". Tanımlıysa değişiklik geçmişinde kişi
+    # görünür, izleyici ayar değiştiremez, API_KEY yalnız izleyici sayılır (api/access.py)
+    ui_users: SecretStr = SecretStr("")
     # Önündeki ters vekil (nginx, HTTPS): yalnız bu adreslerden gelen X-Forwarded-For'a güvenilir; böylece
     # UI_ALLOWED_IPS / PBX_ALLOWED_IPS gerçek istemci adresine uygulanır. Boş: hiçbirine güvenilmez.
     forwarded_allow_ips: str = "127.0.0.1"
@@ -151,6 +154,7 @@ class GatewaySettings(BaseSettings):
         if self.rtp_port_max - self.rtp_port_min + 1 < self.max_concurrent_calls:
             raise ValueError("RTP port aralığı MAX_CONCURRENT_CALLS'tan küçük")
         check_texts(self.dialog_texts())
+        self.users()
         self.office()          # biçim hatası açılışta görünsün
         if self.timezone.strip():
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -160,6 +164,11 @@ class GatewaySettings(BaseSettings):
                 raise ValueError(f"TIMEZONE bilinmiyor: {self.timezone!r} (Windows'ta 'tzdata' paketi gerekir)") \
                     from None
         return self
+
+    def users(self) -> dict:
+        from .api.access import parse_users
+
+        return parse_users(self.ui_users.get_secret_value())
 
     def office(self) -> OfficeHours:
         try:
