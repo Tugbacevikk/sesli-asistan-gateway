@@ -27,6 +27,13 @@ stt-cuda = [
     "nvidia-cublas-cu12",
     "nvidia-cudnn-cu12>=9,<10",
 ]
+# Kadın sesli TTS servisi (ayrı süreç, ayrı venv; ADR-015). Model ağırlıkları CC BY-SA 4.0
+tts = [
+    "seslen-tts==0.1.0",
+    "fastapi",
+    "uvicorn",
+    "pydantic-settings",
+]
 # Gateway servisi (ayrı süreç, ayrı venv)
 gateway = [
     "fastapi",
@@ -87,9 +94,9 @@ source_modules = ["sesli_asistan.libs"]
 forbidden_modules = ["sesli_asistan.gateway", "sesli_asistan.stt"]
 
 [[tool.importlinter.contracts]]
-name = "gateway ve stt birbirinden bağımsız (gRPC sözleşmesi)"
+name = "gateway, stt ve tts birbirinden bağımsız (gRPC / HTTP sözleşmesi)"
 type = "independence"
-modules = ["sesli_asistan.gateway", "sesli_asistan.stt"]
+modules = ["sesli_asistan.gateway", "sesli_asistan.stt", "sesli_asistan.tts"]
 
 [[tool.importlinter.contracts]]
 name = "Gateway model kütüphanesi bilmez"

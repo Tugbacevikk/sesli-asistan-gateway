@@ -112,6 +112,17 @@ PBX_BASE_URL=http://127.0.0.1:8100 python -m sesli_asistan.gateway   # 2. termin
 python tools/cagri/cagri.py ayse.wav --cevap cevap.wav        # 3. terminal: santral gibi ara
 ```
 
+### Kadın sesi (ADR-015)
+
+`sesli_asistan.tts`: Seslen (açık Türkçe TTS, ONNX, CPU) ile kadın sesi (`ayse`). Piper'la aynı HTTP sözleşmesi;
+Gateway'de yalnızca `TTS_URL` değişir. Model ağırlıkları CC BY-SA 4.0 (ticari kullanım serbest, atıf şartı).
+
+```bash
+pip install -e ".[tts]"
+python -m sesli_asistan.tts                     # port 5600, ilk açılışta model indirilir (~330 MB)
+TTS_URL=http://127.0.0.1:5600 python -m sesli_asistan.gateway
+```
+
 ### Arayüz
 
 Gateway çalışırken **http://127.0.0.1:8000/ui**:

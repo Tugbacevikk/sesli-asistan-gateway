@@ -4,7 +4,7 @@
 |---|---|
 | **Doküman** | Yazılım Tasarım Dokümanı (Software Design Document) |
 | **Proje** | Sesli Asistan Gateway (Santral Sesli Yönlendirme Asistanı) |
-| **Sürüm** | 2.4 |
+| **Sürüm** | 2.5 |
 | **Durum** | İnceleme için hazır |
 | **Tarih** | 26.10.2026 |
 | **Hazırlayan** | Tuğba Çevik |
@@ -30,6 +30,7 @@
 | 2.2 | 26.10.2026 | Aşama 5 kodlandı: REST kontrol API'si (FastAPI), CallManager (port havuzu, kapasite, idempotent bitirme), CallSession durum makinesi (5.1.1 güncellendi: `HANDED_OFF`), RTP medya yolu (simetrik), santral eylem istemcisi (yeniden deneme), çalışan servis (`python -m sesli_asistan.gateway`), santral simülatörü (`tools/cagri/cagri.py`); 5.1.2 çağrı kuralları; çekirdek için hexagonal import kuralı |
 | 2.3 | 27.10.2026 | Mimari eksikler: TTS cevabı seslendiremezse operatöre aktarma, sessiz arayan zaman aşımı ("Sizi duyamıyorum" → operatör), söze girme eşiği (SPEECH_STARTED ≥ 300 ms sesli konuşmadan sonra), koddan söylenen bütün cümleler ayardan (`*_TEXT`, yer tutucu doğrulaması) |
 | 2.4 | 27.10.2026 | Arayüz (ADR-014): tarayıcıdan deneme çağrısı (mikrofon → WebSocket → aynı çağrı oturumu) ve izleme (servis durumu, süren/son çağrılar, bulunamayan aramalar); kurum adı koddan çıkarıldı (`ORGANIZATION_NAME`) |
+| 2.5 | 27.10.2026 | Kadın sesi (ADR-015): Seslen TTS servisi (`ayse`, ONNX/CPU, Piper ile aynı HTTP sözleşmesi); düşünürken klavye sesi; arayüzde yazarak deneme |
 
 ---
 
@@ -1041,6 +1042,11 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `THINKING_SOUND` / `THINKING_SOUND_DELAY_S` | true / 0,4 | Düşünürken klavye sesi (5.1.2) |
 | `THINKING_SOUND_FILE` | (boş) | Kendi düşünme sesiniz (16 bit WAV; telefon kalitesine ve arka plan seviyesine ayarlanır). **Lisansı ürüne uygun olmalı** (R-11); boşsa kodla üretilen ses |
+| *TTS servisi (`tts.env`, ADR-015):* | | |
+| `TTS_SESLEN_VOICE` | ayse | Kadın sesi; diğerleri zeynep, fatma, emre, hasan, koca |
+| `TTS_SESLEN_PORT` | 5600 | Gateway'de `TTS_URL=http://127.0.0.1:5600` |
+| `TTS_SESLEN_TONE` | notr | Sabit sakin ton |
+| `TTS_SESLEN_MODEL_DIR` | (boş) | Boşsa ilk açılışta indirilir (~330 MB); internetsiz kurulumda model klasörü |
 | `ORGANIZATION_NAME` | — | Kurum adı |
 | `STT_GRPC_ADDR` | 127.0.0.1:50051 | Gateway tarafı: STT servisinin adresi |
 | *STT servisi (`stt.env`):* | | |
@@ -1167,6 +1173,7 @@ Dağıtım paketinde `THIRD_PARTY_LICENSES.md` ve her bileşenin lisans metni bu
 | Qwen3.5 | Model kartındaki lisans |
 | Piper (piper1-gpl), espeak-ng | GPL-3.0 — yalnızca ayrı süreç (C-05) |
 | ~~`tr_TR-fahrettin-medium`, `tr_TR-fettah-medium`~~ | **Kullanılmaz:** veri seti CC0 olsa da katkıcıların isteğiyle depodan kaldırıldı (rhasspy/piper-voices `b145f2a`, 30.12.2025) |
+| Seslen TTS (`seslen-tts`, ADR-015) | Kod MIT; **model ağırlıkları ve sesler CC BY-SA 4.0** (ticari kullanım serbest; atıf ve aynı lisansla paylaşım şartı); öğretmen model VoxCPM2 Apache-2.0. Kullanım koşulu: dinleyiciye yapay zekâ sesi olduğu belirtilir. Hukuk onayı gerekir |
 | Şirkete ait Türkçe ses (önerilen, ADR-013) | Seslendirme sanatçısıyla tüm kullanım haklarını şirkete veren sözleşme; Piper ile eğitim |
 | ~~`tr_TR-dfki-medium`~~ | **Kullanılmaz:** veri seti CC BY-NC-SA 4.0 (ticari olmayan) |
 
@@ -1309,6 +1316,13 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Karar:** InContacts `single_high` dönerse Gateway aktarma eylemini kendisi üretir (aynı TransferPolicy kapısından geçerek) ve sabit aktarma cümlesini söyler; LLM'e ikinci tur gidilmez. `single_low` ve `multiple` durumlarında karar LLM'de kalır (onay/seçim gerekir).
 - **Sonuçlar:** Net taleplerde tur başına tek LLM çağrısı (gecikme düşer); "söyledi ama aktarmadı" tutarsızlığı bu durumda imkânsız. Bedeli: arayan net bir kişiyi yalnızca bilgi için sorsa da ("Ayşe Hanım orada mı?") aktarılır — yönlendirme asistanı için kabul edilebilir. `auto_transfer_single_high=False` ile kapatılabilir.
 - **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
+
+### ADR-015 — Kadın sesi: Seslen TTS servisi
+- **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.
+- **Araştırma (27.10.2026):** `seslen-tr/seslen-tts` — açık Türkçe TTS (StyleTTS2 tabanlı), yalnız ONNX Runtime, CPU'da çalışır (dizüstünde RTF ~0,2–0,4), 24 kHz. Sesler gerçek kişilerden değil, tarifle tasarlanmış: `ayse` (olgun kadın, güven veren; UTMOS 4,04), `zeynep`, `fatma`, `emre`, `hasan`, `koca`. Kod MIT, **ağırlıklar CC BY-SA 4.0** (ticari kullanıma izin verir; atıf ve aynı lisansla paylaşım şartı). Koşul: dinleyiciye yapay zekâ sesi olduğu söylenir, gerçek kişi taklidi yasak. Diğer adaylar elendi: Piper'daki Türkçe topluluk sesleri (lisans/veri belirsiz), XTTS ve MMS (ticari değil), VoxCPM2 LoRA sesleri (GPU ister, gerçek zamandan yavaş).
+- **Karar:** Ayrı süreç olarak `sesli_asistan.tts` servisi (`python -m sesli_asistan.tts`, port 5600, varsayılan `ayse`, nötr ton). Piper'la **aynı HTTP sözleşmesi** (`POST /synthesize`): Gateway değişmez, yalnızca `TTS_URL` bu servise çevrilir. Piper seçenek olarak kalır.
+- **Sonuç:** Kadın sesi bugün denenebilir. Karşılama "Ben sesli asistanım" dediği için yapay zekâ bildirimi sağlanıyor. Ağırlıklar değiştirilmeden kullanıldığı sürece aynı-lisans şartı modelin kendisine uygulanır; üretilen seslerin durumu ve atıf biçimi hukukça onaylanmalı. Şirkete ait ses (ADR-013) uzun vadeli seçenek olarak kalır; Seslen ekibinin ticari ses hizmeti de bir yol.
+- **Açık:** Model dosyalarının sürümü ve SHA256'sı `deploy/models.yaml`'a işlenecek (internetsiz kurulum: `TTS_SESLEN_MODEL_DIR`).
 
 ### ADR-014 — Arayüz: tarayıcıdan deneme çağrısı ve izleme, Gateway'in içinde
 - **Bağlam:** Sistemin kullanıcısı santral; arayüz tasarımda kapsam dışıydı. Ancak teslim, sunum ve santral olmadan gerçek sesle deneme için terminal araçları yetmiyor; destek ekibinin servis durumu ve çağrı dökümünü görmesi gerekiyor.
