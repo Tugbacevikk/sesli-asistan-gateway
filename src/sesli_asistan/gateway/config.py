@@ -72,6 +72,10 @@ class GatewaySettings(BaseSettings):
     barge_in: bool = True
     no_input_s: float = Field(8.0, gt=0)      # dinlemede sessizlik → "Sizi duyamıyorum"
     no_input_max: int = Field(2, ge=1)        # kaçıncı sessizlikte operatöre
+    thinking_sound: bool = True               # asistan düşünürken klavye sesi
+    thinking_sound_delay_s: float = Field(0.4, ge=0)
+    thinking_sound_file: str = ""             # kendi sesiniz (WAV, mono/stereo, herhangi hız); boş: kodla üretilen ses.
+                                              # Lisansı ürüne uygun olmalı (ADR-013, R-11)
 
     # Koddan söylenen cümleler (tasarim.md 13). Boş: varsayılan metin (core/dialog.py DialogTexts).
     # Yer tutucular: {kurum} {kurum_e} (karşılama), {ad} {ad_e} (kişiye aktarma), {birim} (birime aktarma).

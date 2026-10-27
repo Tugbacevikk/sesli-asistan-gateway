@@ -182,3 +182,39 @@ class Speaker:
             await out.play(fb)
             res.fallback_played = True
         return res
+
+
+# --- düşünme sesi ----------------------------------------------------------------------------------------------
+
+def keyboard_sound(seconds: float = 6.0, rate: int = 8000, level: float = 0.12, seed: int = 7) -> np.ndarray:
+    """Asistan düşünürken çalınan klavye sesi (int16, mono). Kayıt değil, kodla üretilir: lisans sorunu yok.
+
+    Her tuş: kısa gürültü patlaması → rastgele frekanslı rezonatör (1,2–3 kHz; boşluk tuşu daha pes ve uzun) →
+    üstel sönüm. Yazma ritmi: 3–8 tuşluk gruplar, tuşlar arası ~90–200 ms, gruplar arası 0,3–0,7 sn duraklama.
+    `level` tepe genliğidir (0,12 ≈ -18 dBFS): konuşmanın altında, arka planda kalır. Sabit tohum: her seferinde aynı.
+    """
+    from scipy.signal import lfilter
+
+    rng = np.random.default_rng(seed)
+    n = int(seconds * rate)
+    out = np.zeros(n + rate // 10, np.float64)
+    t = int(0.05 * rate)
+    while t < n:
+        for k in range(int(rng.integers(3, 9))):
+            space = k > 0 and rng.random() < 0.15
+            dur = int((0.045 if space else 0.025) * rate)
+            tau = (0.012 if space else 0.006) * rate
+            burst = rng.standard_normal(dur) * np.exp(-np.arange(dur) / tau)
+            f = rng.uniform(500, 800) if space else rng.uniform(1200, 3000)
+            r, w = 0.92, 2 * np.pi * f / rate
+            body = lfilter([1 - r], [1, -2 * r * np.cos(w), r * r], burst)
+            click = body * rng.uniform(0.6, 1.0)
+            end = min(len(out), t + dur)
+            out[t:end] += click[: end - t]
+            t += int(rng.uniform(0.09, 0.2) * rate)
+            if t >= n:
+                break
+        t += int(rng.uniform(0.3, 0.7) * rate)
+    out = out[:n]
+    peak = np.abs(out).max() or 1.0
+    return (out / peak * level * 32767).astype(np.int16)

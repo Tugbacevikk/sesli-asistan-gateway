@@ -15,6 +15,8 @@ Kurallar (kodla):
   - STT "anlaşılamadı" derse diyalog "anlayamadım" der ve deneme sayacı artar; çok kısa gürültüler sayılmaz.
   - Arayan, asistan düşünürken konuşursa cümleler sıraya girer; sonraki turda birleştirilip işlenir.
   - STT akışı açılamaz ya da koparsa, santral eylemi başarısız olursa: hata anonsu + operatör (zarif bozulma).
+  - Asistan düşünürken (LLM + rehber) `thinking_sound_delay_s`'den uzun sürerse arayana hafif bir klavye sesi
+    çalınır; cevap hazır olunca o pakette kesilir. Telefonda 3–5 sn'lik sessizlik hattın koptuğu sanılmasın.
   - TTS cevabı seslendiremezse ve arayan cevaptan hiçbir şey duymadıysa operatöre aktarılır (yedek anons zaten
     "operatöre bağlıyorum" der; tasarim.md 9.1). Kısmen duyduysa çağrı sürer, art arda ikinci hatada operatör.
   - Arayan dinleme sırasında `no_input_s` boyunca hiç konuşmazsa "Sizi duyamıyorum…" denir; `no_input_max`'ıncı
@@ -36,7 +38,7 @@ from typing import Any
 from .dialog import DialogSession
 from .models import Action, DialogTurn, OperatorAction, TransferAction
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
-from .speech import Speaker
+from .speech import Speaker, keyboard_sound
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +67,8 @@ class CallConfig:
     no_input_s: float = 8.0            # dinlemede bu kadar sessizlik → "Sizi duyamıyorum"
     no_input_max: int = 2              # kaçıncı sessizlikte operatöre
     tick_s: float = 1.0
+    thinking_sound: bool = True        # düşünürken klavye sesi (sessizlik "hat koptu mu?" dedirtmesin)
+    thinking_sound_delay_s: float = 0.4   # cevap bundan hızlı gelirse ses hiç çalınmaz
 
 
 @dataclass
@@ -106,10 +110,12 @@ class CallSession:
     def __init__(self, call_id: str, codec: str, media: MediaPort, stt: SttPort, speaker: Speaker,
                  dialog: DialogSession, pbx: PbxPort, cfg: CallConfig | None = None,
                  hotwords: list[str] | None = None, clock: Callable[[], float] = time.monotonic,
-                 observer: Callable[[str, dict[str, Any]], None] | None = None, channel: str = "santral"):
+                 observer: Callable[[str, dict[str, Any]], None] | None = None, channel: str = "santral",
+                 thinking_pcm: Any = None):
         """observer(olay, veri): durum değişimi, duyulan metin, cevap, eylem, tur ölçümü, bitiş — arayüz için.
         Gözlemcideki hata çağrıyı etkilemez."""
         self.observer = observer
+        self.thinking_pcm = thinking_pcm          # 8 kHz int16; None: kodla üretilen klavye sesi
         self.call_id, self.codec = call_id, codec
         self.media, self.stt, self.speaker, self.dialog, self.pbx = media, stt, speaker, dialog, pbx
         self.cfg = cfg or CallConfig()
@@ -297,11 +303,31 @@ class CallSession:
         self._emit("heard", text=heard)
         self.state = CallState.THINKING
         t0 = self.clock()
-        turn = await self.dialog.handle_user(heard)
+        turn = await self._thinking(self.dialog.handle_user(heard))
         dialog_s = self.clock() - t0
         log.info("[%s] tur: %r → %r %s (%.2f sn)", self.call_id, heard, turn.text,
                  [a.type for a in turn.actions], dialog_s)
         self._start_speech(turn, heard_at=inputs[0].at, heard=heard, dialog_s=dialog_s)
+
+    async def _thinking(self, work):
+        """Diyalog sürerken klavye sesi çalar (gecikmeli başlar), iş bitince keser."""
+        if not self.cfg.thinking_sound:
+            return await work
+        filler = asyncio.create_task(self._filler(), name=f"dusunme-{self.call_id}")
+        try:
+            return await work
+        finally:
+            filler.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await filler
+
+    async def _filler(self) -> None:
+        await asyncio.sleep(self.cfg.thinking_sound_delay_s)
+        self._emit("thinking_sound")
+        pcm = self.thinking_pcm if self.thinking_pcm is not None else _keyboard()
+        while True:
+            for i in range(0, len(pcm), 4000):        # 0,5 sn'lik parçalar
+                await self.media.play(pcm[i:i + 4000])
 
     def _start_speech(self, turn: DialogTurn, heard_at: float | None, heard: str, dialog_s: float = 0.0) -> None:
         if self.state != CallState.GREETING:
@@ -401,7 +427,7 @@ class CallSession:
             log.warning("[%s] beklenmeyen aktarma sonucu (%s, durum %s)", self.call_id, status, self.state)
             return
         self._transfer_deadline = None
-        turn = await self.dialog.handle_transfer_result(status)
+        turn = await self._thinking(self.dialog.handle_transfer_result(status))
         if status == "answered":
             self._handed_off("transferred", "cevaplandi")
             return
@@ -459,6 +485,16 @@ class CallSession:
         with contextlib.suppress(Exception):
             await asyncio.wait_for(self.speaker.say(text, self.media), timeout=15)
         await self._send_operator(reason)
+
+
+_KEYBOARD = None
+
+
+def _keyboard():
+    global _KEYBOARD
+    if _KEYBOARD is None:
+        _KEYBOARD = keyboard_sound()
+    return _KEYBOARD
 
 
 def _action_id() -> str:

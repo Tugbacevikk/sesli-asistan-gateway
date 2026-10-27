@@ -90,6 +90,7 @@ class GatewayRuntime:
                                    PortPool(s.rtp_port_min, s.rtp_port_max), s.max_concurrent_calls,
                                    ready=lambda: self.ready)
         self._prompts_missing = False
+        self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
         self._health_task: asyncio.Task | None = None
 
     @property
@@ -105,12 +106,14 @@ class GatewayRuntime:
 
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
-                           self.pbx, self._call_config(), hotwords=self.directory.index.hotwords())
+                           self.pbx, self._call_config(), hotwords=self.directory.index.hotwords(),
+                           thinking_pcm=self.thinking_pcm)
 
     def _call_config(self) -> CallConfig:
         return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
                           transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
-                          no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max)
+                          no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max,
+                          thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s)
 
     def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False) -> CallSession:
         """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
@@ -120,6 +123,7 @@ class GatewayRuntime:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
         return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
                            cfg, hotwords=self.directory.index.hotwords(), observer=observer,
+                           thinking_pcm=self.thinking_pcm,
                            channel="web-metin" if text_mode else "web")
 
     async def start(self) -> None:
@@ -175,6 +179,26 @@ class GatewayRuntime:
             close = getattr(c, "aclose", None)
             if close:
                 await close()
+
+
+def load_thinking_sound(path: str, level: float = 0.12):
+    """Düşünme sesi dosyası → 8 kHz mono int16, tepe `level`'a ayarlı (konuşmanın altında kalsın).
+    Okunamazsa servis başlamaz (yanlış yol sessizce kodla üretilen sese düşmesin)."""
+    import wave
+
+    import numpy as np
+
+    from sesli_asistan.libs.audio.resample import resample
+
+    with wave.open(path, "rb") as w:
+        if w.getsampwidth() != 2:
+            raise ValueError(f"THINKING_SOUND_FILE 16 bit PCM WAV olmalı: {path}")
+        x = np.frombuffer(w.readframes(w.getnframes()), "<i2").astype(np.float32) / 32768
+        x = x.reshape(-1, w.getnchannels()).mean(axis=1)
+        x = resample(x, w.getframerate(), 8000)
+    peak = float(np.abs(x).max()) or 1.0
+    log.info("düşünme sesi: %s (%.1f sn)", path, len(x) / 8000)
+    return (x / peak * level * 32767).astype(np.int16)
 
 
 async def _http_up(url: str) -> str:

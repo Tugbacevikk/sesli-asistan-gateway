@@ -410,3 +410,69 @@ async def test_konusan_arayan_sessiz_sayilmaz():
         c.stt.stream.ev.put_nowait(SttEvent("final", "şey", 0.9, 0, 3000))
         await c.until(lambda: c.session.stats.turns)
         assert c.session.stats.no_inputs == 0
+
+
+# --- düşünme sesi ---------------------------------------------------------------------------------------------
+
+class SlowLlm(Llm):
+    def __init__(self, delay, *replies):
+        super().__init__(*replies)
+        self.delay = delay
+
+    async def chat(self, messages, tools):
+        await asyncio.sleep(self.delay)
+        return await super().chat(messages, tools)
+
+
+class CountingMedia(Media):
+    def __init__(self):
+        super().__init__(play_s=0.02)
+        self.lengths = []
+
+    async def play(self, pcm):
+        self.lengths.append(len(pcm))
+        return await super().play(pcm)
+
+
+async def test_uzun_dusunmede_klavye_sesi_calar_cevapla_kesilir():
+    c = Call(SlowLlm(0.6, LlmMessage("Kimi aramıştınız?")), thinking_sound_delay_s=0.1)
+    c.media = c.session.media = CountingMedia()
+    async with c:
+        n0 = len(c.media.lengths)
+        c.say("merhaba")
+        await c.until(lambda: c.session.stats.turns)
+        filler = c.media.lengths[n0:-1]                         # cevaptan önce çalınanlar
+        assert filler and all(n == 4000 for n in filler)       # 0,5 sn'lik klavye parçaları
+        played = len(c.media.lengths)
+        await asyncio.sleep(0.2)
+        assert len(c.media.lengths) == played                  # cevap gelince klavye sustu
+
+
+async def test_hizli_cevapta_ve_kapaliyken_klavye_sesi_yok():
+    for kw in ({"thinking_sound_delay_s": 1.0}, {"thinking_sound": False, "thinking_sound_delay_s": 0.0}):
+        c = Call(SlowLlm(0.2, LlmMessage("Kimi aramıştınız?")), **kw)
+        c.media = c.session.media = CountingMedia()
+        async with c:
+            n0 = len(c.media.lengths)
+            c.say("merhaba")
+            await c.until(lambda c=c: c.session.stats.turns)
+            assert 4000 not in c.media.lengths[n0:]
+
+
+def test_klavye_sesi_ve_dosyadan_yukleme(tmp_path):
+    import wave
+
+    from sesli_asistan.gateway.composition import load_thinking_sound
+    from sesli_asistan.gateway.core.speech import keyboard_sound
+
+    k = keyboard_sound()
+    assert k.dtype == np.int16 and len(k) == 6 * 8000 and abs(int(np.abs(k).max()) - int(0.12 * 32767)) <= 1
+    assert (np.abs(k) > 300).mean() < 0.2                       # çoğu sessizlik: arka planda tıkırtı
+    f = tmp_path / "ses.wav"
+    with wave.open(str(f), "wb") as w:                          # 44,1 kHz stereo, yüksek seviye
+        w.setnchannels(2)
+        w.setsampwidth(2)
+        w.setframerate(44100)
+        w.writeframes((np.random.default_rng(0).uniform(-0.9, 0.9, (44100, 2)) * 32767).astype("<i2").tobytes())
+    x = load_thinking_sound(str(f))
+    assert abs(len(x) - 8000) <= 2 and np.abs(x).max() <= int(0.12 * 32767) + 1
