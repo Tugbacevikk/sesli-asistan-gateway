@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import replace
 
 import httpx
@@ -92,12 +93,17 @@ class GatewayRuntime:
         self.speaker: Speaker | None = None
         self.components = {"stt": "starting", "llm": "starting", "tts": "starting", "directory": "starting"}
         self.health_interval_s = health_interval_s
+        from .adapters.history.sqlite import MemoryCallHistory, SqliteCallHistory
+
         self.manager = CallManager(media_factory or self._open_media, self._new_session,
                                    PortPool(s.rtp_port_min, s.rtp_port_max), s.max_concurrent_calls,
-                                   ready=lambda: self.ready)
+                                   ready=lambda: self.ready, on_finished=self._record)
+        self.history = (SqliteCallHistory(s.call_history_db, s.call_history_days, s.call_history_texts)
+                        if s.call_history_db else MemoryCallHistory(self.manager))
         self._prompts_missing = False
         self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
         self._health_task: asyncio.Task | None = None
+        self._last_purge = time.monotonic()
 
     @property
     def ready(self) -> bool:
@@ -146,7 +152,11 @@ class GatewayRuntime:
                            cfg, hotwords=self.directory.index.hotwords(), observer=both,
                            thinking_pcm=self.thinking_pcm, channel=channel)
 
+    async def _record(self, call_id: str, stats) -> None:
+        await asyncio.to_thread(self.history.add, call_id, stats)
+
     async def start(self) -> None:
+        await asyncio.to_thread(self.history.purge)
         await self.directory.refresh()
         self.directory.start()
         from .core.resilience import BreakerTts
@@ -172,6 +182,9 @@ class GatewayRuntime:
             await asyncio.sleep(self.health_interval_s)
             try:
                 await self.check_health()
+                if time.monotonic() - self._last_purge > 3600:
+                    self._last_purge = time.monotonic()
+                    await asyncio.to_thread(self.history.purge)
             except Exception:
                 log.exception("sağlık kontrolü hatası")
 
@@ -198,6 +211,7 @@ class GatewayRuntime:
         if self._health_task:
             self._health_task.cancel()
         await self.manager.shutdown()
+        self.history.close()
         await self.directory.stop()
         for c in (self.stt, self.pbx, self.llm):
             close = getattr(c, "aclose", None)

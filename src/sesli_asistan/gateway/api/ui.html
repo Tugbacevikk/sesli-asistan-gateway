@@ -215,6 +215,7 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
 
   <section id="view-watch" role="tabpanel" aria-labelledby="tab-watch" hidden>
     <div class="health" id="health"></div>
+    <p class="note" id="today"></p>
     <h2 class="sec">Süren çağrılar</h2>
     <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Kanal</th><th>Durum</th><th>Başlangıç</th><th>Tur</th></tr></thead>
       <tbody id="active"></tbody></table></div>
@@ -514,6 +515,10 @@ async function refresh() {
       const st = h.components?.[k];
       return `<div class="svc ${st === "ok" ? "ok" : "bad"}"><i></i><div><strong>${label}</strong><span>${st === "ok" ? "çalışıyor" : esc(st || "bilinmiyor")}</span></div></div>`;
     }).join("");
+    const t = c.today || { toplam: 0, sonuc: {} };
+    $("today").textContent = t.toplam
+      ? `Son 24 saat: ${t.toplam} çağrı · ` + Object.entries(t.sonuc).map(([k, v]) => `${v} ${outcomeText(k)}`).join(", ")
+      : "Son 24 saatte biten çağrı yok.";
     $("active").innerHTML = c.active.length ? c.active.map((a) =>
       `<tr><td>${esc(a.call_id)}</td><td>${channelText(a.channel)}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")
       : `<tr><td colspan="5" class="note">Şu an süren çağrı yok.</td></tr>`;

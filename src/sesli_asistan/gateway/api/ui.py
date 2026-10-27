@@ -32,7 +32,6 @@ import json
 import logging
 import secrets
 import time
-from collections import Counter
 from collections.abc import Callable
 from importlib import resources
 from typing import Any
@@ -160,7 +159,12 @@ def request_key(request: Request) -> str:
 
 
 def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
-             health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None) -> None:
+             health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None,
+             history: Any = None) -> None:
+    if history is None:
+        from sesli_asistan.gateway.adapters.history.sqlite import MemoryCallHistory
+
+        history = MemoryCallHistory(manager)
 
     @app.get("/ui", response_class=HTMLResponse, include_in_schema=False)
     async def page() -> HTMLResponse:
@@ -175,10 +179,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
     async def admin_calls() -> JSONResponse:
         active = [{"call_id": cid, "channel": s.stats.channel, "state": s.state.value, "started": s.stats.started,
                    "turns": len(s.stats.turns)} for cid, s in manager.sessions.items()]
-        recent = [{"call_id": cid, **dataclasses.asdict(st)} for cid, st in reversed(manager.results)]
-        misses = Counter(m.casefold() for _, st in manager.results for m in st.misses)
-        return JSONResponse({"active": active, "recent": recent,
-                             "misses": [{"text": t, "count": c} for t, c in misses.most_common(20)]})
+        recent, misses, today = await asyncio.gather(asyncio.to_thread(history.recent, 50),
+                                                     asyncio.to_thread(history.misses, 20),
+                                                     asyncio.to_thread(history.summary, 1))
+        return JSONResponse({"active": active, "recent": recent, "misses": misses, "today": today})
 
     @app.websocket("/v1/ui/ws")
     async def ws(websocket: WebSocket) -> None:

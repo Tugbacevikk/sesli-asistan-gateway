@@ -90,6 +90,11 @@ class GatewaySettings(BaseSettings):
     transferring_text: str = ""
     transferring_department_text: str = ""
 
+    # Çağrı geçmişi (kalıcı, SQLite). Boş: yalnız bellekte son 100 çağrı. Kişisel veri: saklama süresi dolunca silinir
+    call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db
+    call_history_days: int = Field(30, ge=1)
+    call_history_texts: bool = True             # false: konuşma metinleri yazılmaz (yalnız sonuç, süre, eylem)
+
     # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
     ui_enabled: bool = True
     ui_allowed_ips: str = "127.0.0.1,::1"      # virgülle; "*" her yerden (API_KEY ile birlikte kullanın)

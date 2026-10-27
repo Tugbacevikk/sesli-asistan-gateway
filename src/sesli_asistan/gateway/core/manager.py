@@ -89,8 +89,10 @@ class PortPool:
 
 class CallManager:
     def __init__(self, media_factory: MediaFactory, session_factory: SessionFactory, ports: PortPool,
-                 max_calls: int = 30, ready: Callable[[], bool] = lambda: True, keep_results: int = 100):
-        self.media_factory, self.session_factory = media_factory, session_factory
+                 max_calls: int = 30, ready: Callable[[], bool] = lambda: True, keep_results: int = 100,
+                 on_finished: Callable[[str, CallStats], Awaitable[None]] | None = None):
+        """on_finished: biten çağrının özeti (kalıcı geçmiş için); hatası çağrıyı etkilemez."""
+        self.media_factory, self.session_factory, self.on_finished = media_factory, session_factory, on_finished
         self.ports, self.max_calls, self.ready = ports, max_calls, ready
         self.sessions: dict[str, CallSession] = {}
         self._tasks: dict[str, asyncio.Task] = {}
@@ -156,6 +158,11 @@ class CallManager:
         try:
             stats = await session.run()
             self.results.append((call_id, stats))
+            if self.on_finished is not None:
+                try:
+                    await self.on_finished(call_id, stats)
+                except Exception:
+                    log.exception("[%s] çağrı geçmişi yazılamadı", call_id)
         except Exception:
             log.exception("[%s] oturum hatası", call_id)
         finally:

@@ -33,3 +33,5 @@ ses_*/
 cevap_*.wav
 *.jpeg
 *.jpg
+*.db
+*.db-journal

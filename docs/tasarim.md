@@ -863,7 +863,11 @@ Bkz. 6.6. Bellekte ek olarak normalleştirilmiş arama anahtarları tutulur.
 
 ### 8.3 Kalıcı veri
 
-Bu sürümde kalıcı veri yoktur. Loglar ve metrikler dışında diske yazılan bir şey bulunmaz.
+Çağrı geçmişi SQLite'ta tutulur (`CALL_HISTORY_DB`, `gateway/adapters/history/sqlite.py`): çağrı başına sonuç,
+süre, kanal, turlar (duyulan, cevap, eylem, gecikme), bulunamayan aramalar ve aktarılan dahililer. Arayan numarası ve
+ses **saklanmaz**. Kayıtlar `CALL_HISTORY_DAYS` (30) gün sonra silinir; `CALL_HISTORY_TEXTS=false` ile konuşma metinleri
+hiç yazılmaz. Teşhis ses kaydı (`STT_DEBUG_DIR`) yalnız deneme ortamında açılır. KVKK aydınlatma metni ve saklama
+süresi hukukça onaylanmalıdır (açık konu #6).
 
 ---
 
@@ -1040,6 +1044,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
+| `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
 | `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
 | `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |
 | `STT_METRICS_PORT` | 9101 | STT metrikleri (yalnız 127.0.0.1); Gateway metrikleri `/metrics` (UI_ALLOWED_IPS) |

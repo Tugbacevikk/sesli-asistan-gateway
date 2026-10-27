@@ -66,7 +66,7 @@ def _error(status: int, code: str, message: str, call_id: str | None = None) -> 
 
 def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_key: str = "",
                allowed_ips: set[str] | None = None, lifespan=None, web_session=None,
-               ui_allowed_ips: set[str] | None = None, metrics_registry=None) -> FastAPI:
+               ui_allowed_ips: set[str] | None = None, metrics_registry=None, history=None) -> FastAPI:
     """web_session verilirse arayüz açılır (api/ui.py); arayüz yollarında santral IP listesi yerine
     `ui_allowed_ips` uygulanır."""
     app = FastAPI(title="Sesli Asistan Gateway", version="1", openapi_url="/v1/openapi.json",
@@ -131,7 +131,7 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         return Response(status_code=204)
 
     if web_session is not None:
-        mount_ui(app, manager, web_session, health, api_key, ui_allowed_ips)
+        mount_ui(app, manager, web_session, health, api_key, ui_allowed_ips, history)
 
     if metrics_registry is not None:
         from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
