@@ -224,7 +224,7 @@ def test_cevap_temizleme():
         "Merhaba, nasıl yardım edebilirim?"
 
 
-@pytest.mark.parametrize("name,out", [("Şirket", "şirkete"), ("Bursa", "Bursa'ya"), ("Atak", "Atak'a"),
+@pytest.mark.parametrize("name,out", [("Kartal", "Kartal'a"), ("Bursa", "Bursa'ya"), ("Atak", "Atak'a"),
                                       ("Ödemiş", "Ödemiş'e"), ("Ordu", "Ordu'ya")])
 def test_yonelme_eki(name, out):
     assert dative(name) == out
@@ -255,3 +255,13 @@ async def test_birim_adi_ek_kelimelerle():
     llm = ScriptedLlm(tool_msg(call("InContacts", Department="arıza kaydı")))
     turn = await agent(llm).new_session("t22").handle_user("arıza kaydı için aradım")
     assert [a.extension for a in turn.actions] == ["300"]
+
+
+def test_kurum_adi_yoksa_kurumsuz_karsilama():
+    from sesli_asistan.gateway.core.dialog import GREETING_NO_ORG
+
+    a = DialogAgent(ScriptedLlm(), ToolRegistry(_index()), DialogConfig())
+    assert a.new_session("x").greeting().text == GREETING_NO_ORG == a.fixed_prompts()["greeting"]
+    assert a.system_prompt.startswith("Sen bir şirketin santralinin")
+    b = DialogAgent(ScriptedLlm(), ToolRegistry(_index()), DialogConfig(organization="Deneme"))
+    assert b.system_prompt.startswith("Sen Deneme şirketinin santralinin")

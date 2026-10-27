@@ -71,7 +71,7 @@ class DialogTexts:
 
 @dataclass(frozen=True)
 class DialogConfig:
-    organization: str = "Şirket"
+    organization: str = ""    # boşsa kurum adı söylenmez (ORGANIZATION_NAME)
     max_failed_attempts: int = 3
     max_tool_rounds: int = 3
     max_history: int = 16
@@ -90,8 +90,7 @@ class DialogSession:
         self.history: list[dict[str, Any]] = []
 
     def greeting(self) -> DialogTurn:
-        org = self.agent.cfg.organization
-        text = self.agent.cfg.texts.greeting.format(kurum=org, kurum_e=dative(org))
+        text = greeting_text(self.agent.cfg)
         self.history.append({"role": "assistant", "content": text})
         return DialogTurn(text)
 
@@ -106,7 +105,7 @@ _BACK, _FRONT = set("aıou"), set("eiöü")
 
 
 def dative(name: str) -> str:
-    """Özel ada Türkçe yönelme hâli eki (ünlü uyumu): Şirket → şirkete, Bursa → Bursa'ya, Atak → Atak'a."""
+    """Özel ada Türkçe yönelme hâli eki (ünlü uyumu): Kartal → Kartal'a, Bursa → Bursa'ya, Deniz → Deniz'e."""
     word = (name or "").strip()
     vowels = [ch for ch in word.lower() if ch in _BACK | _FRONT]
     if not vowels:
@@ -117,10 +116,21 @@ def dative(name: str) -> str:
     return f"{word}'{suffix}"
 
 
+GREETING_NO_ORG = "Hoş geldiniz. Ben sesli asistanım, kiminle görüşmek istersiniz?"
+
+
+def greeting_text(cfg: DialogConfig) -> str:
+    """Karşılama. Kurum adı verilmediyse ve metin kurum adı istiyorsa kurumsuz karşılama kullanılır."""
+    org = cfg.organization.strip()
+    if not org and "{kurum" in cfg.texts.greeting:
+        return GREETING_NO_ORG
+    return cfg.texts.greeting.format(kurum=org, kurum_e=dative(org))
+
+
 def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     """Koddan söylenen sabit cümleler: açılışta seslendirilip saklanır (speech.PromptLibrary)."""
-    t, org = cfg.texts, cfg.organization
-    return {"greeting": t.greeting.format(kurum=org, kurum_e=dative(org)), "not_understood": t.not_understood,
+    t = cfg.texts
+    return {"greeting": greeting_text(cfg), "not_understood": t.not_understood,
             "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
             "no_input": t.no_input}
 
@@ -140,7 +150,8 @@ class DialogAgent:
     def __init__(self, llm: LlmPort, tools: ToolRegistry, cfg: DialogConfig | None = None):
         self.llm, self.tools = llm, tools
         self.cfg = cfg or DialogConfig()
-        self.system_prompt = SYSTEM_PROMPT.format(kurum=self.cfg.organization)
+        org = self.cfg.organization.strip()
+        self.system_prompt = SYSTEM_PROMPT.format(kurum=f"{org} şirketinin" if org else "bir şirketin")
 
     def new_session(self, call_id: str) -> DialogSession:
         return DialogSession(self, call_id)

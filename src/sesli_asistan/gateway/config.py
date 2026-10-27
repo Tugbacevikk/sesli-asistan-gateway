@@ -21,7 +21,7 @@ class GatewaySettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "/etc/sesli-asistan/gateway.env",
                                                 "/etc/sesli-asistan/secrets.env"), extra="ignore")
 
-    organization_name: str = "Şirket"
+    organization_name: str = ""                          # karşılamada söylenen kurum adı; boşsa söylenmez
 
     # LLM (ADR-005)
     llm_backend: Literal["ollama", "openai"] = "ollama"

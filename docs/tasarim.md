@@ -1160,7 +1160,7 @@ Dağıtım paketinde `THIRD_PARTY_LICENSES.md` ve her bileşenin lisans metni bu
 | Qwen3.5 | Model kartındaki lisans |
 | Piper (piper1-gpl), espeak-ng | GPL-3.0 — yalnızca ayrı süreç (C-05) |
 | ~~`tr_TR-fahrettin-medium`, `tr_TR-fettah-medium`~~ | **Kullanılmaz:** veri seti CC0 olsa da katkıcıların isteğiyle depodan kaldırıldı (rhasspy/piper-voices `b145f2a`, 30.12.2025) |
-| şirkete ait Türkçe ses (önerilen, ADR-013) | Seslendirme sanatçısıyla tüm kullanım haklarını şirkete veren sözleşme; Piper ile eğitim |
+| Şirkete ait Türkçe ses (önerilen, ADR-013) | Seslendirme sanatçısıyla tüm kullanım haklarını şirkete veren sözleşme; Piper ile eğitim |
 | ~~`tr_TR-dfki-medium`~~ | **Kullanılmaz:** veri seti CC BY-NC-SA 4.0 (ticari olmayan) |
 
 ---
@@ -1304,7 +1304,7 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
 
 ### ADR-013 — TTS sesi: ticari kullanıma uygun Türkçe ses (revize 26.10.2026)
-- **Bağlam:** İlk TTS ölçümünde `tr_TR-dfki-medium` kullanıldı; model kartına göre eğitim veri seti (dfki-ot-data) **CC BY-NC-SA 4.0** (ticari olmayan). İlk karar `tr_TR-fahrettin-medium` / `tr_TR-fettah-medium` idi (veri seti CC0). İkinci TTS denemesinde bu seslerin `rhasspy/piper-voices` deposunun ana dalından **katkıcıların isteğiyle kaldırıldığı** görüldü (commit `b145f2a`, 30.12.2025: "Remove fahrettin and fettah voices at request of contributors"); yalnızca eski `v1.0.0` sürümünde duruyorlar. Sistem Şirket ürünü olarak dağıtılacak.
+- **Bağlam:** İlk TTS ölçümünde `tr_TR-dfki-medium` kullanıldı; model kartına göre eğitim veri seti (dfki-ot-data) **CC BY-NC-SA 4.0** (ticari olmayan). İlk karar `tr_TR-fahrettin-medium` / `tr_TR-fettah-medium` idi (veri seti CC0). İkinci TTS denemesinde bu seslerin `rhasspy/piper-voices` deposunun ana dalından **katkıcıların isteğiyle kaldırıldığı** görüldü (commit `b145f2a`, 30.12.2025: "Remove fahrettin and fettah voices at request of contributors"); yalnızca eski `v1.0.0` sürümünde duruyorlar. Sistem ticari ürün olarak dağıtılacak.
 - **Karar:**
   1. `dfki`, `fahrettin`, `fettah` **hiçbir müşteri kurulumunda** kullanılmaz. Ses sahibinin geri çektiği bir ses, eski sürümdeki lisans metni ne derse desin ürüne konmaz.
   2. Önerilen yol: **şirkete ait ses.** Seslendirme sanatçısıyla, kayıtların ve onlardan eğitilen modelin tüm kullanım haklarını şirkete veren sözleşme; asistan cümlelerini ve Türkçe ses dengesini kapsayan stüdyo kaydı; Piper ile mevcut bir kontrol noktasından ince ayar (fine-tune). Kurumsal ses kimliği de sağlar.
@@ -1359,9 +1359,9 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 | 4 | Mevcut Piper servisinin (:5500) istek formatı ve kapasitesi | Sentra / TTS sorumlusu | 3 |
 | 5 | Piper GPL lisansının dağıtım onayı | Hukuk | 8 |
 | 6 | KVKK saklama ve aydınlatma kuralları | Hukuk | Sonraki sürüm |
-| 7 | Kişisel repolardaki STT kodunun Şirket ürününde kullanım koşulları | Tuğba Çevik + Şirket | 4 |
+| 7 | Kişisel repolardaki STT kodunun şirket ürününde kullanım koşulları | Tuğba Çevik + şirket | 4 |
 | 8 | Asistan tarzı Türkçe telefon test setinin kaydı (ad/departman cümleleri) | Proje ekibi | 2, 4 |
-| 9 | Ürün TTS sesi: şirkete ait ses (sanatçı, sözleşme, kayıt) ya da ticari lisans; mevcut :5500 Piper servisinin hangi sesi kullandığı | Şirket ürün yönetimi + Hukuk | 3, 8 |
+| 9 | Ürün TTS sesi: Şirkete ait ses (sanatçı, sözleşme, kayıt) ya da ticari lisans; mevcut :5500 Piper servisinin hangi sesi kullandığı | Ürün yönetimi + Hukuk | 3, 8 |
 
 ---
 
@@ -1521,5 +1521,5 @@ düzeltmesi dahil). `Tugbacevikk/kelime-kelime` bunun deneysel kopyasıdır (sed
 | Rust hızlandırma (`native/`) | Asistan yolunda gerekmiyor |
 | Windows `.bat` betikleri, Docker dosyaları | Hedef Ubuntu + systemd (ADR-009) |
 
-**Not:** Kaynak repolarda `LICENSE` dosyası yoktur ve kişisel hesapta durmaktadır. Kodun Şirket ürününe
-taşınmasından önce mülkiyet ve kullanım koşulları Şirket ile netleştirilmelidir (bkz. 19, madde 7).
+**Not:** Kaynak repolarda `LICENSE` dosyası yoktur ve kişisel hesapta durmaktadır. Kodun şirket ürününe
+taşınmasından önce mülkiyet ve kullanım koşulları şirket ile netleştirilmelidir (bkz. 19, madde 7).
