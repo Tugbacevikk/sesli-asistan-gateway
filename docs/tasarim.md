@@ -1053,6 +1053,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_VAD_MODEL` | models/silero_vad.onnx | |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
+| `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin Whisper'a giden sesi + sonucu bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
 | (dil) | tr | Sabit; ayar değil (ADR-006) |
 | (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords` ile gelir |

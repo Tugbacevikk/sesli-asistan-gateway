@@ -31,7 +31,7 @@ def build_service(s: SttSettings, engine: Engine | None) -> SpeechToTextService:
     seg = SegmenterConfig(end_silence_ms=s.endpoint_silence_ms, max_utterance_sec=s.max_utterance_s,
                           speech_started_ms=s.speech_started_ms)
     return SpeechToTextService(engine, lambda: make_detector(s.vad, s.vad_model, s.vad_threshold), seg,
-                               max_streams=s.max_streams, timeout_s=s.timeout_s)
+                               max_streams=s.max_streams, timeout_s=s.timeout_s, debug_dir=s.debug_dir or None)
 
 
 async def start_server(s: SttSettings, engine: Engine | None = None, bind: str | None = None):

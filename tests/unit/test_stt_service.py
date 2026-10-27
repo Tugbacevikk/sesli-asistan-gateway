@@ -43,7 +43,8 @@ def frames(*parts):
 @pytest.fixture
 async def server():
     async def make(engine=None, **kw):
-        s = SttSettings(vad="energy", max_streams=kw.pop("max_streams", 4), timeout_s=kw.pop("timeout_s", 3.0))
+        s = SttSettings(vad="energy", max_streams=kw.pop("max_streams", 4), timeout_s=kw.pop("timeout_s", 3.0),
+                        debug_dir=kw.pop("debug_dir", ""))
         srv, health_svc, port = await start_server(s, engine or FakeEngine(), bind="127.0.0.1:0")
         made.append(srv)
         return f"127.0.0.1:{port}"
@@ -207,3 +208,16 @@ async def test_baglanti_kurulamazsa_stterror():
         await client.open("c-x", "pcma")
     assert not await client.ready()
     await client.aclose()
+
+
+async def test_teshis_kaydi_cumle_sesini_ve_sonucu_yazar(server, tmp_path):
+    import json
+    import wave
+
+    evs = await run_stream(await server(FakeEngine(), debug_dir=str(tmp_path)),
+                           frames((0.3, False), (1.0, True), (1.0, False)), hotwords=["Zeynep Arslan"])
+    assert [e.type for e in evs] == ["speech_started", "final"]
+    meta = json.loads((tmp_path / "c-1_001.json").read_text(encoding="utf-8"))
+    assert meta["metin"] == "muhasebeden ayşe hanım" and meta["ipuclari"] == ["Zeynep Arslan"]
+    with wave.open(str(tmp_path / "c-1_001.wav")) as w:
+        assert w.getframerate() == 16000 and 1.0 < w.getnframes() / 16000 < 1.8

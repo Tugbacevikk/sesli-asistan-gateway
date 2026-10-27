@@ -252,6 +252,33 @@ satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileş
   Gateway rehberden 12 ipucu veriyor ve listenin **son** öğesi "Zeynep Arslan". Whisper ipuçlarını "önceki metin"
   olarak alır; ses, istemin son kelimeleriyle başlayınca bunları zaten söylenmiş sayıp atlayabilir. **Varsayım,
   doğrulanacak:** `tools/stt/dene.py --rehber` ile Gateway'in ipuçlarıyla aynı dosyalar tekrar ölçülecek.
+  → **Varsayım çürütüldü** (aşağıda "İpucu doğrulaması").
 - Busy akışı (D) aktarma olmadığı için denenemedi.
 
 **Sınırlar:** n = 5, tek tur, sentetik ses; GPU paylaşımlı ve dolu.
+
+---
+
+## STT — Gateway ipuçlarıyla doğrulama (27 Ekim 2026)
+
+**Ölçen:** Antigravity. **Doğrulama:** özet satırları ham JSON'larla tutarlı; R ve R2 birebir aynı (deterministik).
+
+| | |
+|---|---|
+| Commit | `a61e952` |
+| Ortam | Yalnızca STT (GPU, float16), Ollama kapalı |
+| Koşular | R ve R2: `--rehber data/rehber_ornek.json` (Gateway ile aynı 12 ipucu, son öğe "Zeynep Arslan") · N: ipucusuz |
+
+| Koşu | WER | Ad/birim | 5.wav ("Zeynep Arslan orada mı?") | Konuşma sonu → FINAL p50 |
+|---|---|---|---|---|
+| R | **%8,0** | 12/12 | zeynep arslan orada | 1,10 sn |
+| R2 | %8,0 | 12/12 | zeynep arslan orada | 1,10 sn |
+| N | %14,0 | 11/12 ("canos ürke") | zeynep arslan orada mı | 1,10 sn |
+
+- **Varsayım çürütüldü:** ipuçları "Zeynep Arslan"ı yutmuyor; Gateway'in ipucu listesiyle WER en iyi sonuç (%8).
+  Yan etki: 5.wav'da soru eki "mı" düştü (aramayı etkilemez).
+- **Uçtan uca D'deki kayıp hâlâ açıklanmadı.** Antigravity'nin önerdiği "karşılama sırasında başı kesildi" açıklaması
+  sayılarla uyuşmuyor: D'de Whisper'a giden cümle 1,58 sn, burada 1,68 sn — yalnızca ~0,1 sn kısa, oysa "Zeynep Arslan"
+  ~0,9 sn. Fark tek koşuda görüldü (n = 1); o ölçümde GPU dolu ve Ollama ile paylaşımlıydı. → Teşhis için STT'ye
+  cümle sesi kaydı eklendi (`STT_DEBUG_DIR`): Whisper'a giden ses ve sonuç dosyaya yazılır; tekrar görülürse ses
+  dinlenip karşılaştırılacak.

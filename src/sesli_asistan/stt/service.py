@@ -18,9 +18,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import json
 import logging
 import time
+import wave
 from collections.abc import AsyncIterator, Callable
+from pathlib import Path
 from typing import Protocol
 
 import grpc
@@ -45,11 +48,18 @@ class Engine(Protocol):
 
 class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
     def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
-                 segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0):
+                 segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0,
+                 debug_dir: str | None = None):
         self.engine, self.detector_factory = engine, detector_factory
         self.seg_cfg = segmenter_config or SegmenterConfig()
         self.max_streams, self.timeout_s = max_streams, timeout_s
         self.active = 0
+        # Teşhis: her cümlenin Whisper'a giden sesi + sonucu diske yazılır (STT_DEBUG_DIR). Ses kaydı tutulduğu için
+        # üretimde KAPALI (tasarim.md 10.4); yalnızca deneme ortamında açılır.
+        self.debug_dir = Path(debug_dir) if debug_dir else None
+        if self.debug_dir:
+            self.debug_dir.mkdir(parents=True, exist_ok=True)
+            log.warning("STT teşhis kaydı AÇIK: cümle sesleri %s klasörüne yazılıyor", self.debug_dir)
 
     async def Stream(self, requests: AsyncIterator[stt_pb2.AudioIn], context) -> AsyncIterator[stt_pb2.SttEvent]:  # noqa: N802
         if self.engine is None:
@@ -114,8 +124,10 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
 
     async def _decode(self, call_id: str, hotwords: list[str], utts: asyncio.Queue, out: asyncio.Queue) -> None:
         orphan: asyncio.Future | None = None
+        n = 0
         try:
             while (u := await utts.get()) is not None:
+                n += 1
                 if orphan is not None:
                     # zaman aşımına uğrayan çözüm hâlâ motoru tutuyor: bitmesini bekle; yoksa sıradaki cümlenin
                     # süresi motor boşalmadan başlar ve o da haksız yere zaman aşımına düşer
@@ -140,6 +152,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     if not r.text:
                         log.info("[%s] boş/uydurma metin atıldı (%.2f sn)", call_id, time.perf_counter() - t0)
                         reason = "empty"
+                if self.debug_dir:
+                    self._dump(call_id, n, u, hotwords, "" if reason else r.text, reason)
                 if reason:
                     # arayan konuştu ama metin yok: Gateway sessiz kalmasın, tekrar sorsun (tasarim.md 6.3)
                     out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.NOT_RECOGNIZED, reason=reason,
@@ -152,3 +166,18 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                                                 audio_start_ms=int(u.start * 1000), audio_end_ms=int(u.end * 1000)))
         finally:
             out.put_nowait(None)
+
+    def _dump(self, call_id: str, n: int, u: Utterance, hotwords: list[str], text: str, reason: str) -> None:
+        try:
+            base = self.debug_dir / f"{call_id}_{n:03d}"
+            pcm = (np.clip(u.audio, -1, 1) * 32767).astype("<i2")
+            with wave.open(str(base.with_suffix(".wav")), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(STT_RATE)
+                w.writeframes(pcm.tobytes())
+            base.with_suffix(".json").write_text(json.dumps(
+                {"call_id": call_id, "cumle": n, "bas_sn": u.start, "son_sn": u.end, "metin": text, "neden": reason,
+                 "ipuclari": hotwords}, ensure_ascii=False, indent=1), encoding="utf-8")
+        except OSError as e:
+            log.warning("teşhis kaydı yazılamadı: %s", e)
