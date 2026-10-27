@@ -320,3 +320,25 @@ satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileş
    öyle aranabilir).
 2. Windows'ta `bash` WSL yönlendiricisi olduğu için kurulum betiği sözdizimi testi `C:\` yolunu bulamadı → Windows'ta
    atlanıyor (betikler Linux içindir; CI'da Linux'ta çalışıyor).
+
+---
+
+## Belirsiz arama (ADR-017) ve akışlı cevap (ADR-018) — dizüstü, gerçek Ollama (27 Ekim 2026)
+
+**Ölçen:** Antigravity, arayüzden. Commit `b99851d`. pytest: 340 geçti, 5 atlandı (Windows: shellcheck / bash / promtool yok).
+`İlk ses` = STT metni geldi → asistanın ilk sesi (cümle sonu bekleme ve STT hariç).
+
+| Deneme | Asistan | İlk ses | Diyalog |
+|---|---|---|---|
+| "ayşe hanım" (yazarak) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" | 0,09 sn | 0,0 sn (LLM yok) |
+| → "muhasebedeki" | 214'e aktarma | 0,07 sn | 0,0 sn |
+| "ayşe" → "ikincisi" | aynı soru → 214 | 0,02 / 0,00 sn | 0,0 sn |
+| "Ayşe Hanım'ı istiyorum" (sesli) → "satış" | aynı soru → 231 | 0,02 / 0,07 sn | 0,0 sn |
+| "ferhat yıldırım" (rehberde yok) | "Ferhat Yıldırım rehberimizde bulunmamaktadır. İsim ya da birim tekrar edebilir misiniz?" | 4,66 sn | 5,34 sn (akışlı) |
+
+- "Hangi Ayşe?" önceki denemede 5,7 sn idi; artık LLM'siz, iki tur da 0,1 sn altında (+ cümle sonu bekleme ve STT ≈ 1,3 sn).
+  Sesli denemede STT "ayşe hanım'ı istiyorum" ve "satış"ı doğru tanıdı, seçim doğru (231).
+- Akış: bulunamayan aramada ilk ses, cevabın tamamından 0,7 sn önce geldi. Kalan 4,7 sn iki LLM turundan:
+  önce arama aracı (akış metin üretmez), sonra cevap metni. → Sonraki iyileştirme adayı: "bulunamadı" cevabı da
+  koddan (ikinci LLM turu olmadan) kurulabilir.
+- Yedek aracı Windows'ta da çalıştı (al + doğrula).
