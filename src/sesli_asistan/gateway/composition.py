@@ -138,7 +138,11 @@ class GatewayRuntime:
         before = dict(self.components)
         self.components["directory"] = "ok" if self.directory.ready else "down"
         stt_ready = getattr(self.stt, "ready", None)
-        self.components["stt"] = "ok" if stt_ready is None or await stt_ready() else "down"
+        try:
+            self.components["stt"] = "ok" if stt_ready is None or await stt_ready() else "down"
+        except Exception as e:   # sağlık kontrolü servisi düşürmez; bileşen "down" sayılır
+            log.error("STT sağlık kontrolü hatası: %s", e)
+            self.components["stt"] = "down"
         self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
         if self._prompts_missing or self.speaker is None:
             self.components["tts"] = "down"

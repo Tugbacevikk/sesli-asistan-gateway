@@ -35,9 +35,24 @@ _END = object()
 class GrpcStt:
     def __init__(self, target: str = "127.0.0.1:50051", connect_timeout_s: float = 2.0,
                  channel: grpc.aio.Channel | None = None):
-        self.channel = channel or grpc.aio.insecure_channel(target)
-        self.stub = stt_pb2_grpc.SpeechToTextStub(self.channel)
-        self.connect_timeout_s = connect_timeout_s
+        self.target, self.connect_timeout_s = target, connect_timeout_s
+        self._channel = channel
+        self._stub: stt_pb2_grpc.SpeechToTextStub | None = None
+
+    @property
+    def channel(self) -> grpc.aio.Channel:
+        # Kanal ilk kullanımda, çalışan olay döngüsünün içinde açılır. grpc.aio kanalı açıldığı döngüye bağlanır:
+        # uvicorn başlamadan (döngü yokken) açılırsa "attached to a different loop" hatası verir
+        # (Antigravity uçtan uca ölçümü, 27.10.2026).
+        if self._channel is None:
+            self._channel = grpc.aio.insecure_channel(self.target)
+        return self._channel
+
+    @property
+    def stub(self) -> stt_pb2_grpc.SpeechToTextStub:
+        if self._stub is None:
+            self._stub = stt_pb2_grpc.SpeechToTextStub(self.channel)
+        return self._stub
 
     async def ready(self) -> bool:
         """Standart gRPC sağlık kontrolü: model yüklenip ısınmış mı."""
@@ -65,7 +80,8 @@ class GrpcStt:
         return s
 
     async def aclose(self) -> None:
-        await self.channel.close()
+        if self._channel is not None:
+            await self._channel.close()
 
 
 class GrpcSttStream:
