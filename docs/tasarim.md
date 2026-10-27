@@ -1044,6 +1044,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
+| `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
 | `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
 | `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
 | `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |
@@ -1324,6 +1325,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Karar:** InContacts `single_high` dönerse Gateway aktarma eylemini kendisi üretir (aynı TransferPolicy kapısından geçerek) ve sabit aktarma cümlesini söyler; LLM'e ikinci tur gidilmez. `single_low` ve `multiple` durumlarında karar LLM'de kalır (onay/seçim gerekir).
 - **Sonuçlar:** Net taleplerde tur başına tek LLM çağrısı (gecikme düşer); "söyledi ama aktarmadı" tutarsızlığı bu durumda imkânsız. Bedeli: arayan net bir kişiyi yalnızca bilgi için sorsa da ("Ayşe Hanım orada mı?") aktarılır — yönlendirme asistanı için kabul edilebilir. `auto_transfer_single_high=False` ile kapatılabilir.
 - **Doğrulama:** Diyalog seti yeniden çalıştırılır; hedef NFR-04/05.
+
+### ADR-016 — Hızlı yol: net isteklerde LLM beklenmez
+- **Bağlam:** Uçtan uca ölçümde (27.10.2026) tur gecikmesinin %60–65'i LLM (dizüstünde 2,3–3,9 sn). Çağrıların çoğu "X'i istiyorum" kadar net; bunlarda LLM'in tek işi rehberi aramak.
+- **Karar:** Arayanın sözü, LLM'den önce rehberde taranır (1–3 kelimelik pencereler). Aktarma **yalnızca** şu durumda LLM'siz yapılır: (a) bir kişinin **ad + soyadı** ≥ 95 puanla (unvan ya da takma adla değil) ya da (b) bir **birimin genel hattı** ≥ 95 puanla geçiyor, **tek** aday var, sözde olumsuzluk / tereddüt sözcüğü ("değil", "hayır", "başka", "operatör", "ya"…) yok; birim için ayrıca sözde bir kişinin adı ya da unvan sözcüğü geçmiyor ("muhasebeden Ayşe Hanım" birim hattına gitmez). Aktarma yine TransferPolicy'den geçer; geçmişe araç çağrısı ve sonucu yazılır (LLM sonraki turda bağlamı görür). Şüphede LLM normal akışla devam eder.
+- **Sonuç:** Net isteklerde tur gecikmesi ≈ cümle sonu bekleme + STT + TTS (dizüstünde ~1,5 sn; LLM 0). Söze girme ve aktarma iptali aynen çalışır. `FAST_PATH=false` ile kapatılır. Doğrulama: diyalog seti ve uçtan uca ölçüm.
 
 ### ADR-015 — Kadın sesi: Seslen TTS servisi
 - **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.

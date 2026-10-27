@@ -45,7 +45,7 @@ def build_directory(s: GatewaySettings) -> DirectoryCache:
 def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | None = None) -> DialogAgent:
     cfg = DialogConfig(organization=s.organization_name, max_failed_attempts=s.max_failed_attempts,
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
-                       llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts())
+                       llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts(), fast_path=s.fast_path)
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
 
 

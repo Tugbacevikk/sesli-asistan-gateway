@@ -43,6 +43,8 @@ def tool_msg(*calls):
 
 
 def agent(llm, **cfg):
+    # LLM davranışını sınayan testler: hızlı yol (ADR-016) kapalı; onun testleri aşağıda ayrı
+    cfg.setdefault("fast_path", False)
     return DialogAgent(llm, ToolRegistry(_index()), DialogConfig(organization="Deneme", **cfg))
 
 
@@ -265,3 +267,43 @@ def test_kurum_adi_yoksa_kurumsuz_karsilama():
     assert a.system_prompt.startswith("Sen bir şirketin santralinin")
     b = DialogAgent(ScriptedLlm(), ToolRegistry(_index()), DialogConfig(organization="Deneme"))
     assert b.system_prompt.startswith("Sen Deneme şirketinin santralinin")
+
+
+# --- hızlı yol (ADR-016) ---
+
+@pytest.mark.parametrize("text,ext", [
+    ("ayşe yılmaz ile görüşmek istiyorum", "214"), ("can öztürk'e aktarır mısınız lütfen", "245"),
+    ("zeynep arslan orada mı", "260"), ("mehmet demir'e bağlanmasınız", "230"),   # STT'nin bozduğu fiil önemsiz
+    ("teknik destek lütfen", "300"), ("satışa bağlayın", "229"), ("muhasebeye bağlayın lütfen", "210"),
+])
+async def test_hizli_yol_llm_beklemeden_aktarir(text, ext):
+    llm = ScriptedLlm()
+    turn = await agent(llm, fast_path=True).new_session("h").handle_user(text)
+    assert turn.fast and [a.extension for a in turn.actions] == [ext] and llm.seen == []
+
+
+@pytest.mark.parametrize("text", [
+    "muhasebeden ayşe hanım",            # birim + kişi: birim hattına değil, LLM sorsun / kişiyi bulsun
+    "ayşe",                              # yalnız ad: iki Ayşe var
+    "hayır mehmet demir değil",          # olumsuzluk
+    "ayşe yılmaz mı ayşe kaya mı",       # iki aday
+    "satış müdürünü arıyorum",           # unvan
+    "mehmet demirci",                    # uzamış ad (85 puan)
+    "insan kaynaklarına bağlayın",       # birimin genel hattı yok: kişiye kendiliğinden gitmez
+    "operatöre bağlayın",
+    "hakan koç",                         # aktarılamaz kayıt
+])
+async def test_hizli_yol_suphede_llm_e_birakir(text):
+    llm = ScriptedLlm(LlmMessage("Kimi aramıştınız?"))
+    turn = await agent(llm, fast_path=True).new_session("h").handle_user(text)
+    assert not turn.fast and len(llm.seen) == 1
+
+
+async def test_hizli_yol_gecmisi_llm_icin_tutarli():
+    # Sonraki turda LLM, aktarmanın arama sonucuna dayandığını görür (araç çağrısı + sonuç geçmişte)
+    s = agent(ScriptedLlm(), fast_path=True).new_session("h")
+    await s.handle_user("ayşe yılmaz ile görüşmek istiyorum")
+    roles = [m["role"] for m in s.history]
+    assert roles[-3:] == ["assistant", "tool", "assistant"] and s.history[-3]["tool_calls"][0]["function"]["name"] \
+        == "InContacts"
+    assert s.state.pending_transfer.extension == "214"

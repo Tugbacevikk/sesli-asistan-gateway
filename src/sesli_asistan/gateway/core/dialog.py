@@ -24,8 +24,9 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import DialogTurn, OperatorAction
+from .models import DialogTurn, Match, OperatorAction
 from .ports import LlmError, LlmPort, ToolCall
+from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
 from .tools import CallToolState, ToolRegistry
 
 log = logging.getLogger(__name__)
@@ -77,7 +78,14 @@ class DialogConfig:
     max_history: int = 16
     llm_timeout_s: float = 5.0
     auto_transfer_single_high: bool = True   # ADR-012
+    fast_path: bool = True                   # ADR-016: net tam ad / birim hattında LLM beklenmez
+    fast_path_min_score: int = 95
     texts: DialogTexts = field(default_factory=DialogTexts)
+
+
+# Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
+_FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
+               "ama", "veya", "ya", "kim", "hangi", "nerede", "numara", "numarasi", "dahili"}
 
 
 class DialogSession:
@@ -166,7 +174,69 @@ class DialogAgent:
         if not text:
             return self._failure(s)
         s.history.append({"role": "user", "content": text})
+        if self.cfg.fast_path and (turn := self._fast_path(s, text)) is not None:
+            return turn
         return await self._run(s)
+
+    # --- hızlı yol (ADR-016) ---
+
+    def _mentions_person(self, words: list[str]) -> bool:
+        """Sözde bir kişinin adı ya da soyadı geçiyor mu (birim hattına kendiliğinden gitmemek için)."""
+        known = self.tools.index.person_words
+        for w in words:
+            for v in query_variants(w):
+                if v in known or (len(v) >= 4 and any(similarity(v, k) >= 92 for k in known)):
+                    return True
+        return False
+
+    def _fast_path(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Arayanın sözünde bir kişinin **tam adı** (ad + soyad) ya da bir **birimin genel hattı** tek ve kesin
+        geçiyorsa LLM'e gitmeden aktarır: "Ayşe Yılmaz ile görüşmek istiyorum", "teknik destek lütfen". LLM çağrısı tur
+        gecikmesinin %60'ı (ölçüm 27.10.2026). Şüphede (olumsuzluk, birden çok aday, yalnız ad, unvan, düşük skor)
+        hiçbir şey yapmaz; LLM normal akışla devam eder. Aktarma yine TransferPolicy'den geçer."""
+        words = search_key(text).split()
+        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+            return None
+        index = self.tools.index
+        found: dict[str, tuple[Any, str]] = {}
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                window = " ".join(words[i:i + n])
+                for kind in ("name", "department"):
+                    if kind == "name" and n < 2:
+                        continue                       # yalnız ad ("ayşe") ya da soyad: kime olduğu belirsiz
+                    res = index.search(**{kind: window})
+                    if res.match != Match.SINGLE_HIGH or res.candidates[0].score < self.cfg.fast_path_min_score:
+                        continue
+                    c = res.candidates[0].contact
+                    if kind == "name":
+                        full = search_key(c.full_name)
+                        # unvan ya da takma adla değil, gerçekten ad + soyadla eşleşmeli
+                        if c.kind != "person" or len(full.split()) < 2 or max(
+                                similarity(q, full) for q in query_variants(window)) < self.cfg.fast_path_min_score:
+                            continue
+                    if kind == "department":
+                        if c.kind != "department" or has_role_word(text) or self._mentions_person(words):
+                            continue                   # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
+                    found.setdefault(c.id, (c, kind))
+        if len(found) != 1:
+            return None                                # hiç ya da birden çok aday: LLM karar versin
+        contact, kind = next(iter(found.values()))
+        args = {"Name": contact.full_name} if kind == "name" else {"Department": contact.department}
+        call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
+        out = self.tools.execute(call, s.state)
+        if out.content.get("match") != "single_high":
+            return None
+        action = self.tools.transfer(contact.extension, s.state)
+        if action is None:
+            return None
+        s.state.failed_attempts = 0
+        s.history.append(_assistant_tool_message("", [call]))
+        s.history.append(_tool_message(call, {**out.content, "transferred": True}))
+        log.info("[%s] hızlı yol: %r → %s (%s)", s.call_id, text, contact.extension, contact.full_name)
+        turn = self._reply(s, self._transfer_text(action.contact_id))
+        turn.fast = True
+        return turn
 
     async def handle_transfer_result(self, s: DialogSession, status: str) -> DialogTurn:
         pending = s.state.pending_transfer

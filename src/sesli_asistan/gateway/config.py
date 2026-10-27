@@ -43,6 +43,7 @@ class GatewaySettings(BaseSettings):
     max_failed_attempts: int = Field(3, ge=1)
     max_tool_rounds: int = Field(3, ge=1)
     max_history: int = Field(16, ge=4)
+    fast_path: bool = True                    # ADR-016: net tam ad / birim hattında LLM beklenmez
 
     # TTS (tasarim.md 5.4, 6.4)
     tts_url: str = "http://127.0.0.1:5500"

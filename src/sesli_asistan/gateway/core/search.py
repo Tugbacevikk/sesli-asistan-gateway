@@ -120,6 +120,9 @@ class DirectoryIndex:
             depts = [c.department, *c.department_aliases]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
+        # kişilerin ad ve soyad sözcükleri (unvan hariç): "sözde bir kişi geçiyor mu" sorusu için
+        self.person_words = {w for c, _, _ in entries if c.kind == "person"
+                             for w in search_key(f"{c.first_name} {c.last_name}").split() if len(w) >= 3}
 
     def __len__(self) -> int:
         return len(self._entries)
