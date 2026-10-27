@@ -170,6 +170,16 @@ td input { min-width: 160px; }
 }
 .savebar .send { padding: 12px 22px; }
 .status-ok { color: var(--ok); } .status-bad { color: var(--bad); }
+.dirbar { display: flex; gap: 12px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.dirbar input { flex: 1; min-width: 200px; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 12px; padding: 10px 14px; }
+.dirtable tr.dept td { background: var(--panel); font-weight: 600; color: var(--muted); font-size: .85rem;
+  text-transform: uppercase; letter-spacing: .04em; padding-top: 14px; }
+.dirtable .ext { font-weight: 600; }
+.tag { display: inline-block; font-size: .78rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
+.tag.local { border-color: var(--lamp); color: var(--ink); }
+#dirForm .send { width: 100%; padding: 12px; }
+@media (max-width: 560px) { .dirtable th:nth-child(2), .dirtable td:nth-child(2) { display: none; } }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
 [hidden] { display: none !important; }
@@ -181,6 +191,7 @@ td input { min-width: 160px; }
   <nav class="tabs" role="tablist" aria-label="Bölümler">
     <button role="tab" id="tab-call" aria-selected="true" aria-controls="view-call">Deneme çağrısı</button>
     <button role="tab" id="tab-watch" aria-selected="false" aria-controls="view-watch">İzleme</button>
+    <button role="tab" id="tab-directory" aria-selected="false" aria-controls="view-directory">Rehber</button>
     <button role="tab" id="tab-settings" aria-selected="false" aria-controls="view-settings">Ayarlar</button>
   </nav>
 </header>
@@ -261,6 +272,38 @@ td input { min-width: 160px; }
     <div class="tablewrap"><table><thead><tr><th>Aranan</th><th>Kaç kez</th></tr></thead><tbody id="misses"></tbody></table></div>
   </section>
 
+  <section id="view-directory" role="tabpanel" aria-labelledby="tab-directory" hidden>
+    <div class="cols">
+      <div>
+        <div class="dirbar">
+          <label class="sr" for="dirFilter">Rehberde ara</label>
+          <input id="dirFilter" type="search" placeholder="Ad, birim ya da dahili ara" autocomplete="off">
+          <span class="note" id="dirCount"></span>
+        </div>
+        <div class="tablewrap"><table class="dirtable"><thead><tr><th>Ad soyad</th><th>Unvan</th><th>Dahili</th><th>Kaynak</th></tr></thead>
+          <tbody id="dirRows"></tbody></table></div>
+      </div>
+      <div class="side">
+        <form class="box form" id="dirForm" autocomplete="off">
+          <h2>Yeni kayıt</h2>
+          <p>Asıl rehberde olmayan kişi ya da birim hattı. Asıl rehber değişmez; eklenen kayıt burada "yerel" görünür ve
+            asistan hemen bulur.</p>
+          <div class="field"><label for="nfKind">Tür</label>
+            <select id="nfKind"><option value="person">Kişi</option><option value="department">Birimin genel hattı</option></select></div>
+          <div class="field person-only"><label for="nfFirst">Ad</label><input id="nfFirst" maxlength="60"></div>
+          <div class="field person-only"><label for="nfLast">Soyad</label><input id="nfLast" maxlength="60"></div>
+          <div class="field"><label for="nfDept">Birim</label><input id="nfDept" maxlength="60" list="deptList"></div>
+          <datalist id="deptList"></datalist>
+          <div class="field person-only"><label for="nfTitle">Unvan</label><input id="nfTitle" maxlength="60" placeholder="isteğe bağlı"></div>
+          <div class="field"><label for="nfExt">Dahili numara</label>
+            <input id="nfExt" inputmode="numeric" pattern="[0-9]{2,6}" maxlength="6" required></div>
+          <button class="send" type="submit" id="nfSave">Rehbere ekle</button>
+          <div id="nfStatus" role="status" aria-live="polite" class="small"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
   <section id="view-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
     <p class="note" id="setNote">Burada kaydedilenler ayar dosyasının üzerine yazılır ve hemen geçerli olur; yeniden başlatma gerekmez.
       Değişen anonslar kaydederken yeniden seslendirilir.</p>
@@ -316,7 +359,7 @@ const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<
 
 /* ---------- sekmeler ---------- */
 const tabs = { call: [$("tab-call"), $("view-call")], watch: [$("tab-watch"), $("view-watch")],
-  settings: [$("tab-settings"), $("view-settings")] };
+  settings: [$("tab-settings"), $("view-settings")], directory: [$("tab-directory"), $("view-directory")] };
 let watchTimer = null;
 function show(name) {
   for (const [k, [tab, view]] of Object.entries(tabs)) {
@@ -326,10 +369,12 @@ function show(name) {
   clearInterval(watchTimer);
   if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); }
   if (name === "settings") loadSettings();
+  if (name === "directory") loadDirectory();
 }
 $("tab-call").onclick = () => show("call");
 $("tab-watch").onclick = () => show("watch");
 $("tab-settings").onclick = () => show("settings");
+$("tab-directory").onclick = () => show("directory");
 
 /* ---------- deneme çağrısı ---------- */
 // Mikrofon → 8 kHz: tarayıcının hızından (44,1 / 48 kHz) telefon hızına. Önce 3,6 kHz alçak geçiren süzgeç
@@ -710,6 +755,86 @@ $("setSave").onclick = async () => {
     $("setSave").disabled = !settings?.writable;
   }
 };
+
+/* ---------- rehber ---------- */
+let directory = null;
+async function loadDirectory() {
+  try {
+    const r = await fetch("/v1/admin/settings", { headers });
+    if (!r.ok) throw r.status;
+    directory = await r.json();
+    renderDirectory();
+  } catch (e) {
+    $("dirRows").innerHTML = `<tr><td colspan="4" class="note">Rehber okunamadı.</td></tr>`;
+  }
+}
+
+function renderDirectory() {
+  if (!directory) return;
+  const q = $("dirFilter").value.trim().toLocaleLowerCase("tr");
+  const rows = directory.contacts.filter((c) => !q ||
+    [c.name, c.department, c.extension, c.title, ...c.aliases].join(" ").toLocaleLowerCase("tr").includes(q));
+  const depts = [...new Set(directory.contacts.map((c) => c.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr"));
+  $("deptList").innerHTML = depts.map((d) => `<option value="${esc(d)}">`).join("");
+  $("dirCount").textContent = `${rows.length} / ${directory.contacts.length} kayıt`;
+  let html = "", last = null;
+  for (const c of rows) {
+    const dept = c.department || "Birimsiz";
+    if (dept !== last) { html += `<tr class="dept"><td colspan="4">${esc(dept)}</td></tr>`; last = dept; }
+    const name = c.kind === "department" ? "Genel hat" : esc(c.name);
+    const al = c.aliases.length ? `<div class="note">${esc(c.aliases.join(", "))}</div>` : "";
+    const src = c.local
+      ? `<span class="tag local">yerel</span>${directory.writable ? ` <button class="linkbtn" data-del="${esc(c.id)}" type="button">Sil</button>` : ""}` +
+        (c.duplicate ? `<div class="note status-bad">Asıl rehbere de eklenmiş (${esc(c.duplicate)}); bu kayıt silinebilir.</div>` : "")
+      : `<span class="tag">rehber</span>`;
+    html += `<tr><td>${name}${al}</td><td>${esc(c.title) || "–"}</td><td class="ext">${esc(c.extension)}</td><td>${src}</td></tr>`;
+  }
+  $("dirRows").innerHTML = html || `<tr><td colspan="4" class="note">Eşleşen kayıt yok.</td></tr>`;
+  for (const b of $("dirRows").querySelectorAll("[data-del]")) b.onclick = () => removeContact(b.dataset.del);
+  for (const el of $("dirForm").querySelectorAll("input, select, button")) el.disabled = !directory.writable;
+  if (!directory.writable) $("nfStatus").textContent = "Salt okunur: LOCAL_SETTINGS_FILE boş.";
+}
+
+$("dirFilter").oninput = renderDirectory;
+const kindChanged = () => {
+  const person = $("nfKind").value === "person";
+  for (const el of $("dirForm").querySelectorAll(".person-only")) el.hidden = !person;
+};
+$("nfKind").onchange = kindChanged;
+
+$("dirForm").onsubmit = async (e) => {
+  e.preventDefault();
+  const body = { kind: $("nfKind").value, first_name: $("nfFirst").value, last_name: $("nfLast").value,
+    department: $("nfDept").value, title: $("nfTitle").value, extension: $("nfExt").value };
+  $("nfSave").disabled = true;
+  $("nfStatus").className = "small";
+  $("nfStatus").textContent = "Ekleniyor…";
+  try {
+    const r = await fetch("/v1/admin/contacts", { method: "POST", headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body) });
+    const data = await r.json();
+    if (!r.ok) { $("nfStatus").textContent = data.error?.message || "Eklenemedi."; $("nfStatus").className = "small status-bad"; return; }
+    directory = data;
+    $("dirForm").reset(); kindChanged();
+    $("dirFilter").value = body.extension;
+    renderDirectory();
+    $("nfStatus").textContent = "Eklendi. Asistan bu kaydı hemen bulur.";
+    $("nfStatus").className = "small status-ok";
+  } catch (err) {
+    $("nfStatus").textContent = "Gateway'e ulaşılamadı."; $("nfStatus").className = "small status-bad";
+  } finally {
+    $("nfSave").disabled = !directory?.writable;
+  }
+};
+
+async function removeContact(id) {
+  const r = await fetch(`/v1/admin/contacts/${encodeURIComponent(id)}`, { method: "DELETE", headers });
+  const data = await r.json();
+  if (!r.ok) { $("nfStatus").textContent = data.error?.message || "Silinemedi."; $("nfStatus").className = "small status-bad"; return; }
+  directory = data;
+  renderDirectory();
+  $("nfStatus").textContent = "Yerel kayıt silindi."; $("nfStatus").className = "small";
+}
 </script>
 </body>
 </html>

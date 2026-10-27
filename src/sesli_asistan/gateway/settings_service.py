@@ -12,10 +12,13 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
+import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from .config import TEXT_FIELDS, check_texts
+from .core.models import Contact
 from .core.schedule import OfficeHours
 from .core.search import search_key
 
@@ -40,6 +43,8 @@ TEXT_LABELS = {
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10
+MAX_LOCAL_CONTACTS = 500
+_EXTENSION = re.compile(r"^\d{2,6}$")   # yalnız dahili numara: dış hat / cep numarası yazılamaz (aktarma güvenliği)
 
 
 class SettingsService:
@@ -76,7 +81,8 @@ class SettingsService:
         rt.agent.cfg = replace(rt.agent.cfg, texts=texts)
         rt.office = OfficeHours.parse(local.get("office_hours", s.office_hours), local.get("holidays", s.holidays))
         rt.after_hours_mode = local.get("after_hours_mode", s.after_hours_mode)
-        rt.directory.index.set_extra_aliases(local.get("aliases", {}))
+        rt.directory.index.set_overlay(local.get("aliases", {}),
+                                       [Contact.from_api(c) for c in local.get("contacts", [])])
 
     # --- doğrulama ----------------------------------------------------------------------------------------
 
@@ -116,7 +122,11 @@ class SettingsService:
         if mode != s.after_hours_mode:
             out["after_hours_mode"] = mode
 
-        known = {c.id: c for c in self.rt.directory.index.contacts()}
+        contacts = self._clean_contacts(data.get("contacts", self.local.get("contacts", [])))
+        if contacts:
+            out["contacts"] = contacts
+        known = {c.id: c for c in self.rt.directory.index.source_contacts() if c.transferable}
+        known.update({c["id"]: Contact.from_api(c) for c in contacts})
         aliases: dict[str, list[str]] = {}
         for cid, values in (data.get("aliases") or {}).items():
             if check_contacts and cid not in known:
@@ -139,6 +149,61 @@ class SettingsService:
             out["aliases"] = aliases
         return out
 
+    def _clean_contacts(self, items: Any) -> list[dict[str, Any]]:
+        """Yerel kayıtlar: biçim, zorunlu alanlar, dahili numara çakışması (kaynak rehberle ve kendi aralarında)."""
+        if not isinstance(items, list):
+            raise ValueError("kayıtlar liste olmalı")
+        if len(items) > MAX_LOCAL_CONTACTS:
+            raise ValueError(f"en çok {MAX_LOCAL_CONTACTS} yerel kayıt")
+        taken = {c.extension: c.full_name for c in self.rt.directory.index.source_contacts()}
+        names = {search_key(c.full_name) for c in self.rt.directory.index.source_contacts() if c.kind == "person"}
+        out = []
+        for raw in items:
+            if not isinstance(raw, dict):
+                raise ValueError("kayıt JSON nesnesi olmalı")
+            c = {k: " ".join(str(raw.get(k) or "").split()) for k in
+                 ("first_name", "last_name", "department", "title", "extension")}
+            c["kind"] = raw.get("kind") or "person"
+            if c["kind"] not in ("person", "department"):
+                raise ValueError("kayıt türü kişi ya da birim hattı olmalı")
+            who = f"{c['first_name']} {c['last_name']}".strip() or c["department"]
+            if any(len(v) > 60 for v in c.values()):
+                raise ValueError(f"{who or 'kayıt'}: alanlar en çok 60 karakter")
+            if c["kind"] == "person" and not (c["first_name"] and c["last_name"]):
+                raise ValueError("kişi kaydında ad ve soyad gerekli")
+            if c["kind"] == "department":
+                if not c["department"]:
+                    raise ValueError("birim hattında birim adı gerekli")
+                c["first_name"] = c["last_name"] = ""
+            if not _EXTENSION.match(c["extension"]):
+                raise ValueError(f"{who}: dahili numara 2–6 rakam olmalı (dış hat yazılamaz)")
+            if c["extension"] in taken:
+                raise ValueError(f"{who}: {c['extension']} dahilisi zaten {taken[c['extension']]} kaydında")
+            if c["kind"] == "person" and search_key(who) in names:
+                raise ValueError(f"{who} rehberde zaten var")
+            cid = str(raw.get("id") or "")
+            c["id"] = cid if re.fullmatch(r"yerel-[0-9a-f]{8}", cid) else f"yerel-{secrets.token_hex(4)}"
+            taken[c["extension"]] = who
+            if c["kind"] == "person":
+                names.add(search_key(who))
+            out.append(c)
+        return out
+
+    async def add_contact(self, contact: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(contact, dict):
+            raise ValueError("kayıt JSON nesnesi olmalı")
+        view = await self.update({**self.local, "contacts": [*self.local.get("contacts", []),
+                                                              {**contact, "id": ""}]})
+        log.info("yerel kayıt eklendi: %s", self.local["contacts"][-1]["extension"])
+        return view
+
+    async def remove_contact(self, contact_id: str) -> dict[str, Any]:
+        rest = [c for c in self.local.get("contacts", []) if c["id"] != contact_id]
+        if len(rest) == len(self.local.get("contacts", [])):
+            raise ValueError("yalnız arayüzden eklenen (yerel) kayıtlar silinebilir")
+        aliases = {k: v for k, v in self.local.get("aliases", {}).items() if k != contact_id}
+        return await self.update({**self.local, "contacts": rest, "aliases": aliases})
+
     # --- ayar ekranı --------------------------------------------------------------------------------------
 
     @property
@@ -147,6 +212,8 @@ class SettingsService:
 
     def view(self) -> dict[str, Any]:
         rt, s, base = self.rt, self.rt.s, self.base_texts()
+        # yerel kayıt sonradan kaynak rehbere de girdiyse (aynı dahili): yerel olan silinebilir diye uyarılır
+        source_ext = {c.extension: c.full_name for c in rt.directory.index.source_contacts()}
         texts = rt.agent.cfg.texts
         local_texts = self.local.get("texts", {})
         return {
@@ -158,9 +225,13 @@ class SettingsService:
                        "holidays": self.local.get("holidays", s.holidays),
                        "mode": rt.after_hours_mode, "status": rt.office_status(), "timezone": s.timezone},
             "aliases": self.local.get("aliases", {}),
-            "contacts": sorted(({"id": c.id, "name": c.full_name, "department": c.department,
-                                 "extension": c.extension, "kind": c.kind, "aliases": list(c.aliases)}
-                                for c in rt.directory.index.contacts()), key=lambda x: (x["kind"], x["name"])),
+            "contacts": sorted(({"id": c.id, "name": c.full_name, "department": c.department, "title": c.title,
+                                 "extension": c.extension, "kind": c.kind, "aliases": list(c.aliases),
+                                 "local": c.id.startswith("yerel-"),
+                                 "duplicate": source_ext.get(c.extension) if c.id.startswith("yerel-") else None}
+                                for c in rt.directory.index.contacts()),
+                               key=lambda x: (x["department"].casefold(), x["kind"] != "department",
+                                              x["name"].casefold())),
             "prompts_missing": rt._prompts_missing,
         }
 

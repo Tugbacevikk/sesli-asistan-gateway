@@ -119,13 +119,24 @@ class DirectoryIndex:
         self._entries: list[tuple[Contact, list[str], list[str]]] = []
         self._contacts: list[Contact] = []
         self.extra_aliases: dict[str, tuple[str, ...]] = {}   # ayar ekranından: kayıt kimliği → ek takma adlar
+        self.local_contacts: list[Contact] = []               # ayar ekranından eklenen kayıtlar (kaynakta yok)
         self.rebuild(contacts)
 
     def set_extra_aliases(self, aliases: dict[str, Iterable[str]]) -> None:
         """Rehber kaynağında olmayan, yerelde eklenen takma adlar ("Ferhat Bey" → Ferhat Yıldırım). Rehber her
         güncellendiğinde yeniden uygulanır."""
+        self.set_overlay(aliases, self.local_contacts)
+
+    def set_overlay(self, aliases: dict[str, Iterable[str]], local_contacts: Iterable[Contact]) -> None:
+        """Yerel katman (ayar ekranı): takma adlar ve yerel kayıtlar. Kaynak rehber her güncellendiğinde yeniden
+        uygulanır; kaynağın kendisi değişmez."""
         self.extra_aliases = {k: tuple(v) for k, v in aliases.items() if v}
+        self.local_contacts = list(local_contacts)
         self.rebuild(self._contacts)
+
+    def source_contacts(self) -> list[Contact]:
+        """Kaynak rehberdeki kayıtlar (yerel katman hariç, silinmiş hariç)."""
+        return [c for c in self._contacts if not c.deleted]
 
     def contacts(self) -> list[Contact]:
         """Aranabilir kayıtlar (ayar ekranında takma ad eklemek için)."""
@@ -134,7 +145,7 @@ class DirectoryIndex:
     def rebuild(self, contacts: Iterable[Contact]) -> None:
         self._contacts = list(contacts)
         entries = []
-        for c in self._contacts:
+        for c in (*self._contacts, *self.local_contacts):
             if c.deleted or not c.transferable:
                 continue
             extra = self.extra_aliases.get(c.id, ())

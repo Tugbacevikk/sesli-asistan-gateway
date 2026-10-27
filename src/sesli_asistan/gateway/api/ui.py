@@ -154,6 +154,10 @@ def _ui_access(host: str, key_given: str, api_key: str, allowed: set[str] | None
     return None
 
 
+def _err(status: int, code: str, msg: str) -> JSONResponse:
+    return JSONResponse({"error": {"code": code, "message": msg, "call_id": None}}, status_code=status)
+
+
 def request_key(request: Request) -> str:
     auth = request.headers.get("authorization", "")
     return auth[7:] if auth.startswith("Bearer ") else request.query_params.get("anahtar", "")
@@ -199,6 +203,29 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         except ValueError as e:
             return err(400, "BAD_REQUEST", str(e))
         log.info("ayarlar arayüzden kaydedildi (%s)", request.client.host if request.client else "?")
+        return JSONResponse(view)
+
+    @app.post("/v1/admin/contacts", include_in_schema=False)
+    async def admin_contact_add(request: Request) -> JSONResponse:
+        """Rehbere yerel kayıt (kaynak rehber değişmez; tasarim.md 13.1)."""
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        try:
+            view = await settings.add_contact(json.loads(await request.body() or b"{}"))
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
+        return JSONResponse(view, status_code=201)
+
+    @app.delete("/v1/admin/contacts/{contact_id}", include_in_schema=False)
+    async def admin_contact_remove(contact_id: str) -> JSONResponse:
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        try:
+            view = await settings.remove_contact(contact_id)
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view)
 
     @app.get("/v1/admin/calls", include_in_schema=False)

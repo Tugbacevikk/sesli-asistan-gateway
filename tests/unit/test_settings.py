@@ -107,3 +107,67 @@ def test_dosya_yoksa_salt_okunur():
         import asyncio
         asyncio.run(rt.settings.update({}))
     rt.history.close()
+
+
+def test_rehbere_yerel_kayit_eklenir_bulunur_silinir():
+    tc, rt = client()
+    with tc:
+        assert rt.directory.index.search("ferhat yıldırım").match == Match.NONE
+        r = tc.post("/v1/admin/contacts", content=json.dumps({"first_name": "Ferhat", "last_name": "Yıldırım",
+                                                              "department": "Bilgi İşlem", "extension": "246"}),
+                    headers=JSON)
+        assert r.status_code == 201, r.text
+        local = next(c for c in r.json()["contacts"] if c["local"])
+        assert local["name"] == "Ferhat Yıldırım" and local["department"] == "Bilgi İşlem"
+        assert local["id"].startswith("yerel-")
+        hit = rt.directory.index.search("ferhat yıldırım")
+        assert hit.match == Match.SINGLE_HIGH and hit.candidates[0].contact.extension == "246"
+        assert "Ferhat Yıldırım" in rt._hotwords()
+        # takma ad yerel kayda da verilebilir; Ayarlar kaydı yerel kayıtları silmez
+        r = put(tc, {"aliases": {local["id"]: ["Ferhat Bey"]}})
+        assert r.status_code == 200 and any(c["local"] for c in r.json()["contacts"])
+        assert rt.directory.index.search("ferhat bey").candidates[0].contact.extension == "246"
+        # rehber kaynaktan yenilenince yerel kayıt durur
+        rt.directory.index.rebuild(rt.directory.index._contacts)
+        assert rt.directory.index.search("ferhat yıldırım").match == Match.SINGLE_HIGH
+        # birim hattı
+        r = tc.post("/v1/admin/contacts", content=json.dumps({"kind": "department", "department": "Güvenlik",
+                                                              "extension": "199", "first_name": "x"}), headers=JSON)
+        assert r.status_code == 201
+        g = next(c for c in r.json()["contacts"] if c["extension"] == "199")
+        assert g["kind"] == "department" and g["name"] == "Güvenlik"
+        # silme: takma adı da gider; kaynak rehber kaydı silinemez
+        assert tc.delete(f"/v1/admin/contacts/{local['id']}").status_code == 200
+        assert rt.directory.index.search("ferhat yıldırım").match == Match.NONE
+        assert local["id"] not in rt.settings.local.get("aliases", {})
+        assert tc.delete("/v1/admin/contacts/c-101").status_code == 400
+
+
+@pytest.mark.parametrize("body,msg", [
+    ({"first_name": "Ali", "last_name": "Veli", "extension": "214"}, "zaten Ayşe Yılmaz kaydında"),
+    ({"first_name": "Ali", "last_name": "Veli", "extension": "05321234567"}, "2–6 rakam"),
+    ({"first_name": "Ali", "last_name": "Veli", "extension": "9X1"}, "2–6 rakam"),
+    ({"first_name": "Ali", "extension": "250"}, "ad ve soyad"),
+    ({"first_name": "Ayşe", "last_name": "Yılmaz", "extension": "250"}, "zaten var"),
+    ({"kind": "department", "extension": "251"}, "birim adı"),
+    ({"kind": "robot", "department": "X", "extension": "252"}, "kişi ya da birim"),
+])
+def test_hatali_yerel_kayit_reddedilir(body, msg):
+    tc, rt = client()
+    with tc:
+        r = tc.post("/v1/admin/contacts", content=json.dumps(body), headers=JSON)
+        assert r.status_code == 400 and msg in r.json()["error"]["message"], r.text
+        assert not any(c.id.startswith("yerel-") for c in rt.directory.index.contacts())
+
+
+def test_yerel_kayit_kalici(tmp_path):
+    path = str(tmp_path / "ayar.json")
+    LocalSettingsStore(path).save({"contacts": [{"id": "yerel-0000abcd", "first_name": "Ferhat",
+                                                 "last_name": "Yıldırım", "department": "Bilgi İşlem",
+                                                 "extension": "246", "kind": "person", "title": ""}]})
+    s = GatewaySettings(_env_file=None, directory_path=str(ROOT / "data/rehber_ornek.json"), local_settings_file=path)
+    rt = GatewayRuntime(s, llm=object(), stt=object(), tts=object())
+    import asyncio
+    asyncio.run(rt.directory.refresh())
+    assert rt.directory.index.search("ferhat yıldırım").candidates[0].contact.id == "yerel-0000abcd"
+    rt.history.close()
