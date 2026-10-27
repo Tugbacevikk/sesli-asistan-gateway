@@ -1,0 +1,38 @@
+# Sesli asistan — STT servisi (Silero VAD + faster-whisper, gRPC :50051). install.sh kurar.
+[Unit]
+Description=Sesli asistan STT (Türkçe konuşma tanıma, gRPC)
+Documentation=https://github.com/Tugbacevikk/sesli-asistan-gateway/blob/main/docs/tasarim.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sesli
+Group=sesli
+WorkingDirectory=/var/lib/sesli-asistan
+EnvironmentFile=/etc/sesli-asistan/stt.env
+Environment=LOG_FORMAT=json PYTHONUNBUFFERED=1
+ExecStart=@ONEK@/current/venv/stt/bin/python -m sesli_asistan.stt
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=180
+TimeoutStopSec=15
+LimitNOFILE=65536
+
+# Sertleştirme: yalnız kendi veri klasörüne yazar; GPU aygıtları (/dev/nvidia*) erişilebilir kalır
+StateDirectory=sesli-asistan
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
+
+[Install]
+WantedBy=multi-user.target

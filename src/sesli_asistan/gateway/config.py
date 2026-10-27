@@ -1,7 +1,7 @@
 """Gateway ayarları (tasarim.md 13). Ortam değişkeninden ya da `/etc/sesli-asistan/gateway.env`'den okunur.
 
 Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması). Gizli değerler (`API_KEY`,
-`PBX_API_KEY`) `/etc/sesli-asistan/secrets.env`'de tutulur (izin 600) ve loglara yazılmaz.
+`PBX_API_KEY`) `/etc/sesli-asistan/secrets.env`'de tutulur (root:sesli, izin 640) ve loglara yazılmaz.
 """
 from __future__ import annotations
 
@@ -127,6 +127,9 @@ class GatewaySettings(BaseSettings):
     # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
     ui_enabled: bool = True
     ui_allowed_ips: str = "127.0.0.1,::1"      # virgülle; "*" her yerden (API_KEY ile birlikte kullanın)
+    # Önündeki ters vekil (nginx, HTTPS): yalnız bu adreslerden gelen X-Forwarded-For'a güvenilir; böylece
+    # UI_ALLOWED_IPS / PBX_ALLOWED_IPS gerçek istemci adresine uygulanır. Boş: hiçbirine güvenilmez.
+    forwarded_allow_ips: str = "127.0.0.1"
 
     # Ayar ekranında kaydedilenler (anonslar, mesai, takma adlar): bu dosyadakiler yukarıdakilerin üzerine yazılır.
     # Boş: ayar ekranı salt okunur. Üretimde /var/lib/sesli-asistan/yerel_ayarlar.json

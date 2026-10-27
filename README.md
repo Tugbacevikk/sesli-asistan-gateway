@@ -135,6 +135,22 @@ Gateway çalışırken **http://127.0.0.1:8000/ui**:
 
 Mikrofon yalnızca `localhost` ya da HTTPS'te açılır. Erişim: `UI_ALLOWED_IPS`, `API_KEY` (`/ui?anahtar=...`).
 
+## Sunucuya kurulum
+
+Ubuntu 24.04 + NVIDIA GPU (ayrıntı: [tasarim.md 14](docs/tasarim.md#14-kurulum-ve-dağıtım)):
+
+```bash
+sudo apt install python3.12-venv                 # Ollama: https://ollama.com/download/linux
+sudo deploy/install.sh --kontrol                 # ön kontroller
+sudo deploy/install.sh                           # kur / güncelle (duman testi geçmezse önceki sürüme döner)
+sudo nano /etc/sesli-asistan/gateway.env         # santral adresi, izinli IP'ler, rehber, mesai
+sudo systemctl restart sesli-gateway
+```
+
+İnternetsiz sunucu: internetli makinede `deploy/paket.sh`, sunucuda `sudo deploy/install.sh --paket sesli-asistan-<sürüm>.tar.gz`.
+Bağımlılıklar `deploy/kilit/`'teki sabit sürüm + SHA256 kilitlerinden kurulur (`tools/kurulum/kilit.sh` üretir);
+lisanslar: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). Arayüze uzaktan HTTPS: `deploy/nginx/`.
+
 ## Geliştirme
 
 ```bash

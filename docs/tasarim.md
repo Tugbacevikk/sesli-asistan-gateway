@@ -31,7 +31,7 @@
 | 2.3 | 27.10.2026 | Mimari eksikler: TTS cevabı seslendiremezse operatöre aktarma, sessiz arayan zaman aşımı ("Sizi duyamıyorum" → operatör), söze girme eşiği (SPEECH_STARTED ≥ 300 ms sesli konuşmadan sonra), koddan söylenen bütün cümleler ayardan (`*_TEXT`, yer tutucu doğrulaması) |
 | 2.4 | 27.10.2026 | Arayüz (ADR-014): tarayıcıdan deneme çağrısı (mikrofon → WebSocket → aynı çağrı oturumu) ve izleme (servis durumu, süren/son çağrılar, bulunamayan aramalar); kurum adı koddan çıkarıldı (`ORGANIZATION_NAME`) |
 | 2.5 | 27.10.2026 | Kadın sesi (ADR-015): Seslen TTS servisi (`ayse`, ONNX/CPU, Piper ile aynı HTTP sözleşmesi); düşünürken klavye sesi; arayüzde yazarak deneme |
-| 2.6 | 27.10.2026 | Gözlemlenebilirlik (Prometheus, JSON log), devre kesici, kalıcı çağrı geçmişi, hızlı yol (ADR-016), mesai saatleri ve tatiller (5.1.3), akış ortasında STT ipucu güncellemesi (`HotwordUpdate`) ve sık arananlara öncelik |
+| 2.6 | 27.10.2026 | Gözlemlenebilirlik (Prometheus, JSON log), devre kesici, kalıcı çağrı geçmişi, hızlı yol (ADR-016), mesai saatleri ve tatiller (5.1.3), akış ortasında STT ipucu güncellemesi (`HotwordUpdate`) ve sık arananlara öncelik, ayar ekranı (13.1), yük testi aracı (11.3), kurulum: `install.sh`, SHA256'lı kilitler, çevrimdışı paket, systemd, HTTPS vekil, lisans listesi (14) |
 
 ---
 
@@ -941,7 +941,7 @@ süresi hukukça onaylanmalıdır (açık konu #6).
 | LLM'in numara uydurması | Yanlış aktarma | TransferPolicy (10.3) |
 | Gizli dahililerin ifşası | Bilgi sızıntısı | `transferable=false` kayıtlar LLM'e hiç gönderilmez |
 | Port tüketme saldırısı | Hizmet dışı kalma | Eşzamanlı çağrı sınırı, oturum zaman aşımları |
-| Anahtar sızıntısı | Yetkisiz erişim | Anahtarlar yalnızca `/etc/sesli-asistan/secrets.env` (izin 600); loglara yazılmaz |
+| Anahtar sızıntısı | Yetkisiz erişim | Anahtarlar yalnızca `/etc/sesli-asistan/secrets.env` (sahip root:sesli, izin 640); loglara yazılmaz |
 | Servisler arası dinleme | Veri sızıntısı | Servisler `127.0.0.1` üzerinde; farklı makinelerdeyse TLS / mTLS |
 
 ### 10.2 Ağ
@@ -1086,6 +1086,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `CLOSED_TEXT` / `HOLIDAY_TEXT` / `NO_OPERATOR_TEXT` | (varsayılan metin) | Mesai dışı anonsları |
 | `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
 | `LOCAL_SETTINGS_FILE` | yerel_ayarlar.json | Ayar ekranında kaydedilenler (13.1). Boş: ayar ekranı salt okunur. Üretimde `/var/lib/sesli-asistan/` |
+| `FORWARDED_ALLOW_IPS` | 127.0.0.1 | Yalnız bu ters vekillerin `X-Forwarded-For` başlığına güvenilir (14.6). Boş: hiçbirine |
 | `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
 | `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |
 | `STT_METRICS_PORT` | 9101 | STT metrikleri (yalnız 127.0.0.1); Gateway metrikleri `/metrics` (UI_ALLOWED_IPS) |
@@ -1182,32 +1183,38 @@ flowchart TB
 ```
 /opt/sesli-asistan/
 ├── releases/
-│   ├── v1.0.0/            # kod + servis başına venv
-│   └── v1.1.0/
-├── current -> releases/v1.1.0
-└── models/                # whisper, piper sesi (sürümlerden bağımsız)
-/etc/sesli-asistan/
-├── gateway.env
-├── stt.env
-└── secrets.env            # izin 600
+│   ├── 0.1.0-3438136/        # SURUM, deploy/, tools/, THIRD_PARTY_LICENSES.md
+│   │   └── venv/{gateway,stt,tts,araclar}/   # servis başına ayrı venv (kilitli sürümler)
+│   └── 0.1.1-…/              # son 3 sürüm tutulur
+├── current -> releases/0.1.1-…   # systemd buradan çalıştırır; geçiş atomik (mv -T)
+└── models/                   # whisper, silero (sürümlerden bağımsız, SHA256 + MANIFEST.json)
+/etc/sesli-asistan/           # root:sesli 750 — kurulum var olanın üzerine YAZMAZ
+├── gateway.env  stt.env  tts.env   # 640
+├── secrets.env               # 640 (API_KEY kurulumda rastgele üretilir)
+└── rehber.json               # Sentra Rehber API gelene kadar
+/var/lib/sesli-asistan/       # systemd StateDirectory (sesli): cagri_gecmisi.db, yerel_ayarlar.json
+/var/cache/sesli-asistan/tts  # systemd CacheDirectory: seslendirme önbelleği
 ```
 
-### 14.3 Kurulum betiği (`install.sh`)
+### 14.3 Kurulum betiği (`deploy/install.sh`)
 
-1. Ön kontroller: işletim sistemi sürümü, `nvidia-smi`, CUDA sürümü, disk alanı, portların boşluğu. Eksikte açıklayıcı mesajla durur; sürücü kurmaz.
-2. Sistem kullanıcısı oluşturma (`sesli`), dizin izinleri.
-3. Servis başına venv; bağımlılıklar sabit sürümlü `requirements.lock` dosyalarından.
-4. Modellerin indirilmesi (`models.yaml`: ad, sürüm, URL, SHA256) ve özet doğrulaması.
-5. Ollama kurulumu ve modelin yüklenmesi.
-6. systemd servis dosyalarının kurulması (`Restart=on-failure`, kaynak sınırları).
-7. Kurulum sonrası duman testi: `/v1/health` ve örnek bir STT/LLM/TTS isteği.
+1. **Ön kontroller:** root, Ubuntu 24.04, `python3.12-venv`, `nvidia-smi` ve sürücü ≥ 525 (`--cpu` ile atlanır), en az 15 GB boş alan, portların boşluğu (8000, 50051, 9101, 5600), Ollama. Eksikte ne kurulacağını söyleyip durur; sistem paketi ve sürücü **kurmaz**. `--kontrol` yalnızca bunu yapar.
+2. `sesli` sistem kullanıcısı (giriş kabuğu yok), klasörler ve izinler.
+3. Servis başına venv; bağımlılıklar `deploy/kilit/<servis>.txt`'den `pip install --require-hashes` ile: her paket sabit sürüm ve SHA256 özetiyle doğrulanır (değiştirilmiş ya da farklı sürüm paket kurulmaz). Proje kendisi `--no-deps` ile kurulur. Kilitler `tools/kurulum/kilit.sh` (uv) ile üretilir; CI kilitlerin pyproject ile uyumunu denetler.
+4. Modeller `deploy/models.yaml`'dan indirilir / paketten kopyalanır ve SHA256 ile doğrulanır.
+5. Ollama modeli (`LLM_MODEL`) yoksa çekilir (internetsiz pakette yol gösterilir).
+6. Ayar şablonları (`deploy/ayar/`) yalnız **yoksa** kopyalanır; yeni sürümde eklenen ayar varsa uyarı ve `diff` komutu verilir. `API_KEY` boşsa rastgele üretilir. `gateway.env` servis açılmadan doğrulanır (hatalı ayarla servis yeniden başlatılmaz).
+7. systemd birimleri (`deploy/systemd/`): `Restart=on-failure`, `User=sesli`, `ProtectSystem=strict`, `NoNewPrivileges`, `PrivateTmp`, yalnız `StateDirectory`/`CacheDirectory`'ye yazma; Gateway'de ayrıca `PrivateDevices`. STT GPU aygıtlarına erişir.
+8. `current` kısayolu yeni sürüme çevrilir, servisler yeniden başlatılır.
+9. **Duman testi:** `/v1/admin/health` (yoksa `/v1/health`, `API_KEY` ile) en çok 180 sn içinde `status: ok` dönmeli (STT, LLM, TTS, rehber çalışıyor). Geçmezse önceki sürüme **otomatik dönülür** ve hata ile çıkılır.
 
 **Modlar:**
-- Çevrimiçi: dosyalar şirketin dosya sunucusundaki doğrulanmış kopyalardan indirilir.
-- Çevrimdışı: `install.sh --offline sesli-asistan-v1.0.0.tar` (Python paketleri, modeller, Ollama, lisanslar paketin içinde).
+- Çevrimiçi: `sudo deploy/install.sh` (depo klasöründen; PyPI ve model kaynakları ya da `models.yaml` `mirror`'ı).
+- Çevrimdışı: internetli makinede `deploy/paket.sh` → `sesli-asistan-<sürüm>.tar.gz` (Linux x86_64 / Python 3.12 wheel'leri, proje wheel'i, modeller, her paketin lisans metni, `SHA256SUMS`); sunucuda `sudo deploy/install.sh --paket <dosya>`. Paket bütünlüğü kurulumdan önce doğrulanır. Ollama ve LLM modeli pakete girmez (Ollama'nın kendi çevrimdışı kurulumu; model klasörü taşınır).
 
-**Güncelleme / geri dönüş:** Yeni sürüm `releases/` altına kurulur, duman testi geçerse `current` kısayolu
-çevrilir ve servisler yeniden başlatılır. Geri dönüş: kısayolu önceki sürüme çevirmek.
+**Güncelleme / geri dönüş:** Aynı komut yeni sürümü `releases/` altına kurar; duman testi geçerse etkin kalır, geçmezse otomatik geri dönülür. Elle geri dönüş: `sudo /opt/sesli-asistan/current/deploy/install.sh --geri-al`. Son 3 sürüm tutulur. Ayarlar, çağrı geçmişi ve modeller sürümlerden bağımsızdır.
+
+**Doğrulama (27.10.2026, Ubuntu 24.04 konteyneri, Gateway):** kurulum, ayar şablonları, `sesli` kullanıcısıyla çalışma, kimlikli duman testi (bozuk durumda başarısız sayılması), otomatik ve elle geri dönüş denendi. Gerçek sunucuda systemd + GPU ile kabul testi yapılacak.
 
 ### 14.4 Ağ portları
 
@@ -1218,10 +1225,12 @@ flowchart TB
 | 50051 | TCP (gRPC) | Gateway → STT | Yalnızca yerel |
 | 11434 | TCP (HTTP) | Gateway → Ollama | Yalnızca yerel |
 | 5500 | TCP (HTTP) | Gateway → TTS | Yalnızca yerel |
+| 5600 | TCP (HTTP) | Gateway → Seslen TTS (isteğe bağlı) | Yalnızca yerel |
+| 9101 | TCP (HTTP) | Prometheus → STT metrikleri | Yalnızca yerel |
 
 ### 14.5 Lisanslar
 
-Dağıtım paketinde `THIRD_PARTY_LICENSES.md` ve her bileşenin lisans metni bulunur.
+`THIRD_PARTY_LICENSES.md`, kilit dosyalarındaki sabit sürümlerden `tools/kurulum/lisanslar.py` ile üretilir (lisans PyPI'daki o sürümün üst verisinden; CI listenin kilitlerle uyumunu denetler). GPL/LGPL/AGPL, ticari olmayan ve bilinmeyen lisanslar ⚠ ile işaretlenir; şu an işaretli olanlar yalnız NVIDIA CUDA kütüphaneleridir (yeniden dağıtım şartları hukukça teyit edilmeli). Çevrimdışı pakette her paketin lisans metni `lisanslar/` altındadır.
 
 | Bileşen | Lisans (sürüm sabitlenirken teyit edilecek) |
 |---|---|
@@ -1237,6 +1246,11 @@ Dağıtım paketinde `THIRD_PARTY_LICENSES.md` ve her bileşenin lisans metni bu
 | Seslen TTS (`seslen-tts`, ADR-015) | Kod MIT; **model ağırlıkları ve sesler CC BY-SA 4.0** (ticari kullanım serbest; atıf ve aynı lisansla paylaşım şartı); öğretmen model VoxCPM2 Apache-2.0. Kullanım koşulu: dinleyiciye yapay zekâ sesi olduğu belirtilir. Hukuk onayı gerekir |
 | Şirkete ait Türkçe ses (önerilen, ADR-013) | Seslendirme sanatçısıyla tüm kullanım haklarını şirkete veren sözleşme; Piper ile eğitim |
 | ~~`tr_TR-dfki-medium`~~ | **Kullanılmaz:** veri seti CC BY-NC-SA 4.0 (ticari olmayan) |
+
+
+### 14.6 Arayüze uzaktan erişim (HTTPS)
+
+Santral Gateway'e doğrudan bağlanır (iç ağ). İnsanların kullandığı arayüz ve metrikler için örnek nginx ayarı `deploy/nginx/sesli-asistan.conf`: TLS, yönetici ağı izin listesi, WebSocket (`/v1/ui/ws`), `/metrics` yalnız Prometheus'a, santral API'si (`/v1/calls`) vekilden kapalı. Tarayıcı mikrofonu yalnız HTTPS'te (ya da localhost'ta) açar. Gateway gerçek istemci adresini `X-Forwarded-For`'dan yalnızca `FORWARDED_ALLOW_IPS`'teki vekillere güvenerek alır; böylece `UI_ALLOWED_IPS` vekilin değil kullanıcının adresine uygulanır.
 
 ---
 

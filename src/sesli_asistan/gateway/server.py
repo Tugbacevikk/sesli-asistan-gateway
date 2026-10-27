@@ -43,7 +43,8 @@ def main() -> None:
         logging.getLogger(__name__).info("arayüz: http://%s:%d/ui", "127.0.0.1" if s.gateway_api_host == "0.0.0.0"
                                          else s.gateway_api_host, s.gateway_api_port)
     uvicorn.run(build_app(s), host=s.gateway_api_host, port=s.gateway_api_port, log_level="info",
-                timeout_graceful_shutdown=10)
+                timeout_graceful_shutdown=10, proxy_headers=bool(s.forwarded_allow_ips.strip()),
+                forwarded_allow_ips=s.forwarded_allow_ips.strip() or None)
 
 
 if __name__ == "__main__":

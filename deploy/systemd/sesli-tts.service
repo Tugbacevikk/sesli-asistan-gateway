@@ -1,0 +1,35 @@
+# Sesli asistan — kadın sesi TTS (Seslen, :5600, ADR-015). İsteğe bağlı: install.sh --servisler "... tts".
+[Unit]
+Description=Sesli asistan TTS (Seslen, kadın sesi)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=sesli
+Group=sesli
+WorkingDirectory=/var/lib/sesli-asistan
+EnvironmentFile=/etc/sesli-asistan/tts.env
+Environment=LOG_FORMAT=json PYTHONUNBUFFERED=1
+ExecStart=@ONEK@/current/venv/tts/bin/python -m sesli_asistan.tts
+Restart=on-failure
+RestartSec=3
+TimeoutStartSec=180
+TimeoutStopSec=15
+
+StateDirectory=sesli-asistan
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
