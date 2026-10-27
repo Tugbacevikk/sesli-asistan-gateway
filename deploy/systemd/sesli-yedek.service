@@ -1,0 +1,15 @@
+# Günlük yedek (tasarim.md 14.7): çağrı geçmişi (SQLite çevrimiçi yedek), yerel ayarlar, ayar dosyaları, rehber.
+[Unit]
+Description=Sesli asistan yedeği
+After=sesli-gateway.service
+
+[Service]
+Type=oneshot
+ExecStart=@ONEK@/current/venv/gateway/bin/python @ONEK@/current/tools/kurulum/yedek.py al --hedef /var/backups/sesli-asistan --tut 14
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/backups

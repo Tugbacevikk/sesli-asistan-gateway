@@ -1268,6 +1268,24 @@ flowchart TB
 
 Santral Gateway'e doğrudan bağlanır (iç ağ). İnsanların kullandığı arayüz ve metrikler için örnek nginx ayarı `deploy/nginx/sesli-asistan.conf`: TLS, yönetici ağı izin listesi, WebSocket (`/v1/ui/ws`), `/metrics` yalnız Prometheus'a, santral API'si (`/v1/calls`) vekilden kapalı. Tarayıcı mikrofonu yalnız HTTPS'te (ya da localhost'ta) açar. Gateway gerçek istemci adresini `X-Forwarded-For`'dan yalnızca `FORWARDED_ALLOW_IPS`'teki vekillere güvenerek alır; böylece `UI_ALLOWED_IPS` vekilin değil kullanıcının adresine uygulanır.
 
+
+### 14.7 Yedekleme
+
+`tools/kurulum/yedek.py`, kurulumun etkinleştirdiği `sesli-yedek.timer` ile her gece 03:17'de (±10 dk) çalışır ve
+`/var/backups/sesli-asistan/` altına (klasör 700, dosya 600) son 14 yedeği tutar. Ayrıca her güncellemeden önce yedek
+alınır; alınamazsa güncelleme durur.
+
+| İçerik | Nasıl |
+|---|---|
+| Çağrı geçmişi ve değişiklik geçmişi (`*.db`) | SQLite çevrimiçi yedek API'si: Gateway çalışırken tutarlı kopya; yedekte `PRAGMA integrity_check` |
+| Yerel ayarlar (`yerel_ayarlar.json`: anonslar, mesai, takma adlar, yerel kayıtlar) | dosya |
+| `/etc/sesli-asistan/*.env`, `rehber.json` | dosya; `secrets.env` yalnız `--gizliler` ile |
+
+Her dosyanın SHA256'sı `MANIFEST.json`'da. Geri yükleme (`yedek.py geri-yukle <arşiv>`): önce bütünlük doğrulanır
+(bozuk ya da klasör dışına yazmaya çalışan arşiv reddedilir), Gateway çalışıyorsa durur, var olan dosyalar
+`.geri-yukleme-oncesi` olarak saklanır, sahip ve izinler korunur. Modeller ve kod yedeklenmez (kurulumla yeniden
+gelir). Yedek klasörünü başka bir makineye kopyalamak (rsync, şirket yedek sistemi) işletmenin işidir.
+
 ---
 
 ## 15. Test ve kabul stratejisi

@@ -278,8 +278,18 @@ bilgi "systemd servisleri"
 for s in $SERVISLER; do
     sed "s|@ONEK@|$ONEK|g" "$KAYNAK/deploy/systemd/sesli-$s.service" > "/etc/systemd/system/sesli-$s.service"
 done
+if has gateway; then   # günlük yedek (tasarim.md 14.7)
+    sed "s|@ONEK@|$ONEK|g" "$KAYNAK/deploy/systemd/sesli-yedek.service" > /etc/systemd/system/sesli-yedek.service
+    cp "$KAYNAK/deploy/systemd/sesli-yedek.timer" /etc/systemd/system/sesli-yedek.timer
+fi
 systemctl daemon-reload
 ONCEKI=$(readlink -f "$ONEK/current" 2>/dev/null || true)
+# güncellemeden önce yedek: yeni sürüm veritabanını değiştirirse geri dönülebilsin
+if has gateway && [[ -n "$ONCEKI" ]] && compgen -G "$VERI/*.db" >/dev/null; then
+    bilgi "güncelleme öncesi yedek"
+    "$HEDEF/venv/gateway/bin/python" "$HEDEF/tools/kurulum/yedek.py" al --hedef /var/backups/sesli-asistan --tut 14 \
+        || dur "yedek alınamadı; güncelleme durduruldu"
+fi
 ln -sfn "$HEDEF" "$ONEK/current.yeni" && mv -Tf "$ONEK/current.yeni" "$ONEK/current"
 bilgi "etkin sürüm: $SURUM"
 
@@ -288,6 +298,7 @@ if [[ $BASLAT -eq 0 ]]; then
     exit 0
 fi
 for s in $SERVISLER; do systemctl enable -q "sesli-$s"; done
+has gateway && systemctl enable -q --now sesli-yedek.timer
 servisleri_yeniden_baslat
 if ! saglik_bekle; then
     if [[ -n "$ONCEKI" && "$ONCEKI" != "$HEDEF" ]]; then
