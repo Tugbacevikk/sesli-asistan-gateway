@@ -105,6 +105,7 @@ python tools/stt/dene.py kayit.wav --ipucu "Ayşe Yılmaz"
 | `gateway/adapters/pbx/rest.py` | Gateway → santral eylemleri (`transfer`, `operator`), 3 deneme |
 | `gateway/composition.py` | `GatewayRuntime`: açılış (rehber, anonslar, LLM ısınma), arka planda sağlık, kapanış |
 | `tools/cagri/cagri.py` | Santral simülatörü: çağrı açar, WAV'ları RTP ile söyler, eylemlere cevap verir; **uçtan uca tur gecikmesi** |
+| `tools/yuk/yuk.py` | Yük testi: aynı anda N sanal çağrı; tur gecikmesi p50/p95, reddedilen, en yüksek eşzamanlı (tasarim.md 11.3) |
 
 ```bash
 python -m sesli_asistan.stt                                   # 1. terminal

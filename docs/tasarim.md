@@ -1008,6 +1008,16 @@ eşzamanlı çıkarım ≈ eşzamanlı çağrı × (çağrı başına GPU meşgu
 Kesin kapasite, yük testiyle belirlenir (bkz. 15.4): N sahte çağrı artırılarak NFR-01'in sağlandığı
 en yüksek N bulunur ve `max_concurrent_calls` bunun %80'ine ayarlanır.
 
+Araç: `tools/yuk/yuk.py`. Her sanal çağrı santral gibi davranır (REST + kesintisiz RTP, eylemlere cevap, DELETE);
+arayanın sözünün bittiği andan asistanın ilk ses paketine kadar geçen süre ölçülür. Rapor: başarılı / reddedilen
+(503) / hata, cevapsız tur, en yüksek eşzamanlı çağrı, tur gecikmesi p50 / p90 / p95 / en çok, karşılama gecikmesi.
+Yöntem: `--eszamanli` 1, 2, 4, 8… artırılır; p95 2 sn'yi aşmadan önceki en yüksek değer kapasitedir. Aynı anda
+`/metrics` (`turn_latency_seconds`, `llm_latency_seconds`) izlenir: darboğazın STT mi LLM mi olduğu oradan görülür.
+
+```
+python tools/yuk/yuk.py ayse.wav --cagri 40 --eszamanli 8 --aralik 0.5 --cikti sonuc_yuk_8.json
+```
+
 ---
 
 ## 12. Gözlemlenebilirlik
