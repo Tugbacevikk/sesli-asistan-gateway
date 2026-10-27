@@ -85,7 +85,8 @@ def take(hedef: Path, veri: Path = VERI, ayar: Path = AYAR, tut: int = 14, gizli
     verify(ad)
     for old in sorted(hedef.glob(f"{ONEK}*.tar.gz"))[:-tut]:
         old.unlink()
-    print(f"yedek: {ad} ({ad.stat().st_size // 1024} KB, {len(files) - 1} dosya{', gizliler dahil' if gizliler else ''})")
+    extra = ", gizliler dahil" if gizliler else ""
+    print(f"yedek: {ad} ({ad.stat().st_size // 1024} KB, {len(files) - 1} dosya{extra})")
     return ad
 
 
