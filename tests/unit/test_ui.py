@@ -137,3 +137,18 @@ def test_bulunamayan_aramalar_listelenir():
         recv_until(ws, "summary")
         misses = tc.get("/v1/admin/calls").json()["misses"]
     assert misses == [{"text": "ferhat yıldırım", "count": 1}]
+
+
+def test_yazarak_deneme():
+    # Mikrofon yok: arayan yazıyor; ses gelmediği için çağrı "ses gelmedi" diye kapanmamalı
+    tc, rt = client()
+    with tc, tc.websocket_connect("/v1/ui/ws?mod=metin") as ws:
+        recv_until(ws, "state", state="listening")
+        ws.send_text(json.dumps({"type": "text", "text": "muhasebeden ayşe hanım"}))
+        act, seen = recv_until(ws, "pbx_action")
+        assert act["extension"] == "214"
+        assert next(e for e in seen if e["type"] == "heard")["text"] == "muhasebeden ayşe hanım"
+        assert rt.manager.sessions[next(iter(rt.manager.sessions))].media.idle_s() == 0
+        ws.send_text(json.dumps({"type": "hangup"}))
+        summary, _ = recv_until(ws, "summary")
+    assert summary["channel"] == "web-metin" and summary["turns"][0]["heard"] == "muhasebeden ayşe hanım"

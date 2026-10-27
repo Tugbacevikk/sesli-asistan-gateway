@@ -88,6 +88,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .msg.caller { margin-left: auto; }
 .msg.caller .who { text-align: right; }
 .msg.caller .text { background: var(--caller); border-bottom-right-radius: 4px; }
+.msg.caller.typed .who::after { content: " (yazdı)"; }
 .msg.bot .text { border: 1px solid var(--rule); border-bottom-left-radius: 4px; }
 .msg.bot.barged .text { border-style: dashed; }
 .meta { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 6px; font-size: .82rem; color: var(--muted); }
@@ -95,6 +96,16 @@ main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .event { margin: 14px 0 0; font-size: .88rem; color: var(--muted); padding-left: 12px; border-left: 3px solid var(--rule); }
 .event.ok { border-color: var(--ok); color: var(--ink); }
 .event.bad { border-color: var(--bad); color: var(--ink); }
+
+.composer { display: flex; gap: 8px; margin-top: 12px; }
+.composer input {
+  flex: 1; min-width: 0; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 12px; padding: 12px 14px;
+}
+.composer input::placeholder { color: var(--muted); }
+.send { border: 0; border-radius: 12px; padding: 0 18px; background: var(--ink); color: var(--panel); font-weight: 600; }
+.send:disabled { opacity: .5; cursor: not-allowed; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* sağ sütun */
 .side { display: flex; flex-direction: column; gap: 16px; }
@@ -160,10 +171,17 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
       <div class="lamp" data-state="transferring"><i></i><span>Aktarılıyor</span></div>
     </div>
     <div class="cols">
-      <div class="log" id="log" aria-live="polite">
-        <p class="empty" id="empty">Aramayı başlatın ve telefonda konuşur gibi konuşun: "Muhasebeden Ayşe Hanım'ı
-          bağlar mısınız?" Asistanın duyduğu, cevabı ve ne kadar sürede cevap verdiği burada görünür. Ses, gerçek
-          hattaki gibi telefon kalitesine indirilir.</p>
+      <div class="convo">
+        <div class="log" id="log" aria-live="polite">
+          <p class="empty" id="empty">Aramayı başlatıp telefonda konuşur gibi konuşun ya da aşağıya arayan gibi yazın:
+            "Muhasebeden Ayşe Hanım'ı bağlar mısınız?" Asistanın duyduğu, cevabı ve ne kadar sürede cevap verdiği
+            burada görünür. Sesli aramada ses, gerçek hattaki gibi telefon kalitesine indirilir.</p>
+        </div>
+        <form class="composer" id="composer" autocomplete="off">
+          <label for="msg" class="sr">Arayanın söylediği</label>
+          <input id="msg" maxlength="500" placeholder="Arayan gibi yazın: Satış müdürünü arıyorum">
+          <button type="submit" class="send" id="sendBtn">Gönder</button>
+        </form>
       </div>
       <div class="side">
         <div class="box callbox">
@@ -337,13 +355,16 @@ function onEvent(m) {
     case "call": $("callInfo").textContent = `Çağrı ${m.call_id} açık. Konuşabilirsiniz.`; break;
     case "state":
       lamp(m.state);
+      if (m.state === "listening" && pendingText) { const t = pendingText; pendingText = ""; sendText(t); }
       if (m.state === "handed_off") {
         add("Çağrı devredildi. Gerçek hatta buradan sonrasını santral yürütür; deneme çağrısı kapatılıyor.", "event ok");
         setTimeout(() => endCall(), 1500);
       }
       break;
     case "heard":
-      add(`<div class="who">Arayan</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`, "msg caller");
+      add(`<div class="who">Arayan</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`,
+          "msg caller" + (typedNext ? " typed" : ""));
+      typedNext = false;
       break;
     case "reply":
       lastBot = add(`<div class="who">Asistan</div><div class="text">${esc(m.text)}</div><div class="meta"></div>`, "msg bot");
@@ -387,6 +408,7 @@ const REASONS = {
   cevaplandi: "cevaplandı", hangup: "kapatıldı", rtp_zaman_asimi: "ses gelmedi", ic_hata: "iç hata",
 };
 const outcomeText = (o) => OUTCOMES[o] || o || "–";
+const channelText = (c) => c === "web" ? "Arayüz, sesli" : c === "web-metin" ? "Arayüz, yazılı" : "Santral";
 const reasonText = (r) => REASONS[r] || r;
 
 for (const b of $("pbxButtons").querySelectorAll("button")) {
@@ -398,24 +420,33 @@ for (const b of $("pbxButtons").querySelectorAll("button")) {
 }
 $("dtmf0").onclick = () => ws?.send(JSON.stringify({ type: "dtmf", digit: "0" }));
 
-async function startCall() {
+// text = true: mikrofonsuz, yazarak deneme (asistanın sesi yine çalınır)
+async function startCall(text = false, firstMessage = "") {
   $("callBtn").disabled = true;
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
-  } catch (e) {
-    $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı).";
-    $("callBtn").disabled = false;
-    return;
+  if (!text) {
+    try {
+      micStream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
+    } catch (e) {
+      $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı). Yazarak deneyebilirsiniz.";
+      $("callBtn").disabled = false;
+      return;
+    }
   }
   ctx = new AudioContext();
-  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
-  node = new AudioWorkletNode(ctx, "down8k");
-  ctx.createMediaStreamSource(micStream).connect(node);
+  if (!text) {
+    await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
+    node = new AudioWorkletNode(ctx, "down8k");
+    ctx.createMediaStreamSource(micStream).connect(node);
+  }
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws${KEY ? "?anahtar=" + encodeURIComponent(KEY) : ""}`);
+  const q = new URLSearchParams();
+  if (KEY) q.set("anahtar", KEY);
+  if (text) q.set("mod", "metin");
+  ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws?${q}`);
   ws.binaryType = "arraybuffer";
-  node.port.onmessage = (e) => {
+  pendingText = firstMessage;
+  if (node) node.port.onmessage = (e) => {
     $("meter").style.width = Math.min(100, e.data.peak * 140) + "%";
     if (ws && ws.readyState === WebSocket.OPEN) ws.send(e.data.pcm);
   };
@@ -428,6 +459,7 @@ async function startCall() {
     $("callBtn").classList.add("end");
     $("callBtn").disabled = false;
     $("dtmf0").disabled = false;
+    if (text) $("callInfo").textContent = "Yazarak deneme: arayan gibi yazın. Asistanın cevabı sesli de çalınır.";
   };
   ws.onclose = (e) => { if (e.code === 1008) $("callInfo").textContent = e.reason || "Bağlantı reddedildi."; endCall(false); };
   ws.onerror = () => { $("callInfo").textContent = "Gateway'e bağlanılamadı."; };
@@ -452,6 +484,20 @@ function endCall(sendHangup = true) {
 }
 $("callBtn").onclick = () => (inCall ? endCall() : startCall());
 
+let pendingText = "", typedNext = false;
+function sendText(t) {
+  typedNext = true;
+  ws.send(JSON.stringify({ type: "text", text: t }));
+}
+$("composer").onsubmit = (e) => {
+  e.preventDefault();
+  const t = $("msg").value.trim();
+  if (!t) return;
+  $("msg").value = "";
+  if (inCall && ws?.readyState === WebSocket.OPEN) sendText(t);
+  else if (!ws) startCall(true, t);     // arama yoksa yazılı deneme başlar, ilk mesaj karşılamadan sonra gider
+};
+
 /* ---------- izleme ---------- */
 const SERVICES = { stt: "Konuşma tanıma", llm: "Dil modeli", tts: "Seslendirme", directory: "Rehber" };
 const STATES = { greeting: "karşılama", listening: "dinliyor", thinking: "düşünüyor", speaking: "konuşuyor",
@@ -469,11 +515,11 @@ async function refresh() {
       return `<div class="svc ${st === "ok" ? "ok" : "bad"}"><i></i><div><strong>${label}</strong><span>${st === "ok" ? "çalışıyor" : esc(st || "bilinmiyor")}</span></div></div>`;
     }).join("");
     $("active").innerHTML = c.active.length ? c.active.map((a) =>
-      `<tr><td>${esc(a.call_id)}</td><td>${a.channel === "web" ? "Arayüz" : "Santral"}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")
+      `<tr><td>${esc(a.call_id)}</td><td>${channelText(a.channel)}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")
       : `<tr><td colspan="5" class="note">Şu an süren çağrı yok.</td></tr>`;
     $("recent").innerHTML = c.recent.length ? c.recent.map((r) => {
       const turns = r.turns.map((t) => `<li>${esc(t.heard || "–")} <span class="note">/</span> ${esc(t.reply)}${t.actions.length ? " <span class='note'>(" + esc(t.actions.join(", ")) + ")</span>" : ""}${t.final_to_audio_s != null ? " <span class='note'>" + fmt(t.final_to_audio_s) + "</span>" : ""}</li>`).join("");
-      return `<tr><td>${esc(r.call_id)}<div class="note">${r.channel === "web" ? "Arayüz" : "Santral"}</div></td>
+      return `<tr><td>${esc(r.call_id)}<div class="note">${channelText(r.channel)}</div></td>
         <td class="outcome-${esc(r.outcome)}">${esc(outcomeText(r.outcome))}${reasonText(r.reason) !== outcomeText(r.outcome) ? `<div class="note">${esc(reasonText(r.reason))}</div>` : ""}</td>
         <td>${esc(r.started.replace("T", " "))}</td><td>${fmt(r.duration_s)}</td>
         <td>${r.turns.length ? `<details><summary>${r.turns.length} tur</summary><ol>${turns}</ol></details>` : "<span class='note'>konuşma yok</span>"}</td></tr>`;

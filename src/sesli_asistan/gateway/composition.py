@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from dataclasses import replace
 
 import httpx
 
@@ -111,11 +112,15 @@ class GatewayRuntime:
                           transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
                           no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max)
 
-    def web_session(self, call_id: str, media: MediaPort, pbx, observer) -> CallSession:
-        """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze."""
+    def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False) -> CallSession:
+        """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
+        text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer)."""
+        cfg = self._call_config()
+        if text_mode:
+            cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
         return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
-                           self._call_config(), hotwords=self.directory.index.hotwords(), observer=observer,
-                           channel="web")
+                           cfg, hotwords=self.directory.index.hotwords(), observer=observer,
+                           channel="web-metin" if text_mode else "web")
 
     async def start(self) -> None:
         await self.directory.refresh()

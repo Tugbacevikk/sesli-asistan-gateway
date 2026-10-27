@@ -157,6 +157,13 @@ class CallSession:
     def dtmf(self, digit: str) -> None:
         self._q.put_nowait(_Event("dtmf", {"digit": digit}, self.clock()))
 
+    def caller_text(self, text: str) -> None:
+        """Arayanın sözü metin olarak (arayüzde yazarak deneme): STT'den gelmiş gibi işlenir. Asistan konuşuyorsa
+        söze girmiş sayılır."""
+        now = self.clock()
+        self._q.put_nowait(_Event("speech_started", {"text": "", "reason": "", "ms": 0}, now))
+        self._q.put_nowait(_Event("final", {"text": text.strip(), "reason": "", "ms": 0}, now))
+
     def hangup(self, reason: str = "hangup") -> None:
         """Santral çağrıyı bitirdi (DELETE). `run()` hemen döner."""
         if not self.stats.outcome:
@@ -380,8 +387,8 @@ class CallSession:
             await self._transfer_result("failed")
 
     async def _send_operator(self, reason: str) -> None:
-        self._handed_off("operator", reason)
         self._emit("action", action="operator", reason=reason)
+        self._handed_off("operator", reason)
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "operator"})
         except PbxError as e:

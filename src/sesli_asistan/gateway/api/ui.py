@@ -11,8 +11,9 @@ telefondakiyle aynıdır.
 
 WebSocket protokolü:
   tarayıcı → Gateway   ikili: 8 kHz mono PCM16 (little-endian), herhangi uzunlukta
-                       metin: {"type": "transfer_result", "status": ...} | {"type": "dtmf", "digit": ...}
-                              | {"type": "hangup"}
+                       metin: {"type": "text", "text": ...} (yazarak konuşma) | {"type": "transfer_result", ...}
+                              | {"type": "dtmf", "digit": ...} | {"type": "hangup"}
+  `?mod=metin`: yazarak deneme (mikrofon yok); ses yine çalınır, sessizlik uyarısı ve ses zaman aşımı kapalı.
   Gateway → tarayıcı   ikili: çalınacak 8 kHz mono PCM16, gerçek zaman hızında (20 ms'lik parçalar)
                        metin: {"type": "call", "call_id"} | {"type": "state" | "heard" | "reply" | "turn" | "action"
                               | "barge_in" | "ended", ...} | {"type": "clear"} (çalmayı hemen kes) | {"type": "error"}
@@ -42,7 +43,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 from sesli_asistan.gateway.core.call import CallSession
 from sesli_asistan.gateway.core.manager import CallError, CallManager
-from sesli_asistan.gateway.core.ports import MediaPort, PbxPort
 from sesli_asistan.libs.audio import g711
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ FRAME = 160                          # 20 ms @ 8 kHz
 PLAY_LEAD_S = 0.12                   # tarayıcıya bu kadar önden gönder (ağ titremesinde boşluk olmasın)
 UI_PREFIXES = ("/ui", "/v1/ui", "/v1/admin")
 
-WebSessionFactory = Callable[[str, MediaPort, PbxPort, Callable[[str, dict], None]], CallSession]
+WebSessionFactory = Callable[..., CallSession]   # (call_id, media, pbx, observer, text_mode=False)
 
 
 class _Outbox:
@@ -82,8 +82,8 @@ class _Outbox:
 class WsMedia:
     """Tarayıcının ses yolu → çekirdeğin `MediaPort`'u (RTP'nin yerine)."""
 
-    def __init__(self, outbox: _Outbox, codec: str = "pcma", max_queue: int = 500):
-        self.out, self.codec = outbox, codec
+    def __init__(self, outbox: _Outbox, codec: str = "pcma", max_queue: int = 500, text_mode: bool = False):
+        self.out, self.codec, self.text_mode = outbox, codec, text_mode
         self.q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=max_queue)
         self._buf = bytearray()
         self.opened_at = self.last = time.monotonic()
@@ -125,7 +125,7 @@ class WsMedia:
             self.sent += n
 
     def idle_s(self) -> float:
-        return time.monotonic() - self.last
+        return 0.0 if self.text_mode else time.monotonic() - self.last   # yazarak denemede ses gelmez
 
     def stats(self) -> dict[str, int]:
         return {"paket": self.received, "gonderilen": self.sent, "kuyruk_tasmasi": self.dropped}
@@ -191,8 +191,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         await websocket.accept()
         out = _Outbox(websocket)
         call_id = f"web-{secrets.token_hex(3)}"
-        media, pbx = WsMedia(out), WebPbx(out)
-        session = web_session(call_id, media, pbx, lambda kind, data: out.put({**data, "type": kind}))
+        text_mode = websocket.query_params.get("mod") == "metin"
+        media, pbx = WsMedia(out, text_mode=text_mode), WebPbx(out)
+        session = web_session(call_id, media, pbx, lambda kind, data: out.put({**data, "type": kind}),
+                              text_mode=text_mode)
         try:
             task = manager.attach(session)
         except CallError as e:
@@ -216,6 +218,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
                         continue
                     if m.get("type") == "hangup":
                         return
+                    if m.get("type") == "text":
+                        if str(m.get("text", "")).strip():
+                            session.caller_text(str(m["text"])[:500])
+                        continue
                     with contextlib.suppress(CallError):
                         manager.event(call_id, m.get("type", ""), m)
 
