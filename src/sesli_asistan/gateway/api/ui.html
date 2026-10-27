@@ -231,26 +231,58 @@ $("tab-call").onclick = () => show("call");
 $("tab-watch").onclick = () => show("watch");
 
 /* ---------- deneme çağrısı ---------- */
-// Mikrofon: tarayıcının hızından 8 kHz'e indirilir (kutu süzgeci + seyreltme), 20 ms'lik PCM16 parçalar gönderilir.
-const WORKLET = `
+// Mikrofon → 8 kHz: tarayıcının hızından (44,1 / 48 kHz) telefon hızına. Önce 3,6 kHz alçak geçiren süzgeç
+// (Blackman pencereli sinc), sonra doğrusal ara değerle örnekleme. Süzgeçsiz seyreltme 4 kHz üstündeki sesi konuşma
+// bandına katlar (aliasing) ve Whisper'ın doğruluğunu düşürür (27.10.2026 deneme: kutu süzgeci yetersizdi).
+const DSP = `
+class Resampler {
+  constructor(inRate, outRate = 8000, cutoff = 3600) {
+    this.step = inRate / outRate;
+    const n = (Math.max(15, Math.ceil(this.step) * 16)) | 1, m = (n - 1) / 2, fc = cutoff / inRate;
+    this.h = new Float32Array(n);
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      const x = i - m;
+      const sinc = x === 0 ? 2 * fc : Math.sin(2 * Math.PI * fc * x) / (Math.PI * x);
+      const w = 0.42 - 0.5 * Math.cos(2 * Math.PI * i / (n - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (n - 1));
+      this.h[i] = sinc * w; sum += this.h[i];
+    }
+    for (let i = 0; i < n; i++) this.h[i] /= sum;
+    this.hist = new Float32Array(n); this.pos = 0;
+    this.count = 0; this.prev = 0; this.t = 0;
+  }
+  push(input, out) {
+    const h = this.h, hist = this.hist, n = h.length;
+    for (let i = 0; i < input.length; i++) {
+      hist[this.pos] = input[i];
+      let y = 0, j = this.pos;
+      for (let k = 0; k < n; k++) { y += h[k] * hist[j]; j = j === 0 ? n - 1 : j - 1; }
+      this.pos = this.pos === n - 1 ? 0 : this.pos + 1;
+      while (this.t <= this.count) {
+        const frac = this.t - (this.count - 1);
+        out.push(this.prev + (y - this.prev) * frac);
+        this.t += this.step;
+      }
+      this.prev = y; this.count++;
+    }
+  }
+}`;
+const WORKLET = DSP + `
 class Down extends AudioWorkletProcessor {
-  constructor() { super(); this.ratio = sampleRate / 8000; this.acc = 0; this.n = 0; this.pos = 0;
+  constructor() { super(); this.rs = new Resampler(sampleRate); this.tmp = [];
     this.out = new Int16Array(160); this.k = 0; this.peak = 0; }
   process(inputs) {
     const ch = inputs[0][0];
     if (!ch) return true;
-    for (let i = 0; i < ch.length; i++) {
-      this.acc += ch[i]; this.n++; this.pos++;
-      if (this.pos >= this.ratio) {
-        this.pos -= this.ratio;
-        const v = Math.max(-1, Math.min(1, this.acc / this.n));
-        this.acc = 0; this.n = 0;
-        this.peak = Math.max(this.peak, Math.abs(v));
-        this.out[this.k++] = v * 32767;
-        if (this.k === 160) {
-          this.port.postMessage({ pcm: this.out.buffer.slice(0), peak: this.peak });
-          this.k = 0; this.peak = 0;
-        }
+    this.tmp.length = 0;
+    this.rs.push(ch, this.tmp);
+    for (const v0 of this.tmp) {
+      const v = Math.max(-1, Math.min(1, v0));
+      this.peak = Math.max(this.peak, Math.abs(v));
+      this.out[this.k++] = v * 32767;
+      if (this.k === 160) {
+        this.port.postMessage({ pcm: this.out.buffer.slice(0), peak: this.peak });
+        this.k = 0; this.peak = 0;
       }
     }
     return true;
@@ -370,7 +402,7 @@ async function startCall() {
   $("callBtn").disabled = true;
   try {
     micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+      audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
   } catch (e) {
     $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı).";
     $("callBtn").disabled = false;
