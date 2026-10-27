@@ -189,32 +189,42 @@ class Speaker:
 def keyboard_sound(seconds: float = 6.0, rate: int = 8000, level: float = 0.12, seed: int = 7) -> np.ndarray:
     """Asistan düşünürken çalınan klavye sesi (int16, mono). Kayıt değil, kodla üretilir: lisans sorunu yok.
 
-    Her tuş: kısa gürültü patlaması → rastgele frekanslı rezonatör (1,2–3 kHz; boşluk tuşu daha pes ve uzun) →
-    üstel sönüm. Yazma ritmi: 3–8 tuşluk gruplar, tuşlar arası ~90–200 ms, gruplar arası 0,3–0,7 sn duraklama.
+    Tını ve ritim, beğenilen bir klavye kaydının ölçümlerine göre ayarlandı (kayıt kullanılmadı, yalnızca ölçüldü):
+    telefon bandında enerji 300–800 Hz'de yoğun ("tok" ses), tuş sesi ~40 ms'de söner, tuşlar arası ortanca ~100 ms
+    (75–155 ms), saniyede ~6 tuş. Her tuş: pes gövde (350–700 Hz rezonatör, uzun sönüm) + hafif tık (1,5–2,5 kHz,
+    kısa sönüm); boşluk tuşu daha pes ve güçlü. 6–14 tuşluk gruplar, aralarında 0,25–0,6 sn duraklama.
     `level` tepe genliğidir (0,12 ≈ -18 dBFS): konuşmanın altında, arka planda kalır. Sabit tohum: her seferinde aynı.
     """
     from scipy.signal import lfilter
 
     rng = np.random.default_rng(seed)
     n = int(seconds * rate)
-    out = np.zeros(n + rate // 10, np.float64)
+    out = np.zeros(n + rate // 5, np.float64)
+
+    def ring(f: float, tau_s: float, dur_s: float, r: float) -> np.ndarray:
+        dur = int(dur_s * rate)
+        burst = rng.standard_normal(dur) * np.exp(-np.arange(dur) / (tau_s * rate))
+        w = 2 * np.pi * f / rate
+        y = lfilter([1 - r], [1, -2 * r * np.cos(w), r * r], burst)
+        return y / (np.abs(y).max() or 1.0)
+
     t = int(0.05 * rate)
     while t < n:
-        for k in range(int(rng.integers(3, 9))):
-            space = k > 0 and rng.random() < 0.15
-            dur = int((0.045 if space else 0.025) * rate)
-            tau = (0.012 if space else 0.006) * rate
-            burst = rng.standard_normal(dur) * np.exp(-np.arange(dur) / tau)
-            f = rng.uniform(500, 800) if space else rng.uniform(1200, 3000)
-            r, w = 0.92, 2 * np.pi * f / rate
-            body = lfilter([1 - r], [1, -2 * r * np.cos(w), r * r], burst)
-            click = body * rng.uniform(0.6, 1.0)
-            end = min(len(out), t + dur)
-            out[t:end] += click[: end - t]
-            t += int(rng.uniform(0.09, 0.2) * rate)
+        for k in range(int(rng.integers(5, 12))):
+            space = k > 0 and rng.random() < 0.12
+            body = ring(rng.uniform(380, 520) if space else rng.uniform(450, 900), 0.02 if space else 0.014,
+                        0.08 if space else 0.06, 0.93)
+            mid = ring(rng.uniform(900, 1500), 0.008, 0.04, 0.9)
+            tick = ring(rng.uniform(1500, 2800), 0.005, 0.025, 0.85)
+            key = body * (0.9 if space else rng.uniform(0.45, 0.7))
+            key[: len(mid)] += 0.8 * mid * rng.uniform(0.6, 1.0)
+            key[: len(tick)] += 1.1 * tick * rng.uniform(0.6, 1.0)
+            end = min(len(out), t + len(key))
+            out[t:end] += key[: end - t]
+            t += int(rng.uniform(0.07, 0.13) * rate)
             if t >= n:
                 break
-        t += int(rng.uniform(0.3, 0.7) * rate)
+        t += int(rng.uniform(0.25, 0.6) * rate)
     out = out[:n]
     peak = np.abs(out).max() or 1.0
     return (out / peak * level * 32767).astype(np.int16)

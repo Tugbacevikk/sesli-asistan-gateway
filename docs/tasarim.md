@@ -361,6 +361,7 @@ SPEECH_STARTED'ı, ondan sonra başlayan cevabı kesmez. Her durumdan `DELETE` i
 | RTP 20 sn gelmez | Oturum kapatılır |
 | Çağrı 10 dk'yı aşar | Dinleme sırasında operatöre aktarılır |
 | DTMF `0` | Operatör (FR-15) |
+| Asistan düşünüyor (LLM + rehber) | 0,4 sn'den uzun sürerse arka planda hafif klavye sesi (-18 dBFS); cevap hazır olunca o pakette kesilir. 3–5 sn'lik sessizlikte arayan hattın koptuğunu sanmasın. Ses kodla üretilir (lisans sorunu yok); tını ve ritim beğenilen bir kaydın ölçümlerine göre ayarlandı, kaydın kendisi kullanılmadı |
 | Arayan konuşmuyor | Dinlemede 8 sn ses yoksa "Sizi duyamıyorum…" (`NO_INPUT_S`); 2. sessizlikte operatör (`NO_INPUT_MAX`). Santral sessizken de RTP gönderdiği için RTP zaman aşımı bunu yakalamaz |
 | TTS cevabı seslendiremez | Arayan cevaptan hiçbir şey duymadıysa (yalnızca "…operatöre bağlıyorum" yedek anonsunu duydu) ya da art arda 2. hataysa operatöre aktarılır. Hazır anonslar (karşılama, anlayamadım, operatör) TTS'siz çalınır |
 | Beklenmeyen hata | Hata anonsu + operatör; diğer çağrılar etkilenmez |
@@ -1038,6 +1039,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
+| `THINKING_SOUND` / `THINKING_SOUND_DELAY_S` | true / 0,4 | Düşünürken klavye sesi (5.1.2) |
+| `THINKING_SOUND_FILE` | (boş) | Kendi düşünme sesiniz (16 bit WAV; telefon kalitesine ve arka plan seviyesine ayarlanır). **Lisansı ürüne uygun olmalı** (R-11); boşsa kodla üretilen ses |
 | `ORGANIZATION_NAME` | — | Kurum adı |
 | `STT_GRPC_ADDR` | 127.0.0.1:50051 | Gateway tarafı: STT servisinin adresi |
 | *STT servisi (`stt.env`):* | | |
