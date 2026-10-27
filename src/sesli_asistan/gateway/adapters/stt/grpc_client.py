@@ -99,17 +99,31 @@ class GrpcSttStream:
     async def _requests(self):
         yield stt_pb2.AudioIn(config=self.cfg)
         while (item := await self._q.get()) is not _END:
-            yield stt_pb2.AudioIn(audio=item)
+            if isinstance(item, list):
+                yield stt_pb2.AudioIn(hotwords=stt_pb2.HotwordUpdate(hotwords=item))
+            else:
+                yield stt_pb2.AudioIn(audio=item)
 
     async def send(self, payload: bytes) -> None:
         if self._closed:
             return
+        await self.send_item(payload)
+
+    async def set_hotwords(self, hotwords: list[str]) -> None:
+        """Akış ortasında ipuçlarını değiştir (sonraki cümlelerden itibaren). Yeniden bağlanırsa yenisi kullanılır."""
+        if self._closed:
+            return
+        del self.cfg.hotwords[:]
+        self.cfg.hotwords.extend(hotwords)
+        await self.send_item(list(hotwords))
+
+    async def send_item(self, item: bytes | list[str]) -> None:
         try:
-            self._q.put_nowait(payload)
+            self._q.put_nowait(item)
         except asyncio.QueueFull:
             self.dropped += 1
             self._q.get_nowait()
-            self._q.put_nowait(payload)
+            self._q.put_nowait(item)
 
     async def events(self) -> AsyncIterator[SttEvent]:
         while True:

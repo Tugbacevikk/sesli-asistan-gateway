@@ -221,3 +221,25 @@ async def test_teshis_kaydi_cumle_sesini_ve_sonucu_yazar(server, tmp_path):
     assert meta["metin"] == "muhasebeden ayşe hanım" and meta["ipuclari"] == ["Zeynep Arslan"]
     with wave.open(str(tmp_path / "c-1_001.wav")) as w:
         assert w.getframerate() == 16000 and 1.0 < w.getnframes() / 16000 < 1.8
+
+
+async def test_akis_ortasinda_ipucu_guncellenir(server):
+    # İlk cümle başlangıç ipuçlarıyla, güncellemeden sonraki cümle yeni ipuçlarıyla çözülür (tasarim.md 5.2.1)
+    eng = FakeEngine()
+    target = await server(eng)
+    client = GrpcStt(target)
+    st = await client.open("c-1", "pcma", ["Muhasebe"])
+    for f in frames((0.3, False), (1.0, True), (1.0, False)):
+        await st.send(f)
+    events = st.events()
+    assert (await anext(events)).type == "speech_started"
+    assert (await anext(events)).type == "final"
+    await st.set_hotwords(["Ayşe Yılmaz", "Ayşe Kaya", "Muhasebe"])
+    for f in frames((1.0, True), (1.0, False)):
+        await st.send(f)
+    await st.close()
+    rest = [e async for e in events]
+    await client.aclose()
+    assert [e.type for e in rest] == ["speech_started", "final"]
+    assert [hw for _, hw in eng.calls] == [["Muhasebe"], ["Ayşe Yılmaz", "Ayşe Kaya", "Muhasebe"]]
+    assert list(st.cfg.hotwords) == ["Ayşe Yılmaz", "Ayşe Kaya", "Muhasebe"]   # yeniden bağlanırsa yenisi

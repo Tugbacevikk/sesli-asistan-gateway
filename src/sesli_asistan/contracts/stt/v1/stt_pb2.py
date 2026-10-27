@@ -25,23 +25,25 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10stt/v1/stt.proto\x12\x06stt.v1\"I\n\x07\x41udioIn\x12&\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x14.stt.v1.StreamConfigH\x00\x12\x0f\n\x05\x61udio\x18\x02 \x01(\x0cH\x00\x42\x05\n\x03msg\"l\n\x0cStreamConfig\x12\x0f\n\x07\x63\x61ll_id\x18\x01 \x01(\t\x12!\n\x05\x63odec\x18\x02 \x01(\x0e\x32\x12.stt.v1.AudioCodec\x12\x16\n\x0esample_rate_hz\x18\x03 \x01(\x05\x12\x10\n\x08hotwords\x18\x04 \x03(\t\"\xed\x01\n\x08SttEvent\x12#\n\x04type\x18\x01 \x01(\x0e\x32\x15.stt.v1.SttEvent.Type\x12\x0c\n\x04text\x18\x02 \x01(\t\x12\x12\n\nconfidence\x18\x03 \x01(\x02\x12\x16\n\x0e\x61udio_start_ms\x18\x04 \x01(\x03\x12\x14\n\x0c\x61udio_end_ms\x18\x05 \x01(\x03\x12\x0e\n\x06reason\x18\x06 \x01(\t\"\\\n\x04Type\x12\x14\n\x10TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eSPEECH_STARTED\x10\x01\x12\x0b\n\x07PARTIAL\x10\x02\x12\t\n\x05\x46INAL\x10\x03\x12\x12\n\x0eNOT_RECOGNIZED\x10\x04*l\n\nAudioCodec\x12\x1b\n\x17\x41UDIO_CODEC_UNSPECIFIED\x10\x00\x12\x14\n\x10\x41UDIO_CODEC_PCMA\x10\x01\x12\x14\n\x10\x41UDIO_CODEC_PCMU\x10\x02\x12\x15\n\x11\x41UDIO_CODEC_PCM16\x10\x03\x32?\n\x0cSpeechToText\x12/\n\x06Stream\x12\x0f.stt.v1.AudioIn\x1a\x10.stt.v1.SttEvent(\x01\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10stt/v1/stt.proto\x12\x06stt.v1\"t\n\x07\x41udioIn\x12&\n\x06\x63onfig\x18\x01 \x01(\x0b\x32\x14.stt.v1.StreamConfigH\x00\x12\x0f\n\x05\x61udio\x18\x02 \x01(\x0cH\x00\x12)\n\x08hotwords\x18\x03 \x01(\x0b\x32\x15.stt.v1.HotwordUpdateH\x00\x42\x05\n\x03msg\"!\n\rHotwordUpdate\x12\x10\n\x08hotwords\x18\x01 \x03(\t\"l\n\x0cStreamConfig\x12\x0f\n\x07\x63\x61ll_id\x18\x01 \x01(\t\x12!\n\x05\x63odec\x18\x02 \x01(\x0e\x32\x12.stt.v1.AudioCodec\x12\x16\n\x0esample_rate_hz\x18\x03 \x01(\x05\x12\x10\n\x08hotwords\x18\x04 \x03(\t\"\xed\x01\n\x08SttEvent\x12#\n\x04type\x18\x01 \x01(\x0e\x32\x15.stt.v1.SttEvent.Type\x12\x0c\n\x04text\x18\x02 \x01(\t\x12\x12\n\nconfidence\x18\x03 \x01(\x02\x12\x16\n\x0e\x61udio_start_ms\x18\x04 \x01(\x03\x12\x14\n\x0c\x61udio_end_ms\x18\x05 \x01(\x03\x12\x0e\n\x06reason\x18\x06 \x01(\t\"\\\n\x04Type\x12\x14\n\x10TYPE_UNSPECIFIED\x10\x00\x12\x12\n\x0eSPEECH_STARTED\x10\x01\x12\x0b\n\x07PARTIAL\x10\x02\x12\t\n\x05\x46INAL\x10\x03\x12\x12\n\x0eNOT_RECOGNIZED\x10\x04*l\n\nAudioCodec\x12\x1b\n\x17\x41UDIO_CODEC_UNSPECIFIED\x10\x00\x12\x14\n\x10\x41UDIO_CODEC_PCMA\x10\x01\x12\x14\n\x10\x41UDIO_CODEC_PCMU\x10\x02\x12\x15\n\x11\x41UDIO_CODEC_PCM16\x10\x03\x32?\n\x0cSpeechToText\x12/\n\x06Stream\x12\x0f.stt.v1.AudioIn\x1a\x10.stt.v1.SttEvent(\x01\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'stt.v1.stt_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_AUDIOCODEC']._serialized_start=453
-  _globals['_AUDIOCODEC']._serialized_end=561
+  _globals['_AUDIOCODEC']._serialized_start=531
+  _globals['_AUDIOCODEC']._serialized_end=639
   _globals['_AUDIOIN']._serialized_start=28
-  _globals['_AUDIOIN']._serialized_end=101
-  _globals['_STREAMCONFIG']._serialized_start=103
-  _globals['_STREAMCONFIG']._serialized_end=211
-  _globals['_STTEVENT']._serialized_start=214
-  _globals['_STTEVENT']._serialized_end=451
-  _globals['_STTEVENT_TYPE']._serialized_start=359
-  _globals['_STTEVENT_TYPE']._serialized_end=451
-  _globals['_SPEECHTOTEXT']._serialized_start=563
-  _globals['_SPEECHTOTEXT']._serialized_end=626
+  _globals['_AUDIOIN']._serialized_end=144
+  _globals['_HOTWORDUPDATE']._serialized_start=146
+  _globals['_HOTWORDUPDATE']._serialized_end=179
+  _globals['_STREAMCONFIG']._serialized_start=181
+  _globals['_STREAMCONFIG']._serialized_end=289
+  _globals['_STTEVENT']._serialized_start=292
+  _globals['_STTEVENT']._serialized_end=529
+  _globals['_STTEVENT_TYPE']._serialized_start=437
+  _globals['_STTEVENT_TYPE']._serialized_end=529
+  _globals['_SPEECHTOTEXT']._serialized_start=641
+  _globals['_SPEECHTOTEXT']._serialized_end=704
 # @@protoc_insertion_point(module_scope)

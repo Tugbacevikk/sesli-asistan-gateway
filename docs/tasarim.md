@@ -31,6 +31,7 @@
 | 2.3 | 27.10.2026 | Mimari eksikler: TTS cevabı seslendiremezse operatöre aktarma, sessiz arayan zaman aşımı ("Sizi duyamıyorum" → operatör), söze girme eşiği (SPEECH_STARTED ≥ 300 ms sesli konuşmadan sonra), koddan söylenen bütün cümleler ayardan (`*_TEXT`, yer tutucu doğrulaması) |
 | 2.4 | 27.10.2026 | Arayüz (ADR-014): tarayıcıdan deneme çağrısı (mikrofon → WebSocket → aynı çağrı oturumu) ve izleme (servis durumu, süren/son çağrılar, bulunamayan aramalar); kurum adı koddan çıkarıldı (`ORGANIZATION_NAME`) |
 | 2.5 | 27.10.2026 | Kadın sesi (ADR-015): Seslen TTS servisi (`ayse`, ONNX/CPU, Piper ile aynı HTTP sözleşmesi); düşünürken klavye sesi; arayüzde yazarak deneme |
+| 2.6 | 27.10.2026 | Gözlemlenebilirlik (Prometheus, JSON log), devre kesici, kalıcı çağrı geçmişi, hızlı yol (ADR-016), mesai saatleri ve tatiller (5.1.3), akış ortasında STT ipucu güncellemesi (`HotwordUpdate`) ve sık arananlara öncelik |
 
 ---
 
@@ -407,7 +408,7 @@ flowchart LR
 | Cümle sonu | ~700 ms sessizlik (ayarlanabilir); en kısa konuşma 300 ms; en uzun cümle 12 sn |
 | Model | faster-whisper `medium`, GPU (float16); GPU yoksa CPU (int8) |
 | Whisper ayarları | `language="tr"`, `beam_size=2`, `condition_on_previous_text=False`, `no_speech_threshold`, `compression_ratio_threshold`, `log_prob_threshold` |
-| Rehber ipucu | Rehberdeki birimler ve ad soyadlar Whisper'a `hotwords` olarak verilir (özel adların doğru yazılması için). Whisper bu istemde en çok 223 belirteç alır; bu yüzden toplam 400 harfle sınırlıdır, birimler önce gelir. Büyük rehberde bütün adlar sığmaz; ipucunun yararı STT ölçümüyle (ipuçlu / ipucusuz) doğrulanır |
+| Rehber ipucu | Rehberdeki birimler ve ad soyadlar Whisper'a `hotwords` olarak verilir (özel adların doğru yazılması için). Whisper bu istemde en çok 223 belirteç alır; bu yüzden toplam 400 harfle sınırlıdır. Büyük rehberde bütün adlar sığmadığı için sıra: (1) son rehber aramasının adayları ve birimleri, (2) çağrı geçmişinde en çok aranan dahililerin kişileri (saatte bir yenilenir), (3) birimler, (4) kalan adlar. Arama aday döndürünce Gateway akış ortasında `HotwordUpdate` gönderir: "Hangi Ayşe?" sorusundan sonraki cümle adaylar öndeyken çözülür. İpucunun yararı STT ölçümüyle (ipuçlu / ipucusuz) doğrulanır |
 | Uydurma süzgeci | Bilinen uydurma cümleler (ör. "İzlediğiniz için teşekkürler", "Altyazı M.K.") ve tekrar eden kelimeler atılır; Whisper'a yalnızca VAD'ın konuşma bulduğu ses verilir |
 | `PARTIAL` | Bu sürümde üretilmez (Whisper akışsız). Sözleşmede alan ayrılmıştır; akışlı model eklenirse kullanılır |
 | Eşzamanlılık | Model süreç başına bir kez yüklenir; Whisper çıkarımı semaforla sınırlıdır |
@@ -610,6 +611,7 @@ message AudioIn {
   oneof msg {
     StreamConfig config = 1;   // akışın ilk mesajı, yalnızca bir kez
     bytes audio = 2;           // ses kareleri (20 ms)
+    HotwordUpdate hotwords = 3;  // akış ortasında ipuçlarını değiştir (isteğe bağlı)
   }
 }
 
@@ -618,6 +620,11 @@ message StreamConfig {
   AudioCodec codec = 2;
   int32 sample_rate_hz = 3;    // 8000
   repeated string hotwords = 4; // rehber ad/departman ipuçları (Whisper hotwords)
+}
+
+// StreamConfig.hotwords'ün yerine geçer; sonraki cümlelerden itibaren geçerli. Eski STT sürümleri yok sayar.
+message HotwordUpdate {
+  repeated string hotwords = 1;
 }
 
 enum AudioCodec {
@@ -1096,7 +1103,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin Whisper'a giden sesi + sonucu bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
 | (dil) | tr | Sabit; ayar değil (ADR-006) |
-| (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords` ile gelir |
+| (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords`, aramadan sonra `HotwordUpdate` ile gelir |
 | `LLM_BACKEND` | ollama | `ollama` / `openai` (llama.cpp) |
 | `LLM_BASE_URL` | http://127.0.0.1:11434 | openai için ör. http://127.0.0.1:8080/v1 |
 | `LLM_MODEL` | qwen3.5:4b | Alternatif: qwen3.5:9b |

@@ -476,3 +476,34 @@ def test_klavye_sesi_ve_dosyadan_yukleme(tmp_path):
         w.writeframes((np.random.default_rng(0).uniform(-0.9, 0.9, (44100, 2)) * 32767).astype("<i2").tobytes())
     x = load_thinking_sound(str(f))
     assert abs(len(x) - 8000) <= 2 and np.abs(x).max() <= int(0.12 * 32767) + 1
+
+
+class HintStream(Stream):
+    def __init__(self):
+        super().__init__()
+        self.hints = []
+
+    async def set_hotwords(self, words):
+        self.hints.append(words)
+
+
+async def test_belirsiz_aramadan_sonra_adaylar_stt_ipucunda_one_alinir():
+    llm = Llm(tool("InContacts", Name="Ayşe"), LlmMessage("Ayşe Yılmaz mı, Ayşe Kaya mı?"),
+              LlmMessage("Size nasıl yardımcı olabilirim?"))
+    stt = Stt()
+    stt.stream = HintStream()
+    async with Call(llm, stt=stt) as c:
+        c.say("ayşe hanım")
+        await c.until(lambda: c.session.state == CallState.LISTENING and c.session.stats.turns)
+        assert len(stt.stream.hints) == 1
+        assert set(stt.stream.hints[0][:4]) == {"Ayşe Yılmaz", "Muhasebe", "Ayşe Kaya", "Satış"}
+        c.say("bilmiyorum")                       # yeni arama yok: ipucu tekrar gönderilmez
+        await c.until(lambda: len(c.session.stats.turns) == 2 and c.session.state == CallState.LISTENING)
+        assert len(stt.stream.hints) == 1
+
+
+async def test_ipucu_desteklemeyen_akis_sorun_cikarmaz():
+    llm = Llm(tool("InContacts", Name="Ayşe"), LlmMessage("Hangi Ayşe?"))
+    async with Call(llm) as c:
+        c.say("ayşe")
+        await c.until(lambda: c.session.state == CallState.LISTENING and c.session.stats.turns)

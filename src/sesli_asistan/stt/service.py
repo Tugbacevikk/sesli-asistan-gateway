@@ -114,13 +114,14 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT,
                                     f"desteklenmeyen biçim: codec={cfg.codec} hız={rate} (G.711 yalnızca 8000 Hz)")
             call_id = cfg.call_id or dict(context.invocation_metadata()).get("x-call-id", "?")
-            hotwords = list(cfg.hotwords)
-            log.info("[%s] STT akışı açıldı: %s %d Hz, %d ipucu", call_id, codec, rate, len(hotwords))
+            hints = {"words": list(cfg.hotwords)}    # akış ortasında HotwordUpdate ile değişir
+            log.info("[%s] STT akışı açıldı: %s %d Hz, %d ipucu", call_id, codec, rate, len(hints["words"]))
 
             out: asyncio.Queue[stt_pb2.SttEvent | None] = asyncio.Queue()
             utts: asyncio.Queue[Utterance | None] = asyncio.Queue()
-            tasks = [asyncio.create_task(self._read(requests, codec, rate, out, utts), name=f"stt-oku-{call_id}"),
-                     asyncio.create_task(self._decode(call_id, hotwords, utts, out), name=f"stt-coz-{call_id}")]
+            tasks = [asyncio.create_task(self._read(requests, codec, rate, out, utts, hints, call_id),
+                                         name=f"stt-oku-{call_id}"),
+                     asyncio.create_task(self._decode(call_id, hints, utts, out), name=f"stt-coz-{call_id}")]
             while (ev := await out.get()) is not None:
                 yield ev
             log.info("[%s] STT akışı kapandı", call_id)
@@ -133,12 +134,18 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
             self.active -= 1
             _M.streams(self.active)
 
-    async def _read(self, requests, codec: str, rate: int, out: asyncio.Queue, utts: asyncio.Queue) -> None:
+    async def _read(self, requests, codec: str, rate: int, out: asyncio.Queue, utts: asyncio.Queue,
+                    hints: dict | None = None, call_id: str = "?") -> None:
         seg = Segmenter(self.detector_factory(), self.seg_cfg)
         up = StreamUpsampler(rate, STT_RATE) if rate != STT_RATE else None
         try:
             async for msg in requests:
-                if msg.WhichOneof("msg") != "audio" or not msg.audio:
+                kind = msg.WhichOneof("msg")
+                if kind == "hotwords" and hints is not None:
+                    hints["words"] = list(msg.hotwords.hotwords)
+                    log.info("[%s] ipuçları güncellendi: %d öğe", call_id, len(hints["words"]))
+                    continue
+                if kind != "audio" or not msg.audio:
                     continue
                 x = (np.frombuffer(msg.audio, "<i2").astype(np.float32) / 32768.0 if codec == "pcm16"
                      else g711.decode(msg.audio, codec))
@@ -155,7 +162,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
         finally:
             utts.put_nowait(None)
 
-    async def _decode(self, call_id: str, hotwords: list[str], utts: asyncio.Queue, out: asyncio.Queue) -> None:
+    async def _decode(self, call_id: str, hints: dict, utts: asyncio.Queue, out: asyncio.Queue) -> None:
         orphan: asyncio.Future | None = None
         n = 0
         try:
@@ -169,6 +176,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     orphan = None
                 t0 = time.perf_counter()
                 reason = ""
+                hotwords = hints["words"]
                 job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None))
                 try:
                     r = await asyncio.wait_for(asyncio.shield(job), timeout=self.timeout_s)

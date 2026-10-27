@@ -20,12 +20,20 @@ AUDIO_CODEC_PCMU: AudioCodec
 AUDIO_CODEC_PCM16: AudioCodec
 
 class AudioIn(_message.Message):
-    __slots__ = ("config", "audio")
+    __slots__ = ("config", "audio", "hotwords")
     CONFIG_FIELD_NUMBER: _ClassVar[int]
     AUDIO_FIELD_NUMBER: _ClassVar[int]
+    HOTWORDS_FIELD_NUMBER: _ClassVar[int]
     config: StreamConfig
     audio: bytes
-    def __init__(self, config: _Optional[_Union[StreamConfig, _Mapping]] = ..., audio: _Optional[bytes] = ...) -> None: ...
+    hotwords: HotwordUpdate
+    def __init__(self, config: _Optional[_Union[StreamConfig, _Mapping]] = ..., audio: _Optional[bytes] = ..., hotwords: _Optional[_Union[HotwordUpdate, _Mapping]] = ...) -> None: ...
+
+class HotwordUpdate(_message.Message):
+    __slots__ = ("hotwords",)
+    HOTWORDS_FIELD_NUMBER: _ClassVar[int]
+    hotwords: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, hotwords: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class StreamConfig(_message.Message):
     __slots__ = ("call_id", "codec", "sample_rate_hz", "hotwords")

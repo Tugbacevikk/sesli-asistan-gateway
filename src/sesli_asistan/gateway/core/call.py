@@ -113,7 +113,7 @@ class CallSession:
                  dialog: DialogSession, pbx: PbxPort, cfg: CallConfig | None = None,
                  hotwords: list[str] | None = None, clock: Callable[[], float] = time.monotonic,
                  observer: Callable[[str, dict[str, Any]], None] | None = None, channel: str = "santral",
-                 thinking_pcm: Any = None, office: str = OPEN):
+                 thinking_pcm: Any = None, office: str = OPEN, hotword_priority: list[str] | None = None):
         """observer(olay, veri): durum değişimi, duyulan metin, cevap, eylem, tur ölçümü, bitiş — arayüz için.
         Gözlemcideki hata çağrıyı etkilemez."""
         self.observer = observer
@@ -123,6 +123,8 @@ class CallSession:
         self.media, self.stt, self.speaker, self.dialog, self.pbx = media, stt, speaker, dialog, pbx
         self.cfg = cfg or CallConfig()
         self.hotwords = list(hotwords or [])
+        self.hotword_priority = list(hotword_priority or [])   # en çok aranan dahililer (ipucu sırası)
+        self._hint_for: tuple = ()
         self.clock = clock
         self.state = CallState.GREETING
         self.stats = CallStats(channel=channel, started=datetime.now().isoformat(timespec="seconds"))
@@ -313,6 +315,7 @@ class CallSession:
         dialog_s = self.clock() - t0
         log.info("[%s] tur: %r → %r %s (%.2f sn)", self.call_id, heard, turn.text,
                  [a.type for a in turn.actions], dialog_s)
+        await self._update_hints()
         self._start_speech(turn, heard_at=inputs[0].at, heard=heard, dialog_s=dialog_s)
 
     async def _thinking(self, work):
@@ -495,6 +498,21 @@ class CallSession:
         self.state = CallState.HANDED_OFF
         self.stats.outcome, self.stats.reason = outcome, reason
         self._inputs.clear()
+
+    async def _update_hints(self) -> None:
+        """Rehber araması aday döndürdüyse STT ipuçlarında adaylar öne alınır: arayan sorulan soruya ("hangi
+        Ayşe?") büyük olasılıkla bunlardan biriyle cevap verir. Büyük rehberde bu adlar başlangıç listesine
+        sığmamış olabilir (tasarim.md 5.2.1)."""
+        cands = self.dialog.state.last_results
+        setter = getattr(self._stream, "set_hotwords", None)
+        if not cands or cands == self._hint_for or setter is None:
+            return
+        self._hint_for = cands
+        words = self.dialog.agent.tools.index.hotwords(priority=self.hotword_priority, focus=cands)
+        try:
+            await setter(words)
+        except Exception as e:      # ipucu yalnızca iyileştirme: çağrıyı etkilemez
+            log.warning("[%s] STT ipuçları güncellenemedi: %s", self.call_id, e)
 
     def _closed_turn(self) -> DialogTurn:
         t = self.dialog.agent.cfg.texts

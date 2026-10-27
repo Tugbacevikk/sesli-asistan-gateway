@@ -93,6 +93,23 @@ def test_ipucu_uzunluk_siniri():
     assert hw[:5] == [f"Birim{i}" for i in range(5)] and len(hw) > 5
 
 
+
+def test_ipucu_onceligi_adaylar_sonra_sik_arananlar():
+    # Büyük rehberde alfabede sonda kalan adlar sığmaz; sık arananlar ve son aramanın adayları öne alınır
+    people = [Contact.from_api({"id": str(i), "first_name": f"Kişi{i:04d}", "last_name": "Uzunsoyadlıoğlu",
+                                "department": f"Birim{i % 5}", "extension": str(1000 + i)}) for i in range(500)]
+    idx = DirectoryIndex(people)
+    assert "Kişi0499 Uzunsoyadlıoğlu" not in idx.hotwords()
+    hw = idx.hotwords(priority=["1499", "1498", "9999"])
+    assert hw[:2] == ["Kişi0499 Uzunsoyadlıoğlu", "Kişi0498 Uzunsoyadlıoğlu"] and hw[2] == "Birim0"
+    focus = idx.search("kişi 0321").candidates
+    hw = idx.hotwords(priority=["1499"], focus=focus)
+    assert focus and hw[:2] == [focus[0].contact.full_name, focus[0].contact.department]
+    first_other = next(i for i, w in enumerate(hw) if w == "Kişi0499 Uzunsoyadlıoğlu")
+    assert {c.contact.full_name for c in focus} <= set(hw[:first_other])     # adaylar, sık arananlardan önce
+    assert sum(len(w) + 1 for w in hw) <= 400 and len(hw) == len(set(hw))
+
+
 # Whisper'ın telefon sesinde tipik hataları: Türkçe harf kaybı, ek, harf değişimi, kelime bölünmesi
 @pytest.mark.parametrize("name,dept,ext", [
     ("ayse yilmaz", "", "214"), ("aişe yılmaz", "", "214"), ("ayşe yılmas", "", "214"),

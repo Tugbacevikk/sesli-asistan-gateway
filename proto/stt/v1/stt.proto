@@ -19,7 +19,15 @@ message AudioIn {
   oneof msg {
     StreamConfig config = 1;   // akışın ilk mesajı, yalnızca bir kez
     bytes audio = 2;           // ses kareleri (20 ms)
+    HotwordUpdate hotwords = 3;  // akış ortasında ipuçlarını değiştir (isteğe bağlı)
   }
+}
+
+// Akış ortasında ipucu güncellemesi: StreamConfig.hotwords'ün yerine geçer, bundan sonra çözülen cümlelerde
+// geçerlidir. Gateway, rehber aramasının adaylarını öne alarak gönderir ("hangi Ayşe?" sorusundan sonra arayan
+// büyük olasılıkla adaylardan birinin adını söyler). Eski STT sürümleri bu mesajı yok sayar.
+message HotwordUpdate {
+  repeated string hotwords = 1;
 }
 
 message StreamConfig {

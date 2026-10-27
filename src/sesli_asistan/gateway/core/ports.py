@@ -93,6 +93,9 @@ class SttStream(Protocol):
 
     async def close(self) -> None: ...
 
+    # İsteğe bağlı: async def set_hotwords(self, hotwords: list[str]) -> None — akış ortasında ipucu değiştirme.
+    # Uygulamayan akışta çekirdek ipucu güncellemesini atlar.
+
 
 class SttPort(Protocol):
     async def open(self, call_id: str, codec: str, hotwords: list[str]) -> SttStream: ...

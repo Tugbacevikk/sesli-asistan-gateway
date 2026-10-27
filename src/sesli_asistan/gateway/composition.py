@@ -106,6 +106,7 @@ class GatewayRuntime:
         self._prompts_missing = False
         self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
         self.office = s.office()
+        self.top_extensions: list[str] = []      # çağrı geçmişinden en çok aranan dahililer (ipucu önceliği)
         self._tz = ZoneInfo(s.timezone.strip()) if s.timezone.strip() else None
         self._health_task: asyncio.Task | None = None
         self._last_purge = time.monotonic()
@@ -136,7 +137,8 @@ class GatewayRuntime:
 
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
         return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
-                           self.pbx, self._call_config(), hotwords=self.directory.index.hotwords(),
+                           self.pbx, self._call_config(), hotwords=self._hotwords(),
+                           hotword_priority=self.top_extensions,
                            thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"),
                            office=self.office_status())
 
@@ -163,15 +165,26 @@ class GatewayRuntime:
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
         return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
-                           cfg, hotwords=self.directory.index.hotwords(), observer=both,
+                           cfg, hotwords=self._hotwords(), hotword_priority=self.top_extensions, observer=both,
                            thinking_pcm=self.thinking_pcm, channel=channel,
                            office=office if office in (OPEN, AFTER_HOURS, HOLIDAY) else self.office_status())
+
+    def _hotwords(self) -> list[str]:
+        return self.directory.index.hotwords(priority=self.top_extensions)
+
+    async def _refresh_top(self) -> None:
+        try:
+            rows = await asyncio.to_thread(self.history.top_extensions, 50)
+            self.top_extensions = [ext for ext, _ in rows]
+        except Exception as e:
+            log.warning("çağrı geçmişinden sık aranan dahililer okunamadı: %s", e)
 
     async def _record(self, call_id: str, stats) -> None:
         await asyncio.to_thread(self.history.add, call_id, stats)
 
     async def start(self) -> None:
         await asyncio.to_thread(self.history.purge)
+        await self._refresh_top()
         await self.directory.refresh()
         self.directory.start()
         from .core.resilience import BreakerTts
@@ -200,6 +213,7 @@ class GatewayRuntime:
                 if time.monotonic() - self._last_purge > 3600:
                     self._last_purge = time.monotonic()
                     await asyncio.to_thread(self.history.purge)
+                    await self._refresh_top()
             except Exception:
                 log.exception("sağlık kontrolü hatası")
 

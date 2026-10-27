@@ -37,3 +37,23 @@ def test_saklama_suresi_ve_metin_saklamama(tmp_path):
     assert r[0]["turns"][0]["heard"] == "" and r[0]["turns"][0]["reply"] == ""    # metin yazılmadı
     assert r[0]["turns"][0]["actions"] == ["transfer:214"] and r[0]["duration_s"] == 12.5
     assert h.misses() == []
+
+
+async def test_sik_arananlar_stt_ipucunda_once(tmp_path):
+    from pathlib import Path
+
+    from sesli_asistan.gateway.composition import GatewayRuntime
+    from sesli_asistan.gateway.config import GatewaySettings
+
+    root = Path(__file__).resolve().parents[2]
+    db = str(tmp_path / "g.db")
+    h = SqliteCallHistory(db)
+    h.add("c-1", CallStats(turns=[TurnRecord("burak", "", ["transfer:215"], 0.1, 0.5)], outcome="transferred",
+                           started=datetime.now().isoformat(timespec="seconds")))
+    h.close()
+    s = GatewaySettings(_env_file=None, directory_path=str(root / "data/rehber_ornek.json"), call_history_db=db)
+    rt = GatewayRuntime(s, llm=object(), stt=object(), tts=object())
+    await rt.directory.refresh()
+    await rt._refresh_top()
+    assert rt.top_extensions == ["215"] and rt._hotwords()[0] == "Burak Çelik"
+    rt.history.close()

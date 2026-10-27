@@ -163,19 +163,36 @@ class DirectoryIndex:
         match = Match.SINGLE_HIGH if top >= self.high_score else Match.SINGLE_LOW
         return SearchResult((scored[0],), match)
 
-    def hotwords(self, max_chars: int = HOTWORD_CHARS) -> list[str]:
+    def hotwords(self, max_chars: int = HOTWORD_CHARS, priority: Iterable[str] = (),
+                 focus: Iterable[Candidate] = ()) -> list[str]:
         """STT'ye ipucu: birimler önce, sonra ad soyadlar; toplam uzunluk `max_chars` ile sınırlı.
 
         Whisper'da ipucu, önceki metin istemine yazılır ve en çok 223 belirteç (token) alır; fazlası
         faster-whisper tarafından kesilir. Türkçe adlar belirteç başına ~2,5–3 harf olduğundan 400 harf ≈
         130–160 belirteç. Sayıyla sınırlamak (eski: 60 öğe) uzun adlarda sınırı aşıp sonu kesiyordu.
-        Büyük rehberde tüm adlar sığmaz: birimler ve sığan adlar gider (tasarim.md 5.2, açık konu)."""
+        Büyük rehberde tüm adlar sığmaz; sıra (tasarim.md 5.2.1):
+          1. `focus`: son aramanın adayları ve birimleri (arayan "hangi Ayşe?" sorusuna bunlardan birini söyler),
+          2. `priority`: en çok aranan dahililerin kişileri (çağrı geçmişinden),
+          3. birimler, 4. kalan adlar (alfabetik)."""
+        persons = [c for c, _, _ in self._entries if c.full_name and c.kind != "department"]
+        by_ext: dict[str, list[str]] = {}
+        for c in persons:
+            by_ext.setdefault(c.extension, []).append(c.full_name)
+        focused: list[str] = []
+        for cand in focus:
+            c = cand.contact
+            focused += [c.full_name] if c.kind != "department" and c.full_name else []
+            focused += [c.department] if c.department else []
+        ranked = [n for ext in priority for n in by_ext.get(ext, [])]
         depts = sorted({c.department for c, _, _ in self._entries if c.department})
-        names = sorted({c.full_name for c, _, _ in self._entries if c.full_name and c.kind != "department"})
-        out, used = [], 0
-        for w in depts + [n for n in names if n not in depts]:
+        names = sorted({c.full_name for c in persons})
+        out, used, seen = [], 0, set()
+        for w in focused + ranked + depts + names:
+            if w in seen:
+                continue
             if used + len(w) + 1 > max_chars:
                 continue    # daha kısa olan sonraki ad sığabilir
+            seen.add(w)
             out.append(w)
             used += len(w) + 1
         return out
