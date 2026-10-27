@@ -81,10 +81,13 @@ class GatewayRuntime:
         self.s = s
         self.metrics = GatewayMetrics(self)
         self.directory = build_directory(s)
-        self.llm = TimedLlm(llm or build_llm(s), self.metrics)
+        from .core.resilience import BreakerLlm, BreakerStt, CircuitBreaker
+
+        self.breakers = {n: CircuitBreaker(n, s.breaker_failures, s.breaker_reset_s) for n in ("llm", "tts", "stt")}
+        self.llm = BreakerLlm(TimedLlm(llm or build_llm(s), self.metrics), self.breakers["llm"])
         self.agent = build_agent(s, self.directory, self.llm)
         self.tts = tts or build_tts(s)
-        self.stt = stt or GrpcStt(s.stt_grpc_addr)
+        self.stt = BreakerStt(stt or GrpcStt(s.stt_grpc_addr), self.breakers["stt"])
         self.pbx = pbx or PbxRestClient(s.pbx_base_url, s.pbx_api_key.get_secret_value(), s.pbx_timeout_s)
         self.speaker: Speaker | None = None
         self.components = {"stt": "starting", "llm": "starting", "tts": "starting", "directory": "starting"}
@@ -98,10 +101,18 @@ class GatewayRuntime:
 
     @property
     def ready(self) -> bool:
-        return self.speaker is not None and all(v == "ok" for v in self.components.values())
+        return self.speaker is not None and all(v == "ok" for v in self.effective_components().values())
+
+    def effective_components(self) -> dict[str, str]:
+        """Bileşen durumu + devre kesici: devresi açık servis "devre_acik" sayılır (yeni çağrı alınmaz)."""
+        out = dict(self.components)
+        for name, b in self.breakers.items():
+            if b.is_open:
+                out[name] = "devre_acik"
+        return out
 
     def health(self) -> dict:
-        return {"status": "ok" if self.ready else "degraded", "components": dict(self.components),
+        return {"status": "ok" if self.ready else "degraded", "components": self.effective_components(),
                 "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls}
 
     async def _open_media(self, port: int, req: NewCall) -> MediaPort:
@@ -138,9 +149,11 @@ class GatewayRuntime:
     async def start(self) -> None:
         await self.directory.refresh()
         self.directory.start()
+        from .core.resilience import BreakerTts
         from .metrics import TimedTts
 
-        self.speaker, missing = await build_speaker(self.s, self.agent, TimedTts(self.tts, self.metrics))
+        self.speaker, missing = await build_speaker(
+            self.s, self.agent, BreakerTts(TimedTts(self.tts, self.metrics), self.breakers["tts"]))
         self._prompts_missing = bool(missing)
         if missing:
             log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)

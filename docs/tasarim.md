@@ -1040,6 +1040,9 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MAX_CONCURRENT_CALLS` | 30 | Yük testine göre ayarlanır |
 | `GREETING_TEXT` | "{kurum_e} hoş geldiniz…" | Karşılama. Ayrıca `NOT_UNDERSTOOD_TEXT`, `OFFER_OPERATOR_TEXT`, `NO_INPUT_TEXT`, `TO_OPERATOR_TEXT`, `ERROR_TEXT`, `TRANSFERRING_TEXT` ({ad} / {ad_e}), `TRANSFERRING_DEPARTMENT_TEXT` ({birim}); boşsa varsayılan. Geçersiz yer tutucuda servis başlamaz |
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
+| `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
+| `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |
+| `STT_METRICS_PORT` | 9101 | STT metrikleri (yalnız 127.0.0.1); Gateway metrikleri `/metrics` (UI_ALLOWED_IPS) |
 | `THINKING_SOUND` / `THINKING_SOUND_DELAY_S` | true / 0,4 | Düşünürken klavye sesi (5.1.2) |
 | `THINKING_SOUND_FILE` | (boş) | Kendi düşünme sesiniz (16 bit WAV; telefon kalitesine ve arka plan seviyesine ayarlanır). **Lisansı ürüne uygun olmalı** (R-11); boşsa kodla üretilen ses |
 | *TTS servisi (`tts.env`, ADR-015):* | | |
