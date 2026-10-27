@@ -14,8 +14,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .core.dialog import DialogTexts
 from .core.schedule import OfficeHours
 
-_TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
-                "transferring_department", "closed", "holiday", "no_operator")
+TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
+               "transferring_department", "closed", "holiday", "no_operator")
+
+
+def check_texts(t: DialogTexts) -> None:
+    """Yer tutucu denetimi (ayar dosyası ve ayar ekranı aynı kuralı kullanır). Hatalıysa ValueError."""
+    for name, text, needs in (("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_TEXT", t.transferring, ("{ad",)),
+                              ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department, ("{birim}",))):
+        try:
+            text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B")
+        except (KeyError, IndexError, ValueError) as e:
+            raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
+                             "{ad} {ad_e} {birim})") from None
+        if any(n not in text for n in needs):
+            shown = ["{ad} ya da {ad_e}" if n == "{ad" else n for n in needs]
+            raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")
+    for f in TEXT_FIELDS:
+        if f not in ("greeting", "transferring", "transferring_department") and "{" in getattr(t, f):
+            raise ValueError(f"{f.upper()}_TEXT yer tutucu almaz: {getattr(t, f)!r}")
 
 
 class GatewaySettings(BaseSettings):
@@ -111,12 +128,16 @@ class GatewaySettings(BaseSettings):
     ui_enabled: bool = True
     ui_allowed_ips: str = "127.0.0.1,::1"      # virgülle; "*" her yerden (API_KEY ile birlikte kullanın)
 
+    # Ayar ekranında kaydedilenler (anonslar, mesai, takma adlar): bu dosyadakiler yukarıdakilerin üzerine yazılır.
+    # Boş: ayar ekranı salt okunur. Üretimde /var/lib/sesli-asistan/yerel_ayarlar.json
+    local_settings_file: str = "yerel_ayarlar.json"
+
     # STT servisi (Gateway tarafı)
     stt_grpc_addr: str = "127.0.0.1:50051"
 
     def dialog_texts(self) -> DialogTexts:
         """Ayardan verilen metinler varsayılanların üzerine yazılır."""
-        given = {f: getattr(self, f"{f}_text") for f in _TEXT_FIELDS if getattr(self, f"{f}_text").strip()}
+        given = {f: getattr(self, f"{f}_text") for f in TEXT_FIELDS if getattr(self, f"{f}_text").strip()}
         return replace(DialogTexts(), **given)
 
     @model_validator(mode="after")
@@ -125,16 +146,7 @@ class GatewaySettings(BaseSettings):
             raise ValueError(f"RTP_PORT_MIN ({self.rtp_port_min}) > RTP_PORT_MAX ({self.rtp_port_max})")
         if self.rtp_port_max - self.rtp_port_min + 1 < self.max_concurrent_calls:
             raise ValueError("RTP port aralığı MAX_CONCURRENT_CALLS'tan küçük")
-        t = self.dialog_texts()
-        for name, text, needs in (("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_TEXT", t.transferring, ()),
-                                  ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department, ("{birim}",))):
-            try:
-                text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B")
-            except (KeyError, IndexError, ValueError) as e:
-                raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
-                                 "{ad} {ad_e} {birim})") from None
-            if any(n not in text for n in needs):
-                raise ValueError(f"{name} şunu içermeli: {', '.join(needs)}")
+        check_texts(self.dialog_texts())
         self.office()          # biçim hatası açılışta görünsün
         if self.timezone.strip():
             from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -143,8 +155,6 @@ class GatewaySettings(BaseSettings):
             except (ZoneInfoNotFoundError, ValueError):
                 raise ValueError(f"TIMEZONE bilinmiyor: {self.timezone!r} (Windows'ta 'tzdata' paketi gerekir)") \
                     from None
-        if "{ad" not in t.transferring:
-            raise ValueError("TRANSFERRING_TEXT {ad} ya da {ad_e} içermeli")
         return self
 
     def office(self) -> OfficeHours:

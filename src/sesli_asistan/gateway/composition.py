@@ -106,8 +106,15 @@ class GatewayRuntime:
         self._prompts_missing = False
         self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
         self.office = s.office()
+        self.after_hours_mode = s.after_hours_mode
         self.top_extensions: list[str] = []      # çağrı geçmişinden en çok aranan dahililer (ipucu önceliği)
         self._tz = ZoneInfo(s.timezone.strip()) if s.timezone.strip() else None
+        from .adapters.settings.json_store import LocalSettingsStore
+        from .settings_service import SettingsService
+
+        self.settings = SettingsService(self, LocalSettingsStore(s.local_settings_file)
+                                        if s.local_settings_file else None)
+        self.settings.load()        # anonslar seslendirilmeden önce (start)
         self._health_task: asyncio.Task | None = None
         self._last_purge = time.monotonic()
 
@@ -147,7 +154,7 @@ class GatewayRuntime:
                           transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
                           no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max,
                           thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s,
-                          after_hours_mode=self.s.after_hours_mode)
+                          after_hours_mode=self.after_hours_mode)
 
     def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False,
                     office: str | None = None) -> CallSession:

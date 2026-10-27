@@ -1075,6 +1075,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
 | `CLOSED_TEXT` / `HOLIDAY_TEXT` / `NO_OPERATOR_TEXT` | (varsayılan metin) | Mesai dışı anonsları |
 | `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
+| `LOCAL_SETTINGS_FILE` | yerel_ayarlar.json | Ayar ekranında kaydedilenler (13.1). Boş: ayar ekranı salt okunur. Üretimde `/var/lib/sesli-asistan/` |
 | `BREAKER_FAILURES` / `BREAKER_RESET_S` | 3 / 30 | Devre kesici (9.2): art arda hata sayısı / açık kalma süresi. Açıkken o servis çağrılmaz, arayan beklemeden operatöre, yeni çağrı 503 |
 | `LOG_FORMAT` / `LOG_LEVEL` | text / INFO | `json`: her satır tek JSON, `call_id` ayrı alan (12.1) |
 | `STT_METRICS_PORT` | 9101 | STT metrikleri (yalnız 127.0.0.1); Gateway metrikleri `/metrics` (UI_ALLOWED_IPS) |
@@ -1136,6 +1137,18 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LOG_LEVEL` | INFO | |
 
 ---
+
+### 13.1 Ayar ekranı
+
+Arayüzün **Ayarlar** sekmesi (`GET/PUT /v1/admin/settings`, erişim kuralı arayüzle aynı: `UI_ALLOWED_IPS` + `API_KEY`) kurumun en sık değiştireceği üç şeyi yeniden başlatmadan düzenletir:
+
+| Bölüm | Ne olur |
+|---|---|
+| Anonslar | 11 sabit cümle. Ayar dosyasıyla aynı yer tutucu kuralı uygulanır; kaydederken değişenler yeniden seslendirilir (TTS yoksa kayıt yine yapılır, uyarı gösterilir). Süren çağrı yeni metni bir sonraki cümlede kullanır |
+| Mesai saatleri | `OFFICE_HOURS`, `HOLIDAYS`, `AFTER_HOURS_MODE` (5.1.3); yeni çağrılarda geçerli |
+| Takma adlar | Rehber kaydına yerel takma ad ("Ferhat Bey"). "Rehberde bulunamayan aramalar" listesinden tek tıkla eklenir. Rehber kaynağı değişmez; her rehber güncellemesinde yeniden uygulanır |
+
+Öncelik: ayar ekranında kaydedilen > ayar dosyası (ortam değişkeni) > varsayılan. Yalnız ayar dosyasından **farklı** değerler `LOCAL_SETTINGS_FILE`'a yazılır (atomik yazma). Dosya bozulursa `.bozuk` uzantısıyla kenara alınır ve Gateway ayar dosyasıyla açılır. Kayıtlı bir değer artık geçersizse (ör. ayar dosyasında kurum adı değişti) yerel ayarlar yok sayılır ve loglanır. Kaydetme yalnız `application/json` kabul eder: başka bir sitenin tarayıcı üzerinden form göndermesi (CSRF) ön kontrolde durur.
 
 ## 14. Kurulum ve dağıtım
 

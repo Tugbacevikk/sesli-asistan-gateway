@@ -150,6 +150,28 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
 .outcome-operator { color: var(--lamp); font-weight: 600; }
 .outcome-error { color: var(--bad); font-weight: 600; }
 .note { color: var(--muted); font-size: .9rem; }
+
+/* ayarlar */
+.form { display: grid; gap: 16px; }
+.field label { display: block; font-weight: 600; margin-bottom: 4px; }
+.field .hint { font-size: .82rem; color: var(--muted); margin-top: 4px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+.field textarea, .field input, .field select, td input {
+  width: 100%; font: inherit; color: var(--ink); background: var(--surface);
+  border: 1px solid var(--rule); border-radius: 10px; padding: 9px 12px;
+}
+.field textarea { min-height: 3.4em; resize: vertical; field-sizing: content; }
+td input { min-width: 160px; }
+@media (max-width: 640px) { #view-settings th:nth-child(3), #view-settings td:nth-child(3) { display: none; } }
+.field.changed label::after { content: " · değiştirildi"; font-weight: 400; color: var(--lamp); font-size: .85rem; }
+.linkbtn { background: none; border: 0; padding: 0; color: var(--focus); text-decoration: underline; font-size: .82rem; }
+.savebar {
+  position: sticky; bottom: 0; margin-top: 24px; padding: 14px 0; background: var(--panel);
+  display: flex; gap: 16px; align-items: center; flex-wrap: wrap; border-top: 1px solid var(--rule);
+}
+.savebar .send { padding: 12px 22px; }
+.status-ok { color: var(--ok); } .status-bad { color: var(--bad); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
 [hidden] { display: none !important; }
 </style>
 </head>
@@ -159,6 +181,7 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
   <nav class="tabs" role="tablist" aria-label="Bölümler">
     <button role="tab" id="tab-call" aria-selected="true" aria-controls="view-call">Deneme çağrısı</button>
     <button role="tab" id="tab-watch" aria-selected="false" aria-controls="view-watch">İzleme</button>
+    <button role="tab" id="tab-settings" aria-selected="false" aria-controls="view-settings">Ayarlar</button>
   </nav>
 </header>
 
@@ -237,6 +260,51 @@ details ol { margin: 8px 0 0; padding-left: 20px; }
     <p class="note">Sık geçenler rehbere takma ad olarak eklenebilir.</p>
     <div class="tablewrap"><table><thead><tr><th>Aranan</th><th>Kaç kez</th></tr></thead><tbody id="misses"></tbody></table></div>
   </section>
+
+  <section id="view-settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <p class="note" id="setNote">Burada kaydedilenler ayar dosyasının üzerine yazılır ve hemen geçerli olur; yeniden başlatma gerekmez.
+      Değişen anonslar kaydederken yeniden seslendirilir.</p>
+    <h2 class="sec">Anonslar</h2>
+    <div class="form" id="setTexts"></div>
+    <h2 class="sec">Mesai saatleri</h2>
+    <div class="box form">
+      <div class="field">
+        <label for="setHours">Çalışma saatleri</label>
+        <input id="setHours" placeholder="pzt-cum 08:30-12:30,13:30-18:00; cmt 09:00-13:00" autocomplete="off">
+        <div class="hint">Gün ya da gün aralığı, ardından saat aralıkları. Yazılmayan gün kapalıdır. Boş: her zaman açık.</div>
+      </div>
+      <div class="field">
+        <label for="setHolidays">Tatiller</label>
+        <textarea id="setHolidays" placeholder="01-01, 04-23, 05-01, 2027-03-19..2027-03-21, 2026-10-28@13:00"></textarea>
+        <div class="hint">AA-GG her yıl · YYYY-AA-GG tek gün · A..B aralık · @SS:DD o saatte kapanır (arife). Dini bayramları her yıl ekleyin.</div>
+      </div>
+      <div class="field">
+        <label for="setMode">Mesai dışında</label>
+        <select id="setMode">
+          <option value="announce">Kapanış anonsu çal, çağrıyı kapat</option>
+          <option value="assistant">Asistan çalışsın (dahililere aktarsın); operatör yerine bilgi verip kapatsın</option>
+        </select>
+        <div class="hint" id="setOfficeNow"></div>
+      </div>
+    </div>
+    <h2 class="sec">Takma adlar</h2>
+    <p class="note">Arayanların kullandığı başka adlar ("Ferhat Bey", "bilgi işlem" yerine "IT"). Virgülle ayırın. Rehber kaynağındaki takma adlar değişmez; bunlar onlara eklenir.</p>
+    <div class="box" id="missBox" hidden>
+      <h2>Rehberde bulunamayan aramalar</h2>
+      <p>Birini seçip bir kayda takma ad olarak ekleyebilirsiniz.</p>
+      <div class="grid2">
+        <div class="field"><label for="missPick">Aranan</label><select id="missPick"></select></div>
+        <div class="field"><label for="missTo">Ekleneceği kayıt</label><select id="missTo"></select></div>
+      </div>
+      <div class="row" style="margin-top:12px"><button class="ghost" id="missAdd">Takma ad olarak ekle</button></div>
+    </div>
+    <div class="tablewrap" style="margin-top:16px"><table><thead><tr><th>Kayıt</th><th>Dahili</th><th>Rehberdeki</th><th>Eklenen takma adlar</th></tr></thead>
+      <tbody id="setAliases"></tbody></table></div>
+    <div class="savebar">
+      <button class="send" id="setSave">Kaydet</button>
+      <span id="setStatus" role="status" aria-live="polite"></span>
+    </div>
+  </section>
 </main>
 
 <script>
@@ -247,7 +315,8 @@ const fmt = (s) => s == null ? "–" : s.toLocaleString("tr-TR", { minimumFracti
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 /* ---------- sekmeler ---------- */
-const tabs = { call: [$("tab-call"), $("view-call")], watch: [$("tab-watch"), $("view-watch")] };
+const tabs = { call: [$("tab-call"), $("view-call")], watch: [$("tab-watch"), $("view-watch")],
+  settings: [$("tab-settings"), $("view-settings")] };
 let watchTimer = null;
 function show(name) {
   for (const [k, [tab, view]] of Object.entries(tabs)) {
@@ -256,9 +325,11 @@ function show(name) {
   }
   clearInterval(watchTimer);
   if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); }
+  if (name === "settings") loadSettings();
 }
 $("tab-call").onclick = () => show("call");
 $("tab-watch").onclick = () => show("watch");
+$("tab-settings").onclick = () => show("settings");
 
 /* ---------- deneme çağrısı ---------- */
 // Mikrofon → 8 kHz: tarayıcının hızından (44,1 / 48 kHz) telefon hızına. Önce 3,6 kHz alçak geçiren süzgeç
@@ -552,6 +623,93 @@ async function refresh() {
     $("health").innerHTML = `<div class="svc bad"><i></i><div><strong>Gateway</strong><span>bağlanılamadı</span></div></div>`;
   }
 }
+
+/* ---------- ayarlar ---------- */
+let settings = null;
+function setStatus(text, cls = "") { $("setStatus").textContent = text; $("setStatus").className = cls; }
+
+async function loadSettings() {
+  setStatus("Yükleniyor…");
+  try {
+    const [st, calls] = await Promise.all([
+      fetch("/v1/admin/settings", { headers }).then((r) => r.ok ? r.json() : Promise.reject(r.status)),
+      fetch("/v1/admin/calls", { headers }).then((r) => r.json()).catch(() => ({ misses: [] })),
+    ]);
+    settings = st;
+    renderSettings(st, calls.misses || []);
+    setStatus(st.writable ? "" : "Salt okunur: LOCAL_SETTINGS_FILE boş.", st.writable ? "" : "status-bad");
+  } catch (e) {
+    setStatus("Ayarlar okunamadı.", "status-bad");
+  }
+}
+
+function renderSettings(st, misses) {
+  $("setTexts").innerHTML = st.texts.map((t) => `
+    <div class="field${t.changed ? " changed" : ""}" data-name="${esc(t.name)}">
+      <label for="txt-${esc(t.name)}">${esc(t.label)}</label>
+      <textarea id="txt-${esc(t.name)}" maxlength="400">${esc(t.value)}</textarea>
+      <div class="hint">${t.placeholders ? `<span>Yer tutucular: ${esc(t.placeholders)}</span>` : ""}
+        <button class="linkbtn" type="button" data-default="${esc(t.name)}">Varsayılana dön</button></div>
+    </div>`).join("");
+  for (const b of $("setTexts").querySelectorAll("[data-default]")) {
+    b.onclick = () => { $("txt-" + b.dataset.default).value = st.texts.find((t) => t.name === b.dataset.default).default; };
+  }
+  $("setHours").value = st.office.hours;
+  $("setHolidays").value = st.office.holidays;
+  $("setMode").value = st.office.mode;
+  $("setOfficeNow").textContent = `Şu an: ${OFFICE[st.office.status] || st.office.status}` +
+    (st.office.timezone ? ` (${st.office.timezone})` : "");
+  $("setAliases").innerHTML = st.contacts.map((c) => `<tr>
+      <td>${esc(c.name)}${c.kind === "department" ? " <span class='note'>(birim hattı)</span>" : c.department ? `<div class="note">${esc(c.department)}</div>` : ""}</td>
+      <td>${esc(c.extension)}</td>
+      <td class="note">${esc(c.aliases.join(", ")) || "–"}</td>
+      <td><label class="sr" for="al-${esc(c.id)}">${esc(c.name)} takma adları</label>
+        <input id="al-${esc(c.id)}" data-id="${esc(c.id)}" value="${esc((st.aliases[c.id] || []).join(", "))}" autocomplete="off"></td>
+    </tr>`).join("");
+  $("missBox").hidden = !misses.length;
+  $("missPick").innerHTML = misses.map((m) => `<option>${esc(m.text)}</option>`).join("");
+  $("missTo").innerHTML = st.contacts.map((c) => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.extension)})</option>`).join("");
+  for (const el of $("view-settings").querySelectorAll("textarea, input, select, #setSave, #missAdd")) el.disabled = !st.writable;
+}
+
+$("missAdd").onclick = () => {
+  const input = $("al-" + $("missTo").value), text = $("missPick").value;
+  if (!input || !text) return;
+  const items = input.value.split(",").map((x) => x.trim()).filter(Boolean);
+  if (!items.includes(text)) items.push(text);
+  input.value = items.join(", ");
+  input.focus();
+  setStatus("Eklendi; kaydetmeyi unutmayın.");
+};
+
+$("setSave").onclick = async () => {
+  if (!settings) return;
+  const texts = {};
+  for (const f of $("setTexts").querySelectorAll(".field")) texts[f.dataset.name] = f.querySelector("textarea").value;
+  const aliases = {};
+  for (const i of $("setAliases").querySelectorAll("input")) {
+    const v = i.value.split(",").map((x) => x.trim()).filter(Boolean);
+    if (v.length) aliases[i.dataset.id] = v;
+  }
+  const body = { texts, office_hours: $("setHours").value, holidays: $("setHolidays").value,
+    after_hours_mode: $("setMode").value, aliases };
+  $("setSave").disabled = true;
+  setStatus("Kaydediliyor, değişen anonslar seslendiriliyor…");
+  try {
+    const r = await fetch("/v1/admin/settings", { method: "PUT", headers: { ...headers, "Content-Type": "application/json" },
+      body: JSON.stringify(body) });
+    const data = await r.json();
+    if (!r.ok) { setStatus(data.error?.message || "Kaydedilemedi.", "status-bad"); return; }
+    settings = data;
+    renderSettings(data, [...$("missPick").options].map((o) => ({ text: o.value })));
+    setStatus(data.missing?.length ? `Kaydedildi; seslendirilemeyen anons: ${data.missing.join(", ")} (TTS çalışıyor mu?)`
+      : "Kaydedildi.", data.missing?.length ? "status-bad" : "status-ok");
+  } catch (e) {
+    setStatus("Gateway'e ulaşılamadı.", "status-bad");
+  } finally {
+    $("setSave").disabled = !settings?.writable;
+  }
+};
 </script>
 </body>
 </html>

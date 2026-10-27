@@ -63,7 +63,7 @@ def client(ui=True, ui_ips=None, key=""):
         await rt.stop()
 
     app = create_app(rt.manager, rt.health, api_key=key, lifespan=lifespan,
-                     web_session=rt.web_session if ui else None, ui_allowed_ips=ui_ips)
+                     web_session=rt.web_session if ui else None, ui_allowed_ips=ui_ips, settings=rt.settings)
     return TestClient(app), rt
 
 

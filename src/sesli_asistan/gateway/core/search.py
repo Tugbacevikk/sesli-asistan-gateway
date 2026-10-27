@@ -109,15 +109,29 @@ class DirectoryIndex:
                  margin: int = 5, limit: int = 3):
         self.min_score, self.high_score, self.margin, self.limit = min_score, high_score, margin, limit
         self._entries: list[tuple[Contact, list[str], list[str]]] = []
+        self._contacts: list[Contact] = []
+        self.extra_aliases: dict[str, tuple[str, ...]] = {}   # ayar ekranından: kayıt kimliği → ek takma adlar
         self.rebuild(contacts)
 
+    def set_extra_aliases(self, aliases: dict[str, Iterable[str]]) -> None:
+        """Rehber kaynağında olmayan, yerelde eklenen takma adlar ("Ferhat Bey" → Ferhat Yıldırım). Rehber her
+        güncellendiğinde yeniden uygulanır."""
+        self.extra_aliases = {k: tuple(v) for k, v in aliases.items() if v}
+        self.rebuild(self._contacts)
+
+    def contacts(self) -> list[Contact]:
+        """Aranabilir kayıtlar (ayar ekranında takma ad eklemek için)."""
+        return [c for c, _, _ in self._entries]
+
     def rebuild(self, contacts: Iterable[Contact]) -> None:
+        self._contacts = list(contacts)
         entries = []
-        for c in contacts:
+        for c in self._contacts:
             if c.deleted or not c.transferable:
                 continue
-            names = [c.full_name, c.first_name, c.last_name, c.title, *c.aliases]
-            depts = [c.department, *c.department_aliases]
+            extra = self.extra_aliases.get(c.id, ())
+            names = [c.full_name, c.first_name, c.last_name, c.title, *c.aliases, *extra]
+            depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
         # kişilerin ad ve soyad sözcükleri (unvan hariç): "sözde bir kişi geçiyor mu" sorusu için

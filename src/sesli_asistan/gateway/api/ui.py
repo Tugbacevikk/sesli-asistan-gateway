@@ -161,7 +161,7 @@ def request_key(request: Request) -> str:
 
 def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
              health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None,
-             history: Any = None) -> None:
+             history: Any = None, settings: Any = None) -> None:
     if history is None:
         from sesli_asistan.gateway.adapters.history.sqlite import MemoryCallHistory
 
@@ -175,6 +175,31 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
     @app.get("/v1/admin/health", include_in_schema=False)
     async def admin_health() -> JSONResponse:
         return JSONResponse(health())
+
+    @app.get("/v1/admin/settings", include_in_schema=False)
+    async def admin_settings() -> JSONResponse:
+        if settings is None:
+            return JSONResponse({"error": {"code": "NOT_FOUND", "message": "ayar ekranı yok", "call_id": None}},
+                                status_code=404)
+        return JSONResponse(settings.view())
+
+    @app.put("/v1/admin/settings", include_in_schema=False)
+    async def admin_settings_save(request: Request) -> JSONResponse:
+        def err(status: int, code: str, msg: str) -> JSONResponse:
+            return JSONResponse({"error": {"code": code, "message": msg, "call_id": None}}, status_code=status)
+
+        if settings is None:
+            return err(404, "NOT_FOUND", "ayar ekranı yok")
+        # yalnız JSON: başka bir sitenin form gönderimi (CSRF) tarayıcı ön kontrolüne takılır
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            return err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        try:
+            data = json.loads(await request.body() or b"{}")
+            view = await settings.update(data)
+        except ValueError as e:
+            return err(400, "BAD_REQUEST", str(e))
+        log.info("ayarlar arayüzden kaydedildi (%s)", request.client.host if request.client else "?")
+        return JSONResponse(view)
 
     @app.get("/v1/admin/calls", include_in_schema=False)
     async def admin_calls() -> JSONResponse:

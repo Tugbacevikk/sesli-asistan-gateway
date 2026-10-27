@@ -30,7 +30,8 @@ def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None =
 
     return create_app(rt.manager, rt.health, api_key=s.api_key.get_secret_value(), allowed_ips=s.allowed_ips,
                       lifespan=lifespan, web_session=rt.web_session if s.ui_enabled else None,
-                      ui_allowed_ips=s.ui_ips, metrics_registry=rt.metrics.registry, history=rt.history)
+                      ui_allowed_ips=s.ui_ips, metrics_registry=rt.metrics.registry, history=rt.history,
+                      settings=rt.settings)
 
 
 def main() -> None:
