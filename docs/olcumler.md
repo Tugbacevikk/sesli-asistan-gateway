@@ -14,7 +14,7 @@ Ham JSON'lar raporla birlikte (`sonuc_diyalog_4b.json`, `sonuc_diyalog_9b.json`)
 
 | | |
 |---|---|
-| Commit | `17b354a` |
+| Commit | `a295f77` |
 | Set | `tests/data/diyalog_seti.yaml`, 30 senaryo × 3 tekrar = 90 koşu / model |
 | Donanım | i5-11400H (6 çekirdek), 16 GB RAM, RTX 3050 Ti Laptop **4 GB** VRAM, Windows |
 | Ollama | 0.40.9, bağlam 4096 |
@@ -61,7 +61,7 @@ eski değerlendirme koduyla hesaplandı ve yanıltıcıdır (aşağıda madde 1)
 
 | | |
 |---|---|
-| Commit | `60714a5` |
+| Commit | `25524fe` |
 | Set | 30 senaryo × 3 tekrar = 90 koşu / model |
 | Donanım | Önceki ölçümle aynı (RTX 3050 Ti 4 GB); 4B %52 CPU / %48 GPU, 9B %76 CPU / %24 GPU |
 | Koşular | A: doğruluk, LLM zaman aşımı 60 sn · B: gecikme, 5 sn (yalnızca 4B) |
@@ -105,7 +105,7 @@ izinsiz ayrımı). Birim testleri 119/119.
 
 | | |
 |---|---|
-| Commit | `a15dd3a` |
+| Commit | `4d71818` |
 | Set | 30 senaryo × 3 tekrar = 90 koşu |
 | Donanım | Önceki ölçümlerle aynı (RTX 3050 Ti 4 GB); 4B %52 CPU / %48 GPU, bağlam 4096 |
 | Koşular | C: doğruluk, LLM zaman aşımı 60 sn · D: gecikme, 5 sn |
@@ -134,7 +134,7 @@ satırlarıyla tutarlı (85 cümle, 22 050 Hz).
 
 | | |
 |---|---|
-| Commit | `de78ce8` |
+| Commit | `a4a9882` |
 | Piper | piper-tts 1.8.0 (piper1-gpl, GPL-3.0-or-later), `python -m piper.http_server`, `POST /synthesize` (varsayılan biçim, ayar gerekmedi) |
 | Ses | `tr_TR-dfki-medium`, 22 050 Hz — **lisans sorunu, aşağıda** |
 | Donanım | i5-11400H, **yalnızca CPU** (onnxruntime 1.31.0) |
@@ -165,7 +165,7 @@ Hugging Face LFS özetiyle aynı (`9b45e100…`).
 
 | | |
 |---|---|
-| Commit | `48b39ba` |
+| Commit | `fbdde37` |
 | Donanım | RTX 3050 Ti Laptop 4 GB (sürücü 617.42, CUDA 13.4), i5-11400H, Windows; Ollama kapalı |
 | Model | faster-whisper-medium (revizyon `08e178d`, SHA256'lar `deploy/models.yaml`'da) + Silero VAD |
 | Set | Piper ile seslendirilmiş 12 asistan cümlesi (başta 0,5 sn, sonda 1,5 sn sessizlik); A: ipucusuz, B: 11 rehber ipucu |
@@ -194,7 +194,7 @@ Hugging Face LFS özetiyle aynı (`9b45e100…`).
 
 | | |
 |---|---|
-| Commit | `41633e5` (`.[stt,stt-cuda]`, CUDA kütüphaneleri pip'ten yüklendi) |
+| Commit | `10da739` (`.[stt,stt-cuda]`, CUDA kütüphaneleri pip'ten yüklendi) |
 | Donanım | RTX 3050 Ti Laptop 4 GB, i5-11400H, Windows; Ollama kapalı |
 | Model | faster-whisper-medium `08e178d`, GPU float16 / CPU int8; beam 2; cümle sonu sessizliği 700 ms |
 | Set | Piper ile seslendirilmiş 12 asistan cümlesi → 8 kHz G.711 A-law, gerçek zaman hızında (**sentetik ses, iyimser**) |

@@ -1256,7 +1256,7 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 ### ADR-005 — LLM: `qwen3.5:4b`, Ollama üzerinde
 - **İlk karar (v1.0):** `qwen3.5:9b` — büyük modelin Türkçe araç çağırmada daha güvenilir olacağı varsayımıyla.
 - **Güncel karar (v1.8, ölçüme dayalı):** Varsayılan `qwen3.5:4b` q4_K_M; `qwen3.5:9b` alternatif.
-- **Gerekçe (docs/olcumler.md, ikinci ölçüm, 60714a5, 30 senaryo × 3):** Zaman aşımı kaldırılarak ölçülen doğrulukta
+- **Gerekçe (docs/olcumler.md, ikinci ölçüm, 25524fe, 30 senaryo × 3):** Zaman aşımı kaldırılarak ölçülen doğrulukta
   4B %88,9, 9B %64,4. 9B çoğu senaryoda aracı hiç çağırmadan "bağlantı kuruyorum, bekleyin" dedi ve bir senaryoda
   rehberde olmayan kişi adları uydurdu; 4B'nin kalan hataları kodla düzeltilebilir türdendi (v1.8). 4B'nin tek LLM
   çağrısı da daha kısa sürdü (p50 2,63 sn'ye 7,72 sn; tur p50 2,85 sn'ye 7,41 sn, dizüstü GPU). Tur başına LLM
