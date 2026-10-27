@@ -1,0 +1,128 @@
+# Sesli asistan alarm kuralları (tasarim.md 12.3). Doğrulama: promtool check rules alarmlar.yml
+#                                                             promtool test rules alarmlar_test.yml
+# Önem: kritik = arayanlar şu an etkileniyor (nöbetçiye hemen); uyari = gün içinde bakılmalı.
+groups:
+  - name: sesli-asistan-servis
+    rules:
+      - alert: SesliGatewayErisilemiyor
+        expr: up{job="sesli-gateway"} == 0
+        for: 1m
+        labels: {onem: kritik}
+        annotations:
+          ozet: "Gateway'e ulaşılamıyor ({{ $labels.instance }})"
+          aciklama: "Santral yeni çağrıları asistana veremiyor; operatöre yönlendirmeli. journalctl -u sesli-gateway"
+
+      - alert: SesliSttErisilemiyor
+        expr: up{job="sesli-stt"} == 0
+        for: 1m
+        labels: {onem: kritik}
+        annotations:
+          ozet: "STT servisine ulaşılamıyor ({{ $labels.instance }})"
+          aciklama: "Konuşma tanınmıyor; çağrılar operatöre gidiyor. journalctl -u sesli-stt, nvidia-smi"
+
+      - alert: SesliBilesenCalismiyor
+        expr: dependency_up == 0
+        for: 2m
+        labels: {onem: kritik}
+        annotations:
+          ozet: "Bileşen çalışmıyor: {{ $labels.service }}"
+          aciklama: "Gateway sağlığı bozuk (503); yeni çağrılar reddediliyor. /v1/admin/health"
+
+      - alert: SesliDevreAcik
+        expr: circuit_open == 1
+        for: 1m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Devre kesici açık: {{ $labels.service }}"
+          aciklama: "Servis art arda hata verdi; 30 sn'lik aralarla deneniyor. Sürüyorsa servisi inceleyin."
+
+  - name: sesli-asistan-kalite
+    rules:
+      - record: sesli:tur_gecikmesi_p95:10m
+        expr: histogram_quantile(0.95, sum by (le) (rate(turn_latency_seconds_bucket{channel="santral"}[10m])))
+
+      - alert: SesliTurGecikmesiYuksek
+        expr: sesli:tur_gecikmesi_p95:10m > 2
+        for: 10m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Tur gecikmesi p95 {{ $value | printf \"%.1f\" }} sn (hedef 2 sn, NFR-01)"
+          aciklama: "LLM / STT süresine bakın (llm_latency_seconds, stt_decode_seconds); kapasite dolu olabilir."
+
+      - alert: SesliTurGecikmesiCokYuksek
+        expr: sesli:tur_gecikmesi_p95:10m > 4
+        for: 5m
+        labels: {onem: kritik}
+        annotations:
+          ozet: "Tur gecikmesi p95 {{ $value | printf \"%.1f\" }} sn"
+          aciklama: "Arayanlar uzun sessizlik yaşıyor. GPU belleği / Ollama'yı kontrol edin."
+
+      - alert: SesliHataliCagriOrani
+        expr: |
+          sum(rate(calls_total{outcome="error"}[15m])) / sum(rate(calls_total[15m])) > 0.05
+          and sum(increase(calls_total[15m])) > 10
+        for: 10m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Çağrıların {{ $value | humanizePercentage }}'i hatayla bitiyor"
+          aciklama: "RTP zaman aşımı ya da santral eylem hatası olabilir; Gateway loguna bakın (outcome=error)."
+
+      - alert: SesliOperatoreDusmeYuksek
+        expr: |
+          sum(rate(calls_total{outcome="operator"}[1h])) / sum(rate(calls_total[1h])) > 0.3
+          and sum(increase(calls_total[1h])) > 20
+        for: 30m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Çağrıların {{ $value | humanizePercentage }}'i operatöre düşüyor"
+          aciklama: "Tanıma ya da rehber sorunu olabilir: arayüz → İzleme → bulunamayan aramalar (takma ad ekleyin)."
+
+      - alert: SesliSttZamanAsimi
+        expr: |
+          sum(rate(stt_results_total{result="timeout"}[10m])) / sum(rate(stt_results_total[10m])) > 0.05
+        for: 10m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "STT çözümlerinin {{ $value | humanizePercentage }}'i zaman aşımında"
+          aciklama: "GPU yetmiyor ya da CPU'ya düşüldü (STT logu: 'cihaz'). STT_TIMEOUT_S / kapasiteyi gözden geçirin."
+
+      - alert: SesliRtpKaybi
+        expr: rtp_packets_total{kind="kayip"} / rtp_packets_total{kind="paket"} > 0.02
+        for: 15m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Son çağrılarda RTP paket kaybı {{ $value | humanizePercentage }}"
+          aciklama: "Santral ile Gateway arasındaki ağı kontrol edin (tanıma doğruluğu düşer)."
+
+  - name: sesli-asistan-isletim
+    rules:
+      - alert: SesliKapasiteDoluyor
+        expr: calls_active / calls_capacity > 0.8
+        for: 5m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Eşzamanlı çağrı sınırının {{ $value | humanizePercentage }}'i kullanılıyor"
+          aciklama: "Sınır dolunca yeni çağrılar 503 alır (operatöre gider). Yük testiyle kapasiteyi yeniden ölçün."
+
+      - alert: SesliRehberEski
+        expr: directory_age_seconds > 3600
+        for: 5m
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Rehber {{ $value | humanizeDuration }} güncellenmedi"
+          aciklama: "Rehber kaynağına ulaşılamıyor; son kopyayla çalışılıyor (yeni personel bulunamaz)."
+
+      - alert: SesliRehberBos
+        expr: directory_entries == 0
+        for: 2m
+        labels: {onem: kritik}
+        annotations:
+          ozet: "Rehberde aranabilir kayıt yok"
+          aciklama: "Hiçbir aktarma yapılamaz. DIRECTORY_PATH / rehber kaynağını kontrol edin."
+
+      - alert: SesliGuvenlikReddi
+        expr: increase(transfer_policy_rejections_total[10m]) > 0
+        labels: {onem: uyari}
+        annotations:
+          ozet: "Güvenlik kuralı {{ $value | printf \"%.0f\" }} aktarmayı reddetti"
+          aciklama: "LLM aramada çıkmayan bir dahiliye aktarmak istedi (yönlendirme denemesi olabilir). Log: 'GÜVENLİK'."

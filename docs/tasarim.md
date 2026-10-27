@@ -1050,18 +1050,29 @@ python tools/yuk/yuk.py ayse.wav --cagri 40 --eszamanli 8 --aralik 0.5 --cikti s
 
 ### 12.3 Dağıtık izleme
 
-OpenTelemetry ile her çağrı bir iz (trace) olarak kaydedilir. Her tur (STT → LLM → araç → TTS) bir alt
-aralık (span) olur. `call_id` iz özniteliği olarak taşınır ve gRPC meta verisiyle STT servisine aktarılır.
+Bu sürümde OpenTelemetry yok: tek sunucuda üç servis olduğu için çağrı, `call_id` ile izlenir — Gateway'in JSON
+loglarında `call_id` alanı, STT'ye gRPC `x-call-id` meta verisi ve STT loglarında aynı kimlik. Servisler ayrı
+makinelere dağılırsa OpenTelemetry eklenir (her tur bir span).
 
-### 12.4 Alarm önerileri
+### 12.4 Alarmlar ve pano (`deploy/izleme/`)
 
-| Koşul | Önem |
-|---|---|
-| `turn_latency_seconds` p95 > 2,5 sn (5 dk) | Uyarı |
-| `dependency_up == 0` | Kritik |
-| `calls_total{outcome="error"}` oranı > %5 | Kritik |
-| `directory_age_seconds` > 1 saat | Uyarı |
-| `transfer_policy_rejections_total` artışı | Güvenlik incelemesi |
+`alarmlar.yml` (Prometheus kuralları; `promtool test rules alarmlar_test.yml` ile birim testli), `prometheus.yml`
+(kazıma örneği; Gateway `/metrics` için `API_KEY`), `grafana-pano.json` (içe aktarılır). Testler alarm ve panonun
+yalnız kodda gerçekten üretilen metrikleri kullandığını denetler.
+
+| Alarm | Koşul | Önem |
+|---|---|---|
+| SesliGatewayErisilemiyor / SesliSttErisilemiyor | kazıma 1 dk başarısız | Kritik |
+| SesliBilesenCalismiyor | `dependency_up == 0` 2 dk (yeni çağrılar 503) | Kritik |
+| SesliDevreAcik | `circuit_open == 1` 1 dk | Uyarı |
+| SesliTurGecikmesiYuksek / CokYuksek | santral turları p95 > 2 sn (10 dk) / > 4 sn (5 dk) | Uyarı / Kritik |
+| SesliHataliCagriOrani | `outcome="error"` > %5 (15 dk, en az 10 çağrı) | Uyarı |
+| SesliOperatoreDusmeYuksek | operatöre giden > %30 (1 sa, en az 20 çağrı): tanıma / rehber sorunu | Uyarı |
+| SesliSttZamanAsimi | STT çözümlerinin > %5'i zaman aşımı | Uyarı |
+| SesliRtpKaybi | son çağrılarda RTP kaybı > %2 | Uyarı |
+| SesliKapasiteDoluyor | açık çağrı / sınır > %80 (5 dk) | Uyarı |
+| SesliRehberEski / SesliRehberBos | rehber 1 sa güncellenmedi / aranabilir kayıt yok | Uyarı / Kritik |
+| SesliGuvenlikReddi | `transfer_policy_rejections_total` arttı | Uyarı (güvenlik incelemesi) |
 
 ---
 

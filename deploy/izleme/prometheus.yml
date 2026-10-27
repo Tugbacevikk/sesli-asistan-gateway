@@ -1,0 +1,25 @@
+# Prometheus kazıma örneği (tasarim.md 12.2). Kendi prometheus.yml'nize ekleyin; alarm kuralları: alarmlar.yml.
+#
+# Gateway /metrics: arayüzle aynı erişim kuralı (UI_ALLOWED_IPS + API_KEY). Prometheus sunucusunun adresini
+# UI_ALLOWED_IPS'e ekleyin (ya da nginx üzerinden: deploy/nginx/). STT metrikleri yalnız 127.0.0.1:9101'de:
+# Prometheus başka makinedeyse node üzerinde bir vekil ya da aynı makinede prometheus-agent kullanın.
+
+rule_files:
+  - /etc/prometheus/sesli-asistan/alarmlar.yml
+
+scrape_configs:
+  - job_name: sesli-gateway
+    scrape_interval: 15s
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/sesli-asistan/api_key   # secrets.env'deki API_KEY (izin 600)
+    static_configs:
+      - targets: ["sesli-asistan.sirket.local:8000"]
+        labels: {kurum: sirket}
+
+  - job_name: sesli-stt
+    scrape_interval: 15s
+    static_configs:
+      - targets: ["127.0.0.1:9101"]
+        labels: {kurum: sirket}

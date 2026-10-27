@@ -1,0 +1,543 @@
+{
+ "title": "Sesli asistan",
+ "uid": "sesli-asistan",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": true,
+ "refresh": "30s",
+ "time": {
+  "from": "now-6h",
+  "to": "now"
+ },
+ "tags": [
+  "sesli-asistan"
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "DS",
+    "type": "datasource",
+    "query": "prometheus",
+    "label": "Veri kaynağı"
+   }
+  ]
+ },
+ "panels": [
+  {
+   "type": "stat",
+   "title": "Açık çağrı",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "calls_active",
+     "legendFormat": "açık",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "calls_capacity",
+     "legendFormat": "sınır",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "Tur gecikmesi p95 (10 dk)",
+   "description": "NFR-01 hedefi 2 sn",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 0,
+    "w": 5,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sesli:tur_gecikmesi_p95:10m",
+     "legendFormat": "p95",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 2
+       },
+       {
+        "color": "red",
+        "value": 4
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "Bileşenler",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 9,
+    "y": 0,
+    "w": 8,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "dependency_up",
+     "legendFormat": "{{service}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "çalışıyor",
+         "color": "green"
+        },
+        "0": {
+         "text": "ÇALIŞMIYOR",
+         "color": "red"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 3
+  },
+  {
+   "type": "stat",
+   "title": "Devre kesici",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 17,
+    "y": 0,
+    "w": 7,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "circuit_open",
+     "legendFormat": "{{service}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "kapalı",
+         "color": "green"
+        },
+        "1": {
+         "text": "AÇIK",
+         "color": "red"
+        }
+       }
+      }
+     ]
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 4
+  },
+  {
+   "type": "timeseries",
+   "title": "Tur gecikmesi (arayanın sözü → asistanın ilk sesi)",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.5, sum by (le) (rate(turn_latency_seconds_bucket{channel=\"santral\"}[5m])))",
+     "legendFormat": "p50",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(turn_latency_seconds_bucket{channel=\"santral\"}[5m])))",
+     "legendFormat": "p95",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 5
+  },
+  {
+   "type": "timeseries",
+   "title": "Çağrı sonuçları (saatlik hız)",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (outcome) (increase(calls_total{channel=\"santral\"}[1h]))",
+     "legendFormat": "{{outcome}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 6
+  },
+  {
+   "type": "timeseries",
+   "title": "Bileşen süreleri p95",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(llm_latency_seconds_bucket[5m])))",
+     "legendFormat": "LLM",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(tts_latency_seconds_bucket[5m])))",
+     "legendFormat": "TTS (cümle)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "C",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(stt_decode_seconds_bucket[5m])))",
+     "legendFormat": "STT çözüm",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "D",
+     "expr": "histogram_quantile(0.95, sum by (le) (rate(dialog_latency_seconds_bucket[5m])))",
+     "legendFormat": "Diyalog (LLM + rehber)",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 7
+  },
+  {
+   "type": "timeseries",
+   "title": "Konuşma olayları (dakikalık)",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 12,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum(rate(not_understood_total[5m])) * 60",
+     "legendFormat": "anlaşılamayan",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "sum(rate(barge_in_total[5m])) * 60",
+     "legendFormat": "söze girme",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "C",
+     "expr": "sum by (type) (rate(actions_total[5m])) * 60",
+     "legendFormat": "eylem: {{type}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "D",
+     "expr": "sum(rate(thinking_sound_total[5m])) * 60",
+     "legendFormat": "düşünme sesi",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 8
+  },
+  {
+   "type": "timeseries",
+   "title": "STT sonuçları",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "sum by (result) (rate(stt_results_total[5m])) * 60",
+     "legendFormat": "{{result}}",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 9
+  },
+  {
+   "type": "timeseries",
+   "title": "RTP kaybı (son çağrılar)",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "rtp_packets_total{kind=\"kayip\"} / rtp_packets_total{kind=\"paket\"}",
+     "legendFormat": "kayıp oranı",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit"
+    },
+    "overrides": []
+   },
+   "options": {},
+   "id": 10
+  },
+  {
+   "type": "stat",
+   "title": "Rehber",
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "${DS}"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 20,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "directory_entries",
+     "legendFormat": "kayıt",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "directory_age_seconds",
+     "legendFormat": "yaş",
+     "datasource": {
+      "type": "prometheus",
+      "uid": "${DS}"
+     }
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short"
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "yaş"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "s"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {},
+   "id": 11
+  }
+ ],
+ "description": "Gateway ve STT metrikleri (tasarim.md 12.2). Alarmlar: alarmlar.yml"
+}

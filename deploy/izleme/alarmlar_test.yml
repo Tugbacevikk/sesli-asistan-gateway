@@ -1,0 +1,75 @@
+# promtool test rules alarmlar_test.yml — alarmların doğru durumda (ve yalnız o durumda) çaldığının birim testi.
+rule_files: [alarmlar.yml]
+evaluation_interval: 1m
+tests:
+  - interval: 1m
+    input_series:
+      - series: 'up{job="sesli-gateway", instance="gw:8000"}'
+        values: '1 1 0 0 0'
+      - series: 'circuit_open{service="llm"}'
+        values: '0 1 1 1 1'
+      - series: 'calls_active'
+        values: '10x10 25x10'
+      - series: 'calls_capacity'
+        values: '30x20'
+      - series: 'directory_entries'
+        values: '10x10'
+      - series: 'transfer_policy_rejections_total'
+        values: '0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: SesliGatewayErisilemiyor
+        exp_alerts:
+          - exp_labels: {job: sesli-gateway, instance: "gw:8000", onem: kritik}
+            exp_annotations:
+              ozet: "Gateway'e ulaşılamıyor (gw:8000)"
+              aciklama: "Santral yeni çağrıları asistana veremiyor; operatöre yönlendirmeli. journalctl -u sesli-gateway"
+      - eval_time: 1m
+        alertname: SesliDevreAcik
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: SesliDevreAcik
+        exp_alerts:
+          - exp_labels: {service: llm, onem: uyari}
+            exp_annotations:
+              ozet: "Devre kesici açık: llm"
+              aciklama: "Servis art arda hata verdi; 30 sn'lik aralarla deneniyor. Sürüyorsa servisi inceleyin."
+      - eval_time: 8m
+        alertname: SesliKapasiteDoluyor
+        exp_alerts: []
+      - eval_time: 17m
+        alertname: SesliKapasiteDoluyor
+        exp_alerts:
+          - exp_labels: {onem: uyari}
+            exp_annotations:
+              ozet: "Eşzamanlı çağrı sınırının 83.33%'i kullanılıyor"
+              aciklama: "Sınır dolunca yeni çağrılar 503 alır (operatöre gider). Yük testiyle kapasiteyi yeniden ölçün."
+      - eval_time: 5m
+        alertname: SesliRehberBos
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: SesliGuvenlikReddi
+        exp_alerts:
+          - exp_labels: {onem: uyari}
+            exp_annotations:
+              ozet: "Güvenlik kuralı 1 aktarmayı reddetti"
+              aciklama: "LLM aramada çıkmayan bir dahiliye aktarmak istedi (yönlendirme denemesi olabilir). Log: 'GÜVENLİK'."
+
+  - interval: 1m
+    input_series:
+      - series: 'turn_latency_seconds_bucket{channel="santral", le="1"}'
+        values: '0+1x30'
+      - series: 'turn_latency_seconds_bucket{channel="santral", le="2"}'
+        values: '0+2x30'
+      - series: 'turn_latency_seconds_bucket{channel="santral", le="5"}'
+        values: '0+10x30'
+      - series: 'turn_latency_seconds_bucket{channel="santral", le="+Inf"}'
+        values: '0+10x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: SesliTurGecikmesiYuksek
+        exp_alerts:
+          - exp_labels: {onem: uyari}
+            exp_annotations:
+              ozet: "Tur gecikmesi p95 4.8 sn (hedef 2 sn, NFR-01)"
+              aciklama: "LLM / STT süresine bakın (llm_latency_seconds, stt_decode_seconds); kapasite dolu olabilir."
