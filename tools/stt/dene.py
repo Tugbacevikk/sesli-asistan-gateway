@@ -75,11 +75,20 @@ async def main(argv=None) -> int:
     ap.add_argument("dosyalar", nargs="+")
     ap.add_argument("--hedef", default="127.0.0.1:50051")
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper hotwords (rehber adları)")
+    ap.add_argument("--rehber", default=None,
+                    help="ipuçlarını Gateway'in yaptığı gibi bu rehberden üret (ör. data/rehber_ornek.json)")
     ap.add_argument("--hiz", type=float, default=1.0, help="1 = gerçek zaman, 0 = beklemeden")
     ap.add_argument("--tsv", default=None, help="dosya<TAB>metin: doğru metinlerle WER")
     ap.add_argument("--cikti", default="sonuc_stt.json")
     a = ap.parse_args(argv)
 
+    if a.rehber:
+        from sesli_asistan.gateway.core.models import Contact
+        from sesli_asistan.gateway.core.search import DirectoryIndex
+
+        rows = json.loads(Path(a.rehber).read_text(encoding="utf-8"))["contacts"]
+        a.ipucu = a.ipucu + DirectoryIndex(Contact.from_api(c) for c in rows).hotwords()
+        print(f"ipuçları ({len(a.ipucu)}): {a.ipucu}")
     client = GrpcStt(a.hedef, connect_timeout_s=5)
     if not await client.ready():
         print(f"STT servisi hazır değil: {a.hedef} (python -m sesli_asistan.stt çalışıyor mu, model ısındı mı?)")

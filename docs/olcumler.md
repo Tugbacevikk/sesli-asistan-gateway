@@ -218,3 +218,40 @@ Hugging Face LFS özetiyle aynı (`9b45e100…`).
 
 **Sınırlar:** n = 12, tek konuşmacı, sentetik (temiz) ses, gürültü yok. NFR-03 (ad/birim tanıma ≥ %90) için gerçek
 telefon kayıtları gerekiyor (açık konu #8).
+
+---
+
+## Uçtan uca çağrı — ilk ölçüm, santral simülatörüyle (27 Ekim 2026)
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarında). **Doğrulama:** simülatör çıktıları, Gateway `tur:` / santral eylemi
+satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileşenlerin toplamına uyuyor (aşağıda).
+
+| | |
+|---|---|
+| Commit | `573d529` (ölçüm anında `f1e94f2`; geçmiş temizliğinden önceki kimlik, kod aynı) |
+| Donanım | RTX 3050 Ti 4 GB (ölçüm sırasında **3,9 / 4,0 GB dolu**), i5-11400H, Windows |
+| Bileşenler | STT: Whisper medium GPU float16 · LLM: qwen3.5:4b (%52 CPU / %48 GPU), `LLM_TIMEOUT_S=15` · TTS: Piper `tr_TR-fahrettin-medium` (yalnızca iç test, ADR-013) |
+| Yol | `tools/cagri/cagri.py` → REST + RTP (G.711 A-law) → Gateway → gRPC STT → LLM + rehber → Piper → RTP; santral eylemleri simülatörün HTTP ucuna |
+| Set | Önceki STT ölçümünün sentetik cümleleri, 5 çağrı, tek tur |
+
+| Çağrı | Duyulan (FINAL) | Asistan | Eylem | Tur gecikmesi | STT çözümü | Diyalog (LLM) |
+|---|---|---|---|---|---|---|
+| A | ayşe yılmaz ile görüşmek istiyorum | Sizi Ayşe Yılmaz'a aktarıyorum. | transfer:214 ✅ | 6,39 sn | 1,66 sn | 3,89 sn |
+| B | satış müdürünü arıyorum | Sizi Mehmet Demir'e aktarıyorum. | transfer:230 ✅ | 5,53 sn | 0,93 sn | 3,69 sn |
+| C | insan kaynaklarına bağlayın | Sizi Zeynep Arslan'a aktarıyorum. | transfer:260 ✅ | 5,22 sn | 0,97 sn | 3,36 sn |
+| D | **orada mı** (beklenen: "zeynep arslan orada mı") | Evet, ben … santralında bulunuyorum. Kiminle görüşmek istersiniz? | — ❌ | 4,67 sn | 0,75 sn | 2,95 sn |
+| E | operatöre bağlayın lütfen | Sizi operatöre bağlıyorum, lütfen hatta kalın. | operator ✅ | 3,88 sn | 0,73 sn | 2,33 sn |
+
+- **Zincir çalışıyor:** 5 çağrının 4'ü doğru eylemle bitti; açılış, sağlık, karşılama (ilk ses ≤ 0,016 sn), aktarma
+  isteği, `transfer_result`, `DELETE` sözleşmeye uygun. WARNING/ERROR yok (yalnızca API_KEY boş uyarısı).
+- **Gecikme hedefin çok üstünde (3,9–6,4 sn; hedef p95 ≤ 2 sn).** Tur gecikmesi ≈ cümle sonu bekleme 0,7 + STT +
+  diyalog + TTS ~0,1 (A: 0,7 + 1,66 + 3,89 + 0,1 ≈ 6,35 ✓). **Diyalog (LLM) %60–65.** GPU dolu olduğu için Whisper
+  da tek başına ölçümdeki 0,5–0,75 sn yerine 0,73–1,66 sn sürdü. Bu donanım sunucuyu temsil etmez; ama LLM'in
+  darboğaz olduğu açık (11.1 iyileştirme seçenekleri).
+- **D: "Zeynep Arslan" STT'de kayboldu.** Aynı dosya STT ölçümünde ("zeynep arslan oradama") tanınmıştı. Fark:
+  Gateway rehberden 12 ipucu veriyor ve listenin **son** öğesi "Zeynep Arslan". Whisper ipuçlarını "önceki metin"
+  olarak alır; ses, istemin son kelimeleriyle başlayınca bunları zaten söylenmiş sayıp atlayabilir. **Varsayım,
+  doğrulanacak:** `tools/stt/dene.py --rehber` ile Gateway'in ipuçlarıyla aynı dosyalar tekrar ölçülecek.
+- Busy akışı (D) aktarma olmadığı için denenemedi.
+
+**Sınırlar:** n = 5, tek tur, sentetik ses; GPU paylaşımlı ve dolu.
