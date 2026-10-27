@@ -136,7 +136,8 @@ class GatewayRuntime:
         return self.office.status(datetime.now(self._tz))
 
     def health(self) -> dict:
-        return {"status": "ok" if self.ready else "degraded", "components": self.effective_components(),
+        status = "draining" if self.manager.draining else "ok" if self.ready else "degraded"
+        return {"status": status, "components": self.effective_components(),
                 "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls,
                 "office": self.office_status()}
 

@@ -175,3 +175,34 @@ async def test_izinsiz_kaynak_reddedilir():
                                  base_url="http://gw") as c:
         r = await c.get("/v1/health")
     assert r.status_code == 401 and r.json()["error"]["code"] == "FORBIDDEN_SOURCE"
+
+
+async def test_bakim_bosaltma_acik_cagriyi_kesmez(gateway):
+    search = ToolCall("c1", "InContacts", {"Name": "Ayşe", "Department": "muhasebe"})
+    rt, api, pbx, _ = await gateway("muhasebeden ayşe hanım", LlmMessage("", [search]))
+    r = await api.post("/v1/calls", json={"call_id": "c-9", "caller": "1", "called": "2", "codec": "pcma",
+                                          "rtp_remote": {"host": "127.0.0.1", "port": 9}})
+    assert r.status_code == 201
+    drain = asyncio.create_task(api.post("/v1/yerel/bosalt", json={"bekle_sn": 5}))
+    await until(lambda: rt.manager.draining)
+    h = await api.get("/v1/health")
+    assert h.status_code == 503 and h.json()["status"] == "draining"      # santral yeni çağrıyı operatöre verir
+    r = await api.post("/v1/calls", json={"call_id": "c-10", "caller": "1", "called": "2", "codec": "pcma"})
+    assert r.status_code == 503 and "boşaltılıyor" in r.json()["error"]["message"]
+    assert not drain.done()                                               # açık çağrı bekleniyor, kesilmedi
+    await api.request("DELETE", "/v1/calls/c-9", json={"reason": "hangup"})
+    r = await asyncio.wait_for(drain, 5)
+    assert r.json() == {"draining": True, "active": 0}
+    r = await api.post("/v1/yerel/bosalt", json={"iptal": True})
+    assert r.json()["draining"] is False and (await api.get("/v1/health")).json()["status"] == "ok"
+
+
+async def test_bosaltma_yalniz_sunucunun_kendisinden(gateway):
+    rt, api, _, _ = await gateway("x")
+    assert (await api.post("/v1/yerel/bosalt", json={"bekle_sn": 0},
+                           headers={"X-Forwarded-For": "10.1.2.3"})).status_code == 403   # vekil üzerinden
+    app = create_app(rt.manager, rt.health, api_key=KEY, allowed_ips={"10.9.9.9"})
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=("10.9.9.9", 1)),
+                                 base_url="http://gw") as c:
+        assert (await c.post("/v1/yerel/bosalt", json={})).status_code == 403
+    assert not rt.manager.draining

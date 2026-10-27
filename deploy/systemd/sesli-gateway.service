@@ -14,11 +14,13 @@ EnvironmentFile=/etc/sesli-asistan/gateway.env
 EnvironmentFile=/etc/sesli-asistan/secrets.env
 Environment=LOG_FORMAT=json PYTHONUNBUFFERED=1
 ExecStart=@ONEK@/current/venv/gateway/bin/python -m sesli_asistan.gateway
+# Durdurmadan önce boşalt: yeni çağrı alınmaz, açık çağrılar en çok 120 sn beklenir (güncelleme konuşmayı kesmez)
+ExecStop=@ONEK@/current/venv/gateway/bin/python @ONEK@/current/tools/kurulum/bosalt.py --bekle 120
 Restart=on-failure
 RestartSec=3
 TimeoutStartSec=180
-# açık çağrılar santrale bırakılır (graceful 10 sn)
-TimeoutStopSec=20
+# boşaltma (120 sn) + kapanış (açık kalan çağrılar santrale bırakılır, 10 sn)
+TimeoutStopSec=150
 LimitNOFILE=65536
 
 StateDirectory=sesli-asistan

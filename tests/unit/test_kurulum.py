@@ -88,3 +88,10 @@ def test_betikler_shellcheck():
 def test_betikler_bash_sozdizimi():
     for f in ("deploy/install.sh", "deploy/paket.sh", "tools/kurulum/kilit.sh"):
         assert subprocess.run(["bash", "-n", f], cwd=ROOT).returncode == 0, f
+
+
+def test_bosalt_araci_gateway_kapaliysa_hata_vermez():
+    import sys as _s
+    _s.path.insert(0, str(ROOT / "tools" / "kurulum"))
+    import bosalt
+    assert bosalt.main(["--port", "1", "--bekle", "0"]) == 0

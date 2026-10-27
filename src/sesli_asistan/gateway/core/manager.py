@@ -98,6 +98,7 @@ class CallManager:
         self._tasks: dict[str, asyncio.Task] = {}
         self._reserved: set[str] = set()
         self.results: deque[tuple[str, CallStats]] = deque(maxlen=keep_results)
+        self.draining = False     # bakım: yeni çağrı alınmaz, açık olanlar kendiliğinden biter
 
     @property
     def active(self) -> int:
@@ -127,6 +128,8 @@ class CallManager:
     def _admit(self, call_id: str) -> None:
         if call_id in self.sessions or call_id in self._reserved:
             raise CallExists(f"açık oturum var: {call_id}", call_id)
+        if self.draining:
+            raise Unavailable("Gateway bakım için boşaltılıyor: yeni çağrı alınmıyor")
         if not self.ready():
             raise Unavailable("bağımlı servisler hazır değil")
         if self.active >= self.max_calls:
@@ -197,6 +200,19 @@ class CallManager:
         if task is not None:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await asyncio.wait_for(asyncio.shield(task), timeout=5)
+
+    async def drain(self, timeout_s: float, poll_s: float = 0.5) -> int:
+        """Yeni çağrıları durdurur, açık çağrıların bitmesini en çok `timeout_s` bekler. Kalan çağrı sayısını döner
+        (0: hepsi bitti). Güncelleme / yeniden başlatma öncesi (deploy/systemd ExecStop)."""
+        self.draining = True
+        log.warning("boşaltma: yeni çağrı alınmıyor, %d açık çağrı bekleniyor (en çok %.0f sn)", self.active, timeout_s)
+        loop = asyncio.get_running_loop()
+        end = loop.time() + timeout_s
+        while self.sessions and loop.time() < end:
+            await asyncio.sleep(poll_s)
+        if self.sessions:
+            log.warning("boşaltma süresi doldu: %d çağrı açık", self.active)
+        return self.active
 
     async def shutdown(self) -> None:
         for cid in list(self.sessions):

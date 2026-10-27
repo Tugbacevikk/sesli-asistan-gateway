@@ -107,6 +107,8 @@ onceki_surum() {   # current dışındaki en yeni sürüm
 
 servisleri_yeniden_baslat() {
     local s
+    has gateway && systemctl is-active -q sesli-gateway \
+        && bilgi "Gateway yeniden başlatılıyor: açık çağrılar bitene kadar beklenir (en çok 2 dk, yeni çağrı alınmaz)"
     for s in stt tts gateway; do has $s && systemctl restart "sesli-$s"; done
 }
 

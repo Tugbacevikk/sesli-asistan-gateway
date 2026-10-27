@@ -81,6 +81,12 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
         host = request.client.host if request.client else ""
+        if path.startswith("/v1/yerel/"):
+            # yalnız sunucunun kendisinden (systemd ExecStop): doğrudan geri döngü bağlantısı, vekilden gelmemiş
+            peer = request.scope.get("client") or ("", 0)
+            if peer[0] not in ("127.0.0.1", "::1") or "x-forwarded-for" in request.headers:
+                return _error(403, "FORBIDDEN", "yalnız sunucunun kendisinden")
+            return await call_next(request)
         if path == "/metrics" or path.startswith(UI_PREFIXES):
             # Prometheus ve arayüz: UI_ALLOWED_IPS + anahtar (rol: api/access.py)
             if path != "/metrics" and web_session is None:
@@ -141,6 +147,17 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         @app.get("/metrics", include_in_schema=False)
         async def metrics() -> Response:
             return Response(generate_latest(metrics_registry), media_type=CONTENT_TYPE_LATEST)
+
+    @app.post("/v1/yerel/bosalt", include_in_schema=False)
+    async def drain(request: Request) -> JSONResponse:
+        """Bakım öncesi boşaltma: {"bekle_sn": 120} (en çok bu kadar beklenir) ya da {"iptal": true}."""
+        body = await request.json() if await request.body() else {}
+        if body.get("iptal"):
+            manager.draining = False
+            log.warning("boşaltma iptal edildi: yeni çağrılar yeniden alınıyor")
+            return JSONResponse({"draining": False, "active": manager.active})
+        left = await manager.drain(float(body.get("bekle_sn", 120)))
+        return JSONResponse({"draining": True, "active": left})
 
     @app.get("/v1/health")
     async def get_health() -> JSONResponse:

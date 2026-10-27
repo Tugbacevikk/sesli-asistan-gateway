@@ -1228,6 +1228,8 @@ flowchart TB
 - Çevrimiçi: `sudo deploy/install.sh` (depo klasöründen; PyPI ve model kaynakları ya da `models.yaml` `mirror`'ı).
 - Çevrimdışı: internetli makinede `deploy/paket.sh` → `sesli-asistan-<sürüm>.tar.gz` (Linux x86_64 / Python 3.12 wheel'leri, proje wheel'i, modeller, her paketin lisans metni, `SHA256SUMS`); sunucuda `sudo deploy/install.sh --paket <dosya>`. Paket bütünlüğü kurulumdan önce doğrulanır. Ollama ve LLM modeli pakete girmez (Ollama'nın kendi çevrimdışı kurulumu; model klasörü taşınır).
 
+**Açık çağrılar kesilmez:** Gateway durdurulurken (güncelleme, `systemctl restart/stop`) systemd önce `ExecStop` ile `tools/kurulum/bosalt.py`'ı çalıştırır: Gateway yeni çağrı almaz (`/v1/health` → 503 `draining`, santral yeni çağrıyı operatöre verir), açık çağrıların bitmesi en çok 120 sn beklenir, sonra kapanır (`TimeoutStopSec=150`); süre dolarsa kalan çağrılar santrale bırakılır. Boşaltma ucu (`POST /v1/yerel/bosalt`) yalnız sunucunun kendisinden çağrılabilir (geri döngü bağlantısı, vekil başlığı yok).
+
 **Güncelleme / geri dönüş:** Aynı komut yeni sürümü `releases/` altına kurar; duman testi geçerse etkin kalır, geçmezse otomatik geri dönülür. Elle geri dönüş: `sudo /opt/sesli-asistan/current/deploy/install.sh --geri-al`. Son 3 sürüm tutulur. Ayarlar, çağrı geçmişi ve modeller sürümlerden bağımsızdır.
 
 **Doğrulama (27.10.2026, Ubuntu 24.04 konteyneri, Gateway):** kurulum, ayar şablonları, `sesli` kullanıcısıyla çalışma, kimlikli duman testi (bozuk durumda başarısız sayılması), otomatik ve elle geri dönüş denendi. Gerçek sunucuda systemd + GPU ile kabul testi yapılacak.
