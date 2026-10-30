@@ -211,6 +211,8 @@ class DirectoryIndex:
         yazılmış toplu karşılaştırmasıyla (cdist) her anahtar için üst sınır bulunur, yalnız eşiği geçebilecek
         anahtarlarda tam `similarity` hesaplanır. Sonuç eski kayıt-kayıt döngüsüyle birebir aynıdır (test:
         test_search.py), 3000 kayıtlı rehberde ~30 kat hızlı: arama olay döngüsünü bloklamaz."""
+        if not qn and not qd:
+            return SearchResult((), Match.NONE)
         vn, vd = query_variants(qn), query_variants(qd)
         total = np.full(len(self._entries), np.inf)
         if qn:
