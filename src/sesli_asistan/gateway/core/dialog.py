@@ -27,7 +27,7 @@ from typing import Any
 
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
-from .models import Candidate, DialogTurn, Match, OperatorAction
+from .models import Candidate, DialogTurn, Match, OperatorAction, SearchResult
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
 from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
@@ -74,6 +74,13 @@ class DialogTexts:
                    "İyi günler dileriz.")
     holiday: str = ("Bugün tatil nedeniyle hizmet veremiyoruz. Lütfen mesai saatlerimiz içinde tekrar arayın. "
                     "İyi günler dileriz.")
+    not_found: str = "Aradığınız kişiyi rehberde bulamadım. Adını ya da birimini tekrar söyler misiniz?"
+    not_found_again: str = ("Yine bulamadım. Adı ya da birimi tekrar söyleyebilirsiniz, "
+                            "isterseniz sizi operatöre de bağlayabilirim.")
+    too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
+    busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
+    no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
+    transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_operator: str = ("Şu an operatörümüz hizmet vermiyor. Lütfen mesai saatlerimiz içinde tekrar arayın. "
                         "İyi günler dileriz.")
     offer_operator_suffix: str = "İsterseniz sizi operatöre de bağlayabilirim."
@@ -93,6 +100,8 @@ class DialogConfig:
     fast_path_min_score: int = 95
     clarify_by_code: bool = True             # ADR-017: birden çok adayda "X mı, Y mi?" sorusu ve seçimi LLM'siz
     stream_replies: bool = True              # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
+    code_replies: bool = True                # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla (LLM turu yok)
+    llm_enabled: bool = True                 # ADR-019: false → LLM hiç kullanılmaz, kural tabanlı diyalog
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -109,6 +118,7 @@ class DialogSession:
         self.call_id = call_id
         self.state = CallToolState()
         self.history: list[dict[str, Any]] = []
+        self.llm_calls = 0                 # bu turdaki LLM çağrıları (metrik)
         # ADR-018: çağrı oturumu verirse LLM cevabının tamamlanan cümleleri buraya akıtılır (seslendirme başlasın)
         self.sink: Callable[[str], None] | None = None
 
@@ -185,6 +195,12 @@ class DialogAgent:
     # --- giriş noktaları ---
 
     async def handle_user(self, s: DialogSession, text: str) -> DialogTurn:
+        s.llm_calls = 0
+        turn = await self._handle_user(s, text)
+        turn.llm_calls = s.llm_calls
+        return turn
+
+    async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
         if not text:
             return self._failure(s)
@@ -196,7 +212,87 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
             return turn
+        if not self.cfg.llm_enabled:
+            return self._rule_turn(s, text)
         return await self._run(s)
+
+    # --- LLM'siz diyalog (ADR-019) ---
+
+    def _rule_turn(self, s: DialogSession, text: str) -> DialogTurn:
+        """LLM kapalıyken: sözde operatör isteği, dahili numara, kişi / unvan / birim aranır. Tek aday → aktarma,
+        2–3 kişi → soru, bulunamazsa tekrar sor (deneme sayacı; sonunda operatör)."""
+        words = search_key(text).split()
+        raw = re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()   # unvanlar atılmadan
+        if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
+            return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
+        index = self.tools.index
+        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
+            if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
+                return self._code_transfer(s, r.candidates[0])
+        people: dict[str, Candidate] = {}
+        depts: set[str] = set()
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                window = " ".join(words[i:i + n])
+                if n == 1 and (len(window) < 3 or strip_suffix(window) in _FILLER):
+                    continue
+                dept_hits = [c for c in index.search(department=window).candidates if c.score >= index.high_score]
+                depts |= {search_key(c.contact.department) for c in dept_hits}
+                if dept_hits and not has_role_word(window):
+                    continue          # "satış", "muhasebeden": birim adı; unvanında geçen kişiler aday sayılmaz
+                for c in index.search(name=window).candidates:
+                    if c.score >= index.high_score and c.contact.kind == "person":
+                        people.setdefault(c.contact.id, c)
+        if people and depts:
+            narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
+            people = narrowed or people
+        cands = sorted(people.values(), key=lambda c: -c.score)
+        if not cands and len(depts) == 1:
+            dept = next(iter(depts))
+            line = [c for c in index.contacts() if c.kind == "department" and search_key(c.department) == dept]
+            members = [c for c in index.contacts() if c.kind == "person" and search_key(c.department) == dept]
+            pick = line or (members if len(members) == 1 else [])
+            if pick:
+                return self._code_transfer(s, Candidate(pick[0], 100))
+            cands = [Candidate(c, 100) for c in members]
+        if len(cands) == 1:
+            return self._code_transfer(s, cands[0])
+        if len(cands) > 1:
+            s.state.last_results = tuple(cands[:3])
+            if len(cands) <= 3 and (turn := self._clarify(s, s.state.last_results)) is not None:
+                s.state.failed_attempts = 0
+                return turn
+            s.state.choice = ()
+            return self._reply(s, self.cfg.texts.too_many)
+        s.state.misses.append(text)
+        return self._not_found(s)
+
+    def _code_search(self, s: DialogSession, args: dict[str, str]):
+        call = ToolCall(id=f"kural_{len(s.history)}", name="InContacts", arguments=args)
+        self.tools.execute(call, s.state)
+        return SearchResult(s.state.last_results, Match.SINGLE_HIGH if len(s.state.last_results) == 1
+                            else Match.MULTIPLE if s.state.last_results else Match.NONE)
+
+    def _code_transfer(self, s: DialogSession, cand: Candidate) -> DialogTurn:
+        s.state.last_results = (cand,)
+        action = self.tools.transfer(cand.contact.extension, s.state)
+        if action is None:
+            return self._not_found(s)
+        s.state.failed_attempts = 0
+        log.info("[%s] kural: → %s (%s)", s.call_id, cand.contact.extension, cand.contact.full_name)
+        turn = self._reply(s, self._transfer_text(action.contact_id))
+        turn.fast = True
+        return turn
+
+    def _not_found(self, s: DialogSession) -> DialogTurn:
+        """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
+        operatöre aktarılır."""
+        if (turn := self._count_failure(s)) is not None:
+            return turn
+        last = s.state.failed_attempts == self.cfg.max_failed_attempts - 1
+        turn = self._reply(s, self.cfg.texts.not_found_again if last else self.cfg.texts.not_found)
+        turn.fallback = True
+        return turn
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 
@@ -358,6 +454,14 @@ class DialogAgent:
         reasons = {"busy": "meşgul", "no_answer": "cevap vermiyor", "failed": "aktarma başarısız oldu"}
         who = next((c.contact.full_name for c in s.state.last_results
                     if pending and c.contact.extension == pending.extension), "aranan kişi")
+        if self.cfg.code_replies or not self.cfg.llm_enabled:
+            # ADR-019: sabit cümle; LLM sonraki turda bağlamı görür
+            t = {"busy": self.cfg.texts.busy, "no_answer": self.cfg.texts.no_answer}.get(
+                status, self.cfg.texts.transfer_failed)
+            s.history.append({"role": "user", "content": f"[Santral] {who} {reasons.get(status, 'ulaşılamadı')}."})
+            name = who if who != "aranan kişi" else "Aradığınız kişi"
+            text = t.format(ad=name, ad_e=dative(name) if who != "aranan kişi" else "Aradığınız kişiye")
+            return self._reply(s, text[0].upper() + text[1:])
         s.history.append({"role": "user", "content": f"[Santral] {who} {reasons.get(status, 'ulaşılamadı')}. "
                           "Şimdi araç çağırma; arayana bildir ve başka birine mi yoksa operatöre mi "
                           "aktarılmak istediğini sor."})
@@ -400,6 +504,11 @@ class DialogAgent:
                     if s.state.failed_attempts >= self.cfg.max_failed_attempts:
                         s.history.append(_tool_message(call, content))
                         return self._operator(s, self.cfg.texts.to_operator, reason="bulunamadi")
+                    if self.cfg.code_replies and len(msg.tool_calls) == 1:
+                        # ADR-019: "bulamadım" kodla; LLM'e ikinci tur yazdırılmaz
+                        s.history.append(_tool_message(call, content))
+                        s.state.failed_attempts -= 1            # _not_found sayacı kendisi artırır
+                        return self._not_found(s)
                     if s.state.failed_attempts == self.cfg.max_failed_attempts - 1:
                         content["note"] = self.cfg.texts.offer_operator_note
                 elif call.name == "InContacts" and not out.failed_search:
@@ -429,6 +538,7 @@ class DialogAgent:
     # --- yardımcılar ---
 
     async def _chat(self, s: DialogSession, tools: list[dict[str, Any]], may_stream: bool) -> Any:
+        s.llm_calls += 1
         if not (may_stream and s.sink and self.cfg.stream_replies and supports_stream(self.llm)):
             return await self.llm.chat(self._messages(s), tools)
         buf, final = "", None
@@ -496,6 +606,41 @@ class DialogAgent:
         return DialogTurn(text, [OperatorAction(reason=reason)], fallback=True)
 
 
+_ASCII = str.maketrans("çğıöşü", "cgiosu")
+_OPERATOR_WORDS = {"operator", "operatore", "santral", "danisma", "resepsiyon", "yetkili"}
+_DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
+                "dokuz": 9}
+_TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kirk": 40, "elli": 50, "altmis": 60, "yetmis": 70, "seksen": 80,
+         "doksan": 90}
+
+
+def spoken_numbers(words: list[str]) -> list[str]:
+    """Yazıyla söylenen dahili: "iki yüz on dört" → 214, "iki bir dört" → 214 (rakam rakam). STT bazen yazıyla yazar."""
+    out, run = [], []
+    for w in [*words, ""]:
+        w = w.rstrip("e").rstrip("y") if w and w not in _DIGIT_WORDS and w not in _TENS and w != "yuz" else w
+        if w in _DIGIT_WORDS or w in _TENS or w in ("yuz", "bin"):
+            run.append(w)
+            continue
+        if len(run) >= 2 or (len(run) == 1 and run[0] in _TENS | {"yuz": 0}):
+            if all(x in _DIGIT_WORDS for x in run):
+                out.append("".join(str(_DIGIT_WORDS[x]) for x in run))
+            else:
+                total, cur = 0, 0
+                for x in run:
+                    if x == "yuz":
+                        cur = (cur or 1) * 100
+                    elif x == "bin":
+                        total, cur = total + (cur or 1) * 1000, 0
+                    else:
+                        cur += _TENS.get(x) or _DIGIT_WORDS[x]
+                out.append(str(total + cur))
+        run = []
+    return [n for n in out if 2 <= len(n) <= 6]
+_FILLER = {"ist", "istiyor", "istiyoru", "istiyorum", "lutfen", "baglar", "baglarmis", "baglayin", "baglayabilir",
+           "gorus", "gorusmek", "gorusebilir", "konus", "konusmak", "merhaba", "selam", "iyi", "gunler", "musunuz",
+           "misiniz", "mi", "mu", "ile", "icin", "bir", "acaba", "rica", "ederim", "aktar", "aktarir", "aktarin",
+           "orada", "var", "yok", "sey", "hani", "evet", "tamam", "beni", "bana", "kim", "kimle", "lazim"}
 _ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
              "ikinciye": 1, "ucuncu": 2, "ucuncusu": 2, "son": -1, "sonuncu": -1, "sonuncusu": -1, "sonuncuya": -1}
 _VOWELS = "aıoueiöü"

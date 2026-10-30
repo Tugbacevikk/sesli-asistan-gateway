@@ -100,3 +100,4 @@ class DialogTurn:
     ended: bool = False           # oturum bitti (aktarma başarılı)
     fallback: bool = False        # LLM yerine sabit metin kullanıldı (hata/kural)
     fast: bool = False            # LLM'siz hızlı yol: arayanın sözünde tam ad / birim net bulundu (ADR-016)
+    llm_calls: int = 0            # bu turda kaç LLM çağrısı yapıldı (0: kodla çözüldü; metrik: yol oranı)
