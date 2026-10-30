@@ -58,3 +58,64 @@ async def test_sik_arananlar_stt_ipucunda_once(tmp_path):
     await rt._refresh_top()
     assert rt.top_extensions == ["215"] and rt._hotwords()[0] == "Burak Çelik"
     rt.history.close()
+
+
+# --- şema geçişleri (tasarim.md 8.4) ---------------------------------------------------------------------------
+
+def test_surumsuz_eski_veritabani_veri_kaybetmeden_gecer(tmp_path):
+    import sqlite3
+
+    from sesli_asistan.gateway.adapters.history import sqlite as h
+
+    path = tmp_path / "eski.db"
+    db = sqlite3.connect(path)
+    db.executescript(h.SCHEMA_V1)                    # ilk sürümün oluşturduğu, user_version = 0 olan veritabanı
+    db.execute("INSERT INTO transfers VALUES ('2026-10-01T10:00:00', '214')")
+    db.commit()
+    db.close()
+    hist = SqliteCallHistory(str(path))
+    assert hist.schema == h.SCHEMA_VERSION >= 2
+    assert hist.top_extensions(days=10000) == [("214", 1)]
+    names = {r[0] for r in hist._db.execute("SELECT name FROM sqlite_master WHERE type='index'")}
+    assert "transfers_started" in names
+    hist.close()
+    again = SqliteCallHistory(str(path))              # ikinci açılışta geçiş tekrarlanmaz
+    assert again.schema == h.SCHEMA_VERSION
+    again.close()
+
+
+def test_yeni_surumun_veritabanina_dokunulmaz(tmp_path, caplog):
+    import sqlite3
+
+    from sesli_asistan.gateway.adapters.history import sqlite as h
+
+    path = tmp_path / "yeni.db"
+    SqliteCallHistory(str(path)).close()
+    db = sqlite3.connect(path)
+    db.execute(f"PRAGMA user_version = {h.SCHEMA_VERSION + 3}")
+    db.commit()
+    db.close()
+    hist = SqliteCallHistory(str(path))               # geri dönülmüş sürüm: çalışmaya devam eder
+    assert hist.schema == h.SCHEMA_VERSION + 3 and "bu sürümden yeni" in caplog.text
+    hist.change_add("a", "yonetici", "1.2.3.4", "ayarlar", ["x"])
+    assert hist.changes(1)[0]["ayrinti"] == ["x"]
+    hist.close()
+
+
+def test_yarida_kalan_gecis_geri_alinir(tmp_path, monkeypatch):
+    import sqlite3
+
+    import pytest
+
+    from sesli_asistan.gateway.adapters.history import sqlite as h
+
+    path = tmp_path / "g.db"
+    SqliteCallHistory(str(path)).close()
+    monkeypatch.setattr(h, "MIGRATIONS", (*h.MIGRATIONS, "CREATE TABLE yeni (a INTEGER); BOZUK SQL;"))
+    monkeypatch.setattr(h, "SCHEMA_VERSION", len(h.MIGRATIONS))
+    with pytest.raises(sqlite3.Error):
+        SqliteCallHistory(str(path))
+    db = sqlite3.connect(path)
+    assert db.execute("PRAGMA user_version").fetchone()[0] == h.SCHEMA_VERSION - 1
+    assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='yeni'").fetchone()   # yarım tablo kalmadı
+    db.close()

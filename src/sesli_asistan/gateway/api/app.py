@@ -27,6 +27,7 @@ from .ui import UI_PREFIXES, mount_ui, request_key
 
 log = logging.getLogger(__name__)
 MAX_BODY = 512 * 1024
+MAX_UPLOAD = 5 * 1024 * 1024          # rehber dosyası (Excel / CSV); uç ayrıca akış sırasında sınırlar
 
 
 class RtpRemote(BaseModel):
@@ -84,8 +85,9 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
             size = int(request.headers.get("content-length") or 0)
         except ValueError:
             size = MAX_BODY + 1
-        if size > MAX_BODY:          # ayar / rehber / çağrı gövdeleri küçüktür: büyük gövde belleği doldurmasın
-            return _error(413, "PAYLOAD_TOO_LARGE", f"gövde en çok {MAX_BODY // 1024} KB")
+        limit = MAX_UPLOAD if path == "/v1/admin/directory/preview" else MAX_BODY
+        if size > limit:             # ayar / rehber / çağrı gövdeleri küçüktür: büyük gövde belleği doldurmasın
+            return _error(413, "PAYLOAD_TOO_LARGE", f"gövde en çok {limit // 1024} KB")
         if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
         host = request.client.host if request.client else ""

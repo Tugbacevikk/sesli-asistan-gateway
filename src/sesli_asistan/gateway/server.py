@@ -52,6 +52,9 @@ def security_warnings(s: GatewaySettings) -> list[str]:
 def main() -> None:
     setup_logging("gateway")
     s = GatewaySettings()
+    from sesli_asistan import __version__
+
+    logging.getLogger(__name__).info("sesli asistan Gateway %s", __version__)
     for w in security_warnings(s):
         logging.getLogger(__name__).warning("GÜVENLİK: %s", w)
     if s.ui_enabled:

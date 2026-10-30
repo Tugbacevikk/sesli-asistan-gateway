@@ -897,6 +897,19 @@ ses **saklanmaz**. Kayıtlar `CALL_HISTORY_DAYS` (30) gün sonra silinir; `CALL_
 hiç yazılmaz. Teşhis ses kaydı (`STT_DEBUG_DIR`) yalnız deneme ortamında açılır. KVKK aydınlatma metni ve saklama
 süresi hukukça onaylanmalıdır (açık konu #6).
 
+### 8.4 Şema sürümü ve geçişler
+
+Veritabanının şema sürümü `PRAGMA user_version`'da tutulur; `adapters/history/sqlite.py` içindeki `MIGRATIONS`
+listesinin sırası sürüm numarasıdır (1: ilk şema, 2: `transfers(started)` dizini). Gateway açılırken bekleyen
+geçişleri sırayla, **her birini ayrı işlemde** uygular: yarıda kalırsa (disk dolu, elektrik) işlem geri alınır, sürüm
+artmaz, sonraki açılışta yeniden denenir. Sürüm numarası olmayan eski veritabanları (0) ilk geçişle aynı yere gelir
+(`IF NOT EXISTS`).
+
+Kurallar: geçiş listesi yalnız **sona eklenir**, eskisi değiştirilmez; geçişler yalnız **ekler** (tablo, sütun,
+dizin), silmez ya da yeniden adlandırmaz. Böylece `install.sh --geri-al` ile eski sürüme dönülünce eski kod yeni şemalı
+veritabanıyla çalışmaya devam eder (Gateway "şema bu sürümden yeni" uyarısını loglar, dokunmaz). Veri dönüştürmesi
+gerektiren bir değişiklik MAJOR sürümdür (14.9) ve öncesinde yedek şarttır (`install.sh` güncellemeden önce zaten alır).
+
 ---
 
 ## 9. Hata yönetimi ve dayanıklılık
@@ -1185,6 +1198,38 @@ Arayüzün **Ayarlar** sekmesi (`GET/PUT /v1/admin/settings`, erişim kuralı ar
 
 Öncelik: ayar ekranında kaydedilen > ayar dosyası (ortam değişkeni) > varsayılan. Yalnız ayar dosyasından **farklı** değerler `LOCAL_SETTINGS_FILE`'a yazılır (atomik yazma). Dosya bozulursa `.bozuk` uzantısıyla kenara alınır ve Gateway ayar dosyasıyla açılır. Kayıtlı bir değer artık geçersizse (ör. ayar dosyasında kurum adı değişti) yerel ayarlar yok sayılır ve loglanır. Kaydetme yalnız `application/json` kabul eder: başka bir sitenin tarayıcı üzerinden form göndermesi (CSRF) ön kontrolde durur.
 
+### 13.2 Rehber yükleme (Excel / CSV)
+
+Müşterinin rehberi genelde Excel'de ya da santralin dışa aktarımındadır. **Rehber → Rehber dosyası** (yalnız
+yönetici; kod: `gateway/directory_import.py`, `settings_service.DirectoryUpload`):
+
+1. **Dosya:** `.xlsx` (ilk sayfa) ya da `.csv` (UTF-8 ya da Windows-1254; `;` `,` sekme). Eski `.xls` okunmaz
+   ("Farklı kaydet → .xlsx" denir). En çok 5 MB / 20.000 satır. Excel ek kütüphanesiz okunur (zipfile + ElementTree);
+   açılmış boyut ve dosya sayısı sınırlanır (zip bombası), DOCTYPE / ENTITY içeren XML reddedilir (varlık saldırıları).
+2. **Sütunlar başlıktan tanınır** (büyük/küçük harf ve Türkçe karakterden bağımsız): Ad, Soyad ya da tek sütun
+   "Ad Soyad" (son kelime soyad), Birim, Unvan, Dahili (zorunlu), isteğe bağlı Tür (kişi / birim), Takma adlar,
+   Birim takma adları, Aktarılabilir (evet / hayır), id.
+3. **Doğrulama:** satır numarasıyla hata (satır alınmaz): ad veya soyad eksik, dahili 2–6 rakam değil (dış hat / cep
+   yazılamaz), tekrar eden satır, anlaşılmayan tür. Uyarı (satır alınır): aynı dahili birden çok kayıtta, aynı ad
+   birden çok kez (asistan arayana hangisi diye sorar), takma adı olan kayıt yeni rehberde yok (takma ad etkisiz
+   kalır), yerel kaydın dahilisi artık rehberde.
+4. **Önizleme** (`POST /v1/admin/directory/preview`): hiçbir şey değişmez; eklenen / silinen / değişen / aynı sayıları
+   ve örnekleri, tanınan sütunlar. Sonuç 15 dk bellekte tutulur, belirteçle onaylanır: önizlenen ile uygulanan aynıdır.
+   Hatalı satır varsa onay ancak "hatalı satırları atla" ile; silinecek kayıt varsa arayüz ayrıca sorar.
+5. **Uygulama** (`…/apply`): rehber dosyası atomik yazılır (geçici dosya + fsync + rename), önceki dosya
+   `rehber.json.onceki` olarak saklanır, rehber hemen yeniden okunur (yeniden başlatma yok). Yeni dosya okunamazsa
+   kendiliğinden önceki rehbere dönülür. Değişiklik geçmişine özet yazılır ("rehber yüklendi: 412 kayıt (+5 −2 ~3)").
+   **Önceki rehbere dön** (`…/revert`) tek adımda geri alır.
+6. **Kimlikler korunur:** aynı tür + ad + dahili olan kayıt mevcut kimliğini alır; yeni kayıtların kimliği bu üçlüden
+   türetilir (aynı dosya yeniden yüklenince değişmez). Yerel takma adlar kimliğe bağlı olduğundan kopmaz.
+   **Mevcut rehberi indir** (`GET …/export`) CSV'yi id sütunuyla verir: düzenlenip geri yüklenebilir. Dışa aktarmada
+   `=` `+` `-` `@` ile başlayan hücreler `'` ile korunur (Excel'de formül çalışmasın), geri yüklemede kaldırılır.
+
+Yükleme yalnız `DIRECTORY_SOURCE=json` ve rehber dosyası Gateway kullanıcısınca yazılabilirken açıktır. Bu yüzden
+varsayılan yer `/var/lib/sesli-asistan/rehber.json`'dur (systemd `ProtectSystem=strict`: `/etc` salt okunur). Rehber
+API'si (Sentra) gelince yükleme kapanır, rehber oradan yönetilir. Uçlar yalnız `application/octet-stream` /
+`application/json` kabul eder (CSRF: form gönderimi ön kontrole takılır).
+
 ## 14. Kurulum ve dağıtım
 
 ### 14.1 Dağıtım görünümü
@@ -1215,8 +1260,9 @@ flowchart TB
 /etc/sesli-asistan/           # root:sesli 750 — kurulum var olanın üzerine YAZMAZ
 ├── gateway.env  stt.env  tts.env   # 640
 ├── secrets.env               # 640 (API_KEY kurulumda rastgele üretilir)
-└── rehber.json               # Sentra Rehber API gelene kadar
-/var/lib/sesli-asistan/       # systemd StateDirectory (sesli): cagri_gecmisi.db, yerel_ayarlar.json
+└── imza-anahtari.gpg         # paket imzasını doğrulayan açık anahtar (14.3), root:root 644
+/var/lib/sesli-asistan/       # systemd StateDirectory (sesli): cagri_gecmisi.db, yerel_ayarlar.json,
+                              # rehber.json (+ .onceki; arayüzden yüklenebilir, 13.2)
 /var/cache/sesli-asistan/tts  # systemd CacheDirectory: seslendirme önbelleği
 ```
 
@@ -1239,6 +1285,24 @@ flowchart TB
 **Açık çağrılar kesilmez:** Gateway durdurulurken (güncelleme, `systemctl restart/stop`) systemd önce `ExecStop` ile `tools/kurulum/bosalt.py`'ı çalıştırır: Gateway yeni çağrı almaz (`/v1/health` → 503 `draining`, santral yeni çağrıyı operatöre verir), açık çağrıların bitmesi en çok 120 sn beklenir, sonra kapanır (`TimeoutStopSec=150`); süre dolarsa kalan çağrılar santrale bırakılır. Boşaltma ucu (`POST /v1/yerel/bosalt`) yalnız sunucunun kendisinden çağrılabilir (geri döngü bağlantısı, vekil başlığı yok).
 
 **Güncelleme / geri dönüş:** Aynı komut yeni sürümü `releases/` altına kurar; duman testi geçerse etkin kalır, geçmezse otomatik geri dönülür. Elle geri dönüş: `sudo /opt/sesli-asistan/current/deploy/install.sh --geri-al`. Son 3 sürüm tutulur. Ayarlar, çağrı geçmişi ve modeller sürümlerden bağımsızdır.
+
+**Paket imzası:** Paketin içindeki `SHA256SUMS` taşıma sırasında bozulmayı yakalar ama kasıtlı değişikliği yakalamaz
+(değiştiren listeyi de değiştirir). Bu yüzden `paket.sh --imza <anahtar>` paketi GPG ile ayrık imzalar
+(`<paket>.tar.gz.sig`) ve `install.sh --paket` paketi **açmadan önce**, paketten gelmeyen bir açık anahtarla doğrular
+(`gpgv`, ayrı anahtar halkası: `/etc/sesli-asistan/imza-anahtari.gpg`, root:root 644). Açık anahtar ilk kurulumda
+`--imza-anahtari <dosya>` ile bir kez konur; betik parmak izini yazar, yayıncıdan ayrı bir kanaldan (telefon, yüz
+yüze) teyit edilir. Sonraki güncellemeler kurulu sürümün betiğiyle (`/opt/sesli-asistan/current/deploy/install.sh
+--paket …`) yapılır: doğrulayan kod da paketten gelmez. Anahtar tanımlıyken imzasız, başka anahtarla imzalı ya da
+değiştirilmiş paket kurulmaz (`--imzasiz` bunu atlatamaz); anahtar tanımlı değilse kurulum ancak `--imzasiz` ile
+yapılır (yalnız deneme). Gizli imza anahtarı CI'a konmaz, paket onun bulunduğu makinede üretilir.
+
+**Kaldırma:** `sudo install.sh --kaldir` servisleri boşaltarak durdurur, systemd birimlerini, programı
+(`/opt/sesli-asistan`: sürümler, venv'ler, modeller) ve seslendirme önbelleğini siler; ayarlar, çağrı geçmişi, rehber
+ve yedekler **kalır** (yeniden kurulumda kullanılır). `--kaldir --verilerle` önce gizliler dahil son bir yedek alır
+(`/var/backups/sesli-asistan`), sonra ayarları, verileri ve `sesli` kullanıcısını da siler; yedek klasörüne dokunulmaz
+(silme komutu yazdırılır). Onay için `evet` yazılır (`--evet`: otomasyon; etkileşimsiz çalıştırmada `--evet` yoksa
+durur). `--onek` adı "sesli" içermiyorsa durur (yanlış klasör silinmesin). Ollama, dil modeli, NVIDIA sürücüsü ve
+nginx'e dokunulmaz.
 
 **Doğrulama (27.10.2026, Ubuntu 24.04 konteyneri, Gateway):** kurulum, ayar şablonları, `sesli` kullanıcısıyla çalışma, kimlikli duman testi (bozuk durumda başarısız sayılması), otomatik ve elle geri dönüş denendi. Gerçek sunucuda systemd + GPU ile kabul testi yapılacak.
 
@@ -1288,13 +1352,52 @@ alınır; alınamazsa güncelleme durur.
 | İçerik | Nasıl |
 |---|---|
 | Çağrı geçmişi ve değişiklik geçmişi (`*.db`) | SQLite çevrimiçi yedek API'si: Gateway çalışırken tutarlı kopya; yedekte `PRAGMA integrity_check` |
-| Yerel ayarlar (`yerel_ayarlar.json`: anonslar, mesai, takma adlar, yerel kayıtlar) | dosya |
-| `/etc/sesli-asistan/*.env`, `rehber.json` | dosya; `secrets.env` yalnız `--gizliler` ile |
+| Yerel ayarlar (`yerel_ayarlar.json`: anonslar, mesai, takma adlar, yerel kayıtlar) ve `rehber.json` | dosya (`/var/lib/sesli-asistan/*.json`) |
+| `/etc/sesli-asistan/*.env` (ve eski kurulumlarda oradaki `rehber.json`) | dosya; `secrets.env` yalnız `--gizliler` ile |
 
 Her dosyanın SHA256'sı `MANIFEST.json`'da. Geri yükleme (`yedek.py geri-yukle <arşiv>`): önce bütünlük doğrulanır
 (bozuk ya da klasör dışına yazmaya çalışan arşiv reddedilir), Gateway çalışıyorsa durur, var olan dosyalar
 `.geri-yukleme-oncesi` olarak saklanır, sahip ve izinler korunur. Modeller ve kod yedeklenmez (kurulumla yeniden
 gelir). Yedek klasörünü başka bir makineye kopyalamak (rsync, şirket yedek sistemi) işletmenin işidir.
+
+### 14.8 Destek paketi
+
+Müşteride sorun çıktığında tek dosya: `sudo python3 /opt/sesli-asistan/current/tools/kurulum/destek.py [--saat 48]`
+→ `/tmp/sesli-destek-<zaman>.tar.gz` (600). Yalnız standart kütüphane (Gateway'in venv'i bozuksa da çalışır).
+
+| İçerik | Not |
+|---|---|
+| `surum.txt` | etkin ve kurulu sürümler |
+| `sistem.txt` | işletim sistemi, bellek, disk, `nvidia-smi`, dinlenen portlar, saat eşitleme |
+| `servisler.txt` | `systemctl status` + yeniden başlama sayısı (gateway, stt, tts, yedek, ollama) |
+| `loglar/*.log` | son N saatin journald logları |
+| `saglik.json`, `metrikler.txt` | `/v1/admin/health`, `/metrics` |
+| `ayar/*.env` | anahtar / şifre içeren değişkenlerin değeri `***` ya da `(boş)`; `secrets.env`'den yalnız doluluk |
+| `rehber.json` | yalnız sayılar (kişi, birim hattı, aktarılamaz), adlar yok |
+| `cagri_gecmisi.json` | son 7 günün sonuç sayıları, şema sürümü, `quick_check`; metin yok |
+
+Bütün içerikte ayrıca maskelenir: ayar dosyalarındaki gerçek gizli değerler (UI_USERS'taki kişisel anahtarlar dahil),
+`Bearer …`, `anahtar=` / `password=` / `token=` değerleri, 7+ haneli numaralar (son 4 hane hariç; dahili numaralar
+2–6 hane olduğundan kalır). Konuşma metinleri loglarda yalnız `LOG_TEXTS=true` ise bulunur; `OZET.txt` bunu belirtir.
+
+### 14.9 Sürüm yönetimi
+
+Anlamsal sürümleme: **MAJOR** santral sözleşmesi (`/v1` REST, RTP) ya da ayar adları uyumsuz değişir veya geri
+alınamayan veri geçişi var; **MINOR** geriye uyumlu özellik (veritabanı geçişleri yalnız ekler, 8.4); **PATCH** hata
+düzeltmesi. Sürüm `pyproject.toml`'dadır; çalışan sürüm sağlık yanıtında (`version`), açılış logunda ve kurulumda
+`releases/<sürüm>-<commit>` adında görünür.
+
+`CHANGELOG.md`: her değişiklik **Yayımlanmamış** başlığına yazılır. Sürüm çıkarmak:
+
+```bash
+python tools/kurulum/surum.py hazirla 0.2.0   # başlık "0.2.0 — tarih" olur, pyproject sürümü 0.2.0
+git commit -am "Sürüm 0.2.0" && git tag v0.2.0 && git push origin main v0.2.0
+deploy/paket.sh --imza <anahtar>              # internetsiz, imzalı kurulum paketi (anahtarın olduğu makinede)
+```
+
+Etiket gönderilince CI (`.github/workflows/surum.yml`): bütün denetimler (ci.yml) → etiket = pyproject sürümü ve
+CHANGELOG'da dolu bölüm var mı (`surum.py denetle`) → kaynak arşivi, wheel, SHA256SUMS → GitHub sürümü (notlar
+CHANGELOG'dan). Birkaç GB'lık internetsiz paket ve imzası CI'da üretilmez (gizli anahtar CI'a konmaz).
 
 ---
 

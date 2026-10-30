@@ -5,6 +5,7 @@
 #   deploy/paket.sh                       # Gateway + STT (GPU) + araçlar + varsayılan modeller
 #   deploy/paket.sh --tts                 # kadın sesi servisinin paketleri de
 #   deploy/paket.sh --cikti /yol/klasor
+#   deploy/paket.sh --imza <anahtar-kimliği>   # paketi GPG ile imzalar (.sig); ortam: PAKET_IMZA_ANAHTARI
 #
 # İçerik: tekerlek/ (kilitli sürümlerin Linux x86_64 / Python 3.12 wheel'leri — kilit dosyasındaki SHA256 ile
 # indirilir — ve projenin kendi wheel'i), models/ (SHA256 doğrulanmış), deploy/, tools/, lisanslar/ (her paketin
@@ -14,15 +15,21 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 KOK=$(pwd)
 CIKTI="$KOK/dist"
 TTS=0
+IMZA=${PAKET_IMZA_ANAHTARI:-}
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --tts) TTS=1; shift ;;
         --cikti) CIKTI=$(realpath -m "$2"); shift 2 ;;
-        -h|--help) sed -n '2,12p' "$0"; exit 0 ;;
+        --imza) IMZA="$2"; shift 2 ;;
+        -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
         *) echo "bilinmeyen seçenek: $1"; exit 1 ;;
     esac
 done
 command -v python3 >/dev/null || { echo "python3 gerekli"; exit 1; }
+if [[ -n "$IMZA" ]]; then   # uzun işten önce: anahtar gerçekten imzalayabiliyor mu
+    command -v gpg >/dev/null || { echo "gpg gerekli (--imza)"; exit 1; }
+    gpg --batch --list-secret-keys "$IMZA" >/dev/null 2>&1 || { echo "HATA: gizli anahtar yok: $IMZA"; exit 1; }
+fi
 SURUM=$(grep -m1 '^version' pyproject.toml | cut -d'"' -f2)
 if git rev-parse --short HEAD >/dev/null 2>&1; then
     [[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo "HATA: commit edilmemiş değişiklik var"; exit 1; }
@@ -72,12 +79,19 @@ missing = sorted({w.name.split("-")[0] for w in src.glob("*.whl")} - {p.name for
 print("lisans metni bulunamayan (THIRD_PARTY_LICENSES.md'deki kaynağa bakın):", ", ".join(missing) or "yok")
 PY
 
-cp -r deploy tools THIRD_PARTY_LICENSES.md "$P/"
+cp -r deploy tools THIRD_PARTY_LICENSES.md CHANGELOG.md "$P/"
 mkdir -p "$P/data" && cp data/rehber_ornek.json "$P/data/"
 find "$P/tools" -name __pycache__ -prune -exec rm -rf {} +
 echo "$SURUM" > "$P/SURUM"
 (cd "$P" && find . -type f ! -name SHA256SUMS -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS)
 tar -C "$IS" -czf "$CIKTI/$AD.tar.gz" "$AD"
 (cd "$CIKTI" && sha256sum "$AD.tar.gz" > "$AD.tar.gz.sha256")
+if [[ -n "$IMZA" ]]; then
+    gpg --batch --yes --local-user "$IMZA" --detach-sign -o "$CIKTI/$AD.tar.gz.sig" "$CIKTI/$AD.tar.gz"
+    echo "==> imza: $CIKTI/$AD.tar.gz.sig ($IMZA)"
+else
+    echo "UYARI: paket İMZASIZ (--imza yok): sunucu ancak --imzasiz ile kurar"
+fi
 echo "==> $CIKTI/$AD.tar.gz ($(du -h "$CIKTI/$AD.tar.gz" | cut -f1))"
-echo "    sunucuda: tar -xzf $AD.tar.gz && sudo $AD/deploy/install.sh --paket $AD.tar.gz"
+echo "    güncelleme (kurulu sunucuda): sudo /opt/sesli-asistan/current/deploy/install.sh --paket $AD.tar.gz"
+echo "    ilk kurulum: tar -xzf $AD.tar.gz && sudo $AD/deploy/install.sh --paket $AD.tar.gz --imza-anahtari <açık-anahtar.gpg>"

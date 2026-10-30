@@ -1,0 +1,38 @@
+# Sürüm etiketi (v0.2.0 gibi) gönderilince: tüm denetimler → etiket / pyproject / CHANGELOG tutarlılığı → kaynak
+# arşivi + wheel + SHA256 → GitHub sürümü (notlar CHANGELOG'dan). tasarim.md 14.9.
+# İnternetsiz kurulum paketi (CUDA wheel'leri ve modellerle birkaç GB) burada üretilmez: imza anahtarının
+# bulunduğu makinede deploy/paket.sh --imza ile üretilir (gizli anahtar CI'a konmaz).
+name: Sürüm
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+jobs:
+  denetim:
+    uses: ./.github/workflows/ci.yml
+
+  surum:
+    needs: denetim
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Etiket, pyproject ve CHANGELOG tutarlı mı
+        run: python tools/kurulum/surum.py denetle "$GITHUB_REF_NAME"
+      - name: Kaynak arşivi ve wheel
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          mkdir dist
+          git archive --format=tar.gz --prefix="sesli-asistan-$V/" -o "dist/sesli-asistan-$V-kaynak.tar.gz" HEAD
+          python -m pip wheel --no-deps . -w dist
+          python tools/kurulum/surum.py notlar "$V" > notlar.md
+          (cd dist && sha256sum -- * > SHA256SUMS)
+      - name: GitHub sürümü
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notlar.md --verify-tag

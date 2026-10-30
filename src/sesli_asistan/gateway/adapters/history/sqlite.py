@@ -19,7 +19,11 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-SCHEMA = """
+# Şema geçişleri (tasarim.md 8.4): sıra numarası = PRAGMA user_version. Yalnız SONA eklenir, eskisi değiştirilmez.
+# Kural: geçişler yalnız EKLER (tablo, sütun, dizin); sütun silmez / yeniden adlandırmaz. Böylece `install.sh --geri-al`
+# ile eski sürüme dönülünce eski kod yeni şemalı veritabanıyla çalışmaya devam eder.
+# 1: ilk şema (sürüm numarası olmadan oluşturulmuş veritabanları da 0 → 1 geçişiyle aynı yere gelir: IF NOT EXISTS)
+SCHEMA_V1 = """
 CREATE TABLE IF NOT EXISTS calls (
     call_id    TEXT NOT NULL,
     started    TEXT NOT NULL,
@@ -41,6 +45,34 @@ CREATE TABLE IF NOT EXISTS changes (
 );
 CREATE INDEX IF NOT EXISTS changes_ts ON changes(ts);
 """
+MIGRATIONS: tuple[str, ...] = (
+    SCHEMA_V1,
+    # 2: en çok aranan dahililer sorgusu (top_extensions) ve temizlik tarih aralığıyla süzer
+    "CREATE INDEX IF NOT EXISTS transfers_started ON transfers(started);",
+)
+SCHEMA_VERSION = len(MIGRATIONS)
+
+
+def migrate(db: sqlite3.Connection) -> tuple[int, int]:
+    """Bekleyen geçişleri sırayla, her birini ayrı işlemde uygular. (önceki, şimdiki) sürüm döner.
+
+    Geçiş yarıda kalırsa (disk dolu, elektrik) işlem geri alınır, sürüm artmaz: bir sonraki açılışta yeniden denenir.
+    Veritabanı bu koddan YENİ bir sürümle yazılmışsa (geri dönüş) dokunulmaz, uyarı loglanır: geçişler yalnız ekleme
+    yaptığından eski kod çalışmaya devam eder."""
+    before = db.execute("PRAGMA user_version").fetchone()[0]
+    if before > SCHEMA_VERSION:
+        log.warning("çağrı geçmişi şeması (%d) bu sürümden yeni (%d): önceki sürüme dönülmüş; geçiş yapılmadı",
+                    before, SCHEMA_VERSION)
+        return before, before
+    for version in range(before + 1, SCHEMA_VERSION + 1):
+        try:
+            db.executescript(f"BEGIN IMMEDIATE;\n{MIGRATIONS[version - 1]}\nPRAGMA user_version = {version};\nCOMMIT;")
+        except sqlite3.Error:
+            if db.in_transaction:
+                db.execute("ROLLBACK")
+            raise
+        log.info("çağrı geçmişi şeması %d → %d", version - 1, version)
+    return before, SCHEMA_VERSION
 CHANGES_DAYS = 365          # denetim kaydı çağrı geçmişinden uzun tutulur
 
 
@@ -61,7 +93,7 @@ class SqliteCallHistory:
         self._db = sqlite3.connect(path, check_same_thread=False)
         self._lock = threading.Lock()
         with self._lock:
-            self._db.executescript(SCHEMA)
+            self.schema = migrate(self._db)[1]
         log.info("çağrı geçmişi: %s (%d gün, metinler %s)", path, retention_days,
                  "saklanıyor" if keep_texts else "saklanmıyor")
 

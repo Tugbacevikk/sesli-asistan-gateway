@@ -152,9 +152,17 @@ sudo nano /etc/sesli-asistan/gateway.env         # santral adresi, izinli IP'ler
 sudo systemctl restart sesli-gateway
 ```
 
-İnternetsiz sunucu: internetli makinede `deploy/paket.sh`, sunucuda `sudo deploy/install.sh --paket sesli-asistan-<sürüm>.tar.gz`.
+İnternetsiz sunucu: internetli makinede `deploy/paket.sh --imza <anahtar>`, sunucuda
+`sudo deploy/install.sh --paket sesli-asistan-<sürüm>.tar.gz --imza-anahtari <açık-anahtar>` (imza doğrulanmadan
+kurulmaz; sonraki güncellemeler kurulu sürümün betiğiyle).
 Bağımlılıklar `deploy/kilit/`'teki sabit sürüm + SHA256 kilitlerinden kurulur (`tools/kurulum/kilit.sh` üretir);
 lisanslar: [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md). Arayüze uzaktan HTTPS: `deploy/nginx/`.
+
+- Rehber: arayüzde **Rehber → Rehber dosyası** ile Excel / CSV yüklenir (önizleme, satır numaralı hatalar, geri alma).
+- Sorun bildirimi: `sudo python3 /opt/sesli-asistan/current/tools/kurulum/destek.py` → gizli değerleri maskelenmiş
+  tek dosya (sürüm, servisler, sağlık, loglar).
+- Kaldırma: `sudo deploy/install.sh --kaldir` (ayarlar ve veriler kalır), `--kaldir --verilerle` (önce son yedek).
+- Sürümler ve değişiklikler: [CHANGELOG.md](CHANGELOG.md) (tasarim.md 14.9).
 
 ## Geliştirme
 

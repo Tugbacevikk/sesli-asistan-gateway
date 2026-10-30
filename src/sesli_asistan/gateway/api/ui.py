@@ -4,6 +4,8 @@
     WS   /v1/ui/ws             tarayıcı ↔ Gateway: mikrofon sesi → çağrı oturumu → asistanın sesi + olaylar
     GET  /v1/admin/calls       süren ve son çağrılar, bulunamayan aramalar
     GET  /v1/admin/health      sağlık (santral IP listesinden bağımsız)
+    GET  /v1/admin/directory/export | template      rehber CSV'si / boş şablon
+    POST /v1/admin/directory/preview | apply | revert   rehber yükleme (Excel / CSV), yönetici
 
 Deneme çağrısı, santral çağrısıyla **aynı** çağrı oturumunu (`CallSession`) kullanır; yalnızca ses yolu (RTP yerine
 WebSocket) ve santral (aktarma sonucunu arayüzdeki kişi seçer) farklıdır. Böylece arayüzde görülen davranış
@@ -266,6 +268,79 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view)
+
+    # --- rehber yükleme (tasarim.md 13.2) ------------------------------------------------------------------
+
+    def _csv(data: bytes, name: str) -> Response:
+        return Response(data, media_type="text/csv; charset=utf-8",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+
+    @app.get("/v1/admin/directory/export", include_in_schema=False)
+    async def directory_export() -> Response:
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        return _csv(settings.upload.export(), "rehber.csv")
+
+    @app.get("/v1/admin/directory/template", include_in_schema=False)
+    async def directory_template() -> Response:
+        from sesli_asistan.gateway.directory_import import template_csv
+
+        return _csv(template_csv(), "rehber_sablon.csv")
+
+    @app.post("/v1/admin/directory/preview", include_in_schema=False)
+    async def directory_preview(request: Request) -> JSONResponse:
+        """Gövde: dosyanın kendisi (application/octet-stream), ad `X-Dosya-Adi` başlığında (URL kodlu)."""
+        from urllib.parse import unquote
+
+        from sesli_asistan.gateway.directory_import import MAX_FILE
+
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
+        # basit (ön kontrolsüz) içerik türleri reddedilir: başka sitenin form gönderimi (CSRF) dosya yükleyemesin
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/octet-stream":
+            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/octet-stream olmalı")
+        body = bytearray()
+        async for chunk in request.stream():
+            body += chunk
+            if len(body) > MAX_FILE:
+                return _err(413, "PAYLOAD_TOO_LARGE", f"dosya en çok {MAX_FILE // (1024 * 1024)} MB")
+        try:
+            out = await settings.upload.preview(bytes(body), unquote(request.headers.get("x-dosya-adi", ""))[:200])
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
+        return JSONResponse(out)
+
+    @app.post("/v1/admin/directory/apply", include_in_schema=False)
+    async def directory_apply(request: Request) -> JSONResponse:
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        try:
+            data = json.loads(await request.body() or b"{}")
+            out = await settings.upload.apply(str(data.get("token", "")), bool(data.get("skip_errors")),
+                                              _actor(request))
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
+        return JSONResponse(out)
+
+    @app.post("/v1/admin/directory/revert", include_in_schema=False)
+    async def directory_revert(request: Request) -> JSONResponse:
+        if settings is None:
+            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (denied := _forbidden(request)) is not None:
+            return denied
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        try:
+            out = await settings.upload.revert(_actor(request))
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
+        return JSONResponse(out)
 
     @app.get("/v1/admin/changes", include_in_schema=False)
     async def admin_changes() -> JSONResponse:

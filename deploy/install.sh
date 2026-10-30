@@ -5,6 +5,8 @@
 #   sudo deploy/install.sh --paket sesli-asistan-0.1.0.tar.gz   # internetsiz paketten (deploy/paket.sh üretir)
 #   sudo deploy/install.sh --kontrol               # yalnızca ön kontroller
 #   sudo deploy/install.sh --geri-al               # önceki sürüme dön
+#   sudo deploy/install.sh --kaldir                # programı kaldır (ayarlar, çağrı geçmişi ve yedekler kalır)
+#   sudo deploy/install.sh --kaldir --verilerle    # her şeyi kaldır (önce son bir yedek alınır; yedekler kalır)
 #
 # Seçenekler:
 #   --servisler "gateway stt"   kurulacak servisler (tts: kadın sesi, isteğe bağlı)
@@ -12,6 +14,10 @@
 #   --onek /opt/sesli-asistan   kurulum kökü
 #   --ollama-yok                Ollama'yı denetleme / model çekme (LLM başka sunucuda)
 #   --baslatma                  servisleri kurup başlatma (yalnız dosyalar)
+#   --evet                      kaldırmada onay sorma (otomasyon)
+#   --yedeksiz                  --verilerle kaldırmada son yedeği alma
+#   --imza-anahtari <dosya>     paket imzasını doğrulayacak açık anahtar (ilk kurulumda bir kez; $AYAR'a kopyalanır)
+#   --imzasiz                   imza doğrulamadan kur (yalnız deneme; önerilmez)
 #
 # Ne yapar: ön kontrol → "sesli" kullanıcısı → releases/<sürüm>/ altında servis başına venv (kilitli sürümler,
 # SHA256 doğrulamalı) → modeller (SHA256) → /etc/sesli-asistan ayarları (var olanın üzerine YAZMAZ) → systemd →
@@ -20,14 +26,22 @@
 set -Eeuo pipefail
 
 ONEK=/opt/sesli-asistan
-AYAR=/etc/sesli-asistan
-VERI=/var/lib/sesli-asistan
+# SESLI_* yalnız testler içindir (geçici klasörlerde kurulum / kaldırma denemesi)
+AYAR=${SESLI_AYAR:-/etc/sesli-asistan}
+VERI=${SESLI_VERI:-/var/lib/sesli-asistan}
 SERVISLER="gateway stt"
 PAKET=""
 CPU=0
 OLLAMA=1
 BASLAT=1
 KIP=kur
+VERILERLE=0
+EVET=0
+YEDEKSIZ=0
+IMZA_ANAHTARI=""
+IMZASIZ=0
+YEDEK=${SESLI_YEDEK:-/var/backups/sesli-asistan}
+ONBELLEK=${SESLI_ONBELLEK:-/var/cache/sesli-asistan}
 PY=python3.12
 KAYNAK="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -47,7 +61,13 @@ while [[ $# -gt 0 ]]; do
         --baslatma) BASLAT=0; shift ;;
         --kontrol) KIP=kontrol; shift ;;
         --geri-al) KIP=geri; shift ;;
-        -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+        --kaldir) KIP=kaldir; shift ;;
+        --verilerle) VERILERLE=1; shift ;;
+        --evet) EVET=1; shift ;;
+        --yedeksiz) YEDEKSIZ=1; shift ;;
+        --imza-anahtari) IMZA_ANAHTARI=$(realpath "$2"); shift 2 ;;
+        --imzasiz) IMZASIZ=1; shift ;;
+        -h|--help) sed -n '2,29p' "$0"; exit 0 ;;
         *) dur "bilinmeyen seçenek: $1 (--help)" ;;
     esac
 done
@@ -144,13 +164,100 @@ geri_al() {
     saglik_bekle
 }
 
+# --- kaldırma --------------------------------------------------------------------------------------------------
+kaldir() {
+    [[ $EUID -eq 0 ]] || dur "root olarak çalıştırın (sudo)"
+    # yanlış --onek ile sistem klasörü silinmesin
+    [[ "$ONEK" == /* && "$(basename "$ONEK")" == *sesli* ]] || dur "--onek beklenmedik: $ONEK"
+    local birimler=(sesli-gateway sesli-stt sesli-tts sesli-yedek.timer sesli-yedek)
+    echo "Kaldırılacak:"
+    echo "  - servisler: ${birimler[*]} (açık çağrılar bitene kadar beklenir, en çok 2 dk)"
+    echo "  - program, sanal ortamlar ve modeller: $ONEK"
+    echo "  - seslendirme önbelleği: $ONBELLEK"
+    if [[ $VERILERLE -eq 1 ]]; then
+        echo "  - ayarlar ve şifreler: $AYAR"
+        echo "  - çağrı geçmişi, yerel ayarlar, rehber: $VERI"
+        echo "  - sistem kullanıcısı: sesli"
+        [[ $YEDEKSIZ -eq 1 ]] && echo "  (son yedek ALINMAYACAK: --yedeksiz)" \
+            || echo "  Önce son bir yedek alınır: $YEDEK"
+    else
+        echo "Kalacak: $AYAR (ayarlar), $VERI (çağrı geçmişi, rehber), $YEDEK (yedekler). Hepsi için: --verilerle"
+    fi
+    echo "Dokunulmayacak: Ollama ve dil modeli, NVIDIA sürücüsü, nginx, $YEDEK"
+    if [[ $EVET -ne 1 ]]; then
+        [[ -t 0 ]] || dur "onay gerekli: etkileşimsiz çalıştırmada --evet ekleyin"
+        local cevap; read -r -p "Devam etmek için 'evet' yazın: " cevap
+        [[ $cevap == evet ]] || dur "vazgeçildi"
+    fi
+    local py="$ONEK/current/venv/gateway/bin/python"
+    if [[ $VERILERLE -eq 1 && $YEDEKSIZ -ne 1 ]] && compgen -G "$VERI/*" >/dev/null; then
+        bilgi "son yedek (gizliler dahil): $YEDEK"
+        [[ -x "$py" ]] || dur "yedek aracı yok ($py); yedek almadan kaldırmak için --yedeksiz"
+        "$py" "$ONEK/current/tools/kurulum/yedek.py" al --hedef "$YEDEK" --tut 1000 --gizliler \
+            --veri "$VERI" --ayar "$AYAR" \
+            || dur "yedek alınamadı; kaldırma durduruldu (yedeksiz: --yedeksiz)"
+    fi
+    bilgi "servisler durduruluyor"
+    local b
+    for b in "${birimler[@]}"; do
+        systemctl disable -q --now "$b" 2>/dev/null || true
+        rm -f "/etc/systemd/system/$b.service" "/etc/systemd/system/$b"
+    done
+    systemctl daemon-reload
+    systemctl reset-failed 'sesli-*' 2>/dev/null || true
+    bilgi "program siliniyor: $ONEK"
+    rm -rf "$ONEK" "$ONBELLEK"
+    if [[ $VERILERLE -eq 1 ]]; then
+        bilgi "ayarlar ve veriler siliniyor"
+        rm -rf "$AYAR" "$VERI"
+        id sesli >/dev/null 2>&1 && userdel sesli 2>/dev/null || true
+    fi
+    bilgi "kaldırma tamam"
+    [[ -d "$YEDEK" ]] && echo "  Yedekler duruyor: $YEDEK (silmek için: sudo rm -rf $YEDEK)"
+    [[ $VERILERLE -eq 0 ]] && echo "  Ayarlar ve veriler duruyor: $AYAR, $VERI (yeniden kurulumda kullanılır)"
+    return 0
+}
+
+if [[ $KIP == kaldir ]]; then kaldir; exit 0; fi
 if [[ $KIP == kontrol ]]; then on_kontrol; exit 0; fi
 if [[ $KIP == geri ]]; then [[ $EUID -eq 0 ]] || dur "root gerekli"; geri_al; exit 0; fi
 on_kontrol
 
+# --- paket imzası ---------------------------------------------------------------------------------------------------
+# SHA256SUMS paketin İÇİNDEDİR: bozulmayı yakalar, kasıtlı değişikliği yakalamaz (değiştiren listeyi de değiştirir).
+# Bu yüzden paket, açılmadan önce sunucuda zaten bulunan açık anahtarla (paketten gelmeyen) doğrulanır: gpgv ayrı
+# bir anahtar halkası kullanır, sistemin GPG ayarlarına dokunmaz. Anahtar ilk kurulumda --imza-anahtari ile bir kez
+# konur (parmak izi yazdırılır: yayıncıdan ayrı bir kanaldan teyit edilir). Sonraki güncellemeler kurulu sürümün
+# install.sh'ıyla (/opt/sesli-asistan/current/deploy/install.sh) yapılır: doğrulayan kod da paketten gelmez.
+IMZA_HALKASI=$AYAR/imza-anahtari.gpg
+imza_dogrula() {
+    if [[ -n "$IMZA_ANAHTARI" ]]; then
+        [[ -f "$IMZA_ANAHTARI" ]] || dur "açık anahtar yok: $IMZA_ANAHTARI"
+        command -v gpg >/dev/null || dur "gpg yok: sudo apt install gnupg"
+        bilgi "imza anahtarı (parmak izini yayıncıyla teyit edin):"
+        gpg --batch --show-keys --with-fingerprint "$IMZA_ANAHTARI" | sed 's/^/    /'
+        install -d -m 750 "$AYAR"
+        local tmp; tmp=$(mktemp)
+        gpg --batch --dearmor < "$IMZA_ANAHTARI" > "$tmp" 2>/dev/null || cp "$IMZA_ANAHTARI" "$tmp"
+        install -m 644 "$tmp" "$IMZA_HALKASI"; rm -f "$tmp"   # root:root (yalnız root değiştirebilir)
+    fi
+    if [[ -f "$IMZA_HALKASI" ]]; then
+        command -v gpgv >/dev/null || dur "gpgv yok: sudo apt install gpgv"
+        [[ -f "$PAKET.sig" ]] || dur "imza dosyası yok: $PAKET.sig (paket imzalı olmalı)"
+        gpgv --keyring "$IMZA_HALKASI" "$PAKET.sig" "$PAKET" 2>&1 | sed 's/^/    /' \
+            || dur "paket İMZASI DOĞRULANAMADI: paket değiştirilmiş ya da başka anahtarla imzalanmış. Kurulmadı."
+        bilgi "paket imzası doğrulandı"
+    elif [[ $IMZASIZ -eq 1 ]]; then
+        uyari "imza doğrulanmadan kuruluyor (--imzasiz)"
+    else
+        dur "imza anahtarı tanımlı değil ($IMZA_HALKASI): ilk kurulumda --imza-anahtari <açık-anahtar> verin (ya da yalnız deneme için --imzasiz)"
+    fi
+}
+
 # --- kaynak: depo ya da internetsiz paket ----------------------------------------------------------------------
 ACIK=""
 if [[ -n "$PAKET" ]]; then
+    imza_dogrula
     ACIK=$(mktemp -d)
     trap 'rm -rf "$ACIK"' EXIT
     bilgi "paket açılıyor: $PAKET"
@@ -260,11 +367,23 @@ if has gateway && grep -q '^API_KEY=$' "$AYAR/secrets.env"; then
     sed -i "s|^API_KEY=$|API_KEY=$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 40)|" "$AYAR/secrets.env"
     echo "  + API_KEY üretildi (santral ekibine güvenli yoldan iletin: sudo grep API_KEY $AYAR/secrets.env)"
 fi
-if has gateway && [[ ! -f "$AYAR/rehber.json" ]]; then
-    cp "$KAYNAK/data/rehber_ornek.json" "$AYAR/rehber.json" 2>/dev/null \
-        || "$HEDEF/venv/gateway/bin/python" -c "import json;print(json.dumps({'contacts':[],'server_time':''}))" > "$AYAR/rehber.json"
-    chown root:sesli "$AYAR/rehber.json"; chmod 640 "$AYAR/rehber.json"
-    uyari "örnek rehber kuruldu: $AYAR/rehber.json — gerçek rehberle değiştirin"
+# Rehber dosyası gateway.env'deki DIRECTORY_PATH'ten okunur; yoksa örnek rehber konur. /var/lib altındaysa
+# Gateway yazabilir (arayüzden Excel/CSV yükleme), /etc altındaysa salt okunur kalır (eski kurulumlar).
+if has gateway; then
+    rehber=$(sed -n 's/^DIRECTORY_PATH=//p' "$AYAR/gateway.env" | tail -n1)
+    rehber=${rehber:-$VERI/rehber.json}
+    if [[ ! -f "$rehber" ]]; then
+        install -d "$(dirname "$rehber")"
+        cp "$KAYNAK/data/rehber_ornek.json" "$rehber" 2>/dev/null \
+            || "$HEDEF/venv/gateway/bin/python" -c "import json;print(json.dumps({'contacts':[],'server_time':''}))" > "$rehber"
+        uyari "örnek rehber kuruldu: $rehber — arayüzde Rehber → Rehber dosyası ile gerçek rehberi yükleyin"
+    fi
+    if [[ "$rehber" == "$VERI"/* ]]; then
+        chown sesli:sesli "$rehber"; chmod 640 "$rehber"
+    else
+        chown root:sesli "$rehber"; chmod 640 "$rehber"
+        uyari "rehber $rehber: arayüzden yükleme kapalı (Gateway yazamaz). Açmak için dosyayı $VERI/ altına taşıyıp DIRECTORY_PATH'i güncelleyin"
+    fi
 fi
 # Ayarların doğruluğu (servis açılmadan): pydantic doğrulaması
 # (bash ile "source" edilmez: systemd biçiminde tırnaksız boşluklu değerler olabilir)
@@ -317,3 +436,4 @@ ls -1dt "$ONEK"/releases/*/ | tail -n +4 | xargs -r rm -rf
 bilgi "kurulum tamam: $SURUM"
 echo "  Arayüz (sunucuda): http://127.0.0.1:8000/ui   · uzaktan HTTPS: $HEDEF/deploy/nginx/sesli-asistan.conf"
 echo "  Loglar: journalctl -u sesli-gateway -u sesli-stt -f    · geri alma: sudo $HEDEF/deploy/install.sh --geri-al"
+echo "  Sorun bildirimi: sudo python3 $ONEK/current/tools/kurulum/destek.py   · kaldırma: sudo $HEDEF/deploy/install.sh --kaldir"

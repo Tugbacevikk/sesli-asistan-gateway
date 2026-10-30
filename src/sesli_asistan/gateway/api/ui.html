@@ -178,7 +178,11 @@ td input { min-width: 160px; }
 .dirtable .ext { font-weight: 600; }
 .tag { display: inline-block; font-size: .78rem; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--rule); color: var(--muted); }
 .tag.local { border-color: var(--lamp); color: var(--ink); }
-#dirForm .send { width: 100%; padding: 12px; }
+#dirForm .send, #upBox .send { width: 100%; padding: 12px; }
+#upBox { margin-top: 16px; }
+#upBox .ghost { width: 100%; margin-top: 8px; }
+#upPreview ul { margin: 6px 0; padding-left: 18px; }
+#upPreview .errs { max-height: 180px; overflow: auto; }
 @media (max-width: 560px) { .dirtable th:nth-child(2), .dirtable td:nth-child(2) { display: none; } }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } }
@@ -300,6 +304,20 @@ td input { min-width: 160px; }
           <button class="send" type="submit" id="nfSave">Rehbere ekle</button>
           <div id="nfStatus" role="status" aria-live="polite" class="small"></div>
         </form>
+        <div class="box form" id="upBox">
+          <h2>Rehber dosyası</h2>
+          <p>Bütün rehberi Excel (.xlsx) ya da CSV dosyasından yükleyin. Önce önizleme gösterilir; onaylamadan hiçbir şey
+            değişmez. Sütunlar başlıktan tanınır: Ad, Soyad (ya da Ad Soyad), Birim, Unvan, Dahili; isteğe bağlı Tür, Takma adlar.</p>
+          <div class="row small"><a href="/v1/admin/directory/template" download>Boş şablon</a> ·
+            <a href="/v1/admin/directory/export" download>Mevcut rehberi indir</a></div>
+          <div class="field"><label for="upFile">Dosya</label>
+            <input id="upFile" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+          <div id="upPreview" class="small" aria-live="polite"></div>
+          <label class="small" id="upSkipRow" hidden><input type="checkbox" id="upSkip"> Hatalı satırları atlayarak uygula</label>
+          <button class="send" type="button" id="upApply" hidden>Rehberi değiştir</button>
+          <button class="ghost" type="button" id="upRevert" hidden>Önceki rehbere dön</button>
+          <div id="upStatus" role="status" aria-live="polite" class="small"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -815,6 +833,7 @@ function renderDirectory() {
   for (const b of $("dirRows").querySelectorAll("[data-del]")) b.onclick = () => removeContact(b.dataset.del);
   for (const el of $("dirForm").querySelectorAll("input, select, button")) el.disabled = !directory.writable;
   if (!directory.writable) $("nfStatus").textContent = readOnlyReason(directory);
+  renderUpload();
 }
 
 $("dirFilter").oninput = renderDirectory;
@@ -857,6 +876,70 @@ async function removeContact(id) {
   renderDirectory();
   $("nfStatus").textContent = "Yerel kayıt silindi."; $("nfStatus").className = "small";
 }
+
+/* ---------- rehber dosyası (yükleme) ---------- */
+let upToken = null, upErrors = 0, upRemoved = 0, upTotal = 0;
+function upState(msg, cls = "") { $("upStatus").textContent = msg; $("upStatus").className = `small ${cls}`; }
+function renderUpload() {
+  const st = directory?.directory_upload || {};
+  const admin = directory?.user?.role === "yonetici";
+  const can = !!(admin && st.enabled);
+  $("upFile").disabled = !can;
+  $("upRevert").hidden = !(can && st.revertible);
+  if (!admin) upState("Rehber yüklemek yönetici rolü ister.");
+  else if (!st.enabled && st.reason) upState(st.reason);
+}
+$("upFile").onchange = async () => {
+  const f = $("upFile").files[0];
+  upToken = null; $("upApply").hidden = true; $("upSkipRow").hidden = true; $("upPreview").innerHTML = "";
+  if (!f) return;
+  upState("Dosya okunuyor…");
+  try {
+    const r = await fetch("/v1/admin/directory/preview", { method: "POST",
+      headers: { ...headers, "Content-Type": "application/octet-stream", "X-Dosya-Adi": encodeURIComponent(f.name) },
+      body: await f.arrayBuffer() });
+    const d = await r.json();
+    if (!r.ok) { upState(d.error?.message || "Dosya okunamadı.", "status-bad"); return; }
+    upToken = d.token; upErrors = d.errors; upRemoved = d.diff.removed;
+    upTotal = d.diff.removed + d.diff.changed + d.diff.unchanged;
+    const df = d.diff, li = (a) => a.map((x) => `<li>${esc(x.name)} · ${esc(x.department || "–")} · ${esc(x.extension)}</li>`).join("");
+    let h = `<p><b>${d.contacts}</b> kayıt alınacak (${d.rows} satır). Yeni: <b>${df.added}</b> · silinecek: <b>${df.removed}</b>` +
+      ` · değişen: <b>${df.changed}</b> · aynı: ${df.unchanged}</p>`;
+    h += `<p class="note">Tanınan sütunlar: ${Object.entries(d.columns).map(([k, v]) => esc(v)).join(", ")}</p>`;
+    if (df.removed) h += `<p class="status-bad">Silinecek kayıtlar (ilk 10):</p><ul>${li(df.examples.removed)}</ul>`;
+    if (df.added) h += `<p>Yeni kayıtlar (ilk 10):</p><ul>${li(df.examples.added)}</ul>`;
+    if (d.errors) h += `<p class="status-bad">${d.errors} hatalı satır alınmayacak:</p><ul class="errs">` +
+      d.error_list.map((e) => `<li>${e.row}. satır: ${esc(e.message)}</li>`).join("") + "</ul>";
+    if (d.warnings.length) h += `<p>Uyarılar:</p><ul class="errs">` +
+      d.warnings.map((e) => `<li>${e.row ? e.row + ". satır: " : ""}${esc(e.message)}</li>`).join("") + "</ul>";
+    $("upPreview").innerHTML = h;
+    $("upSkipRow").hidden = !d.errors; $("upSkip").checked = false;
+    $("upApply").hidden = false; $("upApply").disabled = !!d.errors;
+    upState(d.errors ? "Hatalı satırları düzeltip yeniden yükleyin ya da atlamayı seçin." : "Önizlemeyi kontrol edip onaylayın.");
+  } catch (e) { upState("Gateway'e ulaşılamadı.", "status-bad"); }
+};
+$("upSkip").onchange = () => { $("upApply").disabled = upErrors && !$("upSkip").checked; };
+async function upPost(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json();
+  if (!r.ok) { upState(d.error?.message || "İşlem yapılamadı.", "status-bad"); return null; }
+  upState(d.message, "status-ok");
+  $("upApply").hidden = true; $("upSkipRow").hidden = true; $("upPreview").innerHTML = ""; $("upFile").value = ""; upToken = null;
+  await loadDirectory();
+  return d;
+}
+$("upApply").onclick = async () => {
+  if (!upToken) return;
+  // toplu silme kazara olmasın (yanlış sayfa / eksik dosya): silinecek kayıt varsa ayrıca onay
+  if (upRemoved && !confirm(`${upRemoved} / ${upTotal} kayıt rehberden silinecek. Devam edilsin mi?`)) return;
+  $("upApply").disabled = true;
+  try { await upPost("/v1/admin/directory/apply", { token: upToken, skip_errors: $("upSkip").checked }); }
+  catch (e) { upState("Gateway'e ulaşılamadı.", "status-bad"); }
+};
+$("upRevert").onclick = async () => {
+  if (!confirm("Rehber, son yüklemeden önceki hâline dönsün mü?")) return;
+  try { await upPost("/v1/admin/directory/revert", {}); } catch (e) { upState("Gateway'e ulaşılamadı.", "status-bad"); }
+};
 </script>
 </body>
 </html>

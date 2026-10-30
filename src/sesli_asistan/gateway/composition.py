@@ -10,6 +10,8 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
+from sesli_asistan import __version__
+
 from .adapters.directory.json_dir import JsonDirectory
 from .adapters.llm.ollama import OllamaChat
 from .adapters.llm.openai_compat import OpenAiCompatChat
@@ -146,7 +148,7 @@ class GatewayRuntime:
         comps = self.effective_components()
         status = "draining" if self.manager.draining else "ok" if self.ready else "degraded"
         mode = "kural" if not self.s.llm_enabled or comps.get("llm", "ok") != "ok" else "llm"
-        return {"status": status, "mode": mode, "components": comps,
+        return {"status": status, "version": __version__, "mode": mode, "components": comps,
                 "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls,
                 "office": self.office_status()}
 
