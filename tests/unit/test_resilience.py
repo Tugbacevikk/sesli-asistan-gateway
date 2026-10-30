@@ -121,6 +121,11 @@ async def test_devre_aciksa_yeni_cagri_alinmaz():
         assert rt.ready
         for _ in range(3):
             rt.breakers["llm"].failure()
-        assert not rt.ready and rt.health()["components"]["llm"] == "devre_acik"
+        # LLM zorunlu değil (ADR-020): çağrı alınır, diyalog kural tabanlı
+        h = rt.health()
+        assert rt.ready and h["components"]["llm"] == "devre_acik" and h["mode"] == "kural"
+        for _ in range(3):
+            rt.breakers["tts"].failure()
+        assert not rt.ready and rt.health()["status"] == "degraded"     # TTS zorunlu
     finally:
         await rt.stop()

@@ -1095,6 +1095,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STREAM_REPLIES` | true | ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir |
 | `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
 | `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
+| `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
@@ -1450,6 +1451,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Bağlam:** Gerçek Ollama ölçümünde (27.10.2026) rehberde olmayan kişi için ilk ses 4,7 sn: LLM önce aracı çağırıyor, sonra "bulunamadı" cümlesini yazıyor. Santralin ana işi dar (kişi / birim → aktarma); LLM'in gerekli olup olmadığı gerçek çağrılarla ölçülmeli.
 - **Karar:** (1) Arama sonuçsuzsa ikinci LLM turu yok: sabit cümle ("Aradığınız kişiyi rehberde bulamadım…"); sondan bir önceki denemede operatör teklifi, sonda operatör. Aktarma sonucu (meşgul / cevap vermiyor / ulaşılamıyor) da sabit cümleyle; LLM sonraki turda santral bilgisini geçmişte görür. Hepsi Ayarlar ekranından değiştirilebilir. (2) Her arayan turunun LLM'e gidip gitmediği kaydedilir: `dialog_turns_total{yol=llm|kod}` ve izleme ekranında "turların %X'i dil modeline gitti". (3) `LLM_ENABLED=false`: Ollama hiç kullanılmaz ve sağlıkta yer almaz; kural tabanlı diyalog: operatör sözcükleri, dahili numara (rakam ya da yazıyla: "iki yüz on dört", "iki bir dört"), kişi adı / unvan / birim pencereleri; birim söylenmişse kişi adayları daraltılır; birimin genel hattı yoksa tek kişilik birimde o kişi; tek aday → aktarma, 2–3 → soru, daha çok → "soyadını ya da birimini söyler misiniz". (4) Arama gösterilenden çok aday bulduysa (`more`), ilk üçü arasında soru sorulmaz (doğru kişi dışarıda kalabilirdi); LLM'e de bu bilgi verilir.
 - **Sonuç:** "Bulunamadı" turu ~2 sn'ye iner. LLM gerekip gerekmediği pilot verisiyle (oran) kararlaştırılır; düşükse `LLM_ENABLED=false` ile GPU belleği STT'ye kalır. `CODE_REPLIES=false` eski davranış.
+
+### ADR-020 — LLM zorunlu bileşen değil
+- **Bağlam:** LLM (Ollama) düşünce sağlık bozuk sayılıyor, yeni çağrılar 503 alıyor ve süren çağrılar hata anonsuyla operatöre gidiyordu. Oysa çağrıların çoğu LLM'siz çözülüyor (ADR-016/017/019) ve kural tabanlı diyalog var.
+- **Karar:** Çağrı kabulü için zorunlu bileşenler STT, TTS ve rehber. LLM düşerse (hata, zaman aşımı, devre açık) o tur kural tabanlı diyalogla sürer; sağlıkta `mode: "kural"` görünür, `dependency_up{service="llm"}` alarmı çalar. `LLM_FALLBACK=false` eski davranış (LLM hatasında operatör, LLM düşükken çağrı reddi).
+- **Sonuç:** Ollama'nın çökmesi ya da GPU belleğinin dolması santrali durdurmaz; yalnız serbest konuşma yeteneği azalır.
 
 ### ADR-015 — Kadın sesi: Seslen TTS servisi
 - **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.

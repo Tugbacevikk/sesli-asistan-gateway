@@ -253,3 +253,19 @@ async def test_akisli_seslendirme_hata_ve_iptal():
 def test_akan_metinde_tamamlanan_cumleler(buf, done, rest):
     from sesli_asistan.gateway.core.dialog import complete_sentences
     assert complete_sentences(buf) == (done, rest)
+
+
+async def test_disk_onbellegi_sinirli_ve_suresi_dolar(tmp_path):
+    import os
+    c = CachingTts(FakeTts(), disk_dir=tmp_path, max_disk_items=3, max_disk_days=1)
+    for i in range(5):
+        await c.synthesize(f"Cümle {i}.")
+    files = sorted(tmp_path.glob("*.wav"), key=lambda f: f.stat().st_mtime)
+    for k, f in enumerate(files):
+        os.utime(f, (1000 + k, 1000 + k))                    # hepsi çok eski ...
+    os.utime(files[-1], None)                                # ... biri yeni
+    assert c.prune() == 4 and len(list(tmp_path.glob("*.wav"))) == 1
+    for i in range(5, 10):
+        await c.synthesize(f"Cümle {i}.")
+    c.prune()
+    assert len(list(tmp_path.glob("*.wav"))) == 3

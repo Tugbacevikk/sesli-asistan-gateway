@@ -103,6 +103,7 @@ class DialogConfig:
     stream_replies: bool = True              # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
     code_replies: bool = True                # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla (LLM turu yok)
     llm_enabled: bool = True                 # ADR-019: false → LLM hiç kullanılmaz, kural tabanlı diyalog
+    llm_fallback: bool = True                # ADR-020: LLM hata / zaman aşımında operatör yerine kural tabanlı tur
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -491,6 +492,10 @@ class DialogAgent:
                 may_stream = not caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts
                 msg = await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
             except (TimeoutError, LlmError) as e:
+                user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+                if self.cfg.llm_fallback and caller_turn and user and not s.state.actions and not found:
+                    log.warning("[%s] LLM hatası (%s): bu tur kural tabanlı", s.call_id, e or type(e).__name__)
+                    return self._rule_turn(s, user)
                 log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)
                 return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
 

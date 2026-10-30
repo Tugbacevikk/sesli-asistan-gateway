@@ -6,6 +6,8 @@ seslendirilmiş sabit anonsların yüklenebilmesini sağlar (tasarim.md 9.1).
 
 Anahtar: sha256(ses kimliği | metin). Ses ya da hız değişince (`cache_id`) eski kayıtlar kullanılmaz.
 Disk biçimi: 16 bit mono WAV (TTS'in kendi örnekleme hızında), dosya adı = anahtar.
+Disk sınırlı: en çok `max_disk_items` dosya ve `max_disk_days` gün (en eskiler silinir). Cümleler ad içerebilir
+(kişisel veri): süresiz birikmez, disk dolmaz.
 """
 from __future__ import annotations
 
@@ -26,12 +28,15 @@ log = logging.getLogger(__name__)
 
 class CachingTts:
     def __init__(self, inner: TtsPort, max_items: int = 256, disk_dir: str | Path | None = None,
-                 cache_id: str | None = None):
+                 cache_id: str | None = None, max_disk_items: int = 2000, max_disk_days: float = 30):
         self.inner, self.max_items = inner, max_items
         self.cache_id = cache_id or getattr(inner, "cache_id", type(inner).__name__)
         self.disk = Path(disk_dir) if disk_dir else None
+        self.max_disk_items, self.max_disk_days = max_disk_items, max_disk_days
+        self._writes = 0
         if self.disk:
             self.disk.mkdir(parents=True, exist_ok=True)
+            self.prune()
         self._mem: OrderedDict[str, Audio] = OrderedDict()
         self.hits = self.misses = 0
 
@@ -57,7 +62,26 @@ class CachingTts:
         self._remember(k, a)
         if self.disk:
             await asyncio.to_thread(_write_wav, self.disk / f"{k}.wav", a)
+            self._writes += 1
+            if self._writes % 50 == 0:
+                await asyncio.to_thread(self.prune)
         return a
+
+    def prune(self) -> int:
+        """Eski ve fazla dosyaları siler (en eski değişiklik zamanı önce). Silinen sayısını döner."""
+        if not self.disk:
+            return 0
+        import time
+
+        files = sorted(self.disk.glob("*.wav"), key=lambda f: f.stat().st_mtime)
+        cutoff = time.time() - self.max_disk_days * 86400
+        old = [f for f in files if f.stat().st_mtime < cutoff]
+        extra = files[len(old):][: max(0, len(files) - len(old) - self.max_disk_items)]
+        for f in [*old, *extra]:
+            f.unlink(missing_ok=True)
+        if old or extra:
+            log.info("TTS disk önbelleği: %d eski dosya silindi", len(old) + len(extra))
+        return len(old) + len(extra)
 
     def _remember(self, k: str, a: Audio) -> None:
         self._mem[k] = a

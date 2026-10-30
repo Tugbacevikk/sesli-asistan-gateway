@@ -47,6 +47,7 @@ def agent(llm, **cfg):
     cfg.setdefault("fast_path", False)
     cfg.setdefault("clarify_by_code", False)
     cfg.setdefault("code_replies", False)
+    cfg.setdefault("llm_fallback", False)
     return DialogAgent(llm, ToolRegistry(_index()), DialogConfig(organization="Deneme", **cfg))
 
 
@@ -460,3 +461,11 @@ def test_yaziyla_sayi():
     assert spoken_numbers("iki bir dort".split()) == ["214"]
     assert spoken_numbers("iki yuz otuz bire".split()) == ["231"]
     assert spoken_numbers("ayse yilmaz".split()) == [] and spoken_numbers(["bir"]) == []
+
+
+async def test_llm_dusunce_tur_kural_tabanli_surer():
+    s = agent(ScriptedLlm(LlmError("bağlantı yok"), LlmError("bağlantı yok")), llm_fallback=True).new_session("fb")
+    t = await s.handle_user("zeynep arslan lütfen")
+    assert [a.extension for a in t.actions] == ["260"]
+    t = await s.handle_user("ferhat")                            # kural tabanlı: bulunamadı, operatör değil
+    assert t.actions == [] and t.text == DialogConfig().texts.not_found

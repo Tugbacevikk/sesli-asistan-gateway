@@ -70,6 +70,7 @@ class GatewaySettings(BaseSettings):
     stream_replies: bool = True               # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
     code_replies: bool = True                 # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla
     llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog
+    llm_fallback: bool = True                 # ADR-020: LLM düşerse çağrı reddedilmez, kural tabanlı sürer
 
     # TTS (tasarim.md 5.4, 6.4)
     tts_url: str = "http://127.0.0.1:5500"

@@ -206,3 +206,10 @@ async def test_bosaltma_yalniz_sunucunun_kendisinden(gateway):
                                  base_url="http://gw") as c:
         assert (await c.post("/v1/yerel/bosalt", json={})).status_code == 403
     assert not rt.manager.draining
+
+
+async def test_buyuk_govde_reddedilir(gateway):
+    _, api, _, _ = await gateway("x")
+    r = await api.post("/v1/calls", content=b"{" + b" " * (600 * 1024) + b"}",
+                       headers={"Content-Type": "application/json"})
+    assert r.status_code == 413 and r.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"

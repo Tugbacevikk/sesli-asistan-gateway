@@ -50,7 +50,7 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
                        llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts(), fast_path=s.fast_path,
                        clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
-                       code_replies=s.code_replies, llm_enabled=s.llm_enabled)
+                       code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback)
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
 
 
@@ -124,7 +124,11 @@ class GatewayRuntime:
 
     @property
     def ready(self) -> bool:
-        return self.speaker is not None and all(v == "ok" for v in self.effective_components().values())
+        """Çağrı kabul edilir mi. LLM zorunlu değil (ADR-020): düşerse diyalog kural tabanlı sürer; yalnız STT, TTS
+        ve rehber zorunlu."""
+        comps = self.effective_components()
+        required = {k: v for k, v in comps.items() if k != "llm" or not self.s.llm_fallback}
+        return self.speaker is not None and all(v == "ok" for v in required.values())
 
     def effective_components(self) -> dict[str, str]:
         """Bileşen durumu + devre kesici: devresi açık servis "devre_acik" sayılır (yeni çağrı alınmaz)."""
@@ -139,8 +143,10 @@ class GatewayRuntime:
         return self.office.status(datetime.now(self._tz))
 
     def health(self) -> dict:
+        comps = self.effective_components()
         status = "draining" if self.manager.draining else "ok" if self.ready else "degraded"
-        return {"status": status, "components": self.effective_components(),
+        mode = "kural" if not self.s.llm_enabled or comps.get("llm", "ok") != "ok" else "llm"
+        return {"status": status, "mode": mode, "components": comps,
                 "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls,
                 "office": self.office_status()}
 
