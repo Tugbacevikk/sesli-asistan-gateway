@@ -1362,7 +1362,7 @@ Her değişiklikte: biçim ve stil kontrolü (ruff), tip kontrolü (mypy), birim
 proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-audit, pip-licenses).
 
 
-### 15.6 Asterisk deneme santrali (`deploy/asterisk/`, `tools/santral/`)
+### 15.7 Asterisk deneme santrali (`deploy/asterisk/`, `tools/santral/`)
 
 Gerçek bir santralde, sözleşmenin santral tarafını yazmadan uçtan uca deneme. Asterisk (açık kaynak santral) ARI ile
 yönetilir; `tools/santral/asterisk_kopru.py` Gateway sözleşmesinin santral tarafını uygular:

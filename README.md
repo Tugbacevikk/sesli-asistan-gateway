@@ -116,7 +116,7 @@ python tools/cagri/cagri.py ayse.wav --cevap cevap.wav        # 3. terminal: san
 ### Santral denemesi (Asterisk)
 
 `deploy/asterisk/` (deneme santrali ayarları, `kur.sh`) + `tools/santral/asterisk_kopru.py` (ARI köprüsü): softphone'dan
-500'ü arayıp gerçek SIP/RTP ile asistanla konuşma, gerçek aktarma (meşgul / cevapsız dahil). Ayrıntı: tasarim.md 15.6.
+500'ü arayıp gerçek SIP/RTP ile asistanla konuşma, gerçek aktarma (meşgul / cevapsız dahil). Ayrıntı: tasarim.md 15.7.
 
 ### Kadın sesi (ADR-015)
 
