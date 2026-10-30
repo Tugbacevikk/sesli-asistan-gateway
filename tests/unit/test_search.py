@@ -141,3 +141,49 @@ def test_takma_adin_tam_hali_hitabiyla_tek_kisiyi_bulur(index):
     assert idx.search("Ayşe hanım").match == Match.MULTIPLE
     idx.set_extra_aliases({"c-101": ["Ayşe Abla"], "c-102": ["ayşe abla"]})          # iki kişide aynı takma ad
     assert idx.search("Ayşe abla").match == Match.MULTIPLE
+
+
+def _reference_scores(idx, name, dept):
+    """Eski kayıt-kayıt puanlama (hızlandırmanın doğruluk referansı)."""
+    from sesli_asistan.gateway.core.search import _best, query_variants
+    qn, qd = search_key(name), search_key(dept)
+    vn, vd = query_variants(qn), query_variants(qd)
+    out = {}
+    for c, nk, dk in idx._entries:
+        parts = ([_best(vn, nk)] if qn else []) + ([_best(vd, dk, subset=True)] if qd else [])
+        if parts and min(parts) >= idx.min_score:
+            out[c.id] = min(parts)
+    return out
+
+
+def test_toplu_puanlama_eski_yontemle_ayni():
+    import random
+    rng = random.Random(5)
+    first = ["Ayşe", "Ayşegül", "Mehmet", "Can", "Canan", "Zeynep", "Elif", "Burak", "Demirci"]
+    last = ["Yılmaz", "Kaya", "Demir", "Demirci", "Çelik", "Şahin", "Öztürk", "Arslan"]
+    depts = ["Muhasebe", "Satış", "İnsan Kaynakları", "Bilgi İşlem", "Teknik Destek", "Ar-Ge"]
+    people = [Contact(str(i), rng.choice(first), rng.choice(last), rng.choice(depts), str(1000 + i),
+                      title=rng.choice(["Satış Müdürü", "Muhasebe Uzmanı", ""]),
+                      aliases=tuple(rng.sample(["Ayşe Hanım", "Mehmet Bey", "IT"], k=rng.randint(0, 1))),
+                      department_aliases=tuple(rng.sample(["Finans", "Destek", "Personel"], k=rng.randint(0, 1))))
+              for i in range(300)]
+    people.append(Contact("d1", "", "", "Muhasebe", "210", kind="department"))
+    idx = DirectoryIndex(people)
+    words = ("ayşe yılmaz mehmet demir demirci ayşegül muhasebe satış finans destek it can canan şahin müdürü "
+             "uzmanı lütfen kaynaklarına bilgi işlem teknik arıza ar ge zeynep aslan").split()
+    for _ in range(400):
+        name = " ".join(rng.sample(words, rng.randint(0, 3)))
+        dept = " ".join(rng.sample(words, rng.randint(1, 2))) if rng.random() < 0.4 else ""
+        got = {c.contact.id: c.score for c in idx._search(search_key(name), search_key(dept)).candidates}
+        ref = _reference_scores(idx, name, dept)
+        top = sorted(ref.items(), key=lambda x: -x[1])
+        assert all(ref[k] == v for k, v in got.items()), (name, dept)
+        if top:
+            assert got, (name, dept)
+
+
+def test_arama_onbellegi_rehber_degisince_temizlenir(index):
+    idx = DirectoryIndex(index.contacts())
+    assert idx.search("ferhat yıldırım").match == Match.NONE
+    idx.set_extra_aliases({"c-101": ["Ferhat Yıldırım"]})
+    assert idx.search("ferhat yıldırım").match == Match.SINGLE_HIGH

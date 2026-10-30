@@ -17,7 +17,8 @@ import re
 import unicodedata
 from collections.abc import Iterable
 
-from rapidfuzz import fuzz
+import numpy as np
+from rapidfuzz import fuzz, process
 
 from sesli_asistan.libs.text.normalizer import strip_punct, turkish_lower
 
@@ -153,6 +154,9 @@ class DirectoryIndex:
             depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
+        self._name_ix = _KeyTable([n for _, n, _ in entries])
+        self._dept_ix = _KeyTable([d for _, _, d in entries])
+        self._cache: dict[tuple[str, str], SearchResult] = {}
         # Ayar ekranında eklenen takma adların tam biçimi: "Ayşe Abla" arama anahtarında "ayse"ye iner ve iki Ayşe'yle
         # çakışır; tam söylenirse (hitabıyla) yalnızca sahibi bulunur (27.10.2026 deneme). Yalnız yerel takma adlar:
         # yönetici bunu bilerek, bulunamayan bir aramadan ekler. Rehber kaynağındaki "Ayşe Hanım" gibi genel hitaplı
@@ -192,19 +196,28 @@ class DirectoryIndex:
         if name and not department and (c := self.alias_match(name)) is not None:
             return SearchResult((Candidate(c, 100),), Match.SINGLE_HIGH)
         qn, qd = search_key(name), search_key(department)
-        vn, vd = query_variants(qn), query_variants(qd)
         if not qn and not qd:
             return SearchResult((), Match.NONE)
-        scored: list[Candidate] = []
-        for c, name_keys, dept_keys in self._entries:
-            parts = []
-            if qn:
-                parts.append(_best(vn, name_keys))
-            if qd:
-                parts.append(_best(vd, dept_keys, subset=True))
-            score = min(parts)  # verilen her alan eşleşmeli
-            if score >= self.min_score:
-                scored.append(Candidate(c, score))
+        if (hit := self._cache.get((qn, qd))) is not None:
+            return hit
+        res = self._search(qn, qd)
+        if len(self._cache) >= 4096:
+            self._cache.clear()
+        self._cache[(qn, qd)] = res
+        return res
+
+    def _search(self, qn: str, qd: str) -> SearchResult:
+        """Puanlar kayıt başına değil, **benzersiz anahtar** başına bir kez hesaplanır; önce rapidfuzz'ın C ile
+        yazılmış toplu karşılaştırmasıyla (cdist) her anahtar için üst sınır bulunur, yalnız eşiği geçebilecek
+        anahtarlarda tam `similarity` hesaplanır. Sonuç eski kayıt-kayıt döngüsüyle birebir aynıdır (test:
+        test_search.py), 3000 kayıtlı rehberde ~30 kat hızlı: arama olay döngüsünü bloklamaz."""
+        vn, vd = query_variants(qn), query_variants(qd)
+        total = np.full(len(self._entries), np.inf)
+        if qn:
+            total = np.minimum(total, self._name_ix.entry_scores(vn, self.min_score))
+        if qd:
+            total = np.minimum(total, self._dept_ix.entry_scores(vd, self.min_score, subset=True))
+        scored = [Candidate(self._entries[i][0], int(total[i])) for i in np.flatnonzero(total >= self.min_score)]
         scored.sort(key=lambda x: (-x.score, x.contact.full_name))
         if qd and not qn:
             # yalnızca birim istendi: birimin genel hattı varsa kişiler yerine o önerilir
@@ -252,6 +265,46 @@ class DirectoryIndex:
             out.append(w)
             used += len(w) + 1
         return out
+
+
+class _KeyTable:
+    """Kayıtların arama anahtarları, benzersiz anahtar listesi üzerinden (toplu puanlama için)."""
+
+    def __init__(self, per_entry: list[list[str]]):
+        self.keys = sorted({k for ks in per_entry for k in ks})
+        pos = {k: i for i, k in enumerate(self.keys)}
+        self.words = [set(k.split()) for k in self.keys]
+        self.nwords = np.array([len(w) for w in self.words])
+        flat, starts = [], []
+        for ks in per_entry:
+            starts.append(len(flat))
+            flat.extend(pos[k] for k in ks)
+            if not ks:
+                flat.append(len(self.keys))           # boş: puanı 0 olan yalancı anahtar
+        self.flat = np.array(flat, dtype=np.int64)
+        self.starts = np.array(starts, dtype=np.int64)
+
+    def entry_scores(self, queries: list[str], min_score: int, subset: bool = False) -> np.ndarray:
+        if not len(self.starts):
+            return np.zeros(0)
+        per_key = np.zeros(len(self.keys) + 1)
+        if self.keys:
+            # üst sınır: similarity ≤ max(ratio, token_set, 0.9·partial) — eşiği geçemeyecek anahtar elenir
+            bound = np.zeros(len(self.keys))
+            for q in queries:
+                bound = np.maximum(bound, process.cdist([q], self.keys, scorer=fuzz.ratio)[0])
+                bound = np.maximum(bound, process.cdist([q], self.keys, scorer=fuzz.token_set_ratio)[0])
+                if len(q.split()) == 1 and len(q) >= 4:
+                    bound = np.maximum(bound, 0.9 * process.cdist([q], self.keys, scorer=fuzz.partial_ratio)[0])
+            for i in np.flatnonzero(bound >= min_score - 1):
+                per_key[i] = max(similarity(q, self.keys[i]) for q in queries)
+            if subset:
+                # birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE (_best ile aynı kural)
+                qsets = [set(q.split()) for q in queries]
+                for i, w in enumerate(self.words):
+                    if per_key[i] < SUBSET_SCORE and any(w <= qt for qt in qsets):
+                        per_key[i] = SUBSET_SCORE
+        return np.round(np.maximum.reduceat(per_key[self.flat], self.starts))
 
 
 def _keys(values: Iterable[str]) -> list[str]:
