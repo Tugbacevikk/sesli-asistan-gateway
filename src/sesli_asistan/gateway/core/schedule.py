@@ -95,13 +95,13 @@ class OfficeHours:
             close_at = _minute(close) if close.strip() else None
             spec = spec.strip()
             if ".." in spec:
-                a, b = (_date(x) for x in spec.split("..", 1))
-                if b < a:
+                first, last = (_date(x) for x in spec.split("..", 1))
+                if last < first:
                     raise ValueError(f"tatil aralığı ters: {item!r}")
-                d = a
-                while d <= b:
-                    dated[d] = close_at
-                    d += timedelta(days=1)
+                day = first
+                while day <= last:
+                    dated[day] = close_at
+                    day += timedelta(days=1)
             elif re.fullmatch(r"\d{1,2}-\d{1,2}", spec):
                 mo, dy = (int(x) for x in spec.split("-"))
                 date(2024, mo, dy)  # geçerli mi (29 Şubat dahil)

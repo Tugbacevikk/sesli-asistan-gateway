@@ -115,7 +115,7 @@ class ToolRegistry:
         state.last_results = res.candidates
         if res.match == Match.NONE:
             state.misses.append(" / ".join(x for x in (name, dept, ext) if x))
-        content = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
+        content: dict[str, Any] = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
         if res.truncated:
             # yalnız ilk `limit` aday gösterildi: LLM bunlar arasında seçtirmesin, ayırt edici bilgi istesin
             content["more"] = res.total - len(res.candidates)
@@ -131,6 +131,7 @@ class ToolRegistry:
             self.rejections += 1
             log.warning("GÜVENLİK: aktarma reddedildi (%s): dahili=%r", decision.reason, extension)
             return None
+        assert decision.candidate is not None          # izin verildiyse aday var (policy.check)
         c = decision.candidate.contact
         action = TransferAction(extension=c.extension, contact_id=c.id)
         state.pending_transfer = action

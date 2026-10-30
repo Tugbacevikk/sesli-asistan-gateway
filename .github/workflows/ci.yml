@@ -20,4 +20,5 @@ jobs:
       - run: ruff check .
       - run: python tools/proto/uret.py --kontrol
       - run: lint-imports
+      - run: mypy
       - run: pytest -q tests/unit

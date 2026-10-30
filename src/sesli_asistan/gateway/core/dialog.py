@@ -28,7 +28,7 @@ from typing import Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
-from .models import Candidate, DialogTurn, Match, OperatorAction, SearchResult
+from .models import Action, Candidate, DialogTurn, Match, OperatorAction, SearchResult, TransferAction
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
 from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
@@ -552,7 +552,7 @@ class DialogAgent:
         if not (may_stream and s.sink and self.cfg.stream_replies and supports_stream(self.llm)):
             return await self.llm.chat(self._messages(s), tools)
         buf, final = "", None
-        async for d in self.llm.chat_stream(self._messages(s), tools):
+        async for d in self.llm.chat_stream(self._messages(s), tools):  # type: ignore[attr-defined]  # supports_stream
             if d.message is not None:
                 final = d.message
                 break
@@ -581,10 +581,10 @@ class DialogAgent:
     def _reply(self, s: DialogSession, text: str) -> DialogTurn:
         actions, s.state.actions = s.state.actions, []
         if not text:
-            t = next((a for a in actions if a.type == "transfer"), None)
+            t = next((a for a in actions if isinstance(a, TransferAction)), None)
             text = self._transfer_text(t.contact_id) if t else self.cfg.texts.not_understood
         s.history.append({"role": "assistant", "content": text})
-        return DialogTurn(text, actions)
+        return DialogTurn(text, list[Action](actions))
 
     def _transfer_text(self, contact_id: str) -> str:
         c = self.tools.index.get(contact_id)

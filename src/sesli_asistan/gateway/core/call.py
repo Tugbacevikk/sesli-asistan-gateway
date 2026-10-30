@@ -291,7 +291,7 @@ class CallSession:
                 log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
                 self.stats.barge_ins += 1
                 self._emit("barge_in")
-                self._speech.cancel()
+                self._stop_speech()
         elif k in ("final", "not_recognized"):
             if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
                 return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
@@ -306,7 +306,7 @@ class CallSession:
                     CallState.HANDED_OFF, CallState.TRANSFERRING) and not self._closing():
                 log.info("[%s] DTMF %s: operatöre", self.call_id, ev.data["digit"])
                 if self._speaking():
-                    self._speech.cancel()
+                    self._stop_speech()
                 self._start_speech(self._operator_turn("dtmf"), heard_at=None, heard="[DTMF]")
         elif k == "stt_error":
             log.error("[%s] STT akışı koptu (%s): operatöre", self.call_id, ev.data["error"])
@@ -376,7 +376,7 @@ class CallSession:
         self.state = CallState.SPEAKING
         self._speech_id += 1
         self._speech_began = self.clock()
-        meta = {"id": self._speech_id, "turn": None, "work": work, "heard_at": heard_at, "heard": heard,
+        meta: dict[str, Any] = {"id": self._speech_id, "turn": None, "work": work, "heard_at": heard_at, "heard": heard,
                 "dialog_s": 0.0, "t0": t0}
         self._speech_meta = meta
 
@@ -403,12 +403,12 @@ class CallSession:
         if meta["turn"] is None:
             try:
                 # shield: söze girme konuşmayı iptal eder ama diyalog yarıda kalmamalı (geçmiş ve eylem tutarlı kalsın)
-                turn = await asyncio.shield(meta["work"])
+                turn: DialogTurn = await asyncio.shield(meta["work"])
             finally:
                 self.dialog.sink = None
-            meta["turn"] = self._route(turn)
+            turn = self._route(turn)
+            meta["turn"] = turn
             meta["dialog_s"] = self.clock() - meta["t0"]
-            turn = meta["turn"]
             log.info("[%s] tur (akışlı): %s → %s %s (%.2f sn)", self.call_id, log_text(meta["heard"]),
                      log_text(turn.text),
                      [a.type for a in turn.actions], meta["dialog_s"])
@@ -584,6 +584,10 @@ class CallSession:
     def _speaking(self) -> bool:
         return self._speech is not None and not self._speech.done()
 
+    def _stop_speech(self) -> None:
+        if self._speech is not None:
+            self._speech.cancel()
+
     def _handed_off(self, outcome: str, reason: str) -> None:
         self.state = CallState.HANDED_OFF
         self.stats.outcome, self.stats.reason = outcome, reason
@@ -620,7 +624,7 @@ class CallSession:
     async def _emergency_operator(self, reason: str) -> None:
         """Hata anonsu (hazır ses; TTS çökmüş olabilir) + operatör."""
         if self._speaking():
-            self._speech.cancel()
+            self._stop_speech()
         self._speech_meta = {}
         text = self.dialog.agent.cfg.texts.error
         with contextlib.suppress(Exception):

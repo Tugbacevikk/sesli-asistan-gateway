@@ -106,14 +106,16 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 first = await anext(aiter(requests))
             except StopAsyncIteration:
                 return
-            cfg = first.config if first.WhichOneof("msg") == "config" else None
-            if cfg is None:
+            if first.WhichOneof("msg") != "config":
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT, "ilk mesaj StreamConfig olmalı")
+                return                                   # abort istisna fırlatır; tip denetleyicisi için
+            cfg = first.config
             codec = _CODECS.get(cfg.codec)
             rate = cfg.sample_rate_hz
             if codec is None or (codec != "pcm16" and rate != 8000) or rate not in (8000, 16000):
                 await context.abort(grpc.StatusCode.INVALID_ARGUMENT,
                                     f"desteklenmeyen biçim: codec={cfg.codec} hız={rate} (G.711 yalnızca 8000 Hz)")
+                return
             call_id = cfg.call_id or dict(context.invocation_metadata()).get("x-call-id", "?")
             hints = {"words": list(cfg.hotwords)}    # akış ortasında HotwordUpdate ile değişir
             log.info("[%s] STT akışı açıldı: %s %d Hz, %d ipucu", call_id, codec, rate, len(hints["words"]))
@@ -178,6 +180,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 t0 = time.perf_counter()
                 reason = ""
                 hotwords = hints["words"]
+                assert self.engine is not None               # Stream() motor yokken akış açmaz
                 job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None))
                 try:
                     r = await asyncio.wait_for(asyncio.shield(job), timeout=self.timeout_s)
@@ -211,6 +214,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
             out.put_nowait(None)
 
     def _dump(self, call_id: str, n: int, u: Utterance, hotwords: list[str], text: str, reason: str) -> None:
+        if self.debug_dir is None:
+            return
         try:
             base = self.debug_dir / f"{call_id}_{n:03d}"
             pcm = (np.clip(u.audio, -1, 1) * 32767).astype("<i2")

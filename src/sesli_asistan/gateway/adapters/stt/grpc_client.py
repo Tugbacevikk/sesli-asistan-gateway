@@ -128,6 +128,7 @@ class GrpcSttStream:
     async def events(self) -> AsyncIterator[SttEvent]:
         while True:
             try:
+                assert self._call is not None, "_start() çağrılmadı"
                 async for ev in self._call:
                     yield SttEvent(type=_TYPE.get(ev.type, "unknown"), text=ev.text, confidence=ev.confidence,
                                    start_ms=ev.audio_start_ms, end_ms=ev.audio_end_ms, reason=ev.reason)

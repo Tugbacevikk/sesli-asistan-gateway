@@ -277,7 +277,8 @@ class _KeyTable:
         pos = {k: i for i, k in enumerate(self.keys)}
         self.words = [set(k.split()) for k in self.keys]
         self.nwords = np.array([len(w) for w in self.words])
-        flat, starts = [], []
+        flat: list[int] = []
+        starts: list[int] = []
         for ks in per_entry:
             starts.append(len(flat))
             flat.extend(pos[k] for k in ks)

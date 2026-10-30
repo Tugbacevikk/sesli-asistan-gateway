@@ -23,7 +23,7 @@ from .core.call import CallConfig, CallSession
 from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.manager import CallManager, NewCall, PortPool
-from .core.ports import LlmPort, MediaPort
+from .core.ports import LlmPort, MediaPort, TtsPort
 from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
@@ -60,7 +60,7 @@ def build_tts(s: GatewaySettings) -> CachingTts:
 
 
 async def build_speaker(s: GatewaySettings, agent: DialogAgent,
-                        tts: CachingTts | None = None) -> tuple[Speaker, list[str]]:
+                        tts: TtsPort | None = None) -> tuple[Speaker, list[str]]:
     """Konuşmacıyı kurar ve sabit anonsları önceden seslendirir. Dönen liste: seslendirilemeyen anonslar
     (boş değilse servis "hazır değil" sayılmalı; tasarim.md 9.1)."""
     tts = tts or build_tts(s)
@@ -147,9 +147,15 @@ class GatewayRuntime:
     async def _open_media(self, port: int, req: NewCall) -> MediaPort:
         return await RtpMedia.open(self.s.rtp_host, port, req.codec, req.rtp_remote, self.s.allowed_ips)
 
+    def _speaker(self) -> Speaker:
+        if self.speaker is None:                     # ready() açılış bitmeden çağrı kabul etmez
+            raise RuntimeError("konuşmacı hazır değil")
+        return self.speaker
+
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
-        return CallSession(req.call_id, req.codec, media, self.stt, self.speaker, self.agent.new_session(req.call_id),
-                           self.pbx, self._call_config(), hotwords=self._hotwords(),
+        return CallSession(req.call_id, req.codec, media, self.stt, self._speaker(),
+                           self.agent.new_session(req.call_id), self.pbx, self._call_config(),
+                           hotwords=self._hotwords(),
                            hotword_priority=self.top_extensions,
                            thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"),
                            office=self.office_status())
@@ -176,8 +182,8 @@ class GatewayRuntime:
 
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
-        return CallSession(call_id, "pcma", media, self.stt, self.speaker, self.agent.new_session(call_id), pbx,
-                           cfg, hotwords=self._hotwords(), hotword_priority=self.top_extensions, observer=both,
+        return CallSession(call_id, "pcma", media, self.stt, self._speaker(), self.agent.new_session(call_id),
+                           pbx, cfg, hotwords=self._hotwords(), hotword_priority=self.top_extensions, observer=both,
                            thinking_pcm=self.thinking_pcm, channel=channel,
                            office=office if office in (OPEN, AFTER_HOURS, HOLIDAY) else self.office_status())
 

@@ -63,6 +63,7 @@ dev = [
     "grpcio-tools==1.85.0",          # proto kod üretimi; sürüm sabit: üretilen kod CI'da karşılaştırılır
     "grpcio-health-checking>=1.85.0",
     "pydantic-settings",
+    "mypy",
 ]
 
 [tool.setuptools.packages.find]
@@ -117,3 +118,13 @@ forbidden_modules = ["sesli_asistan.gateway.adapters", "sesli_asistan.gateway.ap
 
 [tool.ruff.lint.per-file-ignores]
 "src/sesli_asistan/contracts/**" = ["E", "F", "W", "I", "B", "UP"]   # üretilmiş kod
+
+[tool.mypy]
+# CI'da her push'ta: tip hataları (None erişimi, yanlış tür) çalışmadan yakalansın
+python_version = "3.12"
+files = ["src/sesli_asistan"]
+exclude = ["src/sesli_asistan/contracts/"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true

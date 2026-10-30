@@ -159,6 +159,7 @@ class Speaker:
         try:
             for i in range(len(sentences)):
                 task, nxt = nxt, None
+                assert task is not None
                 try:
                     pcm = await task
                 except (TtsError, TimeoutError) as e:

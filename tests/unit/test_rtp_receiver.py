@@ -119,3 +119,22 @@ async def test_ssrc_sessizlikten_sonra_degisirse_yeni_akisa_gecilir():
     for i in range(500, 505):
         rx.datagram_received(_pkt(i, ssrc=2), addr)
     assert rx.ssrc == 2 and rx.stats.ssrc_degisimi == 1 and rx.stats.paket == 10
+
+
+def test_jitter_buyuk_sira_atlamasinda_sahte_sessizlik_uretmez():
+    from sesli_asistan.gateway.adapters.rtp.jitter import JitterBuffer
+    j = JitterBuffer(depth=4)
+    out = []
+    for s in [*range(10), *range(5000, 5010)]:                 # 4990 paketlik atlama (bekletme sonrası)
+        out += j.push(parse(_pkt(s)))
+    out += j.drain()
+    assert len(out) == 20 and None not in out and j.resyncs == 1
+    j = JitterBuffer(depth=4)
+    out = []
+    for s in [0, 1, 3, 4, 5, 6, 7, 8]:                          # küçük kayıp: sessizlikle doldurulur
+        out += j.push(parse(_pkt(s)))
+    assert out.count(None) == 1
+    j = JitterBuffer(depth=8)
+    assert len(j.push(parse(_pkt(0)))) == 1
+    assert j.push(parse(_pkt(20000))) == []
+    assert len(j.drain()) == 1                                  # kapanışta da 20000 sessizlik değil
