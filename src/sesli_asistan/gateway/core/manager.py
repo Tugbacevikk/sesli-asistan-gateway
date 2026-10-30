@@ -112,11 +112,16 @@ class CallManager:
             raise BadRequest(f"desteklenmeyen codec: {req.codec} (pcma | pcmu)")
         self._admit(req.call_id)
         self._reserved.add(req.call_id)   # await'ler sırasında aynı call_id ikinci kez açılamasın
+        media, port = None, None
         try:
             media, port = await self._open_media(req)
             session = self.session_factory(req, media)
         except BaseException:
             self._reserved.discard(req.call_id)
+            if media is not None:                 # oturum kurulamadı: soket ve port sızmasın
+                media.close()
+            if port is not None:
+                self.ports.give_back(port)
             raise
         self._reserved.discard(req.call_id)
         self.sessions[req.call_id] = session
@@ -168,6 +173,8 @@ class CallManager:
                     log.exception("[%s] çağrı geçmişi yazılamadı", call_id)
         except Exception:
             log.exception("[%s] oturum hatası", call_id)
+            self.results.append((call_id, CallStats(outcome="error", reason="oturum_hatasi",
+                                                    channel=session.stats.channel, started=session.stats.started)))
         finally:
             self.sessions.pop(call_id, None)
             self._tasks.pop(call_id, None)
@@ -215,5 +222,5 @@ class CallManager:
         return self.active
 
     async def shutdown(self) -> None:
-        for cid in list(self.sessions):
-            await self.end(cid, "shutdown")
+        """Hepsi aynı anda kapatılır (sırayla kapatmak çağrı başına 5 sn → 30 çağrıda systemd süresini aşardı)."""
+        await asyncio.gather(*(self.end(cid, "shutdown") for cid in list(self.sessions)))

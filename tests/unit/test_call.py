@@ -604,3 +604,55 @@ async def test_akis_operatore_donusebilecek_turda_kullanilmaz():
         c.say("hımm")
         await c.until(lambda: c.pbx.actions)
         assert c.pbx.actions[0]["type"] == "operator" and llm.seen == []
+
+
+async def test_stt_akisi_hatasiz_erken_biterse_operator():
+    async with Call() as c:
+        c.stt.stream.ev.put_nowait(None)          # sunucu akışı kapattı (hata yok)
+        await c.until(lambda: c.pbx.actions)
+        assert c.pbx.actions[0]["type"] == "operator"
+
+
+async def test_cagri_bitince_akisli_diyalog_iptal_edilir():
+    started, cancelled = asyncio.Event(), asyncio.Event()
+
+    class Slow(StreamLlm):
+        async def chat_stream(self, messages, tools):
+            started.set()
+            yield LlmDelta(text="Bir saniye. ")
+            try:
+                await asyncio.sleep(30)
+            except asyncio.CancelledError:
+                cancelled.set()
+                raise
+            yield LlmDelta(message=LlmMessage("x"))
+
+    c = stream_call(Slow(), thinking_sound=False)
+    task = asyncio.create_task(c.session.run())
+    await c.until(lambda: c.session.state == CallState.LISTENING)
+    c.say("merhaba")
+    await asyncio.wait_for(started.wait(), 2)
+    await asyncio.sleep(0.1)
+    c.session.hangup()
+    await asyncio.wait_for(task, 3)
+    assert cancelled.is_set()
+
+
+async def test_yonetici_oturum_kurulamazsa_port_ve_ses_sizmaz():
+    closed = []
+
+    class M(Media):
+        def close(self):
+            closed.append(1)
+
+    async def media(port, req):
+        return M()
+
+    def boom(req, m):
+        raise RuntimeError("kurulamadı")
+
+    pool = PortPool(20000, 20000)
+    mgr = CallManager(media, boom, pool, max_calls=2)
+    with pytest.raises(RuntimeError):
+        await mgr.create(NewCall("x"))
+    assert closed == [1] and pool.available == 1 and mgr.active == 0

@@ -35,6 +35,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+from sesli_asistan.libs.obs import log_text
+
 from .dialog import DialogSession
 from .models import Action, DialogTurn, HangupAction, OperatorAction, TransferAction
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
@@ -139,6 +141,7 @@ class CallSession:
         self._transfer_deadline: float | None = None
         self._stream: SttStream | None = None
         self._stop = asyncio.Event()
+        self._work: asyncio.Task | None = None   # akışlı turda süren diyalog (çağrı biterse iptal edilir)
         self._listen_since = 0.0                 # dinlemeye geçildiği / arayanın son konuştuğu an
         self._caller_talking = False             # SPEECH_STARTED geldi, sonucu (FINAL/NOT_RECOGNIZED) gelmedi
         self._silences = 0                       # art arda sessiz dinleme sayısı
@@ -213,9 +216,11 @@ class CallSession:
             self.state = CallState.ENDED
             if self._speech is not None:
                 self._speech.cancel()
+            if self._work is not None:
+                self._work.cancel()               # akışlı turun diyaloğu çağrıdan uzun yaşamasın
             for t in tasks:
                 t.cancel()
-            for t in [*tasks, *([self._speech] if self._speech else [])]:
+            for t in [*tasks, *(x for x in (self._speech, self._work) if x is not None)]:
                 with contextlib.suppress(asyncio.CancelledError, Exception):
                     await t
             if self._stream is not None:
@@ -247,6 +252,10 @@ class CallSession:
                                                     "ms": max(0, ev.end_ms - ev.start_ms)}, self.clock()))
         except SttError as e:
             self._q.put_nowait(_Event("stt_error", {"error": str(e)}, self.clock()))
+            return
+        if not self._stop.is_set():
+            # STT akışı hatasız ama erken bitti (servis kapanıyor): arayan sessizlikte kalmasın
+            self._q.put_nowait(_Event("stt_error", {"error": "akış beklenmedik şekilde bitti"}, self.clock()))
 
     async def _ticks(self) -> None:
         while True:
@@ -317,6 +326,7 @@ class CallSession:
             q: asyncio.Queue[str] = asyncio.Queue()
             self.dialog.sink = q.put_nowait
             work = asyncio.create_task(self.dialog.handle_user(heard), name=f"diyalog-{self.call_id}")
+            self._work = work
             first = await self._thinking(_first_of(q, work))
             if first is not None:
                 self._start_stream_speech(first, q, work, heard_at=inputs[0].at, heard=heard, t0=t0)
@@ -326,7 +336,7 @@ class CallSession:
         else:
             turn = await self._thinking(self.dialog.handle_user(heard))
         dialog_s = self.clock() - t0
-        log.info("[%s] tur: %r → %r %s (%.2f sn)", self.call_id, heard, turn.text,
+        log.info("[%s] tur: %s → %s %s (%.2f sn)", self.call_id, log_text(heard), log_text(turn.text),
                  [a.type for a in turn.actions], dialog_s)
         await self._update_hints()
         self._start_speech(turn, heard_at=inputs[0].at, heard=heard, dialog_s=dialog_s)
@@ -399,7 +409,8 @@ class CallSession:
             meta["turn"] = self._route(turn)
             meta["dialog_s"] = self.clock() - meta["t0"]
             turn = meta["turn"]
-            log.info("[%s] tur (akışlı): %r → %r %s (%.2f sn)", self.call_id, meta["heard"], turn.text,
+            log.info("[%s] tur (akışlı): %s → %s %s (%.2f sn)", self.call_id, log_text(meta["heard"]),
+                     log_text(turn.text),
                      [a.type for a in turn.actions], meta["dialog_s"])
             if turn.text:
                 self._emit("reply", text=turn.text)

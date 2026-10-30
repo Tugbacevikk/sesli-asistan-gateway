@@ -34,3 +34,12 @@ def test_dongu_baslamadan_kurulan_uygulama_acilir():
         assert h.json()["components"]["directory"] == "ok" and h.json()["components"]["tts"] == "ok"
         r = client.post("/v1/calls", json={"call_id": "a"})
         assert r.status_code == 503 and r.json()["error"]["code"] == "UNAVAILABLE"
+
+
+def test_guvenlik_uyarilari():
+    from sesli_asistan.gateway.config import GatewaySettings
+    from sesli_asistan.gateway.server import security_warnings
+    w = security_warnings(GatewaySettings(_env_file=None, ui_allowed_ips="*"))
+    assert len(w) == 3
+    ok = GatewaySettings(_env_file=None, api_key="x" * 20, pbx_allowed_ips="10.0.0.5")
+    assert security_warnings(ok) == []

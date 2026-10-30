@@ -25,6 +25,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Candidate, DialogTurn, Match, OperatorAction, SearchResult
@@ -343,7 +344,8 @@ class DialogAgent:
                 s.history[-1:-1] = [_assistant_tool_message("", [call]), _tool_message(call, out.content)]
                 s.state.failed_attempts = 0
                 turn.fast = True
-                log.info("[%s] hızlı soru: %r → %s", s.call_id, text, [c.contact.extension for c in s.state.choice])
+                log.info("[%s] hızlı soru: %s → %s", s.call_id, log_text(text),
+                         [c.contact.extension for c in s.state.choice])
                 return turn
         return None
 
@@ -385,7 +387,7 @@ class DialogAgent:
         if action is None:
             return None
         s.state.failed_attempts = 0
-        log.info("[%s] seçim: %r → %s", s.call_id, text, cand.contact.extension)
+        log.info("[%s] seçim: %s → %s", s.call_id, log_text(text), cand.contact.extension)
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
@@ -448,7 +450,7 @@ class DialogAgent:
         s.state.failed_attempts = 0
         s.history.append(_assistant_tool_message("", [call]))
         s.history.append(_tool_message(call, {**out.content, "transferred": True}))
-        log.info("[%s] hızlı yol: %r → %s (%s)", s.call_id, text, contact.extension, contact.full_name)
+        log.info("[%s] hızlı yol: %s → %s (%s)", s.call_id, log_text(text), contact.extension, contact.full_name)
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn

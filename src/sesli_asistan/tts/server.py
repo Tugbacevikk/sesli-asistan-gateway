@@ -117,4 +117,4 @@ def main() -> None:
 
     setup_logging("tts")
     s = TtsSettings()
-    uvicorn.run(create_app(s), host=s.host, port=s.port, log_level="warning")
+    uvicorn.run(create_app(s), host=s.host, port=s.port, log_level="warning", log_config=None)

@@ -102,3 +102,20 @@ async def test_gonderici_tempolu_ve_iptal_edilebilir():
     assert 10 < len(sink.items) < 10 + 20
     sink_t.close()
     src_t.close()
+
+
+async def test_ssrc_sessizlikten_sonra_degisirse_yeni_akisa_gecilir():
+    import sesli_asistan.gateway.adapters.rtp.receiver as rmod
+    rx = RtpReceiver("pcma")
+    rx.connection_made(None)
+    addr = ("10.0.0.5", 4000)
+    for i in range(5):
+        rx.datagram_received(_pkt(i, ssrc=1), addr)
+    rx.datagram_received(_pkt(100, ssrc=2), addr)                 # eski akış hâlâ canlı: yabancı
+    assert rx.stats.yabanci_ssrc == 1 and rx.ssrc == 1
+    rx.last_packet_at -= rmod.SSRC_SWITCH_S + 0.1                 # eski akış sustu
+    rx.datagram_received(_pkt(500, ssrc=2), ("10.0.0.9", 4000))  # başka adresten: kabul edilmez
+    assert rx.ssrc == 1
+    for i in range(500, 505):
+        rx.datagram_received(_pkt(i, ssrc=2), addr)
+    assert rx.ssrc == 2 and rx.stats.ssrc_degisimi == 1 and rx.stats.paket == 10

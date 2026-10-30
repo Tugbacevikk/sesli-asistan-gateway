@@ -32,6 +32,7 @@ import numpy as np
 from sesli_asistan.contracts.stt.v1 import stt_pb2, stt_pb2_grpc
 from sesli_asistan.libs.audio import g711
 from sesli_asistan.libs.audio.resample import StreamUpsampler
+from sesli_asistan.libs.obs import log_text
 
 from .engine import SttResult
 from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utterance
@@ -203,7 +204,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                                                     audio_end_ms=int(u.end * 1000)))
                     continue
                 dt = time.perf_counter() - t0
-                log.info("[%s] FINAL %.2f sn ses → %.2f sn: %s", call_id, u.end - u.start, dt, r.text)
+                log.info("[%s] FINAL %.2f sn ses → %.2f sn: %s", call_id, u.end - u.start, dt, log_text(r.text))
                 out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.FINAL, text=r.text, confidence=r.confidence,
                                                 audio_start_ms=int(u.start * 1000), audio_end_ms=int(u.end * 1000)))
         finally:

@@ -356,7 +356,7 @@ td input { min-width: 160px; }
 
 <script>
 "use strict";
-const KEY = new URLSearchParams(location.search).get("anahtar") || "";
+// kimlik: sunucunun verdiği HttpOnly oturum çerezi (adres çubuğunda anahtar tutulmaz)
 const $ = (id) => document.getElementById(id);
 const fmt = (s) => s == null ? "–" : s.toLocaleString("tr-TR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + " sn";
 const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -578,7 +578,6 @@ async function startCall(text = false, firstMessage = "") {
   }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const q = new URLSearchParams();
-  if (KEY) q.set("anahtar", KEY);
   if (text) q.set("mod", "metin");
   if ($("office").value) q.set("mesai", $("office").value);
   ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws?${q}`);
@@ -640,7 +639,7 @@ $("composer").onsubmit = (e) => {
 const SERVICES = { stt: "Konuşma tanıma", llm: "Dil modeli", tts: "Seslendirme", directory: "Rehber" };
 const STATES = { greeting: "karşılama", listening: "dinliyor", thinking: "düşünüyor", speaking: "konuşuyor",
   transferring: "aktarılıyor", handed_off: "devredildi", ended: "bitti" };
-const headers = KEY ? { Authorization: "Bearer " + KEY } : {};
+const headers = {};
 
 async function refresh() {
   try {

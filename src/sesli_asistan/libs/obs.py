@@ -13,6 +13,24 @@ import re
 import time
 
 _CALL = re.compile(r"^\[([^\]\s]{1,64})\]\s")
+_SECRET = re.compile(r"(anahtar=)[^&\s\"']+", re.I)
+
+
+class RedactSecrets(logging.Filter):
+    """Adres satırındaki anahtarı (`?anahtar=…`) loglardan siler (uvicorn erişim logu dahil)."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        if "anahtar=" in msg.lower():
+            record.msg, record.args = _SECRET.sub(r"\1***", msg), ()
+        return True
+
+
+def log_text(text: str) -> str:
+    """Arayanın sözü / cevap metni loga yazılırken: `LOG_TEXTS=false` ise yalnız uzunluk (kişisel veri, KVKK)."""
+    if os.environ.get("LOG_TEXTS", "true").lower() in ("0", "false", "no", "hayir"):
+        return f"<{len(text or '')} harf>"
+    return repr(text)
 
 
 class JsonFormatter(logging.Formatter):
@@ -43,6 +61,7 @@ def setup_logging(service: str, fmt: str | None = None, level: str | None = None
         handler.setFormatter(JsonFormatter(service))
     else:
         handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s"))
+    handler.addFilter(RedactSecrets())
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel((level or os.environ.get("LOG_LEVEL", "INFO")).upper())

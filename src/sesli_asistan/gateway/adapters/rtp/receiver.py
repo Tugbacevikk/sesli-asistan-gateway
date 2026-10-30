@@ -31,6 +31,7 @@ from .packet import RtpPacket, parse
 log = logging.getLogger(__name__)
 
 RCVBUF_BYTES = 1 << 20
+SSRC_SWITCH_S = 0.3        # eski akış bu kadar sessizse yeni SSRC kabul edilir
 
 
 @dataclass
@@ -43,6 +44,7 @@ class RtpStats:
     desteklenmeyen: int = 0    # G.711 dışı yük (ör. telephone-event / DTMF)
     kuyruk_tasmasi: int = 0
     kuyrukta_en_cok: int = field(default=0)
+    ssrc_degisimi: int = 0
 
 
 class RtpReceiver(asyncio.DatagramProtocol):
@@ -109,13 +111,26 @@ class RtpReceiver(asyncio.DatagramProtocol):
         if p.pt != self.pt:
             self.stats.desteklenmeyen += 1
             return
+        now = time.monotonic()
         if self.ssrc is None:
             self.ssrc, self.remote = p.ssrc, addr
             log.info("RTP akışı: ssrc=%08x codec=%s kaynak=%s:%s", p.ssrc, self.codec, *addr)
         elif p.ssrc != self.ssrc:
-            self.stats.yabanci_ssrc += 1
-            return
-        self.last_packet_at = time.monotonic()
+            # Santral çağrı ortasında SSRC değiştirebilir (köprü değişimi, bekletme müziği, yeniden yönlendirme).
+            # Eski akış SSRC_SWITCH_S boyunca susmuşsa ve yeni paket aynı adresten geliyorsa yeni akışa geçilir;
+            # aksi hâlde (iki akış aynı anda) yabancı sayılır.
+            silent = self.last_packet_at is None or now - self.last_packet_at >= SSRC_SWITCH_S
+            if not (silent and addr == self.remote):
+                self.stats.yabanci_ssrc += 1
+                return
+            log.warning("RTP SSRC değişti: %08x → %08x (eski akış %.1f sn sessiz)", self.ssrc, p.ssrc,
+                        now - (self.last_packet_at or now))
+            for q in self.jitter.drain():
+                self._emit(q)
+            self.jitter = JitterBuffer(self.jitter.depth)
+            self.ssrc = p.ssrc
+            self.stats.ssrc_degisimi += 1
+        self.last_packet_at = now
         late_before = self.jitter.late
         out = self.jitter.push(p)
         self.stats.gec_tekrar += self.jitter.late - late_before

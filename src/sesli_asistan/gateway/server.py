@@ -37,15 +37,27 @@ def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None =
                       settings=rt.settings, ui_access=access)
 
 
+def security_warnings(s: GatewaySettings) -> list[str]:
+    """Üretimde açık bırakılmaması gereken ayarlar (açılışta loglanır; servis yine açılır)."""
+    out = []
+    if not s.api_key.get_secret_value():
+        out.append("API_KEY boş: santral API'si kimlik doğrulamasız (yalnızca geliştirme)")
+    if not s.allowed_ips:
+        out.append("PBX_ALLOWED_IPS boş: santral API'si ve RTP her adresten kabul ediliyor")
+    if s.ui_enabled and s.ui_ips is None and not (s.api_key.get_secret_value() or s.users()):
+        out.append("UI_ALLOWED_IPS='*' ve anahtar yok: arayüz herkese açık")
+    return out
+
+
 def main() -> None:
     setup_logging("gateway")
     s = GatewaySettings()
-    if not s.api_key.get_secret_value():
-        logging.getLogger(__name__).warning("API_KEY boş: kontrol API'si kimlik doğrulamasız (yalnızca geliştirme)")
+    for w in security_warnings(s):
+        logging.getLogger(__name__).warning("GÜVENLİK: %s", w)
     if s.ui_enabled:
         logging.getLogger(__name__).info("arayüz: http://%s:%d/ui", "127.0.0.1" if s.gateway_api_host == "0.0.0.0"
                                          else s.gateway_api_host, s.gateway_api_port)
-    uvicorn.run(build_app(s), host=s.gateway_api_host, port=s.gateway_api_port, log_level="info",
+    uvicorn.run(build_app(s), host=s.gateway_api_host, port=s.gateway_api_port, log_level="info", log_config=None,
                 timeout_graceful_shutdown=10, proxy_headers=bool(s.forwarded_allow_ips.strip()),
                 forwarded_allow_ips=s.forwarded_allow_ips.strip() or None)
 

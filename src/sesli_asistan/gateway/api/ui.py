@@ -21,7 +21,8 @@ WebSocket protokolü:
 Ses telefon kalitesine (8 kHz, G.711 A-law) indirilerek STT'ye verilir: deneme gerçek hattaki kaliteyle yapılır.
 
 Erişim: `UI_ENABLED`; istemci adresi `UI_ALLOWED_IPS` içinde olmalı (varsayılan yalnızca bu makine); `API_KEY`
-tanımlıysa `Authorization: Bearer` ya da `?anahtar=` gerekir (tarayıcı WebSocket'e başlık ekleyemez).
+tanımlıysa `Authorization: Bearer` ya da oturum çerezi gerekir: `/ui?anahtar=…` ilk açılışta HttpOnly çereze çevrilip
+adresten silinir (tarayıcı WebSocket'e başlık ekleyemez; çerez aynı kökene otomatik gider, Origin denetlenir).
 """
 from __future__ import annotations
 
@@ -38,7 +39,7 @@ from typing import Any
 
 import numpy as np
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from sesli_asistan.gateway.core.call import CallSession
 from sesli_asistan.gateway.core.manager import CallError, CallManager
@@ -151,9 +152,28 @@ def _err(status: int, code: str, msg: str) -> JSONResponse:
     return JSONResponse({"error": {"code": code, "message": msg, "call_id": None}}, status_code=status)
 
 
-def request_key(request: Request) -> str:
+COOKIE = "sesli_oturum"
+COOKIE_MAX_AGE = 12 * 3600
+
+
+def request_key(request: Request | WebSocket) -> str:
+    """Anahtar: `Authorization: Bearer` (Prometheus, araçlar) > oturum çerezi (tarayıcı) > `?anahtar=` (yalnız ilk
+    açılış; sayfa hemen çereze çevirip adresten siler, bkz. page())."""
     auth = request.headers.get("authorization", "")
-    return auth[7:] if auth.startswith("Bearer ") else request.query_params.get("anahtar", "")
+    if auth.startswith("Bearer "):
+        return auth[7:]
+    return request.cookies.get(COOKIE) or request.query_params.get("anahtar", "")
+
+
+def same_origin(ws: WebSocket) -> bool:
+    """Çerezle kimlik doğrulanan WebSocket'te başka sitenin bağlantı açması engellenir (CSWSH): Origin, Host ile
+    aynı olmalı. Tarayıcı dışı istemciler Origin göndermez."""
+    origin = ws.headers.get("origin")
+    if not origin:
+        return True
+    from urllib.parse import urlsplit
+
+    return urlsplit(origin).netloc == ws.headers.get("host", "")
 
 
 def _actor(request: Request) -> dict[str, str]:
@@ -178,9 +198,17 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         history = MemoryCallHistory(manager)
 
     @app.get("/ui", response_class=HTMLResponse, include_in_schema=False)
-    async def page() -> HTMLResponse:
+    async def page(request: Request) -> Response:
+        key = request.query_params.get("anahtar")
+        if key is not None:
+            # anahtar adreste kalmasın (tarayıcı geçmişi, vekil logları): HttpOnly çereze çevrilip adresten silinir
+            r = RedirectResponse("/ui", status_code=303)
+            r.set_cookie(COOKIE, key, max_age=COOKIE_MAX_AGE, httponly=True, samesite="strict",
+                         secure=request.url.scheme == "https", path="/")
+            return r
         html = resources.files("sesli_asistan.gateway.api").joinpath("ui.html").read_text(encoding="utf-8")
-        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
+        return HTMLResponse(html, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
+                                           "Referrer-Policy": "no-referrer"})
 
     @app.get("/v1/admin/health", include_in_schema=False)
     async def admin_health() -> JSONResponse:
@@ -257,8 +285,9 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
     @app.websocket("/v1/ui/ws")
     async def ws(websocket: WebSocket) -> None:
         host = websocket.client.host if websocket.client else ""
-        key = websocket.query_params.get("anahtar", "")
-        principal, why = access.check(host, key)
+        principal, why = access.check(host, request_key(websocket))
+        if principal is not None and not same_origin(websocket):
+            principal, why = None, "başka siteden bağlantı (Origin)"
         if principal is None:
             log.warning("arayüz bağlantısı reddedildi (%s): %s", host, why)
             await websocket.close(code=1008, reason=why)

@@ -139,3 +139,34 @@ async def test_sarmalayicilar_akisi_iletir_ve_olcer():
     assert supports_stream(w) and not supports_stream(BreakerLlm(TimedLlm(Plain(), m), b))
     assert [d.text async for d in w.chat_stream([], [])] == ["a", ""]
     assert m.registry.get_sample_value("llm_latency_seconds_count") == 1
+
+
+async def test_santral_istemcisi_yeniden_dener_4xx_denemez():
+    from sesli_asistan.gateway.adapters.pbx.rest import PbxRestClient
+    from sesli_asistan.gateway.core.ports import PbxError
+    seen = []
+
+    def make(codes):
+        def handler(req):
+            seen.append((req.headers.get("authorization"), json.loads(req.content)["action_id"]))
+            code = codes.pop(0)
+            if code == "x":
+                raise httpx.ConnectError("yok")
+            return httpx.Response(code)
+        return handler
+
+    c = PbxRestClient("http://p", "k", backoff_s=0.001,
+                      client=httpx.AsyncClient(transport=httpx.MockTransport(make(["x", 503, 202])), base_url="http://p",
+                                               headers={"Authorization": "Bearer k"}))
+    await c.send_action("c1", {"action_id": "a-1", "type": "transfer", "extension": "214"})
+    assert len(seen) == 3 and {a for _, a in seen} == {"a-1"}            # aynı action_id: tekrar güvenli
+    seen.clear()
+    c = PbxRestClient("http://p", backoff_s=0.001,
+                      client=httpx.AsyncClient(transport=httpx.MockTransport(make([400])), base_url="http://p"))
+    with pytest.raises(PbxError, match="400"):
+        await c.send_action("c1", {"action_id": "a-2", "type": "operator"})
+    assert len(seen) == 1
+    c = PbxRestClient("http://p", backoff_s=0.001,
+                      client=httpx.AsyncClient(transport=httpx.MockTransport(make([500, 500, 500])), base_url="http://p"))
+    with pytest.raises(PbxError):
+        await c.send_action("c1", {"action_id": "a-3", "type": "hangup"})

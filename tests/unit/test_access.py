@@ -99,3 +99,42 @@ def test_kalici_degisiklik_gecmisi(tmp_path):
     c = h.changes()
     assert c[0]["kim"] == "tugba" and c[0]["ayrinti"] == ["Karşılama anonsu değişti: Merhaba"]
     h.close()
+
+
+def test_anahtar_adresten_cereze_cevrilir_ve_loglanmaz(caplog):
+    import logging
+
+    from sesli_asistan.libs.obs import RedactSecrets
+    tc, _ = client()
+    with tc:
+        r = tc.get(f"/ui?anahtar={ADMIN_KEY}", follow_redirects=False)
+        assert r.status_code == 303 and r.headers["location"] == "/ui"
+        ck = r.headers["set-cookie"]
+        assert "HttpOnly" in ck and "SameSite=strict" in ck.replace("Strict", "strict")
+        # çerezle: sayfa, ayarlar ve rol
+        assert tc.get("/ui").status_code == 200
+        assert tc.get("/v1/admin/settings").json()["user"]["name"] == "tugba"
+    rec = logging.LogRecord("uvicorn.access", logging.INFO, "", 0, '%s - "GET %s" 200',
+                            ("1.2.3.4", f"/ui?anahtar={ADMIN_KEY}&x=1"), None)
+    RedactSecrets().filter(rec)
+    assert ADMIN_KEY not in rec.getMessage() and "anahtar=***&x=1" in rec.getMessage()
+
+
+def test_baska_siteden_websocket_reddedilir():
+    import pytest as _p
+    from starlette.websockets import WebSocketDisconnect
+    tc, _ = client()
+    with tc:
+        tc.cookies.set("sesli_oturum", ADMIN_KEY)
+        with _p.raises(WebSocketDisconnect), tc.websocket_connect(
+                "/v1/ui/ws?mod=metin", headers={"origin": "https://kotu.example"}) as ws:
+            ws.receive_text()
+        with tc.websocket_connect("/v1/ui/ws?mod=metin", headers={"origin": "http://testserver"}) as ws:
+            assert json.loads(ws.receive_text())["type"] in ("call", "state")
+
+
+def test_log_metinleri_gizlenebilir(monkeypatch):
+    from sesli_asistan.libs.obs import log_text
+    assert log_text("ayşe yılmaz") == "'ayşe yılmaz'"
+    monkeypatch.setenv("LOG_TEXTS", "false")
+    assert log_text("ayşe yılmaz") == "<11 harf>"

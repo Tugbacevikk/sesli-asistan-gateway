@@ -133,7 +133,7 @@ Gateway çalışırken **http://127.0.0.1:8000/ui**:
   sonucunu (cevaplandı / meşgul / cevap yok) siz seçersiniz.
 - **İzleme:** servis durumu, süren ve son çağrılar (tur tur), rehberde bulunamayan aramalar.
 
-Mikrofon yalnızca `localhost` ya da HTTPS'te açılır. Erişim: `UI_ALLOWED_IPS`, `API_KEY` (`/ui?anahtar=...`).
+Mikrofon yalnızca `localhost` ya da HTTPS'te açılır. Erişim: `UI_ALLOWED_IPS`, `API_KEY` / `UI_USERS`: ilk açılışta `/ui?anahtar=...`, anahtar oturum çerezine çevrilip adresten silinir.
 
 ## Sunucuya kurulum
 
