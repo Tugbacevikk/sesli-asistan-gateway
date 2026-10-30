@@ -299,8 +299,8 @@ class _KeyTable:
                 bound = np.maximum(bound, process.cdist([q], self.keys, scorer=fuzz.token_set_ratio)[0])
                 if len(q.split()) == 1 and len(q) >= 4:
                     bound = np.maximum(bound, 0.9 * process.cdist([q], self.keys, scorer=fuzz.partial_ratio)[0])
-            for i in np.flatnonzero(bound >= min_score - 1):
-                per_key[i] = max(similarity(q, self.keys[i]) for q in queries)
+            for ix in np.flatnonzero(bound >= min_score - 1):
+                per_key[ix] = max(similarity(q, self.keys[ix]) for q in queries)
             if subset:
                 # birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE (_best ile aynı kural)
                 qsets = [set(q.split()) for q in queries]

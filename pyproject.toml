@@ -120,6 +120,7 @@ forbidden_modules = ["sesli_asistan.gateway.adapters", "sesli_asistan.gateway.ap
 "src/sesli_asistan/contracts/**" = ["E", "F", "W", "I", "B", "UP"]   # üretilmiş kod
 
 [tool.mypy]
+plugins = ["pydantic.mypy"]
 # CI'da her push'ta: tip hataları (None erişimi, yanlış tür) çalışmadan yakalansın
 python_version = "3.12"
 files = ["src/sesli_asistan"]
