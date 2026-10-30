@@ -293,6 +293,8 @@ async def test_hizli_yol_llm_beklemeden_aktarir(text, ext):
     "insan kaynaklarına bağlayın",       # birimin genel hattı yok: kişiye kendiliğinden gitmez
     "operatöre bağlayın",
     "hakan koç",                         # aktarılamaz kayıt
+    "can öztürk ne alaka",               # itiraz: hızlı yola girmemeli
+    "neden can öztürk diyorsun",         # soru: hızlı yola girmemeli
 ])
 async def test_hizli_yol_suphede_llm_e_birakir(text):
     llm = ScriptedLlm(LlmMessage("Kimi aramıştınız?"))

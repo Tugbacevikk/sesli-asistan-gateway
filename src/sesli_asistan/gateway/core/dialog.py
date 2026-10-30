@@ -108,7 +108,8 @@ class DialogConfig:
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
 _FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
-               "ama", "veya", "ya", "kim", "hangi", "nerede", "numara", "numarasi", "dahili"}
+               "ama", "veya", "ya", "kim", "hangi", "nerede", "numara", "numarasi", "dahili",
+               "ne", "neden", "niye", "nasil", "alaka", "alakasi", "yanlis", "diyorsun", "dedin", "mu"}
 
 
 class DialogSession:

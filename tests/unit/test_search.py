@@ -187,3 +187,10 @@ def test_arama_onbellegi_rehber_degisince_temizlenir(index):
     assert idx.search("ferhat yıldırım").match == Match.NONE
     idx.set_extra_aliases({"c-101": ["Ferhat Yıldırım"]})
     assert idx.search("ferhat yıldırım").match == Match.SINGLE_HIGH
+
+
+def test_kisa_adlar_alakasiz_kelimelerle_eslesmez(index):
+    # 'anıl' veya 'anıllar', içinde 'an' geçiyor diye 3 harfli 'Can' ile eşleşmemeli
+    assert index.search("anıl").match == Match.NONE
+    assert index.search("anıllar").match == Match.NONE
+    assert index.search("anıl bayır").match == Match.NONE

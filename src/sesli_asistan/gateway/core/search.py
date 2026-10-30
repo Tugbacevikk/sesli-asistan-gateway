@@ -327,7 +327,7 @@ def similarity(q: str, k: str) -> float:
     nq, nk = len(q.split()), len(k.split())
     if nq <= nk:
         s = max(s, fuzz.token_set_ratio(q, k))
-    if nq == 1 and len(q) >= 4:
+    if nq == 1 and len(q) >= 4 and len(k) >= 4:
         s = max(s, 0.9 * fuzz.partial_ratio(q, k))
     if s > EXTENDED_CAP and _extends_word(q, k):
         s = EXTENDED_CAP
