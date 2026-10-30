@@ -559,6 +559,9 @@ Tam şema Gateway tarafından OpenAPI olarak `/v1/openapi.json` adresinde yayın
 ```json
 { "type": "transfer_result", "status": "answered" }   // answered | busy | no_answer | failed
 { "type": "dtmf", "digit": "0" }
+{ "type": "rtp_remote", "rtp_remote": { "host": "10.0.0.5", "port": 20012 } }   // isteğe bağlı: santralin ses
+//   adresi çağrı açılırken bilinmiyorsa (ör. Asterisk ExternalMedia) sonradan bildirilir; bildirilmezse Gateway
+//   ilk RTP paketinin kaynağına cevap verir (en çok 2 sn bekler)
 ```
 
 **`DELETE /v1/calls/{call_id}`**
@@ -1357,6 +1360,35 @@ commit, ayarlar ve tekrar sayısı yazılır; tek kayıtlı sonuçlar "yön gös
 
 Her değişiklikte: biçim ve stil kontrolü (ruff), tip kontrolü (mypy), birim ve sözleşme testleri,
 proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-audit, pip-licenses).
+
+
+### 15.6 Asterisk deneme santrali (`deploy/asterisk/`, `tools/santral/`)
+
+Gerçek bir santralde, sözleşmenin santral tarafını yazmadan uçtan uca deneme. Asterisk (açık kaynak santral) ARI ile
+yönetilir; `tools/santral/asterisk_kopru.py` Gateway sözleşmesinin santral tarafını uygular:
+
+| Asterisk | Köprü | Gateway |
+|---|---|---|
+| 500 aranır → `Stasis(sesli-asistan)` | çağrıyı açar, mixing bridge | `POST /v1/calls` → RTP portu |
+| | ExternalMedia kanalı (RTP, A-law) → Gateway portu; Asterisk'in ses adresi | `events: rtp_remote` |
+| tuşlama | | `events: dtmf` |
+| | `transfer` eylemi → dahili aranır (arayana çalma sesi) | `POST …/actions` |
+| hedef cevapladı | asistan köprüden çıkar, arayan ↔ dahili | `transfer_result: answered` + `DELETE` |
+| meşgul (Q.850 17/21) / cevapsız (18/19/20) / diğer | arayan asistanla kalır | `transfer_result: busy / no_answer / failed` |
+| | `operator` → operatör dahilisi; ulaşılamazsa çağrı kapanır | |
+| | `hangup` → arayan kapatılır | `DELETE` |
+| arayan kapattı | yardımcı kanallar ve bridge silinir | `DELETE` |
+| Gateway 503 / ulaşılamıyor | asistansız doğrudan operatör | |
+
+Ayarlar: `pjsip.conf` (1001 arayan, 214 ve 231 rehberdeki kişiler, 900 operatör; yalnız G.711), `extensions.conf`,
+`ari.conf` + `http.conf` (ARI yalnız 127.0.0.1), `rtp.conf` (Asterisk RTP 20000–20999: Gateway'in 10000–10999'uyla
+çakışmaz), `modules.conf` (eski `chan_sip` yüklenmez: 5060'ı PJSIP ile paylaşıyordu). `kur.sh` şifreleri üretir.
+
+**Doğrulama (30.10.2026, Ubuntu 24.04 + Asterisk 20.6 kapsayıcısı):** SIPp arayan (A-law RTP) → Asterisk → köprü →
+Gateway → gRPC STT (sahte Whisper) → hızlı yol → 214'e aktarma → Asterisk 214'ü (SIPp) aradı → cevaplandı → çağrı
+`transferred`; 214 "486 Busy" dönünce `busy` → asistan "meşgul" cümlesini söyledi, arayan asistanla kaldı. Bu denemede
+iki hata bulundu ve düzeltildi: köprünün eylem ucunda FastAPI tip çözümü, ve Asterisk ilk RTP paketini göndermeden
+karşılamanın kaybolması (→ `rtp_remote` olayı).
 
 ---
 

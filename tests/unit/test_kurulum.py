@@ -79,14 +79,14 @@ def test_lisans_listesi_kilitlerle_guncel():
 @pytest.mark.skipif(os.name == "nt" or shutil.which("shellcheck") is None, reason="shellcheck yok / Windows")
 def test_betikler_shellcheck():
     r = subprocess.run(["shellcheck", "-S", "warning", "deploy/install.sh", "deploy/paket.sh",
-                        "tools/kurulum/kilit.sh"], cwd=ROOT, capture_output=True, text=True)
+                        "tools/kurulum/kilit.sh", "deploy/asterisk/kur.sh"], cwd=ROOT, capture_output=True, text=True)
     assert r.returncode == 0, r.stdout
 
 
 # Windows'ta "bash" çoğunlukla WSL yönlendiricisidir (C:\ yollarını tanımaz): betikler Linux içindir, orada denenir
 @pytest.mark.skipif(os.name == "nt" or shutil.which("bash") is None, reason="Linux betikleri; bash yok / Windows")
 def test_betikler_bash_sozdizimi():
-    for f in ("deploy/install.sh", "deploy/paket.sh", "tools/kurulum/kilit.sh"):
+    for f in ("deploy/install.sh", "deploy/paket.sh", "tools/kurulum/kilit.sh", "deploy/asterisk/kur.sh"):
         assert subprocess.run(["bash", "-n", f], cwd=ROOT).returncode == 0, f
 
 

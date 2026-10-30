@@ -41,3 +41,7 @@ cevap_*.wav
 # ayar ekranında kaydedilen yerel ayarlar (kuruma özel)
 yerel_ayarlar.json
 yerel_ayarlar.json.bozuk
+
+# deneme santrali şifreleri (deploy/asterisk/kur.sh üretir)
+deploy/asterisk/sifreler.txt
+tools/santral/sipp/*.pcap

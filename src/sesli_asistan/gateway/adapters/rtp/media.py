@@ -33,6 +33,15 @@ class RtpMedia:
         await rx.open(host, port)          # OSError: port kullanımda → CallManager sıradakini dener
         return cls(rx, remote, codec)
 
+    def set_remote(self, remote: tuple[str, int]) -> None:
+        """Santralin ses alma adresi çağrı açıldıktan sonra öğrenildi (ör. Asterisk ExternalMedia: önce Gateway portu
+        gerekir, Asterisk'in kendi portu sonra belli olur). Gönderim henüz başlamadıysa geçerli olur."""
+        if self._tx is None:
+            self.remote = remote
+        elif self._tx.remote != remote:
+            log.warning("RTP hedefi gönderim başladıktan sonra değişti: %s → %s", self._tx.remote, remote)
+            self._tx.remote = remote
+
     async def frames(self):
         while (f := await self.rx.frames.get()) is not None:
             yield f
@@ -46,12 +55,11 @@ class RtpMedia:
 
     async def _sender(self) -> RtpSender | None:
         if self._tx is None:
-            remote = self.remote
             deadline = time.monotonic() + self.wait_remote_s
+            remote = self.remote or self.rx.remote
             while remote is None and time.monotonic() < deadline:
-                remote = self.rx.remote
-                if remote is None:
-                    await asyncio.sleep(0.02)
+                await asyncio.sleep(0.02)
+                remote = self.remote or self.rx.remote     # santral bildirdi (rtp_remote) ya da ilk paket geldi
             if remote is None or self.rx.transport is None:
                 return None
             self._tx = RtpSender(self.rx.transport, remote, self.codec)

@@ -213,3 +213,22 @@ async def test_buyuk_govde_reddedilir(gateway):
     r = await api.post("/v1/calls", content=b"{" + b" " * (600 * 1024) + b"}",
                        headers={"Content-Type": "application/json"})
     assert r.status_code == 413 and r.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+
+
+async def test_rtp_hedefi_sonradan_bildirilebilir(gateway):
+    rt, api, _, _ = await gateway("x")
+    r = await api.post("/v1/calls", json={"call_id": "c-r", "caller": "1", "called": "2", "codec": "pcma"})
+    assert r.status_code == 201
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.bind(("127.0.0.1", 0))
+    sock.setblocking(False)
+    port = sock.getsockname()[1]
+    r = await api.post("/v1/calls/c-r/events", json={"type": "rtp_remote", "rtp_remote": {"host": "127.0.0.1",
+                                                                                        "port": port}})
+    assert r.status_code == 202
+    data = await asyncio.wait_for(asyncio.get_running_loop().sock_recv(sock, 2048), 3)   # karşılama, paket beklemeden
+    assert data[1] & 0x7F == 8
+    bad = await api.post("/v1/calls/c-r/events", json={"type": "rtp_remote", "rtp_remote": {"host": "", "port": 1}})
+    assert bad.status_code == 400
+    await api.request("DELETE", "/v1/calls/c-r", json={"reason": "hangup"})
+    sock.close()

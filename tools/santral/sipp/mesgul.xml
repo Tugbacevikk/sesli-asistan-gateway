@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<scenario name="214 meşgul">
+  <recv request="INVITE"/>
+  <send><![CDATA[
+SIP/2.0 486 Busy Here
+[last_Via:]
+[last_From:]
+[last_To:];tag=[pid]SIPpTag01[call_number]
+[last_Call-ID:]
+[last_CSeq:]
+Content-Length: 0
+]]></send>
+  <recv request="ACK"/>
+</scenario>

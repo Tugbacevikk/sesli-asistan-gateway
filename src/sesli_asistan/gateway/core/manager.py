@@ -195,6 +195,15 @@ class CallManager:
             if len(digit) != 1 or digit not in "0123456789*#":
                 raise BadRequest(f"geçersiz DTMF: {digit!r}")
             s.dtmf(digit)
+        elif kind == "rtp_remote":
+            r = data.get("rtp_remote") or {}
+            host, port = str(r.get("host", "")), r.get("port")
+            if not host or not isinstance(port, int) or not 0 < port < 65536:
+                raise BadRequest("rtp_remote: host ve port (1–65535) gerekli")
+            setter = getattr(s.media, "set_remote", None)
+            if setter is None:
+                raise BadRequest("bu çağrının ses yolu adres değiştirmez")
+            setter((host, port))
         else:
             raise BadRequest(f"bilinmeyen olay: {kind}")
 

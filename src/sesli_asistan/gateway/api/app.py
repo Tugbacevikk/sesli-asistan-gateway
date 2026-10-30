@@ -48,9 +48,10 @@ class CallCreated(BaseModel):
 
 
 class CallEvent(BaseModel):
-    type: Literal["transfer_result", "dtmf"]
+    type: Literal["transfer_result", "dtmf", "rtp_remote"]
     status: str | None = None
     digit: str | None = None
+    rtp_remote: RtpRemote | None = None       # type=rtp_remote: santral ses adresini çağrı açıldıktan sonra bildirir
 
 
 class EndCall(BaseModel):

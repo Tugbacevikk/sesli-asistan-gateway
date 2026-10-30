@@ -113,6 +113,11 @@ PBX_BASE_URL=http://127.0.0.1:8100 python -m sesli_asistan.gateway   # 2. termin
 python tools/cagri/cagri.py ayse.wav --cevap cevap.wav        # 3. terminal: santral gibi ara
 ```
 
+### Santral denemesi (Asterisk)
+
+`deploy/asterisk/` (deneme santrali ayarları, `kur.sh`) + `tools/santral/asterisk_kopru.py` (ARI köprüsü): softphone'dan
+500'ü arayıp gerçek SIP/RTP ile asistanla konuşma, gerçek aktarma (meşgul / cevapsız dahil). Ayrıntı: tasarim.md 15.6.
+
 ### Kadın sesi (ADR-015)
 
 `sesli_asistan.tts`: Seslen (açık Türkçe TTS, ONNX, CPU) ile kadın sesi (`ayse`). Piper'la aynı HTTP sözleşmesi;
