@@ -44,6 +44,16 @@ CREATE INDEX IF NOT EXISTS changes_ts ON changes(ts);
 CHANGES_DAYS = 365          # denetim kaydı çağrı geçmişinden uzun tutulur
 
 
+def _turn_paths(calls: Any) -> dict[str, int]:
+    """Arayan turlarının kaçı LLM'e gitti, kaçı kodla çözüldü (LLM gerekli mi sorusu için)."""
+    out = {"kod": 0, "llm": 0}
+    for turns in calls:
+        for t in turns:
+            if t.get("heard") and not str(t["heard"]).startswith("["):
+                out["llm" if t.get("llm_calls") else "kod"] += 1
+    return out
+
+
 class SqliteCallHistory:
     def __init__(self, path: str, retention_days: int = 30, keep_texts: bool = True):
         self.path, self.retention_days, self.keep_texts = path, retention_days, keep_texts
@@ -108,7 +118,9 @@ class SqliteCallHistory:
         with self._lock:
             rows = self._db.execute("SELECT outcome, COUNT(*) FROM calls WHERE started >= ? GROUP BY outcome",
                                     (since,)).fetchall()
-        return {"gun": days, "sonuc": dict(rows), "toplam": sum(c for _, c in rows)}
+            datas = [r[0] for r in self._db.execute("SELECT data FROM calls WHERE started >= ?", (since,))]
+        turns = _turn_paths(json.loads(d)["turns"] for d in datas)
+        return {"gun": days, "sonuc": dict(rows), "toplam": sum(c for _, c in rows), "tur": turns}
 
     def purge(self) -> int:
         cutoff = (datetime.now() - timedelta(days=self.retention_days)).isoformat(timespec="seconds")
@@ -158,7 +170,8 @@ class MemoryCallHistory:
 
     def summary(self, days: int = 1) -> dict[str, Any]:
         c = Counter(st.outcome for _, st in self.manager.results)
-        return {"gun": days, "sonuc": dict(c), "toplam": sum(c.values())}
+        turns = _turn_paths([dataclasses.asdict(t) for t in st.turns] for _, st in self.manager.results)
+        return {"gun": days, "sonuc": dict(c), "toplam": sum(c.values()), "tur": turns}
 
     def purge(self) -> int:
         return 0

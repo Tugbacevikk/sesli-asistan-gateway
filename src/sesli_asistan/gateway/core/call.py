@@ -83,6 +83,7 @@ class TurnRecord:
     dialog_s: float                    # LLM + araçlar
     final_to_audio_s: float | None     # STT metni geldi → arayana ilk ses (turn_latency, tasarim.md 12.2)
     barged: bool = False
+    llm_calls: int = 0                 # 0: tur kodla çözüldü (hızlı yol, soru, seçim, sabit cümle)
 
 
 @dataclass
@@ -457,7 +458,8 @@ class CallSession:
             latency = round(said_at - meta["heard_at"] + first_audio_s, 3)
         if meta["heard_at"] is not None or meta["heard"]:
             rec = TurnRecord(meta["heard"], turn.text, [_describe(a) for a in turn.actions],
-                             round(meta["dialog_s"], 3), latency, barged=not completed)
+                             round(meta["dialog_s"], 3), latency, barged=not completed,
+                             llm_calls=getattr(turn, "llm_calls", 0))
             self.stats.turns.append(rec)
             self._emit("turn", **asdict(rec))
         if not tts_ok:

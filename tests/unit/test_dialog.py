@@ -46,6 +46,7 @@ def agent(llm, **cfg):
     # LLM davranışını sınayan testler: hızlı yol (ADR-016) kapalı; onun testleri aşağıda ayrı
     cfg.setdefault("fast_path", False)
     cfg.setdefault("clarify_by_code", False)
+    cfg.setdefault("code_replies", False)
     return DialogAgent(llm, ToolRegistry(_index()), DialogConfig(organization="Deneme", **cfg))
 
 
@@ -379,3 +380,81 @@ def test_soru_dil_bilgisi():
     c = Contact("3", "Ayşe", "Kaya", "Muhasebe", "232")
     assert which_question([a, b]) == "Ayşe Yılmaz mı, Ayşe Kaya mı?"     # aynı birim: adla
     assert which_question([b, c]) is None                                 # ayırt edilemez: LLM sorsun
+
+
+# --- kodla cevaplar ve LLM'siz mod (ADR-019) ---
+
+async def test_bulunamadi_kodla_ikinci_llm_turu_yok_ve_sayac():
+    llm = ScriptedLlm(*[tool_msg(call("InContacts", Name="Ferhat Yıldırım")) for _ in range(3)])
+    s = agent(llm, code_replies=True).new_session("nf")
+    t1 = await s.handle_user("ferhat yıldırım")
+    assert t1.text == DialogConfig().texts.not_found and t1.actions == [] and t1.llm_calls == 1
+    t2 = await s.handle_user("ferhat bey")
+    assert t2.text == DialogConfig().texts.not_found_again                    # operatör teklifi
+    t3 = await s.handle_user("ferhat")
+    assert [a.type for a in t3.actions] == ["operator"] and len(llm.seen) == 3
+    assert s.state.misses == ["Ferhat Yıldırım"] * 3
+
+
+@pytest.mark.parametrize("status,start", [("busy", "Ayşe Yılmaz şu an meşgul."),
+                                          ("no_answer", "Ayşe Yılmaz şu an cevap vermiyor."),
+                                          ("failed", "Ayşe Yılmaz'a şu an ulaşılamıyor.")])
+async def test_aktarma_sonucu_kodla(status, start):
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe Yılmaz")))
+    s = agent(llm, code_replies=True).new_session("tr")
+    await s.handle_user("ayşe yılmaz")
+    t = await s.handle_transfer_result(status)
+    assert t.text.startswith(start) and t.llm_calls == 0 and len(llm.seen) == 1
+    assert any(m["role"] == "user" and m["content"].startswith("[Santral]") for m in s.history)   # LLM bağlamı
+
+
+class NoLlm:
+    async def chat(self, *a):
+        raise AssertionError("LLM kapalıyken çağrıldı")
+
+
+def rules():
+    return DialogAgent(NoLlm(), ToolRegistry(_index()), DialogConfig(organization="D", llm_enabled=False))
+
+
+@pytest.mark.parametrize("texts,expected", [
+    (["ayşe yılmazı istiyorum"], ["214"]),
+    (["zeynep lütfen"], ["260"]),
+    (["satış müdürü ile görüşmek istiyorum"], ["230"]),          # unvan
+    (["muhasebe"], ["210"]),                                     # birimin genel hattı
+    (["insan kaynaklarına bağlar mısınız"], ["260"]),            # tek kişilik birim
+    (["214"], ["214"]), (["dahili iki yüz on dört"], ["214"]), (["iki üç bir"], ["231"]),
+    (["ayşe", "ikincisi"], [None, "214"]),
+    (["muhasebeden ayşe hanım"], ["214"]),                       # birim adayları daraltır
+    (["operatöre bağlayın"], ["operator"]),
+])
+async def test_llm_siz_mod(texts, expected):
+    s = rules().new_session("r")
+    got = []
+    for t in texts:
+        turn = await s.handle_user(t)
+        assert turn.llm_calls == 0
+        got.append(next((getattr(a, "extension", None) or a.type for a in turn.actions), None))
+    assert got == expected
+
+
+async def test_llm_siz_mod_bulunamayan_uc_denemede_operator():
+    s = rules().new_session("r")
+    texts = [(await s.handle_user(t)).text for t in ("ferhat yıldırım", "yine ferhat")]
+    assert texts == [DialogConfig().texts.not_found, DialogConfig().texts.not_found_again]
+    assert [a.type for a in (await s.handle_user("hımm")).actions] == ["operator"]
+
+
+async def test_llm_siz_mod_cok_aday():
+    idx = DirectoryIndex([Contact(str(i), "Ali", f"Soyad{i}", "Satış", str(500 + i)) for i in range(5)])
+    a = DialogAgent(NoLlm(), ToolRegistry(idx), DialogConfig(llm_enabled=False))
+    t = await a.new_session("r").handle_user("ali")
+    assert t.text == DialogConfig().texts.too_many and t.actions == []
+
+
+def test_yaziyla_sayi():
+    from sesli_asistan.gateway.core.dialog import spoken_numbers
+    assert spoken_numbers("dahili iki yuz on dort".split()) == ["214"]
+    assert spoken_numbers("iki bir dort".split()) == ["214"]
+    assert spoken_numbers("iki yuz otuz bire".split()) == ["231"]
+    assert spoken_numbers("ayse yilmaz".split()) == [] and spoken_numbers(["bir"]) == []

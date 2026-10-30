@@ -215,7 +215,7 @@ class DirectoryIndex:
         top = scored[0].score
         close = [x for x in scored if x.score >= top - self.margin]
         if len(close) > 1:
-            return SearchResult(tuple(close[: self.limit]), Match.MULTIPLE)
+            return SearchResult(tuple(close[: self.limit]), Match.MULTIPLE, total=len(close))
         match = Match.SINGLE_HIGH if top >= self.high_score else Match.SINGLE_LOW
         return SearchResult((scored[0],), match)
 

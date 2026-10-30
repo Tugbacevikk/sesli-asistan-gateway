@@ -34,6 +34,8 @@ class GatewayMetrics:
         self.barge_in = Counter("barge_in_total", "Söze girme", registry=r)
         self.not_understood = Counter("not_understood_total", "Anlaşılamayan arayan cümlesi", registry=r)
         self.thinking_sound = Counter("thinking_sound_total", "Düşünme sesi çalınan turlar", registry=r)
+        self.turns = Counter("dialog_turns_total", "Arayan turları: LLM'e gitti mi (yol=llm) yoksa kodla mı (yol=kod)",
+                             ["yol"], registry=r)
         if runtime is not None:
             r.register(_RuntimeCollector(runtime))
 
@@ -41,6 +43,8 @@ class GatewayMetrics:
         """Çağrı oturumu olaylarını metriğe çevirir."""
         def on(kind: str, data: dict[str, Any]) -> None:
             if kind == "turn":
+                if data.get("heard") and not str(data["heard"]).startswith("["):     # arayan turu (olay değil)
+                    self.turns.labels("llm" if data.get("llm_calls") else "kod").inc()
                 if data.get("final_to_audio_s") is not None:
                     self.turn_latency.labels(channel).observe(data["final_to_audio_s"])
                 if data.get("dialog_s"):

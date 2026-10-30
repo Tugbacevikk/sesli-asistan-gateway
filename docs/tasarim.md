@@ -1093,6 +1093,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
 | `CLARIFY_BY_CODE` | true | ADR-017: birden çok adayda soru ve cevaptan seçim LLM'siz |
 | `STREAM_REPLIES` | true | ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir |
+| `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
+| `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
@@ -1443,6 +1445,11 @@ proto uyumsuzluk kontrolü, bağımlılık lisans ve güvenlik taraması (pip-au
 - **Bağlam:** LLM'in yazdığı cevaplarda (bulunamadı, sohbet, meşgul sonrası) arayan, cevabın tamamı üretilene kadar bekliyordu; iki cümlelik cevapta ilk cümlenin sesi ikinci cümle bitene kadar gecikiyordu.
 - **Karar:** Ollama akışlı uç (`stream: true`) kullanılır. Diyalog, tamamlanan her cümleyi (noktalama + ardından boşluk; "Dr." gibi kısaltmalar hariç) çağrı oturumuna akıtır; oturum ilk cümle gelince düşünme sesini keser ve konuşmaya başlar, sonrakiler geldikçe seslendirilir (seslendirme çalarken sıradaki hazırlanır). Konuşma sırasında olay döngüsü serbesttir: söze girme ve DTMF işlenir. Turun eylemi (aktarma, operatör) diyalog bitince uygulanır; söze girilse de diyalog yarıda kesilmez (geçmiş tutarlı kalır), aktarma cümlesine söze girilirse aktarma yine yapılmaz. Metinden sonra araç çağrısı gelirse ("Hemen bakıyorum." → aktarma) söylenen cümleden sonra aktarma cümlesi söylenir. **Akış yalnız o tur operatöre dönüşemeyecekse kullanılır** (3. başarısızlıkta söylenmiş cümle geri alınamaz). Akış desteklemeyen LLM adaptöründe (openai) eski yol. Sarmalayıcılar (devre kesici, metrik) akışı da kapsar.
 - **Sonuç:** Çok cümleli LLM cevaplarında ilk ses ≈ ilk cümlenin üretim süresi. Net isteklerde LLM zaten kullanılmıyor (ADR-016/017). `STREAM_REPLIES=false` ile kapatılır.
+
+### ADR-019 — Kodla cevaplar ve LLM'siz çalışma
+- **Bağlam:** Gerçek Ollama ölçümünde (27.10.2026) rehberde olmayan kişi için ilk ses 4,7 sn: LLM önce aracı çağırıyor, sonra "bulunamadı" cümlesini yazıyor. Santralin ana işi dar (kişi / birim → aktarma); LLM'in gerekli olup olmadığı gerçek çağrılarla ölçülmeli.
+- **Karar:** (1) Arama sonuçsuzsa ikinci LLM turu yok: sabit cümle ("Aradığınız kişiyi rehberde bulamadım…"); sondan bir önceki denemede operatör teklifi, sonda operatör. Aktarma sonucu (meşgul / cevap vermiyor / ulaşılamıyor) da sabit cümleyle; LLM sonraki turda santral bilgisini geçmişte görür. Hepsi Ayarlar ekranından değiştirilebilir. (2) Her arayan turunun LLM'e gidip gitmediği kaydedilir: `dialog_turns_total{yol=llm|kod}` ve izleme ekranında "turların %X'i dil modeline gitti". (3) `LLM_ENABLED=false`: Ollama hiç kullanılmaz ve sağlıkta yer almaz; kural tabanlı diyalog: operatör sözcükleri, dahili numara (rakam ya da yazıyla: "iki yüz on dört", "iki bir dört"), kişi adı / unvan / birim pencereleri; birim söylenmişse kişi adayları daraltılır; birimin genel hattı yoksa tek kişilik birimde o kişi; tek aday → aktarma, 2–3 → soru, daha çok → "soyadını ya da birimini söyler misiniz". (4) Arama gösterilenden çok aday bulduysa (`more`), ilk üçü arasında soru sorulmaz (doğru kişi dışarıda kalabilirdi); LLM'e de bu bilgi verilir.
+- **Sonuç:** "Bulunamadı" turu ~2 sn'ye iner. LLM gerekip gerekmediği pilot verisiyle (oran) kararlaştırılır; düşükse `LLM_ENABLED=false` ile GPU belleği STT'ye kalır. `CODE_REPLIES=false` eski davranış.
 
 ### ADR-015 — Kadın sesi: Seslen TTS servisi
 - **Bağlam:** Ürün sesinin kadın olması istendi. Piper'da lisansı uygun Türkçe kadın sesi yok (ADR-013). Ses değiştirmek için mevcut erkek sesin perdesini kaydırmak telefonda yapay duyulur.

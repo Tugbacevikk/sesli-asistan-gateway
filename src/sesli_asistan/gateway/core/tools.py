@@ -67,6 +67,7 @@ class CallToolState:
 
     last_results: tuple[Candidate, ...] = ()
     choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
+    truncated: bool = False                 # son aramada gösterilenden çok aday vardı
     pending_transfer: TransferAction | None = None
     failed_attempts: int = 0
     actions: list[TransferAction | OperatorAction] = field(default_factory=list)
@@ -115,6 +116,11 @@ class ToolRegistry:
         if res.match == Match.NONE:
             state.misses.append(" / ".join(x for x in (name, dept, ext) if x))
         content = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
+        if res.truncated:
+            # yalnız ilk `limit` aday gösterildi: LLM bunlar arasında seçtirmesin, ayırt edici bilgi istesin
+            content["more"] = res.total - len(res.candidates)
+            content["note"] = "Bu ada uyan daha çok kişi var; arayandan soyadı ya da birimi iste."
+        state.truncated = res.truncated
         return ToolOutcome(content, failed_search=res.match == Match.NONE)
 
     def transfer(self, extension: str, state: CallToolState) -> TransferAction | None:

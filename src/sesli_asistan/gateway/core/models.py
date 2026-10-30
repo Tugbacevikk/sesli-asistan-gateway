@@ -63,6 +63,11 @@ class Candidate:
 class SearchResult:
     candidates: tuple[Candidate, ...]
     match: Match
+    total: int = 0                # kesilmeden önceki yakın aday sayısı (candidates en çok `limit` tane)
+
+    @property
+    def truncated(self) -> bool:
+        return self.total > len(self.candidates)
 
 
 # --- Santrale gidecek eylemler (tasarim.md 6.2.2) ---

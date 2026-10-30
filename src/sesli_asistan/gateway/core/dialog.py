@@ -165,7 +165,8 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     t = cfg.texts
     return {"greeting": greeting_text(cfg), "not_understood": t.not_understood,
             "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
-            "no_input": t.no_input, "closed": t.closed, "holiday": t.holiday, "no_operator": t.no_operator}
+            "no_input": t.no_input, "closed": t.closed, "holiday": t.holiday, "no_operator": t.no_operator,
+            "not_found": t.not_found, "not_found_again": t.not_found_again, "too_many": t.too_many}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)
@@ -231,6 +232,7 @@ class DialogAgent:
                 return self._code_transfer(s, r.candidates[0])
         people: dict[str, Candidate] = {}
         depts: set[str] = set()
+        more = False                      # bir aramada gösterilenden çok aday vardı
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
@@ -240,7 +242,9 @@ class DialogAgent:
                 depts |= {search_key(c.contact.department) for c in dept_hits}
                 if dept_hits and not has_role_word(window):
                     continue          # "satış", "muhasebeden": birim adı; unvanında geçen kişiler aday sayılmaz
-                for c in index.search(name=window).candidates:
+                res = index.search(name=window)
+                more = more or res.truncated
+                for c in res.candidates:
                     if c.score >= index.high_score and c.contact.kind == "person":
                         people.setdefault(c.contact.id, c)
         if people and depts:
@@ -255,11 +259,12 @@ class DialogAgent:
             if pick:
                 return self._code_transfer(s, Candidate(pick[0], 100))
             cands = [Candidate(c, 100) for c in members]
-        if len(cands) == 1:
+        if len(cands) == 1 and not more:
             return self._code_transfer(s, cands[0])
-        if len(cands) > 1:
+        if len(cands) > 1 or more:
             s.state.last_results = tuple(cands[:3])
-            if len(cands) <= 3 and (turn := self._clarify(s, s.state.last_results)) is not None:
+            s.state.truncated = more or len(cands) > 3
+            if (turn := self._clarify(s, s.state.last_results)) is not None:
                 s.state.failed_attempts = 0
                 return turn
             s.state.choice = ()
@@ -301,6 +306,8 @@ class DialogAgent:
         sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun."""
         if not 2 <= len(candidates) <= 3 or any(c.contact.kind != "person" for c in candidates):
             return None
+        if s.state.truncated:
+            return None                       # gösterilenden çok aday var: yalnız ilk üçünü sormak yanlış olur
         q = which_question([c.contact for c in candidates])
         if q is None:
             return None
@@ -322,7 +329,7 @@ class DialogAgent:
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
                 res = index.search(name=window)
-                if res.match != Match.MULTIPLE or not all(
+                if res.match != Match.MULTIPLE or res.truncated or not all(
                         c.score >= index.high_score and c.contact.kind == "person" for c in res.candidates):
                     continue
                 call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments={"Name": window})

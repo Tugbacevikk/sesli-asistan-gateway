@@ -23,7 +23,8 @@ def test_yeniden_acilinca_kayitlar_durur(tmp_path):
     assert [x["call_id"] for x in r] == ["c-2", "c-1"] and r[1]["turns"][0]["heard"] == "muhasebeden ayşe hanım"
     assert h.misses()[0] == {"text": "ferhat yıldırım", "count": 2}
     assert h.top_extensions() == [("214", 2)]
-    assert h.summary() == {"gun": 1, "sonuc": {"transferred": 1, "operator": 1}, "toplam": 2}
+    assert h.summary() == {"gun": 1, "sonuc": {"transferred": 1, "operator": 1}, "toplam": 2,
+                           "tur": {"kod": 2, "llm": 0}}
 
 
 def test_saklama_suresi_ve_metin_saklamama(tmp_path):

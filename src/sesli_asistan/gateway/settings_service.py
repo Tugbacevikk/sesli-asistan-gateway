@@ -40,6 +40,12 @@ TEXT_LABELS = {
     "closed": ("Mesai dışı", ""),
     "holiday": ("Tatil", ""),
     "no_operator": ("Operatör yok (mesai dışı)", ""),
+    "not_found": ("Bulunamadı", ""),
+    "not_found_again": ("Yine bulunamadı (operatör teklifi)", ""),
+    "too_many": ("Çok aday", ""),
+    "busy": ("Aranan meşgul", "{ad} {ad_e}"),
+    "no_answer": ("Aranan cevap vermiyor", "{ad} {ad_e}"),
+    "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10

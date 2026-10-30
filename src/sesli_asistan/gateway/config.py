@@ -15,13 +15,17 @@ from .core.dialog import DialogTexts
 from .core.schedule import OfficeHours
 
 TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
-               "transferring_department", "closed", "holiday", "no_operator")
+               "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
+               "too_many", "busy", "no_answer", "transfer_failed")
+_NAMED = ("transferring", "busy", "no_answer", "transfer_failed")      # {ad} / {ad_e} alan cümleler
 
 
 def check_texts(t: DialogTexts) -> None:
     """Yer tutucu denetimi (ayar dosyası ve ayar ekranı aynı kuralı kullanır). Hatalıysa ValueError."""
-    for name, text, needs in (("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_TEXT", t.transferring, ("{ad",)),
-                              ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department, ("{birim}",))):
+    checks = [("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department,
+                                                   ("{birim}",))]
+    checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
+    for name, text, needs in checks:
         try:
             text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B")
         except (KeyError, IndexError, ValueError) as e:
@@ -31,7 +35,7 @@ def check_texts(t: DialogTexts) -> None:
             shown = ["{ad} ya da {ad_e}" if n == "{ad" else n for n in needs]
             raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")
     for f in TEXT_FIELDS:
-        if f not in ("greeting", "transferring", "transferring_department") and "{" in getattr(t, f):
+        if f not in ("greeting", "transferring_department", *_NAMED) and "{" in getattr(t, f):
             raise ValueError(f"{f.upper()}_TEXT yer tutucu almaz: {getattr(t, f)!r}")
 
 
@@ -64,6 +68,8 @@ class GatewaySettings(BaseSettings):
     fast_path: bool = True                    # ADR-016: net tam ad / birim hattında LLM beklenmez
     clarify_by_code: bool = True              # ADR-017: birden çok adayda soru ve seçim LLM'siz
     stream_replies: bool = True               # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
+    code_replies: bool = True                 # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla
+    llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog
 
     # TTS (tasarim.md 5.4, 6.4)
     tts_url: str = "http://127.0.0.1:5500"
@@ -120,6 +126,12 @@ class GatewaySettings(BaseSettings):
     closed_text: str = ""
     holiday_text: str = ""
     no_operator_text: str = ""
+    not_found_text: str = ""
+    not_found_again_text: str = ""
+    too_many_text: str = ""
+    busy_text: str = ""                       # {ad} {ad_e}
+    no_answer_text: str = ""
+    transfer_failed_text: str = ""
 
     # Çağrı geçmişi (kalıcı, SQLite). Boş: yalnız bellekte son 100 çağrı. Kişisel veri: saklama süresi dolunca silinir
     call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db

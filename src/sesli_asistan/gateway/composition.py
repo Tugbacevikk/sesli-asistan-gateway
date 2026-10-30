@@ -49,7 +49,8 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
     cfg = DialogConfig(organization=s.organization_name, max_failed_attempts=s.max_failed_attempts,
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
                        llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts(), fast_path=s.fast_path,
-                       clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies)
+                       clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
+                       code_replies=s.code_replies, llm_enabled=s.llm_enabled)
     return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
 
 
@@ -95,7 +96,9 @@ class GatewayRuntime:
         self.stt = BreakerStt(stt or GrpcStt(s.stt_grpc_addr), self.breakers["stt"])
         self.pbx = pbx or PbxRestClient(s.pbx_base_url, s.pbx_api_key.get_secret_value(), s.pbx_timeout_s)
         self.speaker: Speaker | None = None
-        self.components = {"stt": "starting", "llm": "starting", "tts": "starting", "directory": "starting"}
+        self.components = {"stt": "starting", "tts": "starting", "directory": "starting"}
+        if s.llm_enabled:                  # LLM kapalıysa (ADR-019) sağlıkta hiç yer almaz
+            self.components["llm"] = "starting"
         self.health_interval_s = health_interval_s
         from .adapters.history.sqlite import MemoryCallHistory, SqliteCallHistory
 
@@ -204,7 +207,7 @@ class GatewayRuntime:
         self._prompts_missing = bool(missing)
         if missing:
             log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)
-        warm = getattr(self.llm, "warmup", None)
+        warm = getattr(self.llm, "warmup", None) if self.s.llm_enabled else None
         if warm:
             try:
                 await asyncio.wait_for(warm(), timeout=60)
@@ -235,7 +238,8 @@ class GatewayRuntime:
         except Exception as e:   # sağlık kontrolü servisi düşürmez; bileşen "down" sayılır
             log.error("STT sağlık kontrolü hatası: %s", e)
             self.components["stt"] = "down"
-        self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
+        if self.s.llm_enabled:
+            self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
         if self._prompts_missing or self.speaker is None:
             self.components["tts"] = "down"
         elif isinstance(self.tts, CachingTts):

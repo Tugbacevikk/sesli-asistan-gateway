@@ -55,3 +55,14 @@ def test_metrikler_cagridan_sonra():
     assert lines["llm_latency_seconds_count"] >= 1 and lines["tts_latency_seconds_count"] >= 1
     assert lines['dependency_up{service="stt"}'] == 1 and lines["calls_active"] == 0
     assert lines["directory_entries"] == 10 and lines["transfer_policy_rejections_total"] == 0
+
+
+def test_tur_yolu_metrigi():
+    from sesli_asistan.gateway.metrics import GatewayMetrics
+    m = GatewayMetrics()
+    on = m.observer("santral")
+    on("turn", {"heard": "ayşe yılmaz", "llm_calls": 0, "final_to_audio_s": 0.1, "dialog_s": 0.0})
+    on("turn", {"heard": "ferhat", "llm_calls": 2, "final_to_audio_s": 2.0, "dialog_s": 1.9})
+    on("turn", {"heard": "[santral: busy]", "llm_calls": 0, "final_to_audio_s": None, "dialog_s": 0.0})
+    g = m.registry.get_sample_value
+    assert g("dialog_turns_total", {"yol": "kod"}) == 1 and g("dialog_turns_total", {"yol": "llm"}) == 1

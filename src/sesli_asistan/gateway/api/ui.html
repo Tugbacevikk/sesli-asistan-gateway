@@ -648,13 +648,15 @@ async function refresh() {
       fetch("/v1/admin/health", { headers }).then((r) => r.json()),
       fetch("/v1/admin/calls", { headers }).then((r) => r.json()),
     ]);
-    $("health").innerHTML = Object.entries(SERVICES).map(([k, label]) => {
+    $("health").innerHTML = Object.entries(SERVICES).filter(([k]) => k in (h.components || {})).map(([k, label]) => {
       const st = h.components?.[k];
       return `<div class="svc ${st === "ok" ? "ok" : "bad"}"><i></i><div><strong>${label}</strong><span>${st === "ok" ? "çalışıyor" : esc(st || "bilinmiyor")}</span></div></div>`;
     }).join("") + (h.office ? `<div class="svc ${h.office === "acik" ? "ok" : ""}"><i></i><div><strong>Mesai</strong><span>${esc(OFFICE[h.office] || h.office)}</span></div></div>` : "");
     const t = c.today || { toplam: 0, sonuc: {} };
+    const tr = t.tur || { kod: 0, llm: 0 }, nt = tr.kod + tr.llm;
     $("today").textContent = t.toplam
       ? `Son 24 saat: ${t.toplam} çağrı · ` + Object.entries(t.sonuc).map(([k, v]) => `${v} ${outcomeText(k)}`).join(", ")
+        + (nt ? ` · arayan turlarının %${Math.round(100 * tr.llm / nt)}'i dil modeline gitti (${tr.llm}/${nt})` : "")
       : "Son 24 saatte biten çağrı yok.";
     $("active").innerHTML = c.active.length ? c.active.map((a) =>
       `<tr><td>${esc(a.call_id)}</td><td>${channelText(a.channel)}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")

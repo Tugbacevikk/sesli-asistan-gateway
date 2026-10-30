@@ -171,3 +171,35 @@ def test_yerel_kayit_kalici(tmp_path):
     asyncio.run(rt.directory.refresh())
     assert rt.directory.index.search("ferhat yıldırım").candidates[0].contact.id == "yerel-0000abcd"
     rt.history.close()
+
+
+def test_llm_kapali_saglikta_yok_ve_hazir():
+    import asyncio
+
+    from test_ui import Stt, Tts
+    s = GatewaySettings(_env_file=None, directory_path=str(ROOT / "data/rehber_ornek.json"), llm_enabled=False)
+
+    class Patlayan:
+        async def chat(self, *a):
+            raise AssertionError("LLM kapalıyken çağrıldı")
+
+    rt = GatewayRuntime(s, llm=Patlayan(), stt=Stt(), tts=Tts())
+
+    async def go():
+        await rt.start()
+        try:
+            h = rt.health()
+            assert "llm" not in h["components"] and h["status"] == "ok"
+            t = await rt.agent.new_session("x").handle_user("zeynep lütfen")
+            assert [a.extension for a in t.actions] == ["260"] and t.llm_calls == 0
+        finally:
+            await rt.stop()
+    asyncio.run(go())
+
+
+def test_yeni_anonslar_ayar_dogrulamasi():
+    with pytest.raises(ValueError, match="BUSY_TEXT şunu içermeli"):
+        GatewaySettings(_env_file=None, busy_text="Meşgul.")
+    with pytest.raises(ValueError, match="yer tutucu almaz"):
+        GatewaySettings(_env_file=None, not_found_text="{ad} yok")
+    assert GatewaySettings(_env_file=None, busy_text="{ad} hatta.").dialog_texts().busy == "{ad} hatta."
