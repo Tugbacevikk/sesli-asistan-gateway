@@ -31,6 +31,9 @@ from .engine import SttResult
 log = logging.getLogger(__name__)
 SR = 16000
 TAIL_S = 0.5            # sonda sessizlik: kod çözücü son kelimeleri de versin (model kartındaki değerlendirme gibi)
+# başta sessizlik: VAD cümleyi konuşmanın hemen önünden verir; akışlı model ilk kelimeyi düşürüyordu
+# (santral denemesi 02.11.2026: "görüşmeyi sonlandırmak istiyorum" → "sonlandırmak istiyorum"; 0,3 sn ile tam)
+LEAD_S = 0.3
 
 
 @dataclass(frozen=True)
@@ -79,6 +82,7 @@ class SherpaEngine:
         x = np.ascontiguousarray(samples, dtype=np.float32)
         with self._slots:
             s = self.rec.create_stream()
+            s.accept_waveform(SR, np.zeros(int(SR * LEAD_S), np.float32))
             s.accept_waveform(SR, x)
             s.accept_waveform(SR, np.zeros(int(SR * TAIL_S), np.float32))
             s.input_finished()

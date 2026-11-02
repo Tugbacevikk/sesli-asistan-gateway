@@ -54,9 +54,9 @@ async def server():
         await srv.stop(0)
 
 
-async def run_stream(target, audio, hotwords=None, codec="pcma"):
+async def run_stream(target, audio, hotwords=None, codec="pcma", call_id="c-1"):
     client = GrpcStt(target)
-    st = await client.open("c-1", codec, hotwords)
+    st = await client.open(call_id, codec, hotwords)
     for f in audio:
         await st.send(f)
     await st.close()
@@ -221,6 +221,15 @@ async def test_teshis_kaydi_cumle_sesini_ve_sonucu_yazar(server, tmp_path):
     assert meta["metin"] == "muhasebeden ayşe hanım" and meta["ipuclari"] == ["Zeynep Arslan"]
     with wave.open(str(tmp_path / "c-1_001.wav")) as w:
         assert w.getframerate() == 16000 and 1.0 < w.getnframes() / 16000 < 1.8
+
+
+async def test_teshis_kaydi_noktali_cagri_kimliginde_cumleler_ayri_dosyada(server, tmp_path):
+    # Asterisk kimliği "1793622240.127": her cümle kendi dosyasına (önceden hepsi "1793622240.wav" üstüne yazılıyordu)
+    await run_stream(await server(FakeEngine(), debug_dir=str(tmp_path)),
+                     frames((0.3, False), (1.0, True), (1.0, False), (1.0, True), (1.0, False)),
+                     call_id="1793622240.127")
+    assert sorted(p.name for p in tmp_path.iterdir()) == [
+        "1793622240.127_001.json", "1793622240.127_001.wav", "1793622240.127_002.json", "1793622240.127_002.wav"]
 
 
 async def test_akis_ortasinda_ipucu_guncellenir(server):

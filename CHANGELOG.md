@@ -43,6 +43,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Sözde birden çok kişinin tam adı geçince "bulunamadı" yerine kodla "hangisi?" sorulur.
 - Arayan görüşmeyi bitirmek isteyince ("sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim") vedalaşıp kapatılır.
 - Asistanın sözü kesilerek söylenen ve anlaşılamayan söz deneme hakkından düşmez (operatöre gönderilmez).
+- STT (sherpa): cümlenin ilk kelimesi düşmesin diye sesin önüne 0,3 sn sessizlik.
+- STT teşhis kaydı: çağrı kimliğinde nokta varsa her cümle aynı dosyanın üstüne yazılıyordu.
 
 ### Değişti
 - Rehber dosyası varsayılan yeri `/var/lib/sesli-asistan/rehber.json` (Gateway yazabilsin diye; `/etc` systemd'de

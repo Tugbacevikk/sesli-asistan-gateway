@@ -219,14 +219,17 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
         if self.debug_dir is None:
             return
         try:
+            # çağrı kimliğinde nokta olabilir (Asterisk: "1793622240.127"): with_suffix onu uzantı sanıp her cümleyi
+            # aynı dosyaya yazıyordu; adın sonuna eklenir
             base = self.debug_dir / f"{call_id}_{n:03d}"
+            wav, meta = base.parent / f"{base.name}.wav", base.parent / f"{base.name}.json"
             pcm = (np.clip(u.audio, -1, 1) * 32767).astype("<i2")
-            with wave.open(str(base.with_suffix(".wav")), "wb") as w:
+            with wave.open(str(wav), "wb") as w:
                 w.setnchannels(1)
                 w.setsampwidth(2)
                 w.setframerate(STT_RATE)
                 w.writeframes(pcm.tobytes())
-            base.with_suffix(".json").write_text(json.dumps(
+            meta.write_text(json.dumps(
                 {"call_id": call_id, "cumle": n, "bas_sn": u.start, "son_sn": u.end, "metin": text,
                  "guven": round(confidence, 3), "neden": reason, "ipuclari": hotwords},
                 ensure_ascii=False, indent=1), encoding="utf-8")

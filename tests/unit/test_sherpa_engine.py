@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from sesli_asistan.stt.config import SttSettings
-from sesli_asistan.stt.sherpa_engine import TAIL_S, SherpaEngine, SherpaParams
+from sesli_asistan.stt.sherpa_engine import LEAD_S, TAIL_S, SherpaEngine, SherpaParams
 
 
 class Stream:
@@ -47,7 +47,7 @@ def test_cumle_sesi_ve_sondaki_sessizlik_verilir_metin_normallesir():
     e = SherpaEngine(SherpaParams(), recognizer=rec)
     r = e.transcribe(np.zeros(8000, np.float64), hotwords=["Ayşe Yılmaz"])
     s = rec.streams[0]
-    assert s.fed == [8000, int(16000 * TAIL_S)] and s.finished and rec.decoded == 3
+    assert s.fed == [int(16000 * LEAD_S), 8000, int(16000 * TAIL_S)] and s.finished and rec.decoded == 3
     assert r.text == "ayşe yılmaz ile görüşmek istiyorum"
     assert r.confidence == round(math.exp(-0.2), 3)
 

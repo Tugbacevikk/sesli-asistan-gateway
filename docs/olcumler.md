@@ -440,6 +440,36 @@ Windows dizüstü; Whisper modelleri bu koşuda **CPU'da** çalıştı (araç CU
   kodla "bulamadım" (LLM turu yok); "evet"e yakın duyulanlar ("emet") evet sayılır; operatör / kapatma / yeni ad
   normal akışa gider.
 
+### mihu (sherpa) ile santral denemesi (2 Kasım 2026, 15:24, `STT_ENGINE=sherpa`, CPU)
+
+| Söylenen | STT (güven) | Asistan | Süre |
+|---|---|---|---|
+| Ayşe Yılmaz ile görüşmek istiyorum | "şey mazda görüşmek" (0,45) — **yalnız 0,81 sn ses** | LLM: "Ayşe Yılmaz… onaylıyor musunuz?" | 12,2 sn |
+| (teyit sorusundan sonra) | STT'de 26 sn hiç konuşma olayı yok | "Sizi duyamıyorum" → operatör (sessiz) | — |
+| Tuğba Çevik (rehberde yok) | "tuğben çevik" (0,63) | "bulamadım" ✓ | 2,8 sn |
+| görüşmeyi sonlandırmak istiyorum | "sonlandırmak istiyorum" (0,60) | veda + kapatma ✓ | kodla |
+
+Aynı teşhis kayıtları yeniden çözüldü (`karsilastir.py --bas-sessizlik 0.3`):
+
+| kayıt | whisper medium | whisper + ipucu | mihu | mihu + ipucu | mihu + 0,3 sn baş sessizliği |
+|---|---|---|---|---|---|
+| 1 (0,81 sn) | (boş) | "ayşe yılmaz" | şey mazda görüşmek | şey mazda görüşmek | bir şey manzda görüşmek |
+| 2 (1,58 sn) | görüşme hesabını anlaymak istiyorum | aynı | sonlandırmak istiyorum | aynı | **görüşmeyi sonlandırmak istiyorum** |
+
+RTF: whisper medium (GPU) 0,27–0,94 (ilk çağrı ısınma), mihu (CPU) 0,08–0,10.
+
+- **Mihu cümlenin ilk kelimesini düşürüyor**: VAD sesi konuşmanın hemen önünden veriyor, akışlı model başta
+  bağlam bulamıyor. 0,3 sn baş sessizliğiyle tam çıktı → motora eklendi (`LEAD_S`). Bu kayıtta mihu Whisper'dan iyi.
+- Kayıt 1'de sorun motorda değil seste: cümlenin yalnız 0,81 sn'si konuşma algılandı, Whisper ipucusuz boş döndü.
+  Teyit sorusundan sonra da VAD 26 sn hiç konuşma görmedi (STT'de SPEECH_STARTED yok; ses akışı sürekli). İlk
+  çağrıda hattaki ses seviyesi düşük ya da kesik olabilir; ikinci çağrıda aynı ayarlarla sorun yok. Tekrar
+  denenecek.
+- Mihu'da ad ipucu (bağlam yanlılığı) iki kayıtta da çıktıyı değiştirmedi.
+- Güven: mihu doğru cümlede 0,60, yanlışta 0,45; Whisper'ın aynı konuşmacıdaki doğru cümleleri de 0,62–0,67 idi.
+  Eşik (0,75) şimdilik aynı; ayar için daha çok kayıt gerek.
+- Teşhis kaydında hata: çağrı kimliğindeki nokta ("1793622240.127") uzantı sanılıp her cümle aynı dosyaya
+  yazılıyordu → düzeltildi.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
