@@ -55,10 +55,12 @@ def telephone(x: np.ndarray) -> np.ndarray:
 
 class Whisper:
     def __init__(self, model_dir: str, device: str):
-        from sesli_asistan.stt.engine import WhisperEngine, WhisperParams
+        from sesli_asistan.stt.engine import WhisperEngine, WhisperParams, load_cuda_libraries
 
+        load_cuda_libraries()        # pip'le kurulan CUDA kütüphaneleri (STT servisi de böyle yapar); yoksa CPU
         self.name = f"whisper:{Path(model_dir).name}"
         self.engine = WhisperEngine(WhisperParams(model_dir=model_dir, device=device))
+        print(f"{self.name}: {getattr(self.engine, 'device', '?')}")
 
     def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
         return self.engine.transcribe(x, hotwords or None).text

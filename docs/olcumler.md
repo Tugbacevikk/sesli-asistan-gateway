@@ -401,3 +401,26 @@ Aynı gün devam:
   sessizlik bastırması / VAD'ı, gürültü bastırma).
 - İpucu, ses kötüyken adları zorluyor ("görüşmeyi bitirmek istiyorum" → "şahin muhasebe"; rehberde olmayan ad →
   en yakın rehber adı). Diyalogdaki korumalar (soyad kontrolü, kodla soru) bu yüzden gerekli.
+
+### STT model karşılaştırması — aynı 4 telefon kaydı (2 Kasım 2026, `tools/stt/karsilastir.py`)
+
+Windows dizüstü; Whisper modelleri bu koşuda **CPU'da** çalıştı (araç CUDA kütüphanelerini yüklemiyordu, düzeltildi)
+→ RTF'ler Whisper için anlamsız. sherpa-onnx 2 iş parçacığı CPU. n = 4, tek konuşmacı: **yalnız yön gösterir.**
+
+| Model | WER | CER | Tam doğru | RTF |
+|---|---|---|---|---|
+| Whisper medium | %53,8 | %18,6 | 1/4 | (CPU) |
+| Whisper medium + ipucu | %46,2 | %10,8 | 1/4 | (CPU) |
+| Whisper large-v3-turbo | %46,2 | %17,6 | 1/4 | (CPU) |
+| Whisper large-v3-turbo + ipucu | %53,8 | %26,5 | 0/4 | (CPU) |
+| mihu turkish-stt-66m-v2 (akışlı) | %61,5 | %19,6 | 1/4 | **0,09** |
+| mihu + ipucu | %61,5 | %19,6 | 1/4 | 0,08 |
+
+- Hiçbir model belirgin iyi değil; **aynı hatalar bütün modellerde**: "Ayşe" → "bir şey", "bağlanmak" → "başlamak /
+  bahar almak / üzülür". Sorun model seçiminden çok sesin kendisinde (dar bant + bu kayıtlardaki telaffuz/hız).
+- "Tuğba Çevik": ipucuyla iki Whisper da "burak çelik" (ipucu yanlılığı); ipucusuz turbo "tuba çevik" (en yakın),
+  mihu "baba çevik". Teyit sorusu (CONFIRM_BELOW) bu yüzden gerekli.
+- mihu: CPU'da çok hızlı (~11× gerçek zaman), ama bu kayıtlarda doğruluk Whisper'dan iyi değil; ipucu çıktıyı hiç
+  değiştirmedi (bağlam yanlılığı etkisiz ya da skor düşük, ayrıca bakılacak). Lisans da engel → **şimdilik geçilmez.**
+- Doğru metin "Ayşe Yılmaz **ile**" yazıldı; arayan "Yılmaz'**la**" demiş olabilir → bu satırda WER şişmiş olabilir.
+- Karar için gereken: 20–30 cümle, birkaç konuşmacı, telefon hattından (açık konu #8); Whisper GPU'da.
