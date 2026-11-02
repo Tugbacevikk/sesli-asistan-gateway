@@ -424,3 +424,18 @@ Windows dizüstü; Whisper modelleri bu koşuda **CPU'da** çalıştı (araç CU
   değiştirmedi (bağlam yanlılığı etkisiz ya da skor düşük, ayrıca bakılacak). Lisans da engel → **şimdilik geçilmez.**
 - Doğru metin "Ayşe Yılmaz **ile**" yazıldı; arayan "Yılmaz'**la**" demiş olabilir → bu satırda WER şişmiş olabilir.
 - Karar için gereken: 20–30 cümle, birkaç konuşmacı, telefon hattından (açık konu #8); Whisper GPU'da.
+
+### Teyit sorusu — canlı deneme (2 Kasım 2026, 12:04)
+
+| Söylenen | STT (güven) | Asistan |
+|---|---|---|
+| Tuğba Çevik | "burak çelik" (0,67) | "Burak Çelik'e mi bağlamamı istersiniz?" ✓ (aktarmadı) |
+| (sessizlik) | — | "Sizi duyamıyorum…" |
+| Tuğba Çevik | "burak çelik" (0,65) | yine teyit ✓ |
+| hayır | **"hayat" (0,41)** | LLM'e gitti, 8,5 sn sonra "bulamadım" |
+| görüşmeyi sonlandırmak istiyorum | "görüşmeye sonlandırmak istiyorum" (0,62) | veda + kapatma ✓ |
+
+- Yanlış kişiye aktarma engellendi; eşik (0,75) bu konuşmacıda doğru ayrıştırdı.
+- "hayır" kısa ve dar bantta "hayat" duyuldu → teyitte **açık "evet" yoksa aktarılmaz**: anlaşılmayan / kısa cevap
+  kodla "bulamadım" (LLM turu yok); "evet"e yakın duyulanlar ("emet") evet sayılır; operatör / kapatma / yeni ad
+  normal akışa gider.

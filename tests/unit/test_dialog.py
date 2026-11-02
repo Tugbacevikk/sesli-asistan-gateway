@@ -573,7 +573,7 @@ async def test_dusuk_guvende_aktarmadan_once_sorar_evet_ile_aktarir():
     assert [x.extension for x in t.actions] == ["215"] and a.llm.seen == []
 
 
-@pytest.mark.parametrize("answer", ["hayır", "hayır yanlış", "değil"])
+@pytest.mark.parametrize("answer", ["hayır", "hayır yanlış", "değil", "hayat", "ııı bilmem"])
 async def test_dusuk_guvende_hayir_derse_bulamadim(answer):
     a, s, t = await _unsure("burak çelik")
     t = await s.handle_user(answer)
@@ -603,3 +603,19 @@ async def test_teyit_kapatilabilir_ve_birim_hattinda_da_sorar():
 async def test_kural_modunda_da_teyit():
     a, s, t = await _unsure("burak çelik", llm_enabled=False, fast_path=False)
     assert not t.actions and t.text.endswith("istersiniz?")
+
+
+@pytest.mark.parametrize("answer", ["evet", "emet", "evet evet", "aynen öyle"])
+async def test_teyitte_evet_ve_yakin_duyulan_evet_aktarir(answer):
+    a, s, t = await _unsure("burak çelik")
+    t = await s.handle_user(answer)
+    assert [x.extension for x in t.actions] == ["215"]
+
+
+async def test_teyitte_operator_ya_da_kapatma_istegi_normal_akisa_gider():
+    a, s, t = await _unsure("burak çelik")
+    t = await s.handle_user("operatöre bağlayın")
+    assert [x.type for x in t.actions] == ["operator"]
+    a, s, t = await _unsure("burak çelik")
+    t = await s.handle_user("görüşmeyi sonlandırmak istiyorum")
+    assert [x.type for x in t.actions] == ["hangup"]

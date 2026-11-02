@@ -334,8 +334,8 @@ class DialogAgent:
         return turn
 
     def _resolve_confirm(self, s: DialogSession, text: str, cand: Candidate) -> DialogTurn | None:
-        """Teyit sorusunun cevabı: evet → aktar; hayır (başka hedef söylemeden) → bulamadım; başka bir şey → normal
-        akış."""
+        """Teyit sorusunun cevabı: evet → aktar; "hayır, Y" → Y aranır; yeni istek (kişi, birim, operatör, kapatma) →
+        normal akış; geri kalan her şey (hayır, anlaşılmayan kısa söz) → bulamadım. Açık "evet" olmadan aktarılmaz."""
         raw = set(_folded_words(text))
         if raw & _NEGATION or raw & {"yanlis", "degil"}:
             if not self._mentions_person_or_department(text):
@@ -344,9 +344,15 @@ class DialogAgent:
             rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
                             _NEGATION | {"yanlis", "degil"})
             return self._fast_path(s, rest) if self.cfg.fast_path and rest else None
-        if raw & _YES:
+        if asks_operator(text) or wants_hangup(text):
+            return None                                # yeni bir istek ("operatöre bağlayın"): normal akış
+        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= 75 for w in raw)):
             return self._code_transfer(s, cand, confirmed=True)
-        return None
+        if self._mentions_person_or_department(text):
+            return None                                # başka bir ad / birim söyledi: normal akış
+        # Açık bir "evet" yoksa aktarılmaz. Santral denemesi (02.11.2026): "hayır" → STT "hayat" (güven 0,41) LLM'e
+        # gitmiş, 8,5 sn sonra "bulamadım" denmişti. Kısa ve anlaşılmayan cevap = hayır: kodla, beklemeden.
+        return self._not_found(s)
 
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
