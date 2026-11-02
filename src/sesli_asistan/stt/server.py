@@ -21,10 +21,20 @@ from sesli_asistan.contracts.stt.v1 import stt_pb2_grpc
 from .config import SttSettings
 from .engine import WhisperEngine, WhisperParams
 from .service import Engine, SpeechToTextService
+from .sherpa_engine import SherpaEngine, SherpaParams
 from .vad import SegmenterConfig, make_detector
 
 log = logging.getLogger(__name__)
 SERVICE_NAME = "stt.v1.SpeechToText"
+
+
+def load_engine(s: SttSettings) -> WhisperEngine | SherpaEngine:
+    """STT_ENGINE'e göre motor: whisper (varsayılan) ya da sherpa (akışlı transducer, CPU)."""
+    if s.engine == "sherpa":
+        return SherpaEngine(SherpaParams(model_dir=s.sherpa_dir, threads=s.sherpa_threads,
+                                         num_workers=s.num_workers))
+    return WhisperEngine(WhisperParams(model_dir=s.model_dir, device=s.device, compute_type=s.compute_type,
+                                       beam_size=s.beam, num_workers=s.num_workers, cpu_threads=s.cpu_threads))
 
 
 def build_service(s: SttSettings, engine: Engine | None) -> SpeechToTextService:
@@ -52,11 +62,10 @@ async def start_server(s: SttSettings, engine: Engine | None = None, bind: str |
 
     try:
         if engine is None:
-            params = WhisperParams(model_dir=s.model_dir, device=s.device, compute_type=s.compute_type,
-                                   beam_size=s.beam, num_workers=s.num_workers, cpu_threads=s.cpu_threads)
-            engine = await asyncio.to_thread(WhisperEngine, params)
-            await asyncio.to_thread(engine.warmup)
-            log.info("Whisper hazır (%s)", getattr(engine, "device", "?"))
+            loaded = await asyncio.to_thread(load_engine, s)
+            await asyncio.to_thread(loaded.warmup)
+            engine = loaded
+            log.info("STT motoru hazır: %s (%s)", s.engine, getattr(engine, "device", "?"))
     except BaseException:
         await server.stop(0)
         raise

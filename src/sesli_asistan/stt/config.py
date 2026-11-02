@@ -15,6 +15,12 @@ class SttSettings(BaseSettings):
     port: int = 50051
     max_streams: int = Field(64, ge=1)      # eşzamanlı çağrı akışı üst sınırı
 
+    # Motor: whisper (varsayılan, stt/engine.py) | sherpa (akışlı transducer, stt/sherpa_engine.py; ör. mihu —
+    # lisansı yalnız değerlendirmeye izin veriyor, deploy/models.yaml)
+    engine: Literal["whisper", "sherpa"] = "whisper"
+    sherpa_dir: str = "models/turkish-stt-66m-v2"
+    sherpa_threads: int = Field(2, ge=1)
+
     # Whisper (stt/engine.py)
     model_dir: str = "models/faster-whisper-medium"
     device: Literal["auto", "cuda", "cpu"] = "auto"

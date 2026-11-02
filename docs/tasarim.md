@@ -1637,6 +1637,19 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   4. Ses seçilene kadar geliştirme ve ölçüm mevcut seslerle yapılabilir (yalnızca iç test; hukuk onayına bağlı). Gateway sesten bağımsız olduğu için ses değişimi yalnızca yapılandırmadır.
 - **Sonuç:** TTS kodu hazır, ses varlığı açık konu (19. bölüm #9). Lisans kontrolü kod, ağırlık **ve** eğitim verisi için yapılır; ayrıca ses sahibinin rızası aranır (R-11). Kesin onay hukuktan alınır.
 
+### ADR-021 — İkinci STT motoru: akışlı transducer (sherpa-onnx), seçilebilir
+- **Bağlam:** Santral denemesinde (02.11.2026) Whisper medium dar bantlı telefon sesinde zorlandı ve ipucu listesinden ad
+  uydurdu; ayrıca gerçek zamanlı çalışması GPU ister. mihuai/turkish-stt-66m-v2 (Zipformer transducer, 66 M, ONNX)
+  CPU'da gerçek zamanın ~11 katı hızlı ve yapısı gereği istem devamı uydurmaz.
+- **Karar:** STT servisine ikinci motor (`STT_ENGINE=sherpa`, `stt/sherpa_engine.py`); aynı arayüz, Gateway değişmez.
+  Varsayılan Whisper kalır.
+- **Gerekçe:** Model değişikliği ölçüme bağlı (24 cümlelik okuma listesi, `tools/stt/karsilastir.py`); iki motor
+  yan yana olunca karar ayar değişikliğiyle uygulanır ve geri alınır.
+- **Sonuç / sınırlar:** İlk sürüm cümle cümle çözer (kısmi sonuç / konuşurken yazma sonraki adım). Ad ipucu kullanılmaz
+  (ilk ölçümde etkisizdi). Güven ölçeği Whisper'dan farklı: `CONFIRM_BELOW` bu motor için ayrıca ayarlanmalı.
+  **Lisans:** mihu Community License — yıllık geliri 500.000 $ üstü kuruluşta ve ürünle dağıtımda ticari sözleşme
+  gerekir; model pakete girmez (`dagitilmaz`), varsayılan yapılmadan önce hukuk onayı şarttır.
+
 ---
 
 ## 17. Riskler
