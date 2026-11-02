@@ -71,14 +71,17 @@ class Sherpa:
     `hotwords` verilirse sherpa-onnx bağlam yanlılığı (contextual biasing) açılır: bpe.model'den kelime listesi
     (bpe.vocab) üretilir — `pip install sentencepiece` gerekir."""
 
-    def __init__(self, model_dir: str, threads: int, hotwords: list[str] | None = None, score: float = 1.5):
+    def __init__(self, model_dir: str, threads: int, hotwords: list[str] | None = None, score: float = 1.5,
+                 lead_s: float = 0.0):
         import sherpa_onnx
+
+        self.lead_s = lead_s            # sesin önüne sessizlik (akışlı modelin ilk kelimeyi düşürmesi sınanır)
 
         d = Path(model_dir)
         files = {k: next(iter(sorted(d.glob(f"{k}*.onnx"))), None) for k in ("encoder", "decoder", "joiner")}
         if not all(files.values()) or not (d / "tokens.txt").exists():
             raise SystemExit(f"{d}: encoder/decoder/joiner .onnx ve tokens.txt bulunamadı")
-        self.name = f"sherpa:{d.name}" + ("+ipucu" if hotwords else "")
+        self.name = f"sherpa:{d.name}" + ("+ipucu" if hotwords else "") + (f"+bas{lead_s:g}" if lead_s else "")
         extra: dict[str, object] = {}
         if hotwords:
             import tempfile
@@ -101,6 +104,8 @@ class Sherpa:
 
     def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
         s = self.rec.create_stream()
+        if self.lead_s > 0:
+            x = np.concatenate([np.zeros(int(SR * self.lead_s), dtype=np.float32), x])
         step = SR // 10
         for i in range(0, len(x), step):
             s.accept_waveform(SR, x[i:i + step])
@@ -122,6 +127,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
     ap.add_argument("--tsv", type=Path, help="dosya<TAB>doğru metin (dosya adı ya da yolu)")
     ap.add_argument("--telefon", action="store_true", help="geniş bantlı kaydı önce 8 kHz G.711'e indir")
+    ap.add_argument("--bas-sessizlik", type=float, default=0.0,
+                    help="sherpa'yı ayrıca sesin önüne bu kadar sn sessizlik ekleyerek de çalıştır (ör. 0.3)")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--json", type=Path, help="ayrıntılı sonuç dosyası")
@@ -151,6 +158,9 @@ def main(argv: list[str] | None = None) -> int:
                 engines.append((shi.name, shi, None))
             except ImportError:
                 print("not: sentencepiece yok, sherpa ipuçlu koşu atlandı (pip install sentencepiece)")
+        if a.bas_sessizlik > 0:
+            shb = Sherpa(m, a.threads, lead_s=a.bas_sessizlik)
+            engines.append((shb.name, shb, None))
 
     rows = []
     audio_s = 0.0
