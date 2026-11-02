@@ -25,12 +25,14 @@ def check_texts(t: DialogTexts) -> None:
     checks = [("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department,
                                                    ("{birim}",))]
     checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
+    if "{mi}" in "".join(getattr(t, f) for f in _NAMED if f != "confirm"):
+        raise ValueError("{mi} (soru eki) yalnız CONFIRM_TEXT'te kullanılabilir")
     for name, text, needs in checks:
         try:
-            text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B")
+            text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B", mi="mı")
         except (KeyError, IndexError, ValueError) as e:
             raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
-                             "{ad} {ad_e} {birim})") from None
+                             "{ad} {ad_e} {birim}, teyitte {mi})") from None
         if any(n not in text for n in needs):
             shown = ["{ad} ya da {ad_e}" if n == "{ad" else n for n in needs]
             raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")

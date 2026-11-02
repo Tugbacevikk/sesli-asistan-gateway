@@ -229,7 +229,11 @@ async def test_teshis_kaydi_noktali_cagri_kimliginde_cumleler_ayri_dosyada(serve
                      frames((0.3, False), (1.0, True), (1.0, False), (1.0, True), (1.0, False)),
                      call_id="1793622240.127")
     assert sorted(p.name for p in tmp_path.iterdir()) == [
-        "1793622240.127_001.json", "1793622240.127_001.wav", "1793622240.127_002.json", "1793622240.127_002.wav"]
+        "1793622240.127_001.json", "1793622240.127_001.wav", "1793622240.127_002.json", "1793622240.127_002.wav",
+        "1793622240.127_akis.wav"]                          # çağrının bütün sesi (VAD incelemesi)
+    import wave
+    with wave.open(str(tmp_path / "1793622240.127_akis.wav")) as w:
+        assert w.getframerate() == 16000 and 4.1 < w.getnframes() / 16000 < 4.5     # 0,3 + 4 × 1 sn
 
 
 async def test_akis_ortasinda_ipucu_guncellenir(server):

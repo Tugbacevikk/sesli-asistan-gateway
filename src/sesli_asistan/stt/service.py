@@ -38,6 +38,7 @@ from .engine import SttResult
 from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utterance
 
 log = logging.getLogger(__name__)
+MAX_STREAM_DUMP_S = 600            # teşhis kaydında çağrı sesinin en çok bu kadarı (bellek)
 
 
 class _Metrics:
@@ -141,6 +142,9 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     hints: dict | None = None, call_id: str = "?") -> None:
         seg = Segmenter(self.detector_factory(), self.seg_cfg)
         up = StreamUpsampler(rate, STT_RATE) if rate != STT_RATE else None
+        # teşhis: çağrının bütün sesi (VAD'in kaçırdığı konuşma da görülsün; tools/stt/vad_incele.py)
+        stream: list[np.ndarray] | None = [] if self.debug_dir else None
+        stream_n = 0
         try:
             async for msg in requests:
                 kind = msg.WhichOneof("msg")
@@ -154,6 +158,9 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                      else g711.decode(msg.audio, codec))
                 if up is not None:
                     x = up.process(x)
+                if stream is not None and stream_n < MAX_STREAM_DUMP_S * STT_RATE:
+                    stream.append(x)
+                    stream_n += len(x)
                 for e in seg.feed(x):
                     if isinstance(e, SpeechStarted):
                         out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.SPEECH_STARTED,
@@ -164,6 +171,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 utts.put_nowait(u)
         finally:
             utts.put_nowait(None)
+            if stream:
+                self._dump_stream(call_id, np.concatenate(stream))
 
     async def _decode(self, call_id: str, hints: dict, utts: asyncio.Queue, out: asyncio.Queue) -> None:
         orphan: asyncio.Future | None = None
@@ -213,6 +222,18 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                                                 audio_start_ms=int(u.start * 1000), audio_end_ms=int(u.end * 1000)))
         finally:
             out.put_nowait(None)
+
+    def _dump_stream(self, call_id: str, audio: np.ndarray) -> None:
+        if self.debug_dir is None:
+            return
+        try:
+            with wave.open(str(self.debug_dir / f"{call_id}_akis.wav"), "wb") as w:
+                w.setnchannels(1)
+                w.setsampwidth(2)
+                w.setframerate(STT_RATE)
+                w.writeframes((np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes())
+        except OSError as e:
+            log.warning("teşhis kaydı yazılamadı: %s", e)
 
     def _dump(self, call_id: str, n: int, u: Utterance, hotwords: list[str], text: str, reason: str,
               confidence: float = 0.0) -> None:

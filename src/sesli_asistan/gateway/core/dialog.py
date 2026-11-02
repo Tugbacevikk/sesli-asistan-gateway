@@ -80,7 +80,7 @@ class DialogTexts:
                             "isterseniz sizi operatöre de bağlayabilirim.")
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
-    confirm: str = "{ad_e} mi bağlamamı istersiniz?"
+    confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -329,7 +329,8 @@ class DialogAgent:
         s.state.confirm = Candidate(contact, 100)
         name = contact.full_name if contact.kind != "department" else contact.department
         log.info("[%s] düşük STT güveni (%.2f): %s teyit ediliyor", s.call_id, s.stt_confidence or 0, name)
-        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=dative(name)))
+        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=dative(name),
+                                                                       mi=question_particle(dative(name))))
         turn.fast = True
         return turn
 
@@ -449,6 +450,8 @@ class DialogAgent:
         for word, idx in _ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):
                 picked.add(idx % len(choice))
+        if not picked:
+            return self._fuzzy_choice(s, text, words, choice)
         if len(picked) != 1:
             return None
         cand = choice[picked.pop()]
@@ -461,6 +464,43 @@ class DialogAgent:
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
+
+    def _fuzzy_choice(self, s: DialogSession, text: str, words: list[str],
+                      choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Cevap hiçbir adaya tam uymadı ama bir adayın soyadına açıkça daha yakın: o aday teyitle sorulur.
+        Santral denemesi (02.11.2026, mihu): "Ayşe Kaya mı, Ayşe Yılmaz mı?" → "Ayşe Yılmaz" STT'de "her şey uymaz"
+        (güven 0,41) LLM'e gitmiş, LLM'in sorusu da anlaşılmayınca çağrı dolanmıştı."""
+        long_words = [w for w in words if len(w) >= 4]
+        scores = [max((similarity(v, search_key(c.contact.last_name)) for w in long_words
+                       for v in query_variants(w)), default=0.0) if c.contact.last_name else 0.0 for c in choice]
+        best = max(range(len(choice)), key=scores.__getitem__)
+        rest = max((sc for i, sc in enumerate(scores) if i != best), default=0.0)
+        if scores[best] < FUZZY_CHOICE_MIN or scores[best] - rest < FUZZY_CHOICE_MARGIN:
+            return None
+        s.state.last_results = choice
+        log.info("[%s] seçim (yakın, teyitle): %s → %s", s.call_id, log_text(text), choice[best].contact.extension)
+        return self._confirm(s, choice[best].contact)
+
+    def _needs_confirm(self, s: DialogSession) -> bool:
+        """Bu sözle aktarmadan önce teyit gerekir: STT güveni düşük ve söz açık bir "evet" değil (LLM'in kendi sorduğu
+        "doğru mu?"ya net "evet" teyit sayılır)."""
+        if not self._unsure(s):
+            return False
+        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        return not set(_folded_words(user)) & _YES
+
+    def _confirm_llm_transfer(self, s: DialogSession, call: ToolCall) -> DialogTurn | None:
+        """LLM düşük güvenli sözle aktarmak istedi: aktarma yerine kodla teyit sorusu. Santral denemesi (02.11.2026):
+        STT "ateşe girmem" (güven 0,31) duyduğu sözle LLM aktarmıştı."""
+        if not self._needs_confirm(s):
+            return None
+        ext = call.arguments.get("Extension")
+        cand = next((c for c in s.state.last_results if isinstance(ext, str) and c.contact.extension == ext.strip()),
+                    None)
+        if cand is None:
+            return None                                # politika zaten reddedecek
+        s.history.append(_tool_message(call, {"ok": False, "note": "Aktarmadan önce arayana teyit soruldu."}))
+        return self._confirm(s, cand.contact)
 
     # --- hızlı yol (ADR-016) ---
 
@@ -609,7 +649,9 @@ class DialogAgent:
                 # "araç çağırma" istemine rağmen operatöre bağladı / aynı kişiye tekrar aktardı)
                 tools = self.tools.schemas if caller_turn else []
                 # akış: yalnız bu tur operatöre dönüşemeyecekse (söylenen cümle geri alınamaz)
-                may_stream = not caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts
+                # düşük güvende de akış yok: LLM "aktarıyorum" derse teyide dönüşen aktarmayla çelişmesin
+                may_stream = (not caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts) and not (
+                    caller_turn and self._needs_confirm(s))
                 msg = await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
             except (TimeoutError, LlmError) as e:
                 user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
@@ -631,6 +673,9 @@ class DialogAgent:
 
             s.history.append(_assistant_tool_message(msg.content, msg.tool_calls))
             for call in msg.tool_calls:
+                if (caller_turn and call.name == "TransferCall"
+                        and (turn := self._confirm_llm_transfer(s, call)) is not None):
+                    return turn
                 out = self.tools.execute(call, s.state)
                 content = dict(out.content)
                 if out.failed_search and caller_turn and not failed:
@@ -657,6 +702,9 @@ class DialogAgent:
                     s.history.pop()
                 if (self.cfg.auto_transfer_single_high and call.name == "InContacts"
                         and content.get("match") == "single_high"):
+                    if caller_turn and self._needs_confirm(s):
+                        s.history.append(_tool_message(call, content))
+                        return self._confirm(s, s.state.last_results[0].contact)
                     action = self.tools.transfer(s.state.last_results[0].contact.extension, s.state)
                     if action is not None:
                         content["transferred"] = True
@@ -748,6 +796,8 @@ class DialogAgent:
 _ASCII = str.maketrans("çğıöşü", "cgiosu")
 # arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
 _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
+FUZZY_CHOICE_MIN = 70.0       # seçim cevabında soyada yakınlık (teyitle sorulur)
+FUZZY_CHOICE_MARGIN = 10.0    # ...ve öbür adaylardan bu kadar fark (yanlış seçim zaten teyitle sorulur)
 _YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
         "baglayabilirsiniz"}
 _NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}

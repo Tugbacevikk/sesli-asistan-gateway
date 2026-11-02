@@ -37,5 +37,5 @@ class SttSettings(BaseSettings):
     endpoint_silence_ms: int = Field(700, ge=100)
     speech_started_ms: int = Field(300, ge=0)   # bu kadar sesli konuşmadan sonra SPEECH_STARTED (barge-in)
     metrics_port: int = Field(9101, ge=0)   # Prometheus (yalnız 127.0.0.1); 0: kapalı
-    debug_dir: str = ""    # teşhis: cümle sesleri + sonuçları buraya yazılır (ses kaydı! üretimde boş bırakın)
+    debug_dir: str = ""    # teşhis: cümle sesleri + sonuçları + çağrının bütün sesi (ses kaydı! üretimde boş bırakın)
     max_utterance_s: float = Field(12.0, gt=1)

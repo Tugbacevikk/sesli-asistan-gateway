@@ -619,3 +619,51 @@ async def test_teyitte_operator_ya_da_kapatma_istegi_normal_akisa_gider():
     a, s, t = await _unsure("burak çelik")
     t = await s.handle_user("görüşmeyi sonlandırmak istiyorum")
     assert [x.type for x in t.actions] == ["hangup"]
+
+
+# --- santral denemesi (02.11.2026, mihu): bozuk duyulan seçim ve LLM'in düşük güvenle aktarması ------------------
+
+@pytest.mark.parametrize("answer", ["her şey uymaz", "ayşe yamaz"])
+async def test_secimde_soyada_yakin_bozuk_cevap_teyitle_sorulur(answer):
+    a = clarifier()
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    s.stt_confidence = 0.41
+    t = await s.handle_user(answer)
+    assert not t.actions and t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?" and a.llm.seen == []
+    t = await s.handle_user("evet")
+    assert [x.extension for x in t.actions] == ["214"] and a.llm.seen == []
+
+
+async def test_secimde_iki_adaya_esit_uzak_cevap_llm_e_kalir():
+    a = clarifier(LlmMessage("Kimi aramıştınız?"))
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    t = await s.handle_user("ateşe girmem")
+    assert not t.actions and len(a.llm.seen) == 1
+
+
+@pytest.mark.parametrize("auto", [True, False])
+async def test_llm_dusuk_guvenli_sozle_aktaramaz_teyit_sorulur(auto):
+    replies = [tool_msg(call("InContacts", Name="ayşe yılmaz"))]
+    if not auto:
+        replies.append(tool_msg(call("TransferCall", Extension="214")))
+    a = agent(ScriptedLlm(*replies), auto_transfer_single_high=auto)
+    s = a.new_session("c")
+    s.stt_confidence = 0.31
+    t = await s.handle_user("ateşe girmem")
+    assert not t.actions and t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?"
+    assert s.state.pending_transfer is None
+    s.stt_confidence = 0.9
+    t = await s.handle_user("evet")
+    assert [x.extension for x in t.actions] == ["214"]
+
+
+async def test_llm_sorusuna_dusuk_guvenli_net_evet_aktarir():
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="ayşe yılmaz")),
+                          tool_msg(call("TransferCall", Extension="214")), LlmMessage("Aktarıyorum.")),
+              auto_transfer_single_high=False)
+    s = a.new_session("c")
+    s.stt_confidence = 0.5
+    t = await s.handle_user("evet ayşe yılmaz")
+    assert [x.extension for x in t.actions] == ["214"]

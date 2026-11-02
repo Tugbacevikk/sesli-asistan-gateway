@@ -1122,7 +1122,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
 | `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
 | `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |
-| `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
+| `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}`) ve arayan kapatmak isteyince veda cümlesi |
 | `LOG_TEXTS` | true (kurulum şablonunda false) | false: loglarda arayanın sözü ve cevaplar yerine yalnız uzunluk (kişisel veri) |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
@@ -1158,7 +1158,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_VAD_MODEL` | models/silero_vad.onnx | |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
-| `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin Whisper'a giden sesi + sonucu bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
+| `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin motora giden sesi + sonucu ve çağrının bütün sesi (`<çağrı>_akis.wav`, en çok 10 dk; `tools/stt/vad_incele.py`) bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
 | (dil) | tr | Sabit; ayar değil (ADR-006) |
 | (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords`, aramadan sonra `HotwordUpdate` ile gelir |

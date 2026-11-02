@@ -470,6 +470,26 @@ RTF: whisper medium (GPU) 0,27–0,94 (ilk çağrı ısınma), mihu (CPU) 0,08�
 - Teşhis kaydında hata: çağrı kimliğindeki nokta ("1793622240.127") uzantı sanılıp her cümle aynı dosyaya
   yazılıyordu → düzeltildi.
 
+### mihu (sherpa) ikinci deneme (2 Kasım 2026, 15:44, baş sessizliği eklendikten sonra)
+
+| Söylenen | STT (güven) | Asistan | Yol |
+|---|---|---|---|
+| Ayşe Yılmaz ile görüşmek istiyorum | "ayşe yamaz ile görüşmek istiyorum" (0,57) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" | kodla, 0,2 sn |
+| Ayşe Yılmaz | **"her şey uymaz" (0,41)** | "Ayşe Yamaz yok… Ayşe Yılmaz'ı mı kastediyorsunuz?" | LLM, 4,4 sn |
+| (cevap) | STT'de konuşma yok | "Sizi duyamıyorum…" | 8 sn sessizlik |
+| Ayşe Yılmaz | **"ateşe girmem" (0,31)** | "Sizi Ayşe Yılmaz'a aktarıyorum" → meşgul | **LLM aktardı** |
+
+- Baş sessizliğiyle cümle başı artık tam ("ayşe yamaz ile görüşmek istiyorum").
+- Ama mihu, ad ipucu olmadan kısa "Ayşe Yılmaz"ı iki kez anlamsız duydu ("her şey uymaz", "ateşe girmem"). Whisper
+  ipuçlu aynı konuşmacıda rehber adlarını tutturuyordu; dar bantta (8 kHz) ad tanımada mihu daha zayıf.
+- **LLM 0,31 güvenli anlamsız sözle aktardı** (önceki turun bağlamından tahmin etti; bu sefer doğru kişi, ama
+  yanlış da olabilirdi) → LLM'in aktarması da teyit kapısından geçer: düşük güvenli söz açık "evet" değilse kodla
+  "Ayşe Yılmaz'a mı bağlamamı istersiniz?".
+- "Hangisi?" cevabı bozuk duyulup LLM'e gidiyordu → soyada açıkça yakınsa (uymaz → Yılmaz %73, Kaya %45) kodla teyit.
+- Teyit sorusunda ek hatası: "Yılmaz'a mi" → ünlü uyumu (`{mi}`).
+- "Duyamıyorum" üçüncü kez LLM'in sorusundan sonra geldi (STT'de konuşma olayı yok). Nedeni için teşhis kaydına
+  çağrının bütün sesi eklendi; `tools/stt/vad_incele.py` ile o anlarda seviye ve eşiğe göre konuşma aranacak.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
