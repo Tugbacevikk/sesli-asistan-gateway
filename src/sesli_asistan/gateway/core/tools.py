@@ -67,6 +67,7 @@ class CallToolState:
 
     last_results: tuple[Candidate, ...] = ()
     choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
+    confirm: Candidate | None = None        # arayana "X'e mi bağlayayım?" diye soruldu (STT güveni düşüktü)
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı
     pending_transfer: TransferAction | None = None
     failed_attempts: int = 0

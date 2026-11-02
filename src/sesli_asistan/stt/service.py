@@ -198,7 +198,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                         log.info("[%s] boş/uydurma metin atıldı (%.2f sn)", call_id, time.perf_counter() - t0)
                         reason = "empty"
                 if self.debug_dir:
-                    self._dump(call_id, n, u, hotwords, "" if reason else r.text, reason)
+                    self._dump(call_id, n, u, hotwords, "" if reason else r.text, reason,
+                               0.0 if reason else r.confidence)
                 _M.result(reason or "final", time.perf_counter() - t0, u.end - u.start)
                 if reason:
                     # arayan konuştu ama metin yok: Gateway sessiz kalmasın, tekrar sorsun (tasarim.md 6.3)
@@ -213,7 +214,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
         finally:
             out.put_nowait(None)
 
-    def _dump(self, call_id: str, n: int, u: Utterance, hotwords: list[str], text: str, reason: str) -> None:
+    def _dump(self, call_id: str, n: int, u: Utterance, hotwords: list[str], text: str, reason: str,
+              confidence: float = 0.0) -> None:
         if self.debug_dir is None:
             return
         try:
@@ -225,7 +227,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 w.setframerate(STT_RATE)
                 w.writeframes(pcm.tobytes())
             base.with_suffix(".json").write_text(json.dumps(
-                {"call_id": call_id, "cumle": n, "bas_sn": u.start, "son_sn": u.end, "metin": text, "neden": reason,
-                 "ipuclari": hotwords}, ensure_ascii=False, indent=1), encoding="utf-8")
+                {"call_id": call_id, "cumle": n, "bas_sn": u.start, "son_sn": u.end, "metin": text,
+                 "guven": round(confidence, 3), "neden": reason, "ipuclari": hotwords},
+                ensure_ascii=False, indent=1), encoding="utf-8")
         except OSError as e:
             log.warning("teşhis kaydı yazılamadı: %s", e)

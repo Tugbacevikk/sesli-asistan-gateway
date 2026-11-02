@@ -734,7 +734,11 @@ function liveApply(m) {
   switch (m.type) {
     case "start": c.started = m.started; break;
     case "state": c.state = m.state; break;
-    case "heard": line("msg caller", `<div class="who">Arayan · ${esc(m.t)}</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`); break;
+    case "heard": {
+      const conf = m.confidence != null ? ` · <span class="${m.confidence < 0.75 ? "status-bad" : ""}">güven ${m.confidence.toLocaleString("tr-TR")}</span>` : "";
+      line("msg caller", `<div class="who">Arayan · ${esc(m.t)}${conf}</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`);
+      break;
+    }
     case "reply": line("msg bot", `<div class="who">Asistan · ${esc(m.t)}</div><div class="text">${esc(m.text)}</div>`); break;
     case "turn": {
       const last = [...c.lines].reverse().find((l) => l.cls === "msg bot");

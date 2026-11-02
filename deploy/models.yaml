@@ -36,6 +36,30 @@ models:
     dosyalar: [model.bin, config.json, tokenizer.json, vocabulary.txt]
     sha256: {}
 
+  # --- yalnız karşılaştırma ölçümü (tools/stt/karsilastir.py); varsayılan değil, pakete girmez ------------------
+  faster-whisper-large-v3-turbo:
+    rol: stt-deneme              # medium'a yakın hız, daha doğru (telefon sesinde ölçülecek, 02.11.2026)
+    varsayilan: false
+    lisans: MIT
+    hf_repo: mobiuslabsgmbh/faster-whisper-large-v3-turbo
+    hf_revision: 0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf
+    hedef: faster-whisper-large-v3-turbo
+    dosyalar: [model.bin, config.json, tokenizer.json, vocabulary.json, preprocessor_config.json]
+    sha256: {}
+
+  turkish-stt-66m-v2:
+    rol: stt-deneme              # akışlı Zipformer transducer (sherpa-onnx, CPU)
+    varsayilan: false
+    # mihu Community License v1.0: yıllık geliri 500.000 $ altı kuruluşlara ücretsiz; yeniden dağıtım yok;
+    # "Powered by mihu" zorunlu. YALNIZ DEĞERLENDİRME: ürüne / pakete konmaz (ticari sözleşme: support@mihu.ai)
+    lisans: mihu-community-1.0
+    dagitilmaz: true
+    hf_repo: mihuai/turkish-stt-66m-v2
+    hf_revision: null
+    hedef: turkish-stt-66m-v2
+    dosyalar: [encoder.int8.onnx, decoder.int8.onnx, joiner.int8.onnx, tokens.txt, bpe.model, LICENSE]
+    sha256: {}
+
   silero-vad:
     rol: vad
     varsayilan: true

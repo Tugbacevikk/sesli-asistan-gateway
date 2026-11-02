@@ -80,6 +80,7 @@ class DialogTexts:
                             "isterseniz sizi operatöre de bağlayabilirim.")
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
+    confirm: str = "{ad_e} mi bağlamamı istersiniz?"
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -105,6 +106,9 @@ class DialogConfig:
     code_replies: bool = True                # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla (LLM turu yok)
     llm_enabled: bool = True                 # ADR-019: false → LLM hiç kullanılmaz, kural tabanlı diyalog
     llm_fallback: bool = True                # ADR-020: LLM hata / zaman aşımında operatör yerine kural tabanlı tur
+    # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
+    # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.
+    confirm_below: float = 0.75
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -128,6 +132,7 @@ class DialogSession:
         # çağrı oturumu söyler: bu sözün başında arayan asistanın sözünü kesti (söze girdi). Sözün başı asistanın
         # sesiyle karıştığından anlaşılamaması arayanın hatası sayılmaz (deneme hakkı yanmaz, operatöre gidilmez).
         self.after_barge_in = False
+        self.stt_confidence: float | None = None   # bu sözün STT güveni (çağrı oturumu verir; yazarak denemede yok)
 
     def greeting(self) -> DialogTurn:
         text = greeting_text(self.agent.cfg)
@@ -212,9 +217,14 @@ class DialogAgent:
     async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
         lenient, s.after_barge_in = s.after_barge_in, False
+        confirm, s.state.confirm = s.state.confirm, None
         if not text:
+            if confirm is not None:
+                s.state.confirm = confirm              # soru hâlâ açık
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
+        if confirm is not None and (turn := self._resolve_confirm(s, text, confirm)) is not None:
+            return turn
         if self.cfg.fast_path and asks_operator(text) and not self._mentions_person_or_department(text):
             # "operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)
             log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(text))
@@ -296,7 +306,9 @@ class DialogAgent:
         return SearchResult(s.state.last_results, Match.SINGLE_HIGH if len(s.state.last_results) == 1
                             else Match.MULTIPLE if s.state.last_results else Match.NONE)
 
-    def _code_transfer(self, s: DialogSession, cand: Candidate) -> DialogTurn:
+    def _code_transfer(self, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
+        if not confirmed and self._unsure(s):
+            return self._confirm(s, cand.contact)
         s.state.last_results = (cand,)
         action = self.tools.transfer(cand.contact.extension, s.state)
         if action is None:
@@ -306,6 +318,35 @@ class DialogAgent:
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
+
+    def _unsure(self, s: DialogSession) -> bool:
+        c = s.stt_confidence
+        return c is not None and 0 < self.cfg.confirm_below and c < self.cfg.confirm_below
+
+    def _confirm(self, s: DialogSession, contact: Any) -> DialogTurn:
+        """STT güveni düşük: aktarmadan önce teyit. Santral denemesi (02.11.2026): rehberde olmayan "Tuğba Çevik" dar
+        bantlı seste "burak çelik" duyuldu; teyit sorusu yanlış kişiye aktarmayı önler."""
+        s.state.confirm = Candidate(contact, 100)
+        name = contact.full_name if contact.kind != "department" else contact.department
+        log.info("[%s] düşük STT güveni (%.2f): %s teyit ediliyor", s.call_id, s.stt_confidence or 0, name)
+        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=dative(name)))
+        turn.fast = True
+        return turn
+
+    def _resolve_confirm(self, s: DialogSession, text: str, cand: Candidate) -> DialogTurn | None:
+        """Teyit sorusunun cevabı: evet → aktar; hayır (başka hedef söylemeden) → bulamadım; başka bir şey → normal
+        akış."""
+        raw = set(_folded_words(text))
+        if raw & _NEGATION or raw & {"yanlis", "degil"}:
+            if not self._mentions_person_or_department(text):
+                return self._not_found(s)
+            # "hayır, Elif Şahin": düzeltme — olumsuzluk atılıp söylenen ad hızlı yolla aranır (yoksa LLM)
+            rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
+                            _NEGATION | {"yanlis", "degil"})
+            return self._fast_path(s, rest) if self.cfg.fast_path and rest else None
+        if raw & _YES:
+            return self._code_transfer(s, cand, confirmed=True)
+        return None
 
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
@@ -511,6 +552,8 @@ class DialogAgent:
                     turn.fast = True
                     return turn
             return None
+        if self._unsure(s):
+            return self._confirm(s, contact)
         args = ({"Department": contact.department} if kind == "department"
                 else {"Name": contact.full_name})
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
@@ -699,6 +742,8 @@ class DialogAgent:
 _ASCII = str.maketrans("çğıöşü", "cgiosu")
 # arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
 _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
+_YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
+        "baglayabilirsiniz"}
 _NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
 _NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
 _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter", "baska bir sey yok",

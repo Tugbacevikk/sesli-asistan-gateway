@@ -16,8 +16,8 @@ from .core.schedule import OfficeHours
 
 TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
                "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
-               "too_many", "busy", "no_answer", "transfer_failed", "goodbye")
-_NAMED = ("transferring", "busy", "no_answer", "transfer_failed")      # {ad} / {ad_e} alan cümleler
+               "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm")
+_NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
 def check_texts(t: DialogTexts) -> None:
@@ -67,6 +67,7 @@ class GatewaySettings(BaseSettings):
     max_history: int = Field(16, ge=4)
     fast_path: bool = True                    # ADR-016: net tam ad / birim hattında LLM beklenmez
     clarify_by_code: bool = True              # ADR-017: birden çok adayda soru ve seçim LLM'siz
+    confirm_below: float = Field(0.75, ge=0, le=1)   # STT güveni bunun altındaysa aktarmadan önce teyit (0: kapalı)
     stream_replies: bool = True               # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
     code_replies: bool = True                 # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla
     llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog
@@ -134,6 +135,7 @@ class GatewaySettings(BaseSettings):
     no_answer_text: str = ""
     transfer_failed_text: str = ""
     goodbye_text: str = ""                    # arayan görüşmeyi bitirmek istedi (veda, sonra kapatılır)
+    confirm_text: str = ""                    # {ad} {ad_e}: STT güveni düşükken aktarmadan önce teyit sorusu
 
     # Çağrı geçmişi (kalıcı, SQLite). Boş: yalnız bellekte son 100 çağrı. Kişisel veri: saklama süresi dolunca silinir
     call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db

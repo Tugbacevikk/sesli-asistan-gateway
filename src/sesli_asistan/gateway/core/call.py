@@ -249,7 +249,7 @@ class CallSession:
         assert self._stream is not None
         try:
             async for ev in self._stream.events():
-                self._q.put_nowait(_Event(ev.type, {"text": ev.text, "reason": ev.reason,
+                self._q.put_nowait(_Event(ev.type, {"text": ev.text, "reason": ev.reason, "confidence": ev.confidence,
                                                     "ms": max(0, ev.end_ms - ev.start_ms)}, self.clock()))
         except SttError as e:
             self._q.put_nowait(_Event("stt_error", {"error": str(e)}, self.clock()))
@@ -319,9 +319,13 @@ class CallSession:
 
     async def _turn(self) -> None:
         inputs, self._inputs = self._inputs, []
-        heard = " ".join(e.data["text"] for e in inputs if e.kind == "final" and e.data["text"])
-        self._emit("heard", text=heard)
+        finals = [e for e in inputs if e.kind == "final" and e.data["text"]]
+        heard = " ".join(e.data["text"] for e in finals)
+        confs = [e.data["confidence"] for e in finals if e.data.get("confidence")]
+        conf = round(min(confs), 2) if confs else None   # yazarak denemede (güven yok) teyit sorulmaz
+        self._emit("heard", text=heard, confidence=conf)
         self.dialog.after_barge_in, self._barged = self._barged, False
+        self.dialog.stt_confidence = conf
         self.state = CallState.THINKING
         t0 = self.clock()
         if getattr(self.dialog.agent.cfg, "stream_replies", False):

@@ -226,3 +226,12 @@ def test_paket_imzasi_dogrulanmadan_kurulmaz(tmp_path):
     sig.unlink()
     r = _imza_dogrula(tmp_path, paket)
     assert r.returncode != 0 and "imza dosyası yok" in r.stdout
+
+
+def test_dagitilamayan_model_varsayilan_olamaz():
+    # yalnız değerlendirme lisanslı modeller (ör. mihu) paket.sh / install.sh'ın indirdiği varsayılanlara giremez
+    import yaml
+
+    models = yaml.safe_load((ROOT / "deploy/models.yaml").read_text(encoding="utf-8"))["models"]
+    assert all(not m.get("varsayilan") for m in models.values() if m.get("dagitilmaz"))
+    assert models["turkish-stt-66m-v2"]["dagitilmaz"] is True

@@ -53,6 +53,7 @@ TEXT_LABELS = {
     "no_answer": ("Aranan cevap vermiyor", "{ad} {ad_e}"),
     "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
     "goodbye": ("Arayan kapatmak istedi (veda)", ""),
+    "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e}"),
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10

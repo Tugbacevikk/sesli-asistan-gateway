@@ -553,3 +553,53 @@ async def test_soruya_hicbiri_denirse_kodla_bulamadim(answer):
     t = await s.handle_user(answer)
     assert not t.actions and t.text == a.cfg.texts.not_found and a.llm.seen == []
     assert s.state.failed_attempts == 1
+
+
+# --- düşük STT güveninde teyit (santral denemesi 02.11.2026: "Tuğba Çevik" → "burak çelik") --------------------
+
+async def _unsure(text, conf=0.6, **cfg):
+    cfg = {"fast_path": True, "clarify_by_code": True, **cfg}
+    a = agent(ScriptedLlm(LlmMessage("Tamam.")), **cfg)
+    s = a.new_session("c")
+    s.stt_confidence = conf
+    return a, s, await s.handle_user(text)
+
+
+async def test_dusuk_guvende_aktarmadan_once_sorar_evet_ile_aktarir():
+    a, s, t = await _unsure("burak çelik")
+    assert not t.actions and t.text == "Burak Çelik'e mi bağlamamı istersiniz?" and a.llm.seen == []
+    s.stt_confidence = 0.5                                     # "evet" de düşük güvenli olabilir: yine aktarır
+    t = await s.handle_user("evet lütfen")
+    assert [x.extension for x in t.actions] == ["215"] and a.llm.seen == []
+
+
+@pytest.mark.parametrize("answer", ["hayır", "hayır yanlış", "değil"])
+async def test_dusuk_guvende_hayir_derse_bulamadim(answer):
+    a, s, t = await _unsure("burak çelik")
+    t = await s.handle_user(answer)
+    assert not t.actions and t.text == a.cfg.texts.not_found and a.llm.seen == []
+
+
+async def test_teyitte_baska_ad_soylerse_onu_arar():
+    a, s, t = await _unsure("burak çelik")
+    s.stt_confidence = 0.95
+    t = await s.handle_user("hayır elif şahin")
+    assert [x.extension for x in t.actions] == ["301"]
+
+
+@pytest.mark.parametrize("conf", [None, 0.9])
+async def test_yuksek_guvende_ya_da_yazarak_sormadan_aktarir(conf):
+    a, s, t = await _unsure("burak çelik", conf=conf)
+    assert [x.extension for x in t.actions] == ["215"]
+
+
+async def test_teyit_kapatilabilir_ve_birim_hattinda_da_sorar():
+    a, s, t = await _unsure("burak çelik", confirm_below=0)
+    assert [x.extension for x in t.actions] == ["215"]
+    a, s, t = await _unsure("teknik destek")
+    assert not t.actions and t.text == "Teknik Destek'e mi bağlamamı istersiniz?"
+
+
+async def test_kural_modunda_da_teyit():
+    a, s, t = await _unsure("burak çelik", llm_enabled=False, fast_path=False)
+    assert not t.actions and t.text.endswith("istersiniz?")

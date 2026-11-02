@@ -27,10 +27,15 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   (`--imza-anahtari`, ilk kurulumda bir kez) doğrulamadan kurmaz.
 - Destek paketi: `tools/kurulum/destek.py` (sürüm, sistem, servisler, sağlık, metrikler, loglar, maskelenmiş ayarlar;
   gizli değerler, adlar, konuşma metinleri ve numaralar girmez).
+- `tools/stt/karsilastir.py`: STT modellerini (Whisper, sherpa-onnx akışlı transducer) aynı kayıtlarla, ipuçlu /
+  ipucusuz karşılaştırır (WER, CER, RTF); model kataloğunda yalnız değerlendirme için large-v3-turbo ve mihu.
 - Sürüm yönetimi: bu dosya, `tools/kurulum/surum.py`, etiketten GitHub sürümü oluşturan CI işi; sürüm sağlık
   yanıtında (`version`).
 
 ### Düzeltildi
+- Yanlış kişiye aktarma koruması: STT güveni düşükse (`CONFIRM_BELOW`) aktarmadan önce teyit sorusu; tam adın
+  yanında başka kişinin soyadı geçerse kodla "hangisi?"; "hiçbiri" kodla "bulamadım". İzleme'de STT güveni görünür.
+- "operatör" STT ipucunda her zaman; operatör isteği LLM beklemeden.
 - STT: Whisper'ın ipucu listesinin devamını yazması ("ayşe yılmaz" → "ayşe yılmaz zeynep arslan") ayıklanır.
 - Sözde birden çok kişinin tam adı geçince "bulunamadı" yerine kodla "hangisi?" sorulur.
 - Arayan görüşmeyi bitirmek isteyince ("sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim") vedalaşıp kapatılır.

@@ -1122,6 +1122,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
 | `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
 | `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |
+| `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
+| `CONFIRM_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}`) ve arayan kapatmak isteyince veda cümlesi |
 | `LOG_TEXTS` | true (kurulum şablonunda false) | false: loglarda arayanın sözü ve cevaplar yerine yalnız uzunluk (kişisel veri) |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |

@@ -101,6 +101,8 @@ def main(argv=None) -> int:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
     for n in names:
         spec = models[n]
+        if spec.get("dagitilmaz"):
+            print(f"UYARI {n}: lisansı ({spec['lisans']}) yalnız değerlendirmeye izin veriyor; ürüne / pakete konmaz")
         out = dest / spec["hedef"]
         if not a.dogrula:
             out = fetch(n, spec, dest, cat.get("mirror"))
