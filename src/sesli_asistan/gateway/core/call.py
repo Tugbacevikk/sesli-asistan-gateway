@@ -144,6 +144,7 @@ class CallSession:
         self._work: asyncio.Task | None = None   # akışlı turda süren diyalog (çağrı biterse iptal edilir)
         self._listen_since = 0.0                 # dinlemeye geçildiği / arayanın son konuştuğu an
         self._caller_talking = False             # SPEECH_STARTED geldi, sonucu (FINAL/NOT_RECOGNIZED) gelmedi
+        self._barged = False                     # son söz asistanın sözünü keserek başladı
         self._silences = 0                       # art arda sessiz dinleme sayısı
         self._tts_fail_streak = 0
 
@@ -292,6 +293,7 @@ class CallSession:
                 self.stats.barge_ins += 1
                 self._emit("barge_in")
                 self._stop_speech()
+                self._barged = True             # bu sözün başı asistanın sesiyle karıştı (anlaşılamazsa sayılmaz)
         elif k in ("final", "not_recognized"):
             if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
                 return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
@@ -319,6 +321,7 @@ class CallSession:
         inputs, self._inputs = self._inputs, []
         heard = " ".join(e.data["text"] for e in inputs if e.kind == "final" and e.data["text"])
         self._emit("heard", text=heard)
+        self.dialog.after_barge_in, self._barged = self._barged, False
         self.state = CallState.THINKING
         t0 = self.clock()
         if getattr(self.dialog.agent.cfg, "stream_replies", False):

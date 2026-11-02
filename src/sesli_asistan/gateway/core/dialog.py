@@ -28,7 +28,7 @@ from typing import Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
-from .models import Action, Candidate, DialogTurn, Match, OperatorAction, SearchResult, TransferAction
+from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
 from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
@@ -79,6 +79,7 @@ class DialogTexts:
     not_found_again: str = ("Yine bulamadım. Adı ya da birimi tekrar söyleyebilirsiniz, "
                             "isterseniz sizi operatöre de bağlayabilirim.")
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
+    goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -124,6 +125,9 @@ class DialogSession:
         self.llm_calls = 0                 # bu turdaki LLM çağrıları (metrik)
         # ADR-018: çağrı oturumu verirse LLM cevabının tamamlanan cümleleri buraya akıtılır (seslendirme başlasın)
         self.sink: Callable[[str], None] | None = None
+        # çağrı oturumu söyler: bu sözün başında arayan asistanın sözünü kesti (söze girdi). Sözün başı asistanın
+        # sesiyle karıştığından anlaşılamaması arayanın hatası sayılmaz (deneme hakkı yanmaz, operatöre gidilmez).
+        self.after_barge_in = False
 
     def greeting(self) -> DialogTurn:
         text = greeting_text(self.agent.cfg)
@@ -169,7 +173,8 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     return {"greeting": greeting_text(cfg), "not_understood": t.not_understood,
             "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
             "no_input": t.no_input, "closed": t.closed, "holiday": t.holiday, "no_operator": t.no_operator,
-            "not_found": t.not_found, "not_found_again": t.not_found_again, "too_many": t.too_many}
+            "not_found": t.not_found, "not_found_again": t.not_found_again, "too_many": t.too_many,
+            "goodbye": t.goodbye}
 
 
 _THINK = re.compile(r"<think>.*?</think>", re.S)
@@ -206,9 +211,15 @@ class DialogAgent:
 
     async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
+        lenient, s.after_barge_in = s.after_barge_in, False
         if not text:
-            return self._failure(s)
+            return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
+        if wants_hangup(text) and not self._mentions_target(text):
+            log.info("[%s] arayan kapatmak istedi: %s", s.call_id, log_text(text))
+            s.state.actions = []
+            s.history.append({"role": "assistant", "content": self.cfg.texts.goodbye})
+            return DialogTurn(self.cfg.texts.goodbye, [HangupAction("arayan_istedi")])
         choice, s.state.choice = s.state.choice, ()
         if choice and self.cfg.clarify_by_code and (turn := self._resolve_choice(s, text, choice)) is not None:
             return turn
@@ -396,6 +407,14 @@ class DialogAgent:
 
     # --- hızlı yol (ADR-016) ---
 
+    def _mentions_target(self, text: str) -> bool:
+        """Sözde aranacak biri / bir birim / operatör / dahili numara var mı ("vazgeçtim, Mehmet Kaya'ya bağla")."""
+        raw = turkish_lower(text).translate(_ASCII).split()
+        if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS or any(ch.isdigit() for ch in text):
+            return True
+        words = search_key(text).split()
+        return bool(words) and (self._mentions_person(words) or self._mentions_department(words))
+
     def _mentions_person(self, words: list[str]) -> bool:
         """Sözde bir kişinin adı ya da soyadı geçiyor mu (birim hattına kendiliğinden gitmemek için)."""
         known = self.tools.index.person_words
@@ -437,6 +456,14 @@ class DialogAgent:
                         if c.kind != "department" or has_role_word(text) or self._mentions_person(words):
                             continue                   # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
                     found.setdefault(c.id, (c, kind))
+        persons = [c for c, kind in found.values() if kind in ("name", "alias") and c.kind == "person"]
+        if len(found) >= 2 and len(persons) == len(found) and self.cfg.clarify_by_code:
+            # sözde birden çok kişinin tam adı geçiyor ("Ayşe Yılmaz mı Zeynep Arslan mı"): kodla sorulur
+            s.state.truncated = False
+            if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in persons))) is not None:
+                log.info("[%s] birden çok tam ad: %s", s.call_id, ", ".join(c.full_name for c in persons))
+                turn.fast = True
+                return turn
         if len(found) != 1:
             return None                                # hiç ya da birden çok aday: LLM karar versin
         contact, kind = next(iter(found.values()))
@@ -606,8 +633,12 @@ class DialogAgent:
             return self._operator(s, self.cfg.texts.to_operator, reason="ilerleme_yok")
         return None
 
-    def _failure(self, s: DialogSession) -> DialogTurn:
-        """STT boş/anlamsız metin verdi: LLM'e gitmeden sabit cümle, deneme sayacı artar."""
+    def _failure(self, s: DialogSession, count: bool = True) -> DialogTurn:
+        """STT boş/anlamsız metin verdi: LLM'e gitmeden sabit cümle, deneme sayacı artar (söze girilen sözde artmaz)."""
+        if not count:
+            text = self.cfg.texts.not_understood
+            s.history.append({"role": "assistant", "content": text})
+            return DialogTurn(text, fallback=True)
         if (turn := self._count_failure(s)) is not None:
             return turn
         n, limit = s.state.failed_attempts, self.cfg.max_failed_attempts
@@ -622,6 +653,22 @@ class DialogAgent:
 
 
 _ASCII = str.maketrans("çğıöşü", "cgiosu")
+# arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
+_HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
+_NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
+_HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter", "baska bir sey yok",
+                   "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
+
+
+def wants_hangup(text: str) -> bool:
+    """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz"."""
+    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_ASCII)).split())
+    words = t.split()
+    for w in words:
+        # olumsuz: "kapatma", "kapatmayın", "sonlandırmadan" (ama "kapatmak", "sonlandırmak" olumlu)
+        if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w):
+            return True
+    return any(f" {p}" in f" {t}" for p in _HANGUP_PHRASES)
 _OPERATOR_WORDS = {"operator", "operatore", "santral", "danisma", "resepsiyon", "yetkili"}
 _DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
                 "dokuz": 9}

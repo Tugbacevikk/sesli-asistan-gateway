@@ -364,8 +364,7 @@ async def test_llm_aramasi_coklu_donerse_ikinci_llm_turu_beklenmez():
     assert [x.extension for x in t.actions] == ["231"] and len(a.llm.seen) == 1
 
 
-@pytest.mark.parametrize("text", ["muhasebeden ayşe hanım", "satış müdürü ayşe", "ayşe yılmaz mı ayşe kaya mı",
-                                  "ayşe değil"])
+@pytest.mark.parametrize("text", ["muhasebeden ayşe hanım", "satış müdürü ayşe", "ayşe değil"])
 async def test_hizli_soru_supheli_durumda_llm_e_birakir(text):
     a = clarifier(LlmMessage("Tamam."))
     t = await a.new_session("c").handle_user(text)
@@ -469,3 +468,46 @@ async def test_llm_dusunce_tur_kural_tabanli_surer():
     assert [a.extension for a in t.actions] == ["260"]
     t = await s.handle_user("ferhat")                            # kural tabanlı: bulunamadı, operatör değil
     assert t.actions == [] and t.text == DialogConfig().texts.not_found
+
+
+# --- santral denemesi bulguları (02.11.2026) -------------------------------------------------------------------
+
+@pytest.mark.parametrize("text", ["ayşe yılmaz zeynep arslan", "ayşe yılmaz mı ayşe kaya mı"])
+async def test_birden_cok_tam_ad_llm_siz_sorulur(text):
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    t = await s.handle_user(text)
+    assert t.fast and t.text.endswith("?") and not t.actions and a.llm.seen == []
+    assert "Ayşe Yılmaz" in t.text
+
+
+@pytest.mark.parametrize("text", ["görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "telefonu kapat",
+                                  "vazgeçtim", "teşekkürler görüşürüz", "tamam gerek yok", "hoşça kalın"])
+async def test_arayan_kapatmak_isterse_vedalasip_kapatir(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert [x.type for x in t.actions] == ["hangup"] and t.actions[0].reason == "arayan_istedi"
+    assert t.text == DialogConfig().texts.goodbye and a.llm.seen == []
+
+
+@pytest.mark.parametrize("text", ["lütfen kapatmayın ayşe yılmaz", "vazgeçtim mehmet demir'e bağlayın",
+                                  "operatöre gerek yok muhasebe", "kapatmadan önce bir şey soracaktım",
+                                  "vazgeçtim operatöre bağla"])
+async def test_kapatma_sozu_gecse_de_hedef_varsa_kapatmaz(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert "hangup" not in [x.type for x in t.actions]
+
+
+async def test_soze_girilen_soz_anlasilamazsa_deneme_hakki_yanmaz():
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    limit = a.cfg.max_failed_attempts
+    for _ in range(limit + 2):
+        s.after_barge_in = True
+        t = await s.handle_user("")
+        assert not t.actions and t.text == a.cfg.texts.not_understood
+    assert s.state.failed_attempts == 0
+    for _ in range(limit):                                   # söze girmeden anlaşılmayan: sayılır
+        t = await s.handle_user("")
+    assert [x.type for x in t.actions] == ["operator"]

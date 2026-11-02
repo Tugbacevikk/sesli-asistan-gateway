@@ -656,3 +656,19 @@ async def test_yonetici_oturum_kurulamazsa_port_ve_ses_sizmaz():
     with pytest.raises(RuntimeError):
         await mgr.create(NewCall("x"))
     assert closed == [1] and pool.available == 1 and mgr.active == 0
+
+
+async def test_soze_girip_anlasilmayan_soz_operatore_gondermez():
+    # santral denemesi (02.11.2026): iki "bulunamadı"dan sonra arayan asistanın sözünü kesip konuştu, söz
+    # anlaşılamadı → çağrı operatöre gitmişti. Söze girilen söz arayanın hatası sayılmaz.
+    llm = Llm(LlmMessage("Bulamadım, tekrar söyler misiniz?"))
+    async with Call(llm, play_s=0.4) as c:
+        c.session.dialog.state.failed_attempts = 1               # "filanca" ile 2 olur: son hak
+        c.say("filanca")
+        await c.until(lambda: c.session.state == CallState.SPEAKING)
+        await asyncio.sleep(0.05)
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))   # söze girdi …
+        c.stt.stream.ev.put_nowait(SttEvent("not_recognized", "", 0.0, 0, 900, reason="empty"))  # … anlaşılmadı
+        await c.until(lambda: len(c.session.stats.turns) >= 2)
+        assert c.session.stats.barge_ins == 1 and not c.pbx.actions
+        assert c.session.stats.turns[-1].reply == c.session.dialog.agent.cfg.texts.not_understood

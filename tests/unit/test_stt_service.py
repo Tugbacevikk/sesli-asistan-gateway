@@ -243,3 +243,26 @@ async def test_akis_ortasinda_ipucu_guncellenir(server):
     assert [e.type for e in rest] == ["speech_started", "final"]
     assert [hw for _, hw in eng.calls] == [["Muhasebe"], ["Ayşe Yılmaz", "Ayşe Kaya", "Muhasebe"]]
     assert list(st.cfg.hotwords) == ["Ayşe Yılmaz", "Ayşe Kaya", "Muhasebe"]   # yeniden bağlanırsa yenisi
+
+
+# --- ipucu yankısı (santral denemesi, 02.11.2026) ---------------------------------------------------------------
+
+import pytest  # noqa: E402
+
+from sesli_asistan.stt.hallucination import strip_hotword_echo  # noqa: E402
+
+HW = ["Ayşe Yılmaz", "Zeynep Arslan", "Muhasebe", "Satış", "İsmail Işık"]
+
+
+@pytest.mark.parametrize("text,kept,echo", [
+    ("ayşe yılmaz zeynep arslan", "ayşe yılmaz", "zeynep arslan"),               # gözlenen hata
+    ("ayşe yılmaz zeynep arslan muhasebe", "ayşe yılmaz", "zeynep arslan muhasebe"),
+    ("satış ismail ışık", "satış", "ismail ışık"),                                # Türkçe I/İ
+    ("ayşe yılmaz'la görüşmek istiyorum", "ayşe yılmaz'la görüşmek istiyorum", ""),
+    ("zeynep arslan ayşe yılmaz", "zeynep arslan ayşe yılmaz", ""),               # listedeki sırada değil
+    ("ayşe yılmaz muhasebe", "ayşe yılmaz muhasebe", ""),                         # listede bitişik değil
+    ("zeynep arslan", "zeynep arslan", ""),
+])
+def test_ipucu_listesinin_devami_yazilirsa_atilir(text, kept, echo):
+    assert strip_hotword_echo(text, HW) == (kept, echo)
+    assert strip_hotword_echo(text, []) == (text, "")

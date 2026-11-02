@@ -32,9 +32,10 @@ from pathlib import Path
 
 import numpy as np
 
+from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import TrNormalizer
 
-from .hallucination import HallucinationFilter
+from .hallucination import HallucinationFilter, strip_hotword_echo
 
 log = logging.getLogger(__name__)
 SR = 16000
@@ -215,5 +216,10 @@ class WhisperEngine:
                 parts.append(text)
                 logps.append(getattr(s, "avg_logprob", 0.0))
         words = self.filter.drop_repeats(" ".join(parts).split())
+        text = " ".join(words)
+        if hotwords:
+            text, echo = strip_hotword_echo(text, hotwords)
+            if echo:
+                log.info("ipucu yankısı atıldı: %s", log_text(echo))
         conf = math.exp(sum(logps) / len(logps)) if logps else 0.0
-        return SttResult(" ".join(words), round(min(1.0, conf), 3))
+        return SttResult(text, round(min(1.0, conf), 3))

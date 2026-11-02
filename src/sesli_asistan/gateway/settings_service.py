@@ -52,6 +52,7 @@ TEXT_LABELS = {
     "busy": ("Aranan meşgul", "{ad} {ad_e}"),
     "no_answer": ("Aranan cevap vermiyor", "{ad} {ad_e}"),
     "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
+    "goodbye": ("Arayan kapatmak istedi (veda)", ""),
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10

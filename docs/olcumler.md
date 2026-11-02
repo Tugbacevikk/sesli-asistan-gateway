@@ -342,3 +342,29 @@ satırları ve STT `FINAL` satırları birbiriyle tutarlı; tur gecikmesi bileş
   önce arama aracı (akış metin üretmez), sonra cevap metni. → Sonraki iyileştirme adayı: "bulunamadı" cevabı da
   koddan (ikinci LLM turu olmadan) kurulabilir.
 - Yedek aracı Windows'ta da çalıştı (al + doğrula).
+
+## Gerçek santral denemesi — Asterisk (WSL), MicroSIP, dizüstü (30 Ekim – 2 Kasım 2026)
+
+Kurulum: Windows dizüstü, Asterisk 20 (WSL Ubuntu, mirrored ağ), iki MicroSIP (1001 arayan, 214 "Ayşe Yılmaz"),
+köprü `tools/santral/asterisk_kopru.py`, Gateway + gRPC STT (GPU) + Piper + Ollama `qwen3.5:4b`.
+
+| Deneme | Sonuç |
+|---|---|
+| Kayıt / durum sorgusu | İlk kurulumda `Unsupported transport (PJSIP_EUNSUPTRANSPORT)`, uç noktalar "Unavailable" → `pjsip.conf`'a `transport=transport-udp` (24534c9) → ikisi de "Avail", hata yok |
+| 4a "Ayşe Yılmaz'la görüşmek istiyorum" | STT 1,57 sn ses → 0,86 sn, doğru metin; hızlı yol 0,00 sn; 214 çaldı, cevaplandı, iki taraf birbirini duydu; `transferred (cevaplandi)` |
+| "Ayşe Yılmaz" (sesli) | STT **"ayşe yılmaz zeynep arslan"** yazdı → iki kez "bulunamadı" (ilki LLM ile 8,1 sn) |
+| "görüşmeyi sonlandırmak istiyorum" (asistanın sözünü keserek) | anlaşılamadı → üçüncü başarısızlık → **operatöre** gitti |
+
+Bulgular ve düzeltmeler:
+- **İpucu yankısı:** Whisper ipucu listesini (sık aranan önce: "Ayşe Yılmaz, Zeynep Arslan, …") önceki metin olarak
+  alıyor; kısa sözden sonra listenin devamını da yazdı. → STT, metnin sonu listede art arda gelen girişlerden
+  oluşuyorsa devamı atar (`strip_hotword_echo`, loglanır).
+- **İki tam ad:** sözde birden çok kişinin tam adı geçince LLM'e gidip "bulunamadı" demek yerine kodla sorulur
+  ("Muhasebeden Ayşe Yılmaz mı, … Zeynep Arslan mı?").
+- **Kapatma isteği yoktu:** "görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "görüşürüz" → veda
+  cümlesi ve kapatma (`HangupAction("arayan_istedi")`); sözde kişi / birim / operatör / dahili varsa kapatmaz;
+  "kapatmayın" gibi olumsuzlar sayılmaz. Veda cümlesi ayardan değiştirilebilir (GOODBYE_TEXT).
+- **Söze girilen söz:** başı asistanın sesiyle karıştığından anlaşılamazsa artık deneme hakkı yanmaz, operatöre
+  gidilmez; "anlayamadım" denir.
+- Klavye sesi bu denemede duyulmadı: beklenen — hızlı yol cevabı anında verdiğinden "düşünme" yok (ses yalnız
+  0,4 sn'yi aşan LLM turlarında).
