@@ -508,6 +508,27 @@ RTF: whisper medium (GPU) 0,27–0,94 (ilk çağrı ısınma), mihu (CPU) 0,08�
   nokta: arayan, asistan konuşurken ya da hemen ardından konuşuyor → telefonun yankı giderici / sessizlik bastırması
   (MicroSIP) sesi kısıyor olabilir. Çağrının bütün sesiyle (`vad_incele.py`) bakılacak.
 
+#### Aynı çağrının bütün sesi — VAD incelemesi (`tools/stt/vad_incele.py`)
+
+Akış başı ≈ 16:10:44,3 (çağrı açıldı). Silero 0,5 / 0,35 / 0,2 ve enerji algılayıcının bulduğu ses:
+
+| akış sn | saat | ne | Silero 0,5 | 0,2 / enerji |
+|---|---|---|---|---|
+| 6,4–8,3 | 50,7–52,6 | "ayşe hanım ile görüşmek istiyorum" | ✓ | ✓ |
+| 14,7–15,5 | 59,0–59,8 | "Ayşe Yılmaz" → yalnız 0,8 sn, "teşekkürler" | ✓ (kısa) | aynı kısalıkta |
+| 23,7–24,9 | 11:08,0–09,2 | "Ayşe Yılmaz" → doğru (0,97) | ✓ | ✓ |
+| 28,6–31,1 | 11:12,9–15,4 | aktarma sırasında santral sesi (−17…−13 dBFS), meşgul olayı 15,9'da | — (doğru: konuşma değil) | ✓ |
+| 31,6–51,3 | 11:15,9–35,6 | meşgul sorusu + "duyamıyorum": **hatta hiç ses yok** (enerji de bulmadı) | — | — |
+| 51,3–53,1 | 11:35,6–37,4 | "görüşmeyi sonlandırmak istiyorum" → 1,3 sn, anlamsız (0,38) | ✓ (kısa) | aynı kısalıkta |
+
+- VAD konuşma kaçırmıyor: eşik düşürülünce eklenen tek aralık aktarma sırasındaki santral sesi. Eşik aynı kalır.
+- Bu "duyamıyorum" doğru: 8 sn boyunca hatta ses yoktu.
+- Bozuk iki cevabın ortak noktası: ikisi de asistanın sözü biter bitmez (≤ 0,3 sn sonra) başlıyor ve sözün yalnız
+  bir kısmı geliyor; her seferinde cevabın tamamı değil yarısı var. Bekleyip söylenen aynı ad tam ve doğru.
+  Olası neden MicroSIP yankı gidericisi (açık; hoparlörle konuşuluyor): asistanın sesi biterken arayanın sesini de
+  bastırıyor. Kulaklıkla / yankı giderici kapalı karşılaştırılacak.
+- Whisper kırpık 0,8 sn'den "teşekkürler" uydurdu (bilinen uydurma kalıbı); güven 0,41 → artık `REPEAT_BELOW`.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
