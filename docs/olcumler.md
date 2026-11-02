@@ -368,3 +368,20 @@ Bulgular ve düzeltmeler:
   gidilmez; "anlayamadım" denir.
 - Klavye sesi bu denemede duyulmadı: beklenen — hızlı yol cevabı anında verdiğinden "düşünme" yok (ses yalnız
   0,4 sn'yi aşan LLM turlarında).
+
+Aynı gün devam:
+
+| Söylenen | STT | Asistan |
+|---|---|---|
+| "operatöre aktarmak için" / "operatöre bağlanmak istiyorum" | "offer tevarlamak için" / "aferitene bağlanmak istiyorum" | iki kez "bulunamadı" (LLM, 7,6 / 8,5 sn) → operatör |
+| "Tuğba Çevik" (rehberde yok) | "kuba çelik elif şahin" | **Elif Şahin'e aktardı** (hızlı yol, 0,1 sn) |
+| "görüşmeyi sonlandırmak istedim" | "karşıma sonlandırmak istedim" | vedalaşıp kapattı (yeni kural çalıştı) |
+
+- "operatör" ipucuda yoktu → ipucuna her zaman eklenir (`FIXED_HOTWORDS`); operatör isteği LLM'siz kodla.
+- **Yanlış kişiye aktarma:** rehberde olmayan ad, ipucu listesindeki "Çelik"e benzetildi ve listeden bir ad eklendi.
+  → Hızlı yol, sözde aktarılacak kişinin dışında başka bir kişinin **soyadı** da geçiyorsa aktarmaz, kodla sorar
+  ("Muhasebeden Burak Çelik mi, Teknik Destekten Elif Şahin mi?"); "hiçbiri" / "ikisi de değil" → kodla "bulamadım".
+  Yalnız soyad bakılır: arayanın kendini adıyla tanıtması ("ben Mehmet") yaygındır.
+- STT kalitesi telefon hattında belirgin düşük (tarayıcı denemesinde bu hatalar yoktu): ses düzeyi / 8 kHz / ipucu
+  etkisi STT teşhis kaydıyla (STT_DEBUG_DIR) ayrıştırılacak; akışlı transducer modeli (Whisper'ın aksine istem
+  devamı uydurmaz) aynı kayıtlarla karşılaştırılacak.

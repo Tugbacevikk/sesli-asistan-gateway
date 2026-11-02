@@ -345,7 +345,7 @@ async def test_secim_belirsizse_ya_da_reddedilirse_llm_devam_eder():
     a = clarifier(LlmMessage("Kimi aramıştınız?"), LlmMessage("Peki."))
     s = a.new_session("c")
     await s.handle_user("ayşe")
-    t = await s.handle_user("hayır ikisi de değil")
+    t = await s.handle_user("bilmiyorum emin değilim")         # ("hiçbiri" artık kodla: aşağıda)
     assert t.actions == [] and len(a.llm.seen) == 1
     msgs = a.llm.seen[0]
     # LLM bağlamı görür: arama, sonucu ve sorulan soru
@@ -527,3 +527,29 @@ async def test_operator_sozu_gecse_de_olumsuz_ya_da_hedefliyse_kodla_operatore_g
     a = clarifier(LlmMessage("Tamam."))
     t = await a.new_session("c").handle_user(text)
     assert not (t.actions and t.actions[0].type == "operator" and a.llm.seen == [])
+
+
+# rehberde olmayan "Tuğba Çevik" → STT "kuba çelik elif şahin" → Elif Şahin'e aktarılmıştı (02.11.2026)
+@pytest.mark.parametrize("text", ["kuba çelik elif şahin", "elif şahin kaya"])
+async def test_tam_adin_yaninda_baska_soyad_varsa_aktarmaz_sorar(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert not t.actions and t.text.endswith("mi?") and "Elif Şahin" in t.text and a.llm.seen == []
+
+
+@pytest.mark.parametrize("text", ["elif şahin", "ben mehmet elif şahin'i arıyorum", "muhasebeden ayşe yılmaz",
+                                  "ayşe yılmaz lütfen"])
+async def test_kendini_tanitma_ve_birim_soyad_sayilmaz(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert [x.type for x in t.actions] == ["transfer"] and t.fast
+
+
+@pytest.mark.parametrize("answer", ["hiçbiri", "ikisi de değil", "hiçbirisi değil"])
+async def test_soruya_hicbiri_denirse_kodla_bulamadim(answer):
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    await s.handle_user("kuba çelik elif şahin")
+    t = await s.handle_user(answer)
+    assert not t.actions and t.text == a.cfg.texts.not_found and a.llm.seen == []
+    assert s.state.failed_attempts == 1

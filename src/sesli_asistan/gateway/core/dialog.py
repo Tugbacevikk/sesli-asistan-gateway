@@ -377,6 +377,12 @@ class DialogAgent:
         """Sorulan adaylardan birini cevaptan seçer: birim ("muhasebedeki"), soyad ("Yılmaz"), tam ad ya da sıra
         ("ilki", "ikincisi"). Tek aday seçilmezse ya da arayan reddederse None: LLM devam eder."""
         words = search_key(text).split()
+        raw = set(_folded_words(text))
+        if raw & {"hicbiri", "hicbirisi", "hicbirine"} or ({"ikisi", "ucu"} & raw and raw & _NEGATION):
+            # "hiçbiri", "ikisi de değil": sorulanlar arasında yok → kodla "bulamadım" (LLM turu beklenmez)
+            if self._mentions_person_or_department(text):
+                return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
+            return self._not_found(s)
         if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
             return None
         picked: set[int] = set()
@@ -410,6 +416,25 @@ class DialogAgent:
         return turn
 
     # --- hızlı yol (ADR-016) ---
+
+    def _other_surnames(self, words: list[str], contact: Any) -> list[Any]:
+        """Sözde, `contact`ın adı / soyadı dışında başka kişilerin soyadına uyan kelime varsa o kişiler. Yalnız soyad:
+        arayanın kendini tanıtması ("ben Mehmet, Ayşe Yılmaz'ı arıyorum") yaygındır, soyad söylemesi değil."""
+        own = set(search_key(f"{contact.first_name} {contact.last_name}").split())
+        rest = [w for w in words if w not in own and strip_suffix(w) not in own and len(w) >= 3]
+        if not rest:
+            return []
+        out: dict[str, Any] = {}
+        for c in self.tools.index.contacts():
+            if c.kind != "person" or c.id == contact.id or not c.transferable:
+                continue
+            last = search_key(c.last_name)
+            if len(last) < 3 or last in own:
+                continue
+            for w in rest:
+                if any(v == last or (len(v) >= 4 and similarity(v, last) >= 92) for v in query_variants(w)):
+                    out[c.id] = c
+        return list(out.values())
 
     def _mentions_person_or_department(self, text: str) -> bool:
         words = search_key(text).split()
@@ -475,6 +500,17 @@ class DialogAgent:
         if len(found) != 1:
             return None                                # hiç ya da birden çok aday: LLM karar versin
         contact, kind = next(iter(found.values()))
+        if kind != "department" and (others := self._other_surnames(words, contact)):
+            # Santral denemesi (02.11.2026): rehberde olmayan "Tuğba Çevik" → STT "kuba çelik elif şahin" → Elif Şahin'e
+            # aktarılmıştı. Sözde başka bir kişinin soyadı da geçiyorsa emin olunamaz: aktarılmaz, sorulur.
+            log.info("[%s] hızlı yol: %s yanında başka soyad (%s) — sorulacak", s.call_id, contact.full_name,
+                     ", ".join(c.full_name for c in others))
+            if self.cfg.clarify_by_code and len(others) <= 2:
+                s.state.truncated = False
+                if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in [*others, contact]))) is not None:
+                    turn.fast = True
+                    return turn
+            return None
         args = ({"Department": contact.department} if kind == "department"
                 else {"Name": contact.full_name})
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
