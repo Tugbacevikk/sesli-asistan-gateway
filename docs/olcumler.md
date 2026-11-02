@@ -385,3 +385,19 @@ Aynı gün devam:
 - STT kalitesi telefon hattında belirgin düşük (tarayıcı denemesinde bu hatalar yoktu): ses düzeyi / 8 kHz / ipucu
   etkisi STT teşhis kaydıyla (STT_DEBUG_DIR) ayrıştırılacak; akışlı transducer modeli (Whisper'ın aksine istem
   devamı uydurmaz) aynı kayıtlarla karşılaştırılacak.
+
+### STT teşhisi — telefon hattı (2 Kasım 2026, STT_DEBUG_DIR)
+
+| Söylenen | Canlı (rehber ipucu) | İpucusuz | 5 ipuçlu | Tepe / RMS | Sessiz |
+|---|---|---|---|---|---|
+| Ayşe Yılmaz'la görüşmek istiyorum (1,61 sn) | doğru | "aşağıya yılmaz'la …" | doğru | 0,30 / −27,5 dBFS | %51 |
+| Tuğba Çevik (1,22 sn; rehberde yok) | "burak çelik" | "başka bir videoda görürüz" | "burak çelik" | 0,46 / −24,5 | %60 |
+| operatöre bağlanmak istiyorum (1,55 sn) | "operatör imparalamak istiyorum" | "o parçayı bari almak istiyor" | "operatörü beraber almak istiyor" | 0,57 / −27,6 | %64 |
+| görüşmeyi bitirmek istiyorum (1,64 sn) | doğru | "düğmeyi bitirmek …" | **"şahin muhasebe"** | 0,30 / −27,9 | %64 |
+
+- Kırpılma yok, düzey kabul edilebilir. Ama **ipucusuz da kötü**: sorun yalnız ipucu değil, sesin kendisi. Tarayıcı
+  denemesinde (aynı 8 kHz'e indirme) bu hatalar yoktu → fark MicroSIP / santral ses yolunda aranacak.
+- Cümleler kısa (1,2–1,6 sn) ve yarıdan fazlası sessiz: konuşmanın parçaları eksik olabilir (yazılımsal telefonun
+  sessizlik bastırması / VAD'ı, gürültü bastırma).
+- İpucu, ses kötüyken adları zorluyor ("görüşmeyi bitirmek istiyorum" → "şahin muhasebe"; rehberde olmayan ad →
+  en yakın rehber adı). Diyalogdaki korumalar (soyad kontrolü, kodla soru) bu yüzden gerekli.
