@@ -30,6 +30,12 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Sürüm yönetimi: bu dosya, `tools/kurulum/surum.py`, etiketten GitHub sürümü oluşturan CI işi; sürüm sağlık
   yanıtında (`version`).
 
+### Düzeltildi
+- STT: Whisper'ın ipucu listesinin devamını yazması ("ayşe yılmaz" → "ayşe yılmaz zeynep arslan") ayıklanır.
+- Sözde birden çok kişinin tam adı geçince "bulunamadı" yerine kodla "hangisi?" sorulur.
+- Arayan görüşmeyi bitirmek isteyince ("sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim") vedalaşıp kapatılır.
+- Asistanın sözü kesilerek söylenen ve anlaşılamayan söz deneme hakkından düşmez (operatöre gönderilmez).
+
 ### Değişti
 - Rehber dosyası varsayılan yeri `/var/lib/sesli-asistan/rehber.json` (Gateway yazabilsin diye; `/etc` systemd'de
   salt okunur). Eski kurulumlarda `/etc` altındaki dosya salt okunur çalışmaya devam eder.
