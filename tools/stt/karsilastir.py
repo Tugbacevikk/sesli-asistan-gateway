@@ -133,7 +133,7 @@ def main(argv: list[str] | None = None) -> int:
     if a.tsv:
         with a.tsv.open(encoding="utf-8") as f:
             for row in csv.reader(f, delimiter="\t"):
-                if len(row) >= 2 and row[0].strip():
+                if len(row) >= 2 and row[0].strip() and not row[0].startswith("#"):
                     refs[Path(row[0].strip()).name] = row[1].strip()
 
     engines: list[tuple[str, object, list[str] | None]] = []

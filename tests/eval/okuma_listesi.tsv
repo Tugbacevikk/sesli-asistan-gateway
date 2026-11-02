@@ -1,0 +1,26 @@
+# Telefon STT ölçümü için okuma listesi (tools/stt/karsilastir.py --tsv). Her satır: dosya<TAB>doğru metin.
+# Kayıt: her cümle ayrı .wav (k01.wav …), doğal hızda, telefonla konuşur gibi. Satırlar rehber_ornek.json'a göre.
+k01.wav	Ayşe Yılmaz ile görüşmek istiyorum
+k02.wav	Mehmet Demir'e bağlar mısınız
+k03.wav	Can Öztürk'ü arıyorum
+k04.wav	Zeynep Arslan lütfen
+k05.wav	Burak Çelik ile görüşebilir miyim
+k06.wav	Elif Şahin'e bağlanmak istiyorum
+k07.wav	Selin Aydın orada mı
+k08.wav	Hakan Bey'le görüşecektim
+k09.wav	Ayşe Hanım'ı arıyorum
+k10.wav	satıştaki Ayşe Hanım
+k11.wav	muhasebeye bağlar mısınız
+k12.wav	teknik destek lütfen
+k13.wav	insan kaynaklarıyla görüşmek istiyorum
+k14.wav	bilgi işlemden birine bağlanmak istiyorum
+k15.wav	iki yüz on dört numaralı dahili
+k16.wav	operatöre bağlanmak istiyorum
+k17.wav	bir yetkiliyle görüşmek istiyorum
+k18.wav	evet
+k19.wav	hayır
+k20.wav	hiçbiri
+k21.wav	görüşmeyi sonlandırmak istiyorum
+k22.wav	Tuğba Çevik ile görüşmek istiyorum
+k23.wav	Ferhat Yıldırım'ı arıyorum
+k24.wav	şu an açık mısınız
