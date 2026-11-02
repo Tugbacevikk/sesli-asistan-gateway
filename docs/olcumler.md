@@ -523,7 +523,7 @@ Akış başı ≈ 16:10:44,3 (çağrı açıldı). Silero 0,5 / 0,35 / 0,2 ve en
 
 - VAD konuşma kaçırmıyor: eşik düşürülünce eklenen tek aralık aktarma sırasındaki santral sesi. Eşik aynı kalır.
 - Bu "duyamıyorum" doğru: 8 sn boyunca hatta ses yoktu.
-- Bozuk iki cevabın ortak noktası: ikisi de asistanın sözü biter bitmez (≤ 0,3 sn sonra) başlıyor ve sözün yalnız
+- Bozuk iki cevabın ortak noktası: ikisi de asistanın sözü biter bitmez (tahmini; seslendirme süresi loglanmıyor) başlıyor ve sözün yalnız
   bir kısmı geliyor; her seferinde cevabın tamamı değil yarısı var. Bekleyip söylenen aynı ad tam ve doğru.
   Olası neden MicroSIP yankı gidericisi (açık; hoparlörle konuşuluyor): asistanın sesi biterken arayanın sesini de
   bastırıyor. Kulaklıkla / yankı giderici kapalı karşılaştırılacak.
