@@ -96,6 +96,15 @@ main { max-width: 1180px; margin: 0 auto; padding: 24px; }
 .event { margin: 14px 0 0; font-size: .88rem; color: var(--muted); padding-left: 12px; border-left: 3px solid var(--rule); }
 .event.ok { border-color: var(--ok); color: var(--ink); }
 .event.bad { border-color: var(--bad); color: var(--ink); }
+.livegrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr)); gap: 12px; }
+.livecard { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; padding: 12px 16px; }
+.livecard.ended { opacity: .6; }
+.livecard header { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; font-size: .85rem; color: var(--muted); }
+.livecard header b { color: var(--ink); }
+.livecard .lines { max-height: 300px; overflow-y: auto; margin-top: 6px; }
+.livecard .msg { margin-top: 8px; max-width: 88%; }
+.livecard .msg .text { padding: 6px 10px; }
+.livecard .event { margin-top: 8px; }
 
 .composer { display: flex; gap: 8px; margin-top: 12px; }
 .composer input {
@@ -265,9 +274,8 @@ td input { min-width: 160px; }
   <section id="view-watch" role="tabpanel" aria-labelledby="tab-watch" hidden>
     <div class="health" id="health"></div>
     <p class="note" id="today"></p>
-    <h2 class="sec">Süren çağrılar</h2>
-    <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Kanal</th><th>Durum</th><th>Başlangıç</th><th>Tur</th></tr></thead>
-      <tbody id="active"></tbody></table></div>
+    <h2 class="sec">Süren çağrılar <span class="note" id="liveStatus"></span></h2>
+    <div class="livegrid" id="live" aria-live="polite"></div>
     <h2 class="sec">Son çağrılar</h2>
     <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Sonuç</th><th>Başlangıç</th><th>Süre</th><th>Konuşma</th></tr></thead>
       <tbody id="recent"></tbody></table></div>
@@ -389,7 +397,7 @@ function show(name) {
     view.hidden = k !== name;
   }
   clearInterval(watchTimer);
-  if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); }
+  if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); liveConnect(); } else liveStop();
   if (name === "settings") loadSettings();
   if (name === "directory") loadDirectory();
 }
@@ -675,9 +683,11 @@ async function refresh() {
       ? `Son 24 saat: ${t.toplam} çağrı · ` + Object.entries(t.sonuc).map(([k, v]) => `${v} ${outcomeText(k)}`).join(", ")
         + (nt ? ` · arayan turlarının %${Math.round(100 * tr.llm / nt)}'i dil modeline gitti (${tr.llm}/${nt})` : "")
       : "Son 24 saatte biten çağrı yok.";
-    $("active").innerHTML = c.active.length ? c.active.map((a) =>
-      `<tr><td>${esc(a.call_id)}</td><td>${channelText(a.channel)}</td><td>${esc(STATES[a.state] || a.state)}</td><td>${esc(a.started.slice(11))}</td><td>${a.turns}</td></tr>`).join("")
-      : `<tr><td colspan="5" class="note">Şu an süren çağrı yok.</td></tr>`;
+    if (!liveOk) {        // canlı akış bağlı değilse: yalnız liste (metin yok)
+      liveCalls.clear();
+      for (const a of c.active) liveCalls.set(a.call_id, { call_id: a.call_id, channel: a.channel, state: a.state, lines: [] });
+      renderLive();
+    }
     $("recent").innerHTML = c.recent.length ? c.recent.map((r) => {
       const turns = r.turns.map((t) => `<li>${esc(t.heard || "–")} <span class="note">/</span> ${esc(t.reply)}${t.actions.length ? " <span class='note'>(" + esc(t.actions.join(", ")) + ")</span>" : ""}${t.final_to_audio_s != null ? " <span class='note'>" + fmt(t.final_to_audio_s) + "</span>" : ""}</li>`).join("");
       return `<tr><td>${esc(r.call_id)}<div class="note">${channelText(r.channel)}</div></td>
@@ -690,6 +700,73 @@ async function refresh() {
   } catch (e) {
     $("health").innerHTML = `<div class="svc bad"><i></i><div><strong>Gateway</strong><span>bağlanılamadı</span></div></div>`;
   }
+}
+
+
+/* ---------- izleme: canlı çağrılar (/v1/ui/canli) ---------- */
+let liveWs = null, liveOk = false, liveRetry = null;
+const liveCalls = new Map();
+function liveConnect() {
+  if (liveWs) return;
+  clearTimeout(liveRetry);
+  const ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/v1/ui/canli`);
+  liveWs = ws;
+  ws.onopen = () => { liveOk = true; $("liveStatus").textContent = "· canlı"; };
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "snapshot") {
+      liveCalls.clear();
+      for (const c of m.calls) { liveCalls.set(c.call_id, { call_id: c.call_id, channel: c.channel, state: c.state, lines: [] });
+        for (const ev of c.events) liveApply(ev); }
+    } else liveApply(m);
+    renderLive();
+  };
+  ws.onclose = () => {
+    liveOk = false; liveWs = null; $("liveStatus").textContent = "";
+    if (!$("view-watch").hidden) liveRetry = setTimeout(liveConnect, 2000);
+  };
+}
+function liveStop() { clearTimeout(liveRetry); if (liveWs) { const w = liveWs; liveWs = null; w.onclose = null; w.close(); } liveOk = false; }
+function liveApply(m) {
+  let c = liveCalls.get(m.call_id);
+  if (!c) { c = { call_id: m.call_id, channel: m.channel, state: "", lines: [] }; liveCalls.set(m.call_id, c); }
+  const line = (cls, html) => c.lines.push({ cls, html, t: m.t });
+  switch (m.type) {
+    case "start": c.started = m.started; break;
+    case "state": c.state = m.state; break;
+    case "heard": line("msg caller", `<div class="who">Arayan · ${esc(m.t)}</div><div class="text">${m.text ? esc(m.text) : "<em>anlaşılamadı</em>"}</div>`); break;
+    case "reply": line("msg bot", `<div class="who">Asistan · ${esc(m.t)}</div><div class="text">${esc(m.text)}</div>`); break;
+    case "turn": {
+      const last = [...c.lines].reverse().find((l) => l.cls === "msg bot");
+      if (last && m.final_to_audio_s != null && !last.html.includes("meta"))
+        last.html += `<div class="meta">İlk ses <b>${fmt(m.final_to_audio_s)}</b>${m.llm_calls ? " · dil modeli" : " · kodla"}</div>`;
+      break;
+    }
+    case "barge_in": line("event", "Arayan söze girdi."); break;
+    case "action":
+      if (m.action === "transfer") line("event ok", `${esc(m.extension)} numaralı dahiliye aktarılıyor.`);
+      else if (m.action === "operator") line("event", `Operatöre aktarılıyor (${esc(reasonText(m.reason))}).`);
+      else if (m.action === "hangup") line("event", `Asistan çağrıyı kapattı (${esc(reasonText(m.reason))}).`);
+      break;
+    case "ended":
+      c.ended = true; c.outcome = m.outcome;
+      line("event " + (m.outcome === "transferred" ? "ok" : ""), `Çağrı bitti: ${esc(outcomeText(m.outcome))}.`);
+      setTimeout(() => { liveCalls.delete(m.call_id); renderLive(); }, 30000);
+      break;
+  }
+}
+function renderLive() {
+  const el = $("live");
+  const keep = {};
+  for (const box of el.querySelectorAll(".lines")) keep[box.dataset.id] = box.scrollHeight - box.scrollTop - box.clientHeight < 24;
+  const calls = [...liveCalls.values()];
+  el.innerHTML = calls.length ? calls.map((c) => `<article class="livecard${c.ended ? " ended" : ""}">
+      <header><span><b>${channelText(c.channel)}</b> · ${esc(c.call_id)}</span>
+        <span>${c.ended ? "bitti" : esc(STATES[c.state] || c.state || "")}${c.started ? " · " + esc(c.started.slice(11)) : ""}</span></header>
+      <div class="lines" data-id="${esc(c.call_id)}">${c.lines.slice(-60).map((l) => `<div class="${l.cls}">${l.html}</div>`).join("")
+        || `<p class="note">${liveOk ? "Henüz konuşma yok." : "Canlı metin için bağlantı kuruluyor…"}</p>`}</div>
+    </article>`).join("") : `<p class="note">Şu an süren çağrı yok.</p>`;
+  for (const box of el.querySelectorAll(".lines")) if (keep[box.dataset.id] !== false) box.scrollTop = box.scrollHeight;
 }
 
 /* ---------- ayarlar ---------- */

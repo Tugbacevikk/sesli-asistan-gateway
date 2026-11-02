@@ -71,7 +71,7 @@ def _error(status: int, code: str, message: str, call_id: str | None = None) -> 
 def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_key: str = "",
                allowed_ips: set[str] | None = None, lifespan=None, web_session=None,
                ui_allowed_ips: set[str] | None = None, metrics_registry=None, history=None,
-               settings=None, ui_access: UiAccess | None = None) -> FastAPI:
+               settings=None, ui_access: UiAccess | None = None, live=None) -> FastAPI:
     """web_session verilirse arayüz açılır (api/ui.py); arayüz yollarında santral IP listesi yerine
     `ui_allowed_ips` uygulanır."""
     access = ui_access or UiAccess(api_key, None, ui_allowed_ips)
@@ -149,7 +149,7 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         return Response(status_code=204)
 
     if web_session is not None:
-        mount_ui(app, manager, web_session, health, history=history, settings=settings, access=access)
+        mount_ui(app, manager, web_session, health, history=history, settings=settings, access=access, live=live)
 
     if metrics_registry is not None:
         from prometheus_client import CONTENT_TYPE_LATEST, generate_latest

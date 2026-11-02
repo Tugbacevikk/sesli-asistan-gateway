@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- İzleme sekmesinde canlı çağrılar: santral çağrıları dahil, süren her çağrının konuşması (arayan / asistan,
+  aktarma, ilk ses süresi) anında (`WS /v1/ui/canli`).
 - Arayüzden rehber yükleme: Excel (.xlsx) ya da CSV; sütunlar başlıktan tanınır, önizlemede eklenen / silinen /
   değişen kayıtlar, satır numaralı hatalar ve uyarılar; onaydan sonra atomik yazma, tek adımda geri alma; mevcut
   rehberi ve boş şablonu CSV olarak indirme. Kayıt kimlikleri korunur (yerel takma adlar kopmaz).

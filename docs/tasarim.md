@@ -1092,6 +1092,16 @@ yalnız kodda gerçekten üretilen metrikleri kullandığını denetler.
 
 ---
 
+### 12.5 Canlı izleme (arayüz)
+
+Arayüzün **İzleme** sekmesi süren her çağrıyı (santral ve deneme) bir kartta canlı gösterir: asistanın söyledikleri,
+arayanın duyulan sözü, aktarma / operatör / kapatma, ilk ses süresi ve cevabın kodla mı dil modeliyle mi verildiği.
+`gateway/live.py` (`LiveFeed`) çağrı oturumunun gözlemcisinden olayları alır, çağrı başına son 200 olayı tutar ve
+`WS /v1/ui/canli` abonelerine dağıtır; yeni bağlanan önce süren çağrıların o ana kadarki olaylarını alır. Biten çağrı
+30 sn daha görünür, sonra **Son çağrılar** listesine geçer. Erişim arayüzle aynıdır (izleyici de görür, Origin
+denetlenir). `CALL_HISTORY_TEXTS=false` ise metinler burada da gösterilmez. Yayın çağrıyı bekletmez: kuyruğu dolan
+(yavaş) bağlantı düşürülür, tarayıcı yeniden bağlanır.
+
 ## 13. Yapılandırma
 
 Ayarlar `/etc/sesli-asistan/` altında, servis başına bir dosyada; gizli değerler ayrı dosyadadır.

@@ -88,6 +88,9 @@ class GatewayRuntime:
 
         self.s = s
         self.metrics = GatewayMetrics(self)
+        from .live import LiveFeed
+
+        self.live = LiveFeed(keep_texts=s.call_history_texts)    # İzleme: süren çağrıların canlı akışı
         self.directory = build_directory(s)
         from .core.resilience import BreakerLlm, BreakerStt, CircuitBreaker
 
@@ -165,7 +168,9 @@ class GatewayRuntime:
                            self.agent.new_session(req.call_id), self.pbx, self._call_config(),
                            hotwords=self._hotwords(),
                            hotword_priority=self.top_extensions,
-                           thinking_pcm=self.thinking_pcm, observer=self.metrics.observer("santral"),
+                           thinking_pcm=self.thinking_pcm,
+                           observer=_fanout(self.metrics.observer("santral"),
+                                            self.live.observer(req.call_id, "santral")),
                            office=self.office_status())
 
     def _call_config(self) -> CallConfig:
@@ -183,10 +188,12 @@ class GatewayRuntime:
         cfg = self._call_config()
         channel = "web-metin" if text_mode else "web"
         stats = self.metrics.observer(channel)
+        live = self.live.observer(call_id, channel)
 
         def both(kind, data):
             observer(kind, data)
             stats(kind, data)
+            live(kind, data)
 
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
@@ -273,6 +280,13 @@ class GatewayRuntime:
             close = getattr(c, "aclose", None)
             if close:
                 await close()
+
+
+def _fanout(*observers):
+    def on(kind, data):
+        for o in observers:
+            o(kind, data)
+    return on
 
 
 def load_thinking_sound(path: str, level: float = 0.12):

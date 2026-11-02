@@ -2,6 +2,7 @@
 
     GET  /ui                   tek sayfa (Deneme · İzleme)
     WS   /v1/ui/ws             tarayıcı ↔ Gateway: mikrofon sesi → çağrı oturumu → asistanın sesi + olaylar
+    WS   /v1/ui/canli          İzleme: süren çağrıların (santral dahil) canlı olayları
     GET  /v1/admin/calls       süren ve son çağrılar, bulunamayan aramalar
     GET  /v1/admin/health      sağlık (santral IP listesinden bağımsız)
     GET  /v1/admin/directory/export | template      rehber CSV'si / boş şablon
@@ -192,7 +193,7 @@ def _forbidden(request: Request) -> JSONResponse | None:
 
 def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
              health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None,
-             history: Any = None, settings: Any = None, access: UiAccess | None = None) -> None:
+             history: Any = None, settings: Any = None, access: UiAccess | None = None, live: Any = None) -> None:
     access = access or UiAccess(api_key, None, allowed_ips)
     if history is None:
         from sesli_asistan.gateway.adapters.history.sqlite import MemoryCallHistory
@@ -356,6 +357,45 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
                                                      asyncio.to_thread(history.misses, 20),
                                                      asyncio.to_thread(history.summary, 1))
         return JSONResponse({"active": active, "recent": recent, "misses": misses, "today": today})
+
+    @app.websocket("/v1/ui/canli")
+    async def live_ws(websocket: WebSocket) -> None:
+        """İzleme: süren çağrıların canlı olayları (santral + deneme). Önce anlık görüntü, sonra olaylar.
+        Erişim deneme çağrısıyla aynı (izleyici de görür: yalnız okuma)."""
+        host = websocket.client.host if websocket.client else ""
+        principal, why = access.check(host, request_key(websocket))
+        if principal is not None and not same_origin(websocket):
+            principal, why = None, "başka siteden bağlantı (Origin)"
+        if principal is None or live is None:
+            await websocket.close(code=1008, reason=why or "canlı akış yok")
+            return
+        await websocket.accept()
+        q = live.subscribe()
+
+        async def drain_client() -> None:           # istemci kapatınca döngü bitsin
+            while (await websocket.receive())["type"] != "websocket.disconnect":
+                pass
+
+        closer = asyncio.create_task(drain_client())
+        try:
+            await websocket.send_json({"type": "snapshot", "calls": live.snapshot()})
+            while not closer.done():
+                get = asyncio.create_task(q.get())
+                done, _ = await asyncio.wait({get, closer}, return_when=asyncio.FIRST_COMPLETED)
+                if get not in done:
+                    get.cancel()
+                    break
+                ev = get.result()
+                if ev is None:                       # yavaş istemci düşürüldü: yeniden bağlanıp anlık görüntü alır
+                    break
+                await websocket.send_json(ev)
+        except (WebSocketDisconnect, RuntimeError):
+            pass
+        finally:
+            live.unsubscribe(q)
+            closer.cancel()
+            with contextlib.suppress(Exception):
+                await websocket.close()
 
     @app.websocket("/v1/ui/ws")
     async def ws(websocket: WebSocket) -> None:
