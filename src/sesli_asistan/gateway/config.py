@@ -70,6 +70,7 @@ class GatewaySettings(BaseSettings):
     fast_path: bool = True                    # ADR-016: net tam ad / birim hattında LLM beklenmez
     clarify_by_code: bool = True              # ADR-017: birden çok adayda soru ve seçim LLM'siz
     confirm_below: float = Field(0.75, ge=0, le=1)   # STT güveni bunun altındaysa aktarmadan önce teyit (0: kapalı)
+    repeat_below: float = Field(0.5, ge=0, le=1)     # altında LLM yok, kodla "tekrar söyler misiniz" (0: kapalı)
     stream_replies: bool = True               # ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir
     code_replies: bool = True                 # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla
     llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog

@@ -490,6 +490,24 @@ RTF: whisper medium (GPU) 0,27–0,94 (ilk çağrı ısınma), mihu (CPU) 0,08�
 - "Duyamıyorum" üçüncü kez LLM'in sorusundan sonra geldi (STT'de konuşma olayı yok). Nedeni için teşhis kaydına
   çağrının bütün sesi eklendi; `tools/stt/vad_incele.py` ile o anlarda seviye ve eşiğe göre konuşma aranacak.
 
+### Whisper'a dönüş, düzeltmelerle deneme (2 Kasım 2026, 16:10)
+
+| Söylenen | STT (güven) | Ses | Asistan | Yol |
+|---|---|---|---|---|
+| Ayşe hanım ile görüşmek istiyorum | aynı (0,69) | 1,6 sn | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" | kodla |
+| Ayşe Yılmaz | **"teşekkürler" (0,41)** | **0,8 sn** | soruyu tekrarladı | LLM 2,6 sn |
+| Ayşe Yılmaz | "ayşe yılmaz" (0,97) | 1,2 sn | aktarma → meşgul | kodla |
+| (meşgul sorusundan sonra) | konuşma yok | — | "Sizi duyamıyorum" | 8 sn |
+| görüşmeyi sonlandırmak istiyorum | **"koşmaya sanandığına kisiliyorum" (0,38)** | 1,3 sn | operatöre bağladı | LLM 1,7 sn |
+
+- Whisper ipuçlu tam söylenen adı 0,97 ile tuttu.
+- Bütün denemelerde güven ayrımı: anlamsız sözler 0,31–0,45 ("ateşe girmem", "her şey uymaz", "hayat",
+  "teşekkürler", "koşmaya sanandığına…"), doğrular 0,57+ → `REPEAT_BELOW=0,5`: altı LLM'e gitmez, kodla tekrar
+  istenir (LLM anlamsız sözle aktarıyor / operatöre bağlıyordu). Seçim sorusu açık kalır.
+- Asistanın sorusundan hemen sonraki cevap yine kısa (0,8 sn) ve bozuk geldi; "duyamıyorum" dördüncü kez. Ortak
+  nokta: arayan, asistan konuşurken ya da hemen ardından konuşuyor → telefonun yankı giderici / sessizlik bastırması
+  (MicroSIP) sesi kısıyor olabilir. Çağrının bütün sesiyle (`vad_incele.py`) bakılacak.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

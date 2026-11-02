@@ -650,8 +650,8 @@ async def test_llm_dusuk_guvenli_sozle_aktaramaz_teyit_sorulur(auto):
         replies.append(tool_msg(call("TransferCall", Extension="214")))
     a = agent(ScriptedLlm(*replies), auto_transfer_single_high=auto)
     s = a.new_session("c")
-    s.stt_confidence = 0.31
-    t = await s.handle_user("ateşe girmem")
+    s.stt_confidence = 0.6                     # teyit eşiğinin altı, tekrar eşiğinin üstü: LLM'e gider
+    t = await s.handle_user("ayşe hanıma bağlar mısınız")
     assert not t.actions and t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?"
     assert s.state.pending_transfer is None
     s.stt_confidence = 0.9
@@ -667,3 +667,36 @@ async def test_llm_sorusuna_dusuk_guvenli_net_evet_aktarir():
     s.stt_confidence = 0.5
     t = await s.handle_user("evet ayşe yılmaz")
     assert [x.extension for x in t.actions] == ["214"]
+
+
+async def test_cok_dusuk_guvenli_soz_llm_e_gitmez_tekrar_istenir():
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
+    s = a.new_session("c")
+    s.stt_confidence = 0.31
+    t = await s.handle_user("ateşe girmem")
+    assert not t.actions and t.text == a.cfg.texts.not_understood and a.llm.seen == []
+    assert s.state.failed_attempts == 1
+
+
+async def test_cok_dusuk_guvende_secim_sorusu_acik_kalir_operator_ve_kapatma_calisir():
+    a = clarifier()
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    s.stt_confidence = 0.41
+    t = await s.handle_user("teşekkürler")
+    assert t.text == a.cfg.texts.not_understood and a.llm.seen == []
+    s.stt_confidence = 0.96
+    t = await s.handle_user("yılmaz")
+    assert [x.extension for x in t.actions] == ["214"]
+    for text, kind in (("operatöre bağlayın", "operator"), ("görüşmeyi sonlandırmak istiyorum", "hangup")):
+        s2 = clarifier().new_session("d")
+        s2.stt_confidence = 0.4
+        assert [x.type for x in (await s2.handle_user(text)).actions] == [kind]
+
+
+async def test_tekrar_esigi_kapatilabilir():
+    a = agent(ScriptedLlm(LlmMessage("Kimi aramıştınız?")), repeat_below=0)
+    s = a.new_session("c")
+    s.stt_confidence = 0.3
+    await s.handle_user("ateşe girmem")
+    assert len(a.llm.seen) == 1

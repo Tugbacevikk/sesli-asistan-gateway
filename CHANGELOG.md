@@ -48,6 +48,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - STT teşhis kaydı: çağrı kimliğinde nokta varsa her cümle aynı dosyanın üstüne yazılıyordu.
 - LLM düşük STT güvenli sözle aktarmak isterse aktarmaz, kodla teyit sorar (STT "ateşe girmem", güven 0,31 → aktarmıştı).
 - "Hangisi?" sorusuna bozuk duyulan cevap bir adayın soyadına açıkça yakınsa ("her şey uymaz" → Yılmaz) teyitle sorulur.
+- STT güveni çok düşük söz (`REPEAT_BELOW`, 0,5) LLM'e gitmez, kodla tekrar istenir (LLM anlamsız sözle
+  aktarıyor / operatöre bağlıyordu).
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti

@@ -109,6 +109,10 @@ class DialogConfig:
     # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
     # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.
     confirm_below: float = 0.75
+    # Bu güvenin altındaki söz (hızlı yol / seçim / teyit tutmadıysa) LLM'e verilmez: kodla "tekrar söyler misiniz".
+    # Santral denemeleri (02.11.2026): 0,45 altı her söz anlamsızdı ("ateşe girmem" 0,31, "teşekkürler" 0,41 …),
+    # doğrular 0,57 ve üstü; LLM anlamsız sözle aktarıyor / operatöre bağlıyordu.
+    repeat_below: float = 0.5
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
@@ -241,6 +245,12 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
             return turn
+        c = s.stt_confidence
+        if c is not None and 0 < c < self.cfg.repeat_below:
+            log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, c, log_text(text))
+            if choice:
+                s.state.choice = choice                # "hangisi?" sorusu açık kalır
+            return self._failure(s, count=not lenient)
         if not self.cfg.llm_enabled:
             return self._rule_turn(s, text)
         return await self._run(s)
