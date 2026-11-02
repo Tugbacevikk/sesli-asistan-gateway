@@ -439,3 +439,23 @@ Windows dizüstü; Whisper modelleri bu koşuda **CPU'da** çalıştı (araç CU
 - "hayır" kısa ve dar bantta "hayat" duyuldu → teyitte **açık "evet" yoksa aktarılmaz**: anlaşılmayan / kısa cevap
   kodla "bulamadım" (LLM turu yok); "evet"e yakın duyulanlar ("emet") evet sayılır; operatör / kapatma / yeni ad
   normal akışa gider.
+
+## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
+
+Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
+8 senaryo × 3. Windows dizüstü, RTX 3050 Ti 4 GB, Ollama 0.40.13, qwen3.5:4b (~%50 CPU / %50 GPU).
+
+| | Sahte model (tesisat) | qwen3.5:4b |
+|---|---|---|
+| Araç / aktarma doğru | 24/24 · 24/24 | 24/24 · 24/24 |
+| İzinsiz aktarma | 0 (sunucu reddetti) | 0 (model kendisi reddetti) |
+| MCP bağlantı + tools/list | 810 ms (bulut), 68 ms HTTP | 1.079 ms (stdio) |
+| tools/call p50 | 1,6 ms | 2,8 ms |
+| Aktarma senaryosu süresi p50 | — | 6,2–6,6 sn (3 LLM çağrısı) |
+| İlk istem | 1.067 karakter araç | 603 belirteç |
+
+- MCP'nin maliyeti ihmal edilebilir; süre genel araç döngüsünden (ara → aktar → cevap = 3 LLM çağrısı). Gateway'in
+  kendi döngüsü aynı modelde tur p50 2,85 sn (aramadan sonra kodla aktarma, kodla cümle), tam adda LLM'siz.
+- Serbest cevaplar belirsiz / bozuk olabiliyor ("Bağlantı kuruluyor.", "yapabiliryim") → telefonda kodla cümle.
+- Karar önerisi: çağrı yolu değişmez; MCP, rehberi başka yapay zekâ uygulamalarına açan salt okunur uç olarak
+  ayrıca düşünülebilir. Rapor: Claude Docs "Yerel LLM ile MCP Araç Kullanımı".
