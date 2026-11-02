@@ -215,6 +215,10 @@ class DialogAgent:
         if not text:
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
+        if self.cfg.fast_path and asks_operator(text) and not self._mentions_person_or_department(text):
+            # "operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)
+            log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(text))
+            return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
         if wants_hangup(text) and not self._mentions_target(text):
             log.info("[%s] arayan kapatmak istedi: %s", s.call_id, log_text(text))
             s.state.actions = []
@@ -238,7 +242,7 @@ class DialogAgent:
         2–3 kişi → soru, bulunamazsa tekrar sor (deneme sayacı; sonunda operatör)."""
         words = search_key(text).split()
         raw = re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()   # unvanlar atılmadan
-        if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
+        if asks_operator(text):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
         index = self.tools.index
         for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
@@ -406,6 +410,10 @@ class DialogAgent:
         return turn
 
     # --- hızlı yol (ADR-016) ---
+
+    def _mentions_person_or_department(self, text: str) -> bool:
+        words = search_key(text).split()
+        return bool(words) and (self._mentions_person(words) or self._mentions_department(words))
 
     def _mentions_target(self, text: str) -> bool:
         """Sözde aranacak biri / bir birim / operatör / dahili numara var mı ("vazgeçtim, Mehmet Kaya'ya bağla")."""
@@ -655,9 +663,27 @@ class DialogAgent:
 _ASCII = str.maketrans("çğıöşü", "cgiosu")
 # arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
 _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
+_NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
 _NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
 _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter", "baska bir sey yok",
                    "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
+
+
+def _folded_words(text: str) -> list[str]:
+    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+
+
+def asks_operator(text: str) -> bool:
+    """Sözde operatör isteği var mı: "operatöre bağlayın", "santral", "bir yetkiliyle"; STT'nin harf hatalarına
+    karşı "operatör"e çok benzeyen kelimeler de ("oparatöre", "operetör"). Olumsuzsa ("operatöre gerek yok",
+    "operatör istemiyorum") hayır."""
+    raw = _folded_words(text)
+    if not raw or set(raw) & _NEGATION:
+        return False
+    if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
+        return True
+    return any(len(w) >= 7 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 85
+               for w in raw)
 
 
 def wants_hangup(text: str) -> bool:
@@ -669,7 +695,7 @@ def wants_hangup(text: str) -> bool:
         if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w):
             return True
     return any(f" {p}" in f" {t}" for p in _HANGUP_PHRASES)
-_OPERATOR_WORDS = {"operator", "operatore", "santral", "danisma", "resepsiyon", "yetkili"}
+_OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
 _DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
                 "dokuz": 9}
 _TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kirk": 40, "elli": 50, "altmis": 60, "yetmis": 70, "seksen": 80,

@@ -90,7 +90,7 @@ def test_ipucu_uzunluk_siniri():
                                 "department": f"Birim{i % 5}", "extension": str(1000 + i)}) for i in range(500)]
     hw = DirectoryIndex(people).hotwords()
     assert sum(len(w) + 1 for w in hw) <= 400
-    assert hw[:5] == [f"Birim{i}" for i in range(5)] and len(hw) > 5
+    assert hw[:6] == ["operatör", *[f"Birim{i}" for i in range(5)]] and len(hw) > 6
 
 
 
@@ -101,7 +101,7 @@ def test_ipucu_onceligi_adaylar_sonra_sik_arananlar():
     idx = DirectoryIndex(people)
     assert "Kişi0499 Uzunsoyadlıoğlu" not in idx.hotwords()
     hw = idx.hotwords(priority=["1499", "1498", "9999"])
-    assert hw[:2] == ["Kişi0499 Uzunsoyadlıoğlu", "Kişi0498 Uzunsoyadlıoğlu"] and hw[2] == "Birim0"
+    assert hw[:3] == ["operatör", "Kişi0499 Uzunsoyadlıoğlu", "Kişi0498 Uzunsoyadlıoğlu"] and hw[3] == "Birim0"
     focus = idx.search("kişi 0321").candidates
     hw = idx.hotwords(priority=["1499"], focus=focus)
     assert focus and hw[:2] == [focus[0].contact.full_name, focus[0].contact.department]

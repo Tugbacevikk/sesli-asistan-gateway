@@ -243,8 +243,9 @@ class DirectoryIndex:
         130–160 belirteç. Sayıyla sınırlamak (eski: 60 öğe) uzun adlarda sınırı aşıp sonu kesiyordu.
         Büyük rehberde tüm adlar sığmaz; sıra (tasarim.md 5.2.1):
           1. `focus`: son aramanın adayları ve birimleri (arayan "hangi Ayşe?" sorusuna bunlardan birini söyler),
-          2. `priority`: en çok aranan dahililerin kişileri (çağrı geçmişinden),
-          3. birimler, 4. kalan adlar (alfabetik)."""
+          2. sabit sözler (`FIXED_HOTWORDS`: "operatör"),
+          3. `priority`: en çok aranan dahililerin kişileri (çağrı geçmişinden),
+          4. birimler, 5. kalan adlar (alfabetik)."""
         persons = [c for c, _, _ in self._entries if c.full_name and c.kind != "department"]
         by_ext: dict[str, list[str]] = {}
         for c in persons:
@@ -258,7 +259,7 @@ class DirectoryIndex:
         depts = sorted({c.department for c, _, _ in self._entries if c.department})
         names = sorted({c.full_name for c in persons})
         out, used, seen = [], 0, set()
-        for w in focused + ranked + depts + names:
+        for w in [*focused, *FIXED_HOTWORDS, *ranked, *depts, *names]:
             if w in seen:
                 continue
             if used + len(w) + 1 > max_chars:
@@ -267,6 +268,11 @@ class DirectoryIndex:
             out.append(w)
             used += len(w) + 1
         return out
+
+
+# Her zaman ipucunda: rehberde olmayan ama arayanın sık söylediği sözler. Santral denemesi (02.11.2026): ipucu
+# yalnız adlardan oluşunca "operatöre bağlanmak istiyorum" → "aferitene bağlanmak istiyorum" tanındı.
+FIXED_HOTWORDS = ("operatör",)
 
 
 class _KeyTable:

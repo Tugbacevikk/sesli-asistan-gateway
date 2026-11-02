@@ -292,7 +292,6 @@ async def test_hizli_yol_llm_beklemeden_aktarir(text, ext):
     "satış müdürünü arıyorum",           # unvan
     "mehmet demirci",                    # uzamış ad (85 puan)
     "insan kaynaklarına bağlayın",       # birimin genel hattı yok: kişiye kendiliğinden gitmez
-    "operatöre bağlayın",
     "hakan koç",                         # aktarılamaz kayıt
     "can öztürk ne alaka",               # itiraz: hızlı yola girmemeli
     "neden can öztürk diyorsun",         # soru: hızlı yola girmemeli
@@ -511,3 +510,20 @@ async def test_soze_girilen_soz_anlasilamazsa_deneme_hakki_yanmaz():
     for _ in range(limit):                                   # söze girmeden anlaşılmayan: sayılır
         t = await s.handle_user("")
     assert [x.type for x in t.actions] == ["operator"]
+
+
+@pytest.mark.parametrize("text", ["operatöre bağlanmak istiyorum", "oparatöre bağlayın", "operatörle görüşeyim",
+                                  "bir yetkiliyle görüşmek istiyorum"])
+async def test_operator_istegi_llm_beklemeden(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert [x.type for x in t.actions] == ["operator"] and t.actions[0].reason == "arayan_istedi"
+    assert a.llm.seen == []
+
+
+@pytest.mark.parametrize("text", ["operatöre gerek yok ayşe yılmaz", "operatör istemiyorum",
+                                  "satış operasyon bölümü", "muhasebe yoksa operatöre"])
+async def test_operator_sozu_gecse_de_olumsuz_ya_da_hedefliyse_kodla_operatore_gitmez(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert not (t.actions and t.actions[0].type == "operator" and a.llm.seen == [])

@@ -56,7 +56,7 @@ async def test_sik_arananlar_stt_ipucunda_once(tmp_path):
     rt = GatewayRuntime(s, llm=object(), stt=object(), tts=object())
     await rt.directory.refresh()
     await rt._refresh_top()
-    assert rt.top_extensions == ["215"] and rt._hotwords()[0] == "Burak Çelik"
+    assert rt.top_extensions == ["215"] and rt._hotwords()[:2] == ["operatör", "Burak Çelik"]
     rt.history.close()
 
 
