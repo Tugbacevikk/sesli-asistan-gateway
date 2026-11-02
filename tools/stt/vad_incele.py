@@ -8,6 +8,8 @@ asistanın sesi yok). Çıktı:
   1. Saniye saniye seviye (dBFS) — konuşma -35 dBFS civarı ve üstü, hat gürültüsü genelde -55 ve altı.
   2. Her eşik için STT servisiyle aynı cümle bölücünün (vad.Segmenter, aynı ayarlar) bulduğu cümleler.
   3. Enerji algılayıcısının (modelsiz) bulduğu cümleler — Silero'nun kaçırdığı sesi gösterir.
+  4. Silero'nun her 0,5 sn'deki en yüksek konuşma olasılığı (×100): eşiğin nereye konacağını gösterir
+     (onnxruntime gerekir; faster-whisper ile zaten kurulu).
 Ses dosyası repoya girmez (stt_teshis/ .gitignore'da); ses kişisel veridir, inceleme sonrası silinmeli.
 """
 from __future__ import annotations
@@ -30,6 +32,7 @@ from sesli_asistan.stt.vad import (  # noqa: E402
     make_detector,
 )
 
+FRAME = 512
 
 def read_wav(path: Path) -> np.ndarray:
     with wave.open(str(path)) as w:
@@ -51,6 +54,35 @@ def segments(x: np.ndarray, det: SpeechDetector, cfg: SegmenterConfig) -> list[U
     for i in range(0, len(x), step):
         out += [e for e in seg.feed(x[i:i + step]) if isinstance(e, Utterance)]
     return out + seg.flush()
+
+
+def silero_probs(x: np.ndarray, model: str) -> np.ndarray:
+    """Her 32 ms çerçevenin Silero konuşma olasılığı (STT servisindeki modelle aynı dosya; durum çerçeveden
+    çerçeveye taşınır, servisteki gibi)."""
+    import onnxruntime as ort
+
+    sess = ort.InferenceSession(model, providers=["CPUExecutionProvider"])
+    names = {i.name for i in sess.get_inputs()}
+    n = len(x) // FRAME
+    out = np.zeros(n, dtype=np.float32)
+    if {"h", "c"} <= names:                                  # v4 (sherpa-onnx dağıtımı)
+        h = np.zeros((2, 1, 64), np.float32)
+        c = np.zeros((2, 1, 64), np.float32)
+        for i in range(n):
+            p, h, c = sess.run(None, {"x": x[i * FRAME:(i + 1) * FRAME][None, :], "h": h, "c": c})
+            out[i] = float(p.reshape(-1)[0])
+    else:                                                    # v5: input, state, sr
+        st = np.zeros((2, 1, 128), np.float32)
+        sr = np.array(SAMPLE_RATE, dtype=np.int64)
+        for i in range(n):
+            p, st = sess.run(None, {"input": x[i * FRAME:(i + 1) * FRAME][None, :], "state": st, "sr": sr})
+            out[i] = float(p.reshape(-1)[0])
+    return out
+
+
+def prob_timeline(probs: np.ndarray, step_s: float = 0.5) -> list[int]:
+    k = max(1, round(step_s * SAMPLE_RATE / FRAME))
+    return [round(float(probs[i:i + k].max()) * 100) for i in range(0, len(probs), k)]
 
 
 def fmt(utts: list[Utterance]) -> str:
@@ -78,6 +110,15 @@ def main(argv: list[str] | None = None) -> int:
         name = "silero" if not isinstance(det, EnergyDetector) else "enerji (silero modeli yok!)"
         print(f"{name} eşik {th}: {fmt(segments(x, det, cfg))}")
     print(f"enerji algılayıcı: {fmt(segments(x, EnergyDetector(), cfg))}")
+    if Path(a.vad_model).exists():
+        try:
+            tl = prob_timeline(silero_probs(x, a.vad_model))
+        except ImportError:
+            print("onnxruntime yok: olasılık zaman çizelgesi atlandı")
+        else:
+            print("Silero konuşma olasılığı, 0,5 sn'de en yüksek (×100; eşik 0,5 = 50):")
+            for i in range(0, len(tl), 20):
+                print(f"  {i / 2:5.0f} sn: " + " ".join(f"{v:3d}" for v in tl[i:i + 20]))
     return 0
 
 
