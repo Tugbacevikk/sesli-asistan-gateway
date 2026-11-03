@@ -56,6 +56,7 @@ TEXT_LABELS = {
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
     "no_input_question": ("Soru açıkken ses gelmedi (sorudan önce)", ""),
+    "greeting_reply": ("Arayan yalnız selam verdi", ""),
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10

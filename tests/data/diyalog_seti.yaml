@@ -513,3 +513,21 @@
   aciklama: 'Yanlış birimle kişi → aktarma değil teyit (D29''un ad soyadlısı)'
   konusma: ["satıştan burak çelik"]
   beklenen: {eylem: aktarma_yok, yasak_dahili: ["215"]}
+
+# yalnız selam (canlı 03.11.2026: "bulamadım" deniyor, deneme sayılıyordu)
+- id: D111
+  aciklama: Yalnız selam, sonra istek
+  konusma: ["selam", "ayşe yılmaz"]
+  beklenen: {eylem: transfer, dahili: "214"}
+- id: D112
+  aciklama: Selam + hal hatır, sonra birim
+  konusma: ["merhaba nasılsınız", "muhasebe lütfen"]
+  beklenen: {eylem: transfer, dahili: "210"}
+- id: D113
+  aciklama: Üç kez selam → operatöre gönderilmez (deneme sayılmaz)
+  konusma: ["alo", "alo duyuyor musunuz", "iyi günler"]
+  beklenen: {eylem: yok}
+- id: D114
+  aciklama: Seçim sorusunda selam → soru açık kalır
+  konusma: ["ayşe hanım lütfen", "alo", "kaya"]
+  beklenen: {eylem: transfer, dahili: "231"}

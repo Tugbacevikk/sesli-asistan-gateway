@@ -856,3 +856,38 @@ async def test_kural_modunda_birim_kisaltmasi():
     a = agent(ScriptedLlm(), fast_path=True, llm_enabled=False)
     t = await a.new_session("it").handle_user("it departmanı")
     assert [x.extension for x in t.actions] == ["245"]
+
+
+# --- yalnız selam (canlı 03.11.2026: "selam" → "bulamadım", deneme sayılıyordu) ------------------------------------
+
+@pytest.mark.parametrize("text", ["selam", "merhaba", "iyi günler", "selamün aleyküm", "günaydın", "alo",
+                                  "kolay gelsin", "alo duyuyor musunuz", "merhaba nasılsınız"])
+@pytest.mark.parametrize("llm", [True, False])
+async def test_yalniz_selam_kimi_aradigini_sorar_deneme_saymaz(text, llm):
+    a = agent(ScriptedLlm(), fast_path=True, llm_enabled=llm)
+    s = a.new_session("g")
+    t = await s.handle_user(text)
+    assert t.text == a.cfg.texts.greeting_reply and not t.actions and a.llm.seen == []
+    assert s.state.failed_attempts == 0
+
+
+async def test_selam_acik_soruyu_yineler_ve_istekle_birlikte_aktarir():
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
+    s = a.new_session("g")
+    q = await s.handle_user("ayşe hanım lütfen")
+    t = await s.handle_user("alo")
+    assert t.text == q.text and s.state.choice                       # "hangisi?" açık kaldı
+    t = await s.handle_user("yılmaz")
+    assert [x.extension for x in t.actions] == ["214"]
+    t = await a.new_session("g2").handle_user("selam ayşe yılmaz lütfen")
+    assert [x.extension for x in t.actions] == ["214"]
+    t = await a.new_session("g3").handle_user("teşekkürler görüşürüz")
+    assert [x.type for x in t.actions] == ["hangup"]
+
+
+async def test_llm_cevabi_en_cok_iki_cumle():
+    # canlı 03.11.2026: "seni ara" → 3 cümlelik cevap (istem iki cümle der)
+    long = "Teşekkür ederim. Ben yalnız rehberdeki kişileri ararım. Kiminle görüşmek istersiniz?"
+    a = agent(ScriptedLlm(LlmMessage(long)))
+    t = await a.new_session("u").handle_user("seni ara")
+    assert t.text == "Teşekkür ederim. Ben yalnız rehberdeki kişileri ararım."

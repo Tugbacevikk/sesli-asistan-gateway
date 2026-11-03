@@ -239,7 +239,7 @@ async def test_dusunurken_gelen_cumleler_birlestirilir_ve_cevabi_kesmez():
 
     llm = SlowLlm(LlmMessage("Kimi aramıştınız?"), tool("InContacts", Name="Can Öztürk"))
     async with Call(llm) as c:
-        c.say("merhaba")
+        c.say("filanca")
         await c.until(lambda: c.session.state == CallState.THINKING)
         c.say("can")
         c.say("öztürk")                     # asistan düşünürken iki cümle daha
@@ -383,7 +383,7 @@ async def test_tts_cevabi_seslendiremezse_operator():
     c = await _call_with_tts(tts, llm)
     async with c:
         tts.down = True
-        c.say("merhaba")
+        c.say("filanca")
         await c.until(lambda: c.pbx.actions)
         assert c.pbx.actions[0]["type"] == "operator" and c.session.state == CallState.HANDED_OFF
     assert c.stats.outcome == "operator" and c.stats.reason == "tts_hatasi" and c.stats.tts_failures == 1
@@ -449,7 +449,7 @@ async def test_uzun_dusunmede_klavye_sesi_calar_cevapla_kesilir():
     c.media = c.session.media = CountingMedia()
     async with c:
         n0 = len(c.media.lengths)
-        c.say("merhaba")
+        c.say("filanca")
         await c.until(lambda: c.session.stats.turns)
         filler = c.media.lengths[n0:-1]                         # cevaptan önce çalınanlar
         assert filler and all(n == 4000 for n in filler)       # 0,5 sn'lik klavye parçaları
@@ -464,7 +464,7 @@ async def test_hizli_cevapta_ve_kapaliyken_klavye_sesi_yok():
         c.media = c.session.media = CountingMedia()
         async with c:
             n0 = len(c.media.lengths)
-            c.say("merhaba")
+            c.say("filanca")
             await c.until(lambda c=c: c.session.stats.turns)
             assert 4000 not in c.media.lengths[n0:]
 
@@ -574,7 +574,7 @@ async def test_akista_ilk_cumle_llm_bitmeden_seslendirilir():
 async def test_akista_soze_girilirse_konusma_durur_diyalog_tamamlanir():
     llm = StreamLlm((["Bir saniye. ", "Uzun bir açıklama ", "yapıyorum şimdi."], []), gap=0.25)
     async with stream_call(llm, play_s=0.05, thinking_sound=False) as c:
-        c.say("merhaba")
+        c.say("filanca")
         await c.until(lambda: c.session.state == CallState.SPEAKING)
         await asyncio.sleep(0.1)
         c.stt.stream.ev.put_nowait(SttEvent("speech_started"))          # LLM hâlâ yazıyor
@@ -630,7 +630,7 @@ async def test_cagri_bitince_akisli_diyalog_iptal_edilir():
     c = stream_call(Slow(), thinking_sound=False)
     task = asyncio.create_task(c.session.run())
     await c.until(lambda: c.session.state == CallState.LISTENING)
-    c.say("merhaba")
+    c.say("filanca")
     await asyncio.wait_for(started.wait(), 2)
     await asyncio.sleep(0.1)
     c.session.hangup()

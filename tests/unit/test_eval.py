@@ -60,7 +60,7 @@ def test_set_gecerli_ve_dahililer_rehberde():
     aktarilabilir = {c["extension"] for c in rehber if c.get("transferable", True) and not c.get("deleted")}
     sc = yaml.safe_load((ROOT / "tests/data/diyalog_seti.yaml").read_text(encoding="utf-8"))
     ids = [s["id"] for s in sc]
-    assert len(ids) == len(set(ids)) >= 110
+    assert len(ids) == len(set(ids)) >= 114
     for s in sc:
         b = s["beklenen"]
         assert b["eylem"] in {"transfer", "operator", "yok", "aktarma_yok", "kapat"}, s["id"]

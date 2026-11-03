@@ -72,6 +72,7 @@ class DialogTexts:
                            "ya da adı tekrar söyleyebilirsiniz.")
     no_input: str = "Sizi duyamıyorum. Görüşmek istediğiniz kişinin adını ya da birimi söyleyebilirsiniz."
     no_input_question: str = "Sizi duyamadım."      # açık bir soru varken: bu cümle + aynı soru yeniden
+    greeting_reply: str = "Merhaba, kiminle görüşmek istersiniz?"  # arayan yalnız selam verdi ("selam", "alo")
     to_operator: str = "Sizi operatöre bağlıyorum, lütfen hatta kalın."
     error: str = "Şu an size yardımcı olamıyorum. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     transferring: str = "Sizi {ad_e} aktarıyorum."
@@ -245,6 +246,14 @@ class DialogAgent:
             s.state.confirm_operator = op_confirm
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
+        if is_greeting_only(text):
+            # "selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
+            # (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)
+            s.state.confirm, s.state.confirm_operator = confirm, op_confirm
+            log.info("[%s] yalnız selam: %s", s.call_id, log_text(text))
+            reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
+            reply.fast = True
+            return reply
         if confirm is not None and (turn := self._resolve_confirm(s, text, confirm)) is not None:
             return turn
         if op_confirm and (turn := self._resolve_operator_confirm(s, text)) is not None:
@@ -793,7 +802,7 @@ class DialogAgent:
                 return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
 
             if not msg.tool_calls:
-                text = clean_reply(msg.content)
+                text = first_sentences(clean_reply(msg.content), MAX_REPLY_SENTENCES)
                 if caller_turn and not found and not failed and not s.state.actions:
                     # LLM aramadan cevap verdi ve ilerleme yok: deneme sayılır
                     if (turn := self._count_failure(s)) is not None:
@@ -855,7 +864,7 @@ class DialogAgent:
         s.llm_calls += 1
         if not (may_stream and s.sink and self.cfg.stream_replies and supports_stream(self.llm)):
             return await self.llm.chat(self._messages(s), tools)
-        buf, final = "", None
+        buf, final, spoken = "", None, 0
         async for d in self.llm.chat_stream(self._messages(s), tools):  # type: ignore[attr-defined]  # supports_stream
             if d.message is not None:
                 final = d.message
@@ -865,8 +874,9 @@ class DialogAgent:
                 continue                                   # düşünme bloğu bitmeden konuşma
             done, buf = complete_sentences(buf)
             for sentence in done:
-                if text := clean_reply(sentence):
+                if (text := clean_reply(sentence)) and spoken < MAX_REPLY_SENTENCES:
                     s.sink(text)
+                    spoken += 1
         if final is None:
             raise LlmError("akış mesajsız bitti")
         return final
@@ -939,6 +949,20 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
 
 def _folded_words(text: str) -> list[str]:
     return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+
+
+_GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
+                   "selamun", "aleykum", "aleykumselam", "selamunaleykum", "kolay", "gelsin", "hayirli", "isler",
+                   "nasilsiniz", "nasilsin", "efendim", "evet", "buyurun", "hosbulduk", "tesekkurler", "sagolun",
+                   "tesekkur", "ederim", "duyuyor", "musunuz", "beni", "sesim", "geliyor", "mu"}
+
+
+def is_greeting_only(text: str) -> bool:
+    """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı."""
+    raw = _folded_words(text)
+    return bool(raw) and set(raw) <= _GREETING_WORDS and bool(set(raw) & {
+        "selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin", "aksamlar", "selamun", "aleykum",
+        "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"})
 
 
 def _skeleton(word: str) -> str:
@@ -1099,6 +1123,16 @@ def which_question(contacts: list[Any]) -> str | None:
                                                                                                 strict=True)]
     text = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
     return text[0].upper() + text[1:]
+
+
+# LLM cevabı telefonda en çok bu kadar cümle (istem "en fazla iki kısa cümle" der ama model her zaman uymuyor:
+# canlı 03.11.2026, "seni ara" → 3 cümle, 8,5 sn); fazlası ne söylenir ne geçmişe yazılır
+MAX_REPLY_SENTENCES = 2
+
+
+def first_sentences(text: str, n: int) -> str:
+    parts = split_sentences(text)
+    return " ".join(parts[:n]) if len(parts) > n else text
 
 
 def complete_sentences(buf: str) -> tuple[list[str], str]:

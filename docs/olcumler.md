@@ -815,6 +815,23 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - Ekrandaki "İlk ses 3,0 sn" (hazır anons "Sizi operatöre bağlıyorum…") ölçüm hatası: hazır anonslarda ilk ses
   çalma bittikten sonra ölçülüyordu → düzeltildi (çalma başlarken). Önceki hazır anons süreleri (4,4 / 4,9 sn) de bu.
 
+### Selam ve serbest konuşma (3 Kasım 2026, 16:35)
+
+| Söylenen (mihu) | Asistan | Süre |
+|---|---|---|
+| "selamlar" | **"Aradığınız kişiyi rehberde bulamadım…"** (deneme sayıldı) | 1,5 sn |
+| "muba çevirerek" | LLM: "Muhasebe departmanında üç kişi var: Ayşe Yılmaz, Burak Çelik ve birim hattı. Hangisini…" | 5,1 sn |
+| "tuğba" | "bulamadım" | 2,4 sn |
+| "seni ara" | LLM: **3 cümle** ("…teşekkür ederim, ancak ben sadece… Kiminle görüşmek istersiniz? İsterseniz…") | **8,5 sn** |
+| "subağa çevik" (Tuğba Çevik, rehberde yok) | LLM: "…rehberde yok. Burak Çelik ile görüşmek istiyor musunuz?" | 4,9 sn |
+| "hayır çağataysurkultaya" | "bulamadım" | 2,6 sn |
+
+- Yalnız selam ("selam", "merhaba", "alo", "iyi günler", "kolay gelsin", "alo duyuyor musunuz") "bulamadım" alıyor ve
+  deneme sayılıyordu (iki selamdan sonra operatör teklifi) → kodla "Merhaba, kiminle görüşmek istersiniz?", deneme
+  sayılmaz, açık soru (teyit / "hangisi?") varsa o yinelenir. Diyalog setine D111–D114.
+- LLM cevabı istemdeki "en fazla iki kısa cümle"ye uymadı → kodla en çok iki cümle (fazlası söylenmez).
+- LLM turları 4,9–8,5 sn: bu oturumda yine yavaş; LLM hızlandırma (GPU'ya tam sığdırma) sıradaki iş.
+
 ### Aktarma senaryoları — 214 kayıtlı ikinci softphone ile (3 Kasım 2026, 15:49–16:00, mihu)
 
 | | söylenen → mihu (güven) | asistan / santral | sonuç |
