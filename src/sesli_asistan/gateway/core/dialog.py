@@ -81,6 +81,7 @@ class DialogTexts:
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
     confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
+    confirm_operator: str = "Sizi operatöre mi bağlamamı istersiniz?"
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -222,12 +223,16 @@ class DialogAgent:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
         lenient, s.after_barge_in = s.after_barge_in, False
         confirm, s.state.confirm = s.state.confirm, None
+        op_confirm, s.state.confirm_operator = s.state.confirm_operator, False
         if not text:
             if confirm is not None:
                 s.state.confirm = confirm              # soru hâlâ açık
+            s.state.confirm_operator = op_confirm
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
         if confirm is not None and (turn := self._resolve_confirm(s, text, confirm)) is not None:
+            return turn
+        if op_confirm and (turn := self._resolve_operator_confirm(s, text)) is not None:
             return turn
         if self.cfg.fast_path and asks_operator(text) and not self._mentions_person_or_department(text):
             # "operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)
@@ -245,6 +250,11 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
             return turn
+        if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
+            return turn
+        if (self.cfg.fast_path and unknown_target(text) is not None and not spoken_numbers(_folded_words(text))
+                and not self._mentions_person_or_department(text)):
+            return self._confirm_operator(s, text)
         c = s.stt_confidence
         if c is not None and 0 < c < self.cfg.repeat_below:
             log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, c, log_text(text))
@@ -364,6 +374,40 @@ class DialogAgent:
         # Açık bir "evet" yoksa aktarılmaz. Santral denemesi (02.11.2026): "hayır" → STT "hayat" (güven 0,41) LLM'e
         # gitmiş, 8,5 sn sonra "bulamadım" denmişti. Kısa ve anlaşılmayan cevap = hayır: kodla, beklemeden.
         return self._not_found(s)
+
+    def _fast_extension(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Sözde rehberdeki bir dahili numara ("214", "iki yüz on dörde"): LLM beklemeden aktarılır (kural modundaki
+        gibi; güven düşükse teyit). Canlı deneme 03.11.2026: aynı söz LLM'le 2,8 sn."""
+        raw = re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
+            if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
+                log.info("[%s] dahili numara: %s → %s", s.call_id, log_text(text), digits)
+                return self._code_transfer(s, r.candidates[0])
+        return None
+
+    def _confirm_operator(self, s: DialogSession, text: str) -> DialogTurn:
+        """Tek, rehberde karşılığı olmayan bir hedefe bağlanmak istendi ("afiyete bağlanmak istiyorum"):
+        büyük olasılıkla bozuk duyulan "operatöre". mihu dar bantta "operatöre"yi sık bozuyor (canlı 03.11.2026:
+        "afiyete", "efsane", "batıya"; okumada "kafataya") ve metin benzerliği yakalamıyor: LLM yerine kodla sorulur."""
+        s.state.confirm_operator = True
+        log.info("[%s] hedef anlaşılmadı, operatör soruluyor: %s", s.call_id, log_text(text))
+        turn = self._reply(s, self.cfg.texts.confirm_operator)
+        turn.fast = True
+        return turn
+
+    def _resolve_operator_confirm(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Evet → operatör; hayır → bulamadım; başka bir istek (ad, birim, kapatma) → normal akış."""
+        raw = set(_folded_words(text))
+        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= 75 for w in raw)):
+            return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
+        if raw & _NEGATION or raw & {"yanlis"}:
+            if not self._mentions_person_or_department(text):
+                return self._not_found(s)
+            # "hayır, Elif Şahin": olumsuzluk atılıp ad hızlı yolla aranır (yoksa LLM)
+            rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
+                            _NEGATION | {"yanlis"})
+            return self._fast_path(s, rest) if rest else None
+        return None
 
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
@@ -818,6 +862,29 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
 
 def _folded_words(text: str) -> list[str]:
     return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+
+
+_CONNECT_VERB = re.compile(r"^(bagla|baglan|aktar)")
+_DATIVE_END = re.compile(r"y?[ea]$")
+
+
+def unknown_target(text: str) -> str | None:
+    """Sözde tek bir (dolgu dışı) hedef kelime + bağlanma fiili var mı: "afiyete bağlanmak istiyorum" → "afiyete".
+    Hedefin rehberde olup olmadığına çağıran bakar. İki kelimelik hedef (ad soyad: "Selin Aydın'a") ya da kısa söz
+    ("ona") sayılmaz."""
+    raw = _folded_words(text)
+    idx = next((i for i, w in enumerate(raw) if _CONNECT_VERB.match(w)), None)
+    if not idx:
+        return None
+    before: list[str] = []
+    for w in raw[:idx]:                        # kesme işaretiyle ayrılan ek ("Hakan'a" → hakan + a) öncekine katılır
+        if before and len(w) <= 3 and _DATIVE_END.fullmatch(w):
+            before[-1] += w
+        elif w not in _FILLER:
+            before.append(w)
+    if len(before) != 1 or len(before[0]) < 4 or not _DATIVE_END.search(before[0]):
+        return None
+    return before[0]
 
 
 def asks_operator(text: str) -> bool:

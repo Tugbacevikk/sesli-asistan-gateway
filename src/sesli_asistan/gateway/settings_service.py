@@ -54,6 +54,7 @@ TEXT_LABELS = {
     "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
     "goodbye": ("Arayan kapatmak istedi (veda)", ""),
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
+    "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
 }
 MAX_TEXT = 400
 MAX_ALIASES = 10

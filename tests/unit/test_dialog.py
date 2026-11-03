@@ -711,3 +711,41 @@ async def test_tekrar_esigi_kapatilabilir():
     s.stt_confidence = 0.3
     await s.handle_user("ateşe girmem")
     assert len(a.llm.seen) == 1
+
+
+# --- hedef anlaşılmadı: operatör teyidi (mihu "operatöre"yi bozuyor: canlı deneme 03.11.2026) -------------------
+
+@pytest.mark.parametrize("text", ["afiyete bağlanmak istiyorum", "efsane bağlanmak istiyorum",
+                                  "batıya bağlanmak istiyorum", "bir hafife bağlamak istiyorum",
+                                  "Hakan'a bağlanmak istiyorum"])
+async def test_anlasilmayan_tek_hedefte_operator_sorulur(text):
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
+    s = a.new_session("o")
+    t = await s.handle_user(text)
+    assert not t.actions and t.text == a.cfg.texts.confirm_operator and a.llm.seen == []
+    t = await s.handle_user("evet")
+    assert [x.type for x in t.actions] == ["operator"]
+
+
+@pytest.mark.parametrize("text,ext", [("ayşe hanıma bağlanmak istiyorum", None), ("ayşeye bağlanmak istiyorum", None),
+                                      ("Mehmet'e bağlanmak istiyorum", None), ("yılmaza bağlanmak istiyorum", None),
+                                      ("muhasebeye bağlanmak istiyorum", "210"), ("satışa aktarır mısınız", "229"),
+                                      ("iki yüz on dörde bağlanmak istiyorum", "214"),
+                                      ("Selin Aydın'a bağlanmak istiyorum", None)])
+async def test_rehberdeki_hedef_ya_da_ad_soyad_operator_teyidine_gitmez(text, ext):
+    a = agent(ScriptedLlm(LlmMessage("Kimi aramıştınız?")), fast_path=True, clarify_by_code=True)
+    t = await a.new_session("o").handle_user(text)
+    assert t.text != a.cfg.texts.confirm_operator
+    assert [x.extension for x in t.actions] == ([ext] if ext else [])
+
+
+async def test_operator_teyidinde_hayir_ya_da_yeni_ad():
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
+    s = a.new_session("o")
+    await s.handle_user("afiyete bağlanmak istiyorum")
+    t = await s.handle_user("hayır")
+    assert not t.actions and t.text == a.cfg.texts.not_found
+    s = a.new_session("o2")
+    await s.handle_user("afiyete bağlanmak istiyorum")
+    t = await s.handle_user("hayır elif şahin")
+    assert [x.extension for x in t.actions] == ["301"]

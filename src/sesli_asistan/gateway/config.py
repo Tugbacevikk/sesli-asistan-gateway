@@ -16,7 +16,8 @@ from .core.schedule import OfficeHours
 
 TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
                "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
-               "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm")
+               "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm",
+               "confirm_operator")
 _NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
@@ -139,6 +140,7 @@ class GatewaySettings(BaseSettings):
     transfer_failed_text: str = ""
     goodbye_text: str = ""                    # arayan görüşmeyi bitirmek istedi (veda, sonra kapatılır)
     confirm_text: str = ""                    # {ad} {ad_e}: STT güveni düşükken aktarmadan önce teyit sorusu
+    confirm_operator_text: str = ""           # hedef anlaşılmadığında "operatöre mi bağlayayım?" sorusu
 
     # Çağrı geçmişi (kalıcı, SQLite). Boş: yalnız bellekte son 100 çağrı. Kişisel veri: saklama süresi dolunca silinir
     call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db

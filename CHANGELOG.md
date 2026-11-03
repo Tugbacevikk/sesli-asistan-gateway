@@ -57,6 +57,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   aktarıyor / operatöre bağlıyordu).
 - STT güveni karar için yuvarlanmaz (0,495 → 0,5 sayılıp tekrar eşiğini geçiyordu).
 - Yazıyla söylenen dahilide çekim eki: "iki yüz on dörde" 210 değil 214 (yanlış birime aktarma).
+- Rehberde karşılığı olmayan tek bir hedefe bağlanmak istenince ("afiyete bağlanmak istiyorum": bozuk duyulan
+  "operatöre") LLM yerine kodla "Sizi operatöre mi bağlamamı istersiniz?" (`CONFIRM_OPERATOR_TEXT`).
+- Söylenen dahili numara ("iki yüz on dört", "214") LLM açıkken de beklemeden aktarılır.
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
