@@ -8,8 +8,8 @@ Neden: GPU gerekmez (66 M parametre, int8 ~68 MB; CPU'da gerçek zamanın ~11 ka
 gibi istem / ipucu devamı uydurmaz. Sınırlar:
   - Ad ipucu (bağlam yanlılığı) bu motorda kullanılmaz: ilk ölçümde çıktıyı değiştirmedi; Gateway'in ipuçları
     yok sayılır (bir kez loglanır). Ad doğruluğu diyalogdaki teyit sorusu ve bulanık aramayla korunur.
-  - Güven: belirteç log-olasılıklarının ortalamasının üsteli (Whisper'ınkiyle aynı ölçekte değil: CONFIRM_BELOW
-    bu motor için ayrıca ölçülüp ayarlanmalı).
+  - Güven: belirteç log-olasılıklarının ortalamasının üsteli, Whisper ölçeğine çevrilir (`calibrate`): Gateway'in
+    eşikleri (CONFIRM_BELOW 0,75, REPEAT_BELOW 0,5) motordan bağımsız aynı anlamda kalır.
   - LİSANS: mihu Community License — yıllık geliri 500.000 $ üstü kuruluşta ve ürünle dağıtımda ticari sözleşme
     gerekir (deploy/models.yaml: dagitilmaz). Model pakete girmez; kurulumda elle konur.
 """
@@ -34,6 +34,17 @@ TAIL_S = 0.5            # sonda sessizlik: kod çözücü son kelimeleri de vers
 # başta sessizlik: VAD cümleyi konuşmanın hemen önünden verir; akışlı model ilk kelimeyi düşürüyordu
 # (santral denemesi 02.11.2026: "görüşmeyi sonlandırmak istiyorum" → "sonlandırmak istiyorum"; 0,3 sn ile tam)
 LEAD_S = 0.3
+
+# Güven ölçeği: mihu'nun ham güveni → Whisper ölçeği (parçalı doğrusal, tekdüze). Okuma ölçümü (03.11.2026,
+# telefon hattı, 23 cümle, tools/stt/gorev_olc.py): ham eşik teyit 0,5 / tekrar 0,3 en iyisiydi (14 doğru, 2 teyitle
+# doğru, 0 yanlış teyit, 0 yanlış eylem; Whisper eşikleri 0,75 / 0,5 ile 8 doğru, 6 gereksiz teyit). Düğümler bu iki
+# eşiği Gateway'in eşiklerine eşler: 0,3 → 0,5 ve 0,5 → 0,75.
+CALIBRATION = ((0.0, 0.0), (0.3, 0.5), (0.5, 0.75), (1.0, 1.0))
+
+
+def calibrate(raw: float) -> float:
+    xs, ys = zip(*CALIBRATION, strict=True)
+    return float(np.interp(raw, xs, ys))
 
 
 @dataclass(frozen=True)
@@ -96,5 +107,5 @@ class SherpaEngine:
                 probs = []
         text = self.normalizer.normalize(text or "")
         # olasılık yoksa 0: Gateway güveni "bilinmiyor" sayar (teyit sorusu bu yüzden sorulmaz)
-        conf = math.exp(sum(probs) / len(probs)) if probs else 0.0
-        return SttResult(text, round(min(1.0, conf), 3))
+        conf = calibrate(min(1.0, math.exp(sum(probs) / len(probs)))) if probs else 0.0
+        return SttResult(text, round(conf, 3))

@@ -653,6 +653,22 @@ geçirildi; "evet / hayır" açık teyit sorusuna, "hiçbiri" seçim sorusuna ve
   "zeynep arslan **ki ben**"): `okuma_bol.py`'nin kenar payı komşu cümleye taşıyordu → düzeltildi; mihu'nun WER'i
   ve güveni bundan olumsuz etkilendi, yeniden ölçülecek.
 
+#### mihu, düzeltilmiş bölme + eşik taraması (3 Kasım 2026, 11:25)
+
+Kenar payı düzeltilince (`okuma_bol.py`) mihu: **WER %65,9 → %50,6**, CER %37,3 → %27,0, RTF 0,072 (CPU).
+
+| ham güven eşikleri (teyit / tekrar) | doğru | teyitle doğru | kaçırma | yanlış teyit | YANLIŞ EYLEM |
+|---|---|---|---|---|---|
+| 0,75 / 0,5 (Whisper'ın) | 8 | 6 | 9 | 0 | 0 |
+| 0,6 / 0,35 | 10 | 5 | 8 | 0 | 0 |
+| **0,5 / 0,3** | **14** | 2 | 7 | 0 | 0 |
+| 0,45 / 0,25 | 14 | 2 | 7 | 0 | 0 |
+
+- mihu'nun doğru metinleri ham güvende 0,48–0,75, anlamsızları 0,25–0,45 → en iyi ham eşik 0,5 / 0,3.
+- Gateway eşikleri motordan bağımsız kalsın diye mihu güveni Whisper ölçeğine çevrildi (`sherpa_engine.calibrate`,
+  0,3 → 0,5, 0,5 → 0,75, tekdüze): aynı 23 sonuç Gateway'in varsayılan eşikleriyle (0,75 / 0,5) 14 / 2 / 7 / 0 / 0.
+- Tek konuşmacı, 23 cümle: ölçek, canlı denemelerle ve başka konuşmacılarla doğrulanacak.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 
 from sesli_asistan.stt.config import SttSettings
-from sesli_asistan.stt.sherpa_engine import LEAD_S, TAIL_S, SherpaEngine, SherpaParams
+from sesli_asistan.stt.sherpa_engine import LEAD_S, TAIL_S, SherpaEngine, SherpaParams, calibrate
 
 
 class Stream:
@@ -49,7 +49,7 @@ def test_cumle_sesi_ve_sondaki_sessizlik_verilir_metin_normallesir():
     s = rec.streams[0]
     assert s.fed == [int(16000 * LEAD_S), 8000, int(16000 * TAIL_S)] and s.finished and rec.decoded == 3
     assert r.text == "ayşe yılmaz ile görüşmek istiyorum"
-    assert r.confidence == round(math.exp(-0.2), 3)
+    assert r.confidence == round(calibrate(math.exp(-0.2)), 3)
 
 
 def test_olasilik_yoksa_guven_bilinmiyor_bos_seste_cagri_yok():
@@ -79,3 +79,13 @@ def test_motor_ayardan_secilir(monkeypatch):
     server.load_engine(SttSettings(_env_file=None))
     assert made["sherpa"].model_dir == "m/x" and made["sherpa"].threads == 3
     assert made["whisper"].model_dir.endswith("faster-whisper-medium")
+
+
+def test_guven_whisper_olcegine_cevrilir():
+    # ölçümdeki en iyi ham eşikler (teyit 0,5 / tekrar 0,3) Gateway'in eşiklerine (0,75 / 0,5) denk düşer
+    assert calibrate(0.5) == 0.75 and calibrate(0.3) == 0.5
+    assert calibrate(0.0) == 0.0 and calibrate(1.0) == 1.0
+    xs = [i / 100 for i in range(101)]
+    ys = [calibrate(x) for x in xs]
+    assert ys == sorted(ys)                                     # tekdüze: sıralama korunur
+    assert calibrate(0.49) < 0.75 <= calibrate(0.5) and calibrate(0.29) < 0.5 <= calibrate(0.3)
