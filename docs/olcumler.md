@@ -584,6 +584,33 @@ Silero olasılığı seslerde 0,87–0,96, araya 0; hat sessizken −73 dBFS (in
   (MicroSIP / Windows ses işleme) geliyor. Gerçek telefonla (cep telefonunda SIP uygulaması) ayrıca denenecek.
 - Bölücüyü gevşetmek (ön tampon 600 ms, en az ses 0,15 sn) insanlı çağrıda yalnız bir kısa parça ekledi; ayar aynı kalır.
 
+### STT ayar ölçümü — okuma listesi, telefon hattından (3 Kasım 2026, `tools/stt/gorev_olc.py`)
+
+MicroSIP (kulaklık) → santral 600 dahilisi kaydı → `okuma_bol.py` → 23 cümle (k09 kayıtta yok). Aynı kayıtlar 12
+ayarla çözüldü; ipucu = Gateway'in çağrı başı listesi (`--rehber`, 13 öğe). Görev: metin diyalogdan (kural modu)
+geçirildi; "evet / hayır" açık teyit sorusuna, "hiçbiri" seçim sorusuna verilmiş sayıldı. Güven bu koşuda yoktu
+(teyit / tekrar eşikleri işlemedi).
+
+| ayar | WER % | doğru iş /23 | kaçırma | YANLIŞ EYLEM |
+|---|---|---|---|---|
+| medium, beam 2, ipucu (**şimdiki**) | 80,0 | 11 | 4 | **8** |
+| medium, beam 2 | 75,3 | 13 | 9 | 1 |
+| medium, beam 5 | 72,9 | 13 | 9 | 1 |
+| large-v3-turbo, beam 2, ipucu | 64,7 | 15 | 5 | 3 |
+| large-v3-turbo, beam 1, ipucu | 64,7 | 15 | 5 | 3 |
+| **large-v3-turbo, beam 5** | 65,9 | **15** | 7 | **1** |
+| large-v3-turbo, beam 5, ipucu | 62,4 | 15 | 3 | 5 |
+
+- Kelime hata oranı her ayarda çok yüksek (%62–80): bu kayıtlarda ses bozuk (bilgisayar tarafı, yukarıda);
+  aynı modeller temiz seste (SIPp + Piper) adları 0,74–0,99 ile doğru tanıdı.
+- **Ad ipucu bozuk seste zararlı**: medium'da yanlış eylem 1 → 8. Anlaşılmayan söz rehber adına dönüşüyor:
+  "operatöre bağlanmak istiyorum" → "ayşe yılmaz", "evet" → "yılmaz burak çelik", "Ferhat Yıldırım'ı arıyorum"
+  → "ayşe yılmaz", "hiçbiri" → "bilgi işlem". Ses net olunca ipucu adları düzeltiyor (k01, k03, k05 turbo'da).
+- large-v3-turbo medium'dan iyi (cümle yapısı, "selin aydın orada mı", "hakan bey'e görüşecektim").
+- "İpuçlu çıktı yalnız ad ise ipucusuz çözümle doğrula" denendi (simülasyon): doğru adları da eledi, kazanç yok.
+- En iyi aday: **large-v3-turbo, beam 5, ipucusuz** (15 doğru, 1 yanlış eylem: "iki yüz on dört" → "210").
+  Karar için eksik: gecikme (RTF) ve güvenle teyit / tekrar eşiklerinin etkisi → aynı kayıtlarla yeniden.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

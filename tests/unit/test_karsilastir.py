@@ -67,7 +67,7 @@ def test_beam_cesidi_ayari_yalniz_cagri_boyunca_degistirir():
         p = P()
 
         def transcribe(self, x, hotwords):
-            return type("R", (), {"text": f"b{self.p.beam_size}"})()
+            return type("R", (), {"text": f"b{self.p.beam_size}", "confidence": 0.5})()
 
     base = type("W", (), {"engine": Eng()})()
     assert k.WhisperVariant(base, beam_size=5)(np.zeros(1), None) == "b5"

@@ -30,6 +30,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   (`--imza-anahtari`, ilk kurulumda bir kez) doğrulamadan kurmaz.
 - Destek paketi: `tools/kurulum/destek.py` (sürüm, sistem, servisler, sağlık, metrikler, loglar, maskelenmiş ayarlar;
   gizli değerler, adlar, konuşma metinleri ve numaralar girmez).
+- STT ayarlarını görevle ölçme: `tools/stt/gorev_olc.py` (doğru iş / teyit / yanlış eylem), okuma kaydı için
+  santralde 600 dahilisi ve `tools/stt/okuma_bol.py`; `karsilastir.py` `--rehber`, `--beam`, `--aralik`, güven.
+  `STT_HOTWORDS` ile ad ipuçları kapatılabilir.
 - `tools/stt/vad_incele.py` ve teşhis kaydında çağrının bütün sesi: VAD'in kaçırdığı konuşmayı seviye ve eşik eşik gösterir.
 - `tools/stt/karsilastir.py`: STT modellerini (Whisper, sherpa-onnx akışlı transducer) aynı kayıtlarla, ipuçlu /
   ipucusuz karşılaştırır (WER, CER, RTF); model kataloğunda yalnız değerlendirme için large-v3-turbo ve mihu.

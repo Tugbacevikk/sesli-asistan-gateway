@@ -82,8 +82,11 @@ class Engine(Protocol):
 class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
     def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
                  segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0,
-                 debug_dir: str | None = None):
+                 debug_dir: str | None = None, use_hotwords: bool = True):
         self.engine, self.detector_factory = engine, detector_factory
+        # STT_HOTWORDS=false: Gateway'in ad ipuçları motora verilmez (okuma ölçümü 03.11.2026: bozuk seste ipucu
+        # duyulmayan rehber adlarını yazdırıyordu — "evet" → "yılmaz burak çelik"; tools/stt/gorev_olc.py)
+        self.use_hotwords = use_hotwords
         self.seg_cfg = segmenter_config or SegmenterConfig()
         self.max_streams, self.timeout_s = max_streams, timeout_s
         self.active = 0
@@ -188,7 +191,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     orphan = None
                 t0 = time.perf_counter()
                 reason = ""
-                hotwords = hints["words"]
+                hotwords = hints["words"] if self.use_hotwords else []
                 assert self.engine is not None               # Stream() motor yokken akış açmaz
                 job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None))
                 try:

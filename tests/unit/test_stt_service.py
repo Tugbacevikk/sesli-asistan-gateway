@@ -44,7 +44,7 @@ def frames(*parts):
 async def server():
     async def make(engine=None, **kw):
         s = SttSettings(vad="energy", max_streams=kw.pop("max_streams", 4), timeout_s=kw.pop("timeout_s", 3.0),
-                        debug_dir=kw.pop("debug_dir", ""))
+                        debug_dir=kw.pop("debug_dir", ""), hotwords=kw.pop("hotwords", True))
         srv, health_svc, port = await start_server(s, engine or FakeEngine(), bind="127.0.0.1:0")
         made.append(srv)
         return f"127.0.0.1:{port}"
@@ -234,6 +234,13 @@ async def test_teshis_kaydi_noktali_cagri_kimliginde_cumleler_ayri_dosyada(serve
     import wave
     with wave.open(str(tmp_path / "1793622240.127_akis.wav")) as w:
         assert w.getframerate() == 16000 and 4.1 < w.getnframes() / 16000 < 4.5     # 0,3 + 4 × 1 sn
+
+
+async def test_ipuclari_kapatilabilir(server):
+    eng = FakeEngine()
+    await run_stream(await server(eng, hotwords=False), frames((0.3, False), (1.0, True), (1.0, False)),
+                     hotwords=["Ayşe Yılmaz"])
+    assert [hw for _, hw in eng.calls] == [None]
 
 
 async def test_akis_ortasinda_ipucu_guncellenir(server):

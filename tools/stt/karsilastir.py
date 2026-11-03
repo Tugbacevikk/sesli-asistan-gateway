@@ -63,7 +63,9 @@ class Whisper:
         print(f"{self.name}: {getattr(self.engine, 'device', '?')}")
 
     def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
-        return self.engine.transcribe(x, hotwords or None).text
+        r = self.engine.transcribe(x, hotwords or None)
+        self.last_conf = r.confidence
+        return r.text
 
 
 class WhisperVariant:
@@ -79,9 +81,11 @@ class WhisperVariant:
         old = eng.p
         eng.p = dataclasses.replace(old, **self.params)
         try:
-            return eng.transcribe(x, hotwords or None).text
+            r = eng.transcribe(x, hotwords or None)
         finally:
             eng.p = old
+        self.last_conf = r.confidence
+        return r.text
 
 
 def directory_hotwords(path: Path) -> list[str]:
@@ -228,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
         for name, eng, hw in engines:
             t0 = time.perf_counter()
             row[name] = eng(x, hw)  # type: ignore[operator]
+            if (conf := getattr(eng, "last_conf", None)) is not None:
+                row[f"{name}#guven"] = round(float(conf), 3)      # yalnız --json'a (gorev_olc.py teyidi hesaplar)
             times[name] += time.perf_counter() - t0
         rows.append(row)
 

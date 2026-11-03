@@ -21,6 +21,9 @@ class SttSettings(BaseSettings):
     sherpa_dir: str = "models/turkish-stt-66m-v2"
     sherpa_threads: int = Field(2, ge=1)
 
+    # Gateway'in rehber ad ipuçları motora verilsin mi (tools/stt/gorev_olc.py ile ölçülerek seçilir)
+    hotwords: bool = True
+
     # Whisper (stt/engine.py)
     model_dir: str = "models/faster-whisper-medium"
     device: Literal["auto", "cuda", "cpu"] = "auto"

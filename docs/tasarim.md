@@ -1152,6 +1152,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_MODEL_DIR` | models/faster-whisper-medium | Yedek: models/faster-whisper-small |
 | `STT_DEVICE` | auto | `auto` / `cuda` / `cpu` |
 | `STT_COMPUTE_TYPE` | auto | cuda'da float16, cpu'da int8 |
+| `STT_HOTWORDS` | true | Gateway'in rehber ad ipuçları motora verilsin mi. Okuma ölçümünde (03.11.2026) bozuk seste ipucu duyulmayan adları yazdırdı ("evet" → "yılmaz burak çelik"); `tools/stt/gorev_olc.py` ile ölçülerek seçilir |
 | `STT_BEAM` | 2 | Ölçümde beam 5 kadar doğru, daha hızlı |
 | `STT_NUM_WORKERS` | 1 | Aynı anda çalışan Whisper çözümü |
 | `STT_TIMEOUT_S` | 3 | Cümle başına |
