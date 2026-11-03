@@ -549,6 +549,20 @@ RTP (Gateway): üç çağrıda kayıp 0, geç / tekrar 0, SSRC değişimi 0, kuy
 - C'de (kulaklık) konuşma temiz (0,91) ama kısa: ilk cevap 0,3 sn'lik sesli süre sınırının altında kaldı. Kaynakta
   (bilgisayarın mikrofon işlemesi) kırpılıp kırpılmadığı Windows ses iyileştirmeleri kapatılarak denenecek.
 
+#### VAD eşiği 0,35 ile çağrı (3 Kasım 2026, 09:24)
+
+| Söylenen | STT (güven) | Asistan |
+|---|---|---|
+| Ayşe hanım | **"ayşe yılmaz" (0,61)** | "Ayşe Yılmaz'a mı bağlamamı istersiniz?" (teyit ✓) |
+| (teyit cevabı) | konuşma yok | "Sizi duyamıyorum" |
+| Ayşe hanım | "ayşe hanım" (0,76) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" |
+| Ayşe Yılmaz | "ayşe yılmaz" (0,79) | aktarma → meşgul |
+
+- Whisper ad ipuçları "hanım"ı rehberdeki "Yılmaz"a çekti; güven düşük olduğu için teyit soruldu, yanlış aktarma yok.
+- Asistanın sorusunun hemen ardından gelen cevap yine yok: her MicroSIP ayarında (hoparlör / kulaklık, yankı
+  giderici açık / kapalı) tekrarlıyor, RTP kaybı 0. Kaynağın bilgisayar mı zincir mi olduğu mikrofonsuz arayanla
+  (SIPp + Piper sesi, `pcap_yap.py --ses`, `arayan_zincir.xml`) ayrılacak.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
