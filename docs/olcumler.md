@@ -734,6 +734,19 @@ Düzeltmeler (bu denemeden):
   bu sözün tanınması mihu'nun zayıf yanı; diyalog teyit soruları bunu güvenle karşılıyor (yanlış aktarma yok).
 - LLM turları 2,0–3,0 sn.
 
+#### mihu, düzeltmelerden sonra (3 Kasım 2026, 14:12)
+
+| Söylenen | mihu (güven) | Asistan | Yol |
+|---|---|---|---|
+| operatöre bağlanmak istiyorum | "aps bayramı diliyorum" (0,57) | "Bayramınız kutlu olsun! Size nasıl yardımcı olabilirim?" | LLM 1,8 sn |
+| operatöre bağlanmak istiyorum | "appentoya bağlanmak istiyorum" (0,55) | "Sizi operatöre mi bağlamamı istersiniz?" ✓ | kodla 0,1 sn |
+| evet (sorunun hemen ardından) | **duyulmadı** | 11 sn sonra "Sizi duyamıyorum" | — |
+| evet (söze girerek) | "evet" (0,84) | operatör ✓ | kodla |
+
+- Operatör teyidi çalışıyor; teyit sorusu "duyamıyorum" anonsundan sonra da açık kaldı.
+- Asistanın sorusunun hemen ardından verilen cevap yine duyulmadı (MicroSIP, bilgisayar). SIPp ile zincir aynı
+  durumda sesi eksiksiz taşıdı → bilgisayar tarafı (Windows ses işleme) ya da MicroSIP; telefonla denenecek.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
