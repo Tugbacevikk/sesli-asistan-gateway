@@ -45,3 +45,7 @@ yerel_ayarlar.json.bozuk
 # deneme santrali şifreleri (deploy/asterisk/kur.sh üretir)
 deploy/asterisk/sifreler.txt
 tools/santral/sipp/*.pcap
+
+# TTS ve zincir denemesi sesleri
+ses_ornekleri/
+sonuc_tts.json
