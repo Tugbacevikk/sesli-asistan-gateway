@@ -98,6 +98,23 @@ def directory_hotwords(path: Path) -> list[str]:
     return DirectoryIndex([c for c in contacts if not c.deleted]).hotwords()
 
 
+class SherpaService:
+    """Servisteki mihu / sherpa motoru birebir (stt/sherpa_engine.py: baştaki sessizlik, güven); karar ölçümü
+    bununla yapılır."""
+
+    def __init__(self, model_dir: str, threads: int):
+        from sesli_asistan.stt.sherpa_engine import SherpaEngine, SherpaParams
+
+        self.engine = SherpaEngine(SherpaParams(model_dir=model_dir, threads=threads))
+        self.name = f"sherpa:{Path(model_dir).name}"
+        self.last_conf: float | None = None
+
+    def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
+        r = self.engine.transcribe(x)
+        self.last_conf = r.confidence
+        return r.text
+
+
 class Sherpa:
     """Akışlı transducer (Zipformer): ses 0,1 sn'lik parçalarla verilir (santraldeki gibi), sonda 0,5 sn sessizlik.
     `hotwords` verilirse sherpa-onnx bağlam yanlılığı (contextual biasing) açılır: bpe.model'den kelime listesi
@@ -197,8 +214,8 @@ def main(argv: list[str] | None = None) -> int:
             if a.ipucu:
                 engines.append((f"{w.name}+b{b}+ipucu", v, a.ipucu))
     for m in a.sherpa:
-        sh = Sherpa(m, a.threads)
-        engines.append((sh.name, sh, None))
+        sp = SherpaService(m, a.threads)
+        engines.append((sp.name, sp, None))
         if a.ipucu:
             try:
                 shi = Sherpa(m, a.threads, a.ipucu)
