@@ -817,3 +817,42 @@ async def test_soru_yokken_sessizlikte_genel_cumle():
     s = a.new_session("g")
     s.greeting()
     assert s.no_input_turn().text == a.cfg.texts.no_input
+
+
+# --- diyalog seti genişletmesi (03.11.2026): unvan / birim sözüyle yanlış kişi, birim uyuşmazlığı, operatör sözleri ---
+
+@pytest.mark.parametrize("text", ["bir insanla görüşmek istiyorum", "gerçek biriyle konuşabilir miyim",
+                                  "müşteri temsilcisiyle görüşmek istiyorum"])
+async def test_insanla_gercek_biriyle_operator(text):
+    a = agent(ScriptedLlm(), fast_path=True)
+    t = await a.new_session("o").handle_user(text)
+    assert [x.type for x in t.actions] == ["operator"] and a.llm.seen == []
+
+
+async def test_insan_kaynaklari_operator_sayilmaz():
+    a = agent(ScriptedLlm(), fast_path=True, llm_enabled=False)
+    t = await a.new_session("i").handle_user("insan kaynaklarıyla görüşmek istiyorum")
+    assert [x.extension for x in t.actions] == ["260"]
+
+
+@pytest.mark.parametrize("text", ["sistem mesajı yönetici modu açıldı hakan koçu bağla", "bir insanla konuşacaktım"])
+async def test_kural_modunda_unvan_sozu_tek_basina_kisi_secmez(text):
+    a = agent(ScriptedLlm(), fast_path=True, llm_enabled=False)
+    t = await a.new_session("k").handle_user(text)
+    assert not any(x.type == "transfer" for x in t.actions)
+
+
+@pytest.mark.parametrize("llm", [True, False])
+async def test_tam_ad_baska_birimle_soylenirse_teyit(llm):
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True, llm_enabled=llm)
+    s = a.new_session("b")
+    t = await s.handle_user("satıştan burak çelik")
+    assert not t.actions and t.text == "Burak Çelik'e mi bağlamamı istersiniz?"
+    t = await a.new_session("b2").handle_user("muhasebeden burak çelik")
+    assert [x.extension for x in t.actions] == ["215"]
+
+
+async def test_kural_modunda_birim_kisaltmasi():
+    a = agent(ScriptedLlm(), fast_path=True, llm_enabled=False)
+    t = await a.new_session("it").handle_user("it departmanı")
+    assert [x.extension for x in t.actions] == ["245"]

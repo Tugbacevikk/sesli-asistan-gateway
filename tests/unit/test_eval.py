@@ -46,6 +46,13 @@ def test_santralin_reddettigi_aktarma_denenmis_sayilir():
     assert evaluate({"eylem": "operator"}, steps, ALLOWED) == (False, [], ["260"])
 
 
+def test_kapat_beklentisi():
+    from sesli_asistan.gateway.core.models import HangupAction
+
+    assert evaluate({"eylem": "kapat"}, [U(HangupAction("arayan_istedi"))], ALLOWED) == (True, [], [])
+    assert evaluate({"eylem": "kapat"}, [U(T("214"))], ALLOWED)[0] is False
+
+
 def test_set_gecerli_ve_dahililer_rehberde():
     import json
 
@@ -53,9 +60,9 @@ def test_set_gecerli_ve_dahililer_rehberde():
     aktarilabilir = {c["extension"] for c in rehber if c.get("transferable", True) and not c.get("deleted")}
     sc = yaml.safe_load((ROOT / "tests/data/diyalog_seti.yaml").read_text(encoding="utf-8"))
     ids = [s["id"] for s in sc]
-    assert len(ids) == len(set(ids)) >= 30
+    assert len(ids) == len(set(ids)) >= 110
     for s in sc:
         b = s["beklenen"]
-        assert b["eylem"] in {"transfer", "operator", "yok", "aktarma_yok"}, s["id"]
+        assert b["eylem"] in {"transfer", "operator", "yok", "aktarma_yok", "kapat"}, s["id"]
         if b["eylem"] == "transfer":
             assert b["dahili"] in aktarilabilir, s["id"]

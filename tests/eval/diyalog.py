@@ -7,6 +7,7 @@ burada yalnızca LLM payı ölçülür) ve NFR-05'i sağlayan en küçük model 
 
     python tests/eval/diyalog.py --model qwen3.5:9b --model qwen3.5:4b
     python tests/eval/diyalog.py --model qwen3.5:9b --tekrar 3 --sadece D10,D24
+    python tests/eval/diyalog.py --kural            # LLM'siz (kural modu, ADR-019): Ollama gerekmez, kod yolları
 
 Ön koşul: Ollama çalışıyor ve modeller çekilmiş (`ollama pull qwen3.5:9b`).
 """
@@ -61,6 +62,8 @@ def evaluate(expected: dict[str, Any], steps: list[tuple[str, list]],
         ok, wrong = operator and not transfers, transfers
     elif want == "aktarma_yok":   # güvenli sonuç: aktarma yok (operatör ya da soru kabul)
         ok, wrong = not transfers, transfers
+    elif want == "kapat":         # arayan bitirmek istedi: vedalaşıp kapatma, aktarma yok
+        ok, wrong = any(a.type == "hangup" for a in final) and not transfers and not operator, transfers
     else:                         # yok: henüz eylem olmamalı
         ok, wrong = not transfers and not operator, transfers
     ok = ok and not izinsiz
@@ -89,14 +92,19 @@ async def run_scenario(agent, sc: dict[str, Any], allowed: set[str] | None = Non
     for step in sc["konusma"]:
         before = agent.llm.calls
         t = time.perf_counter()
-        if isinstance(step, dict):
+        if isinstance(step, dict) and "santral" in step:
             turn = await session.handle_transfer_result(step["santral"])
+        elif isinstance(step, dict):              # {arayan: metin, guven: STT güveni} (teyit / tekrar eşikleri)
+            session.stt_confidence = step.get("guven")
+            turn = await session.handle_user(step["arayan"])
+            session.stt_confidence = None
         else:
             turn = await session.handle_user(step)
         latencies.append(time.perf_counter() - t)
         llm_calls.append(agent.llm.calls - before)
         actions += turn.actions
-        steps.append((f"santral:{step['santral']}" if isinstance(step, dict) else "arayan", list(turn.actions)))
+        steps.append((f"santral:{step['santral']}" if isinstance(step, dict) and "santral" in step else "arayan",
+                      list(turn.actions)))
         replies.append(turn.text)
         if turn.ended:
             break
@@ -120,9 +128,11 @@ def pct(values: list[float], p: float) -> float:
     return s[min(len(s) - 1, round(p / 100 * (len(s) - 1)))]
 
 
-async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None) -> dict[str, Any]:
+async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
+                    rules: bool = False) -> dict[str, Any]:
     s = GatewaySettings()
     s.llm_model = model
+    s.llm_enabled = not rules
     if timeout_s:
         s.llm_timeout_s = timeout_s
     directory = build_directory(s)
@@ -131,7 +141,8 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     from sesli_asistan.gateway.composition import build_llm
 
     agent.llm = CountingLlm(build_llm(s))
-    await agent.llm.chat([{"role": "user", "content": "merhaba"}], [])  # ısınma (ölçüme girmez)
+    if not rules:
+        await agent.llm.chat([{"role": "user", "content": "merhaba"}], [])  # ısınma (ölçüme girmez)
     agent.llm.calls, agent.llm.times = 0, []
     # rehberde aktarılabilir dahililer: bunların dışına aktarma "izinsiz"dir
     allowed = {c.contact.extension for c in [*_all(directory)]}
@@ -168,13 +179,15 @@ async def main(argv=None) -> int:
                     help="LLM zaman aşımı (sn). Doğruluk ölçümünde yüksek verin (ör. 60): yavaş donanımda "
                          "zaman aşımı, modelin doğruluğunu gizler. Gecikme ölçümünde varsayılan (5) kalmalı.")
     ap.add_argument("--cikti", default="sonuc_diyalog.json")
+    ap.add_argument("--kural", action="store_true", help="LLM'siz (kural modu): Ollama gerekmez")
+    ap.add_argument("-v", action="store_true", help="başarısız senaryoların konuşmasını yaz")
     a = ap.parse_args(argv)
 
     scenarios = yaml.safe_load(Path(a.set).read_text(encoding="utf-8"))
     if a.sadece:
         keep = set(a.sadece.split(","))
         scenarios = [s for s in scenarios if s["id"] in keep]
-    models = a.model or [GatewaySettings().llm_model]
+    models = ["kural"] if a.kural else (a.model or [GatewaySettings().llm_model])
     try:
         commit = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True,
                                 text=True, check=False).stdout.strip()
@@ -184,12 +197,21 @@ async def main(argv=None) -> int:
     print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'yanlış':>7} {'LLM hatası':>11} {'LLM/tur':>8} "
           f"{'p50 sn':>7} {'p95 sn':>7}  başarısızlar")
     for m in models:
-        r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi)
+        r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural)
         report["sonuclar"].append(r)
         print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
               f"{r['llm_hatasi_turu']:>11} "
               f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7}  "
               f"{','.join(r['basarisizlar'])}")
+        if a.v:
+            by_id = {sc["id"]: sc for sc in scenarios}
+            for d in r["ayrinti"]:
+                if not d["ok"]:
+                    sc = by_id[d["id"]]
+                    print(f"\n  {d['id']} ({sc.get('aciklama', '')}) beklenen {sc['beklenen']}")
+                    for said, reply in zip(sc["konusma"], d["cevaplar"], strict=False):
+                        print(f"    arayan: {said}\n    asistan: {reply}")
+                    print(f"    eylemler: {d['eylemler']}")
     Path(a.cikti).write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nayrıntı: {a.cikti}  (ölçüm kaydına donanımı ve n'i ekleyin: tasarim.md 15.2)")
     return 0

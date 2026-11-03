@@ -283,7 +283,7 @@ class DialogAgent:
         if c is not None and 0 < c < self.cfg.repeat_below:
             log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, c, log_text(text))
             if choice:
-                s.state.choice = choice                # "hangisi?" sorusu açık kalır
+                return self._repeat_choice(s, choice)  # "hangisi?" sorusu yinelenir ve açık kalır
             return self._failure(s, count=not lenient)
         if not self.cfg.llm_enabled:
             return self._rule_turn(s, text)
@@ -304,16 +304,21 @@ class DialogAgent:
                 return self._code_transfer(s, r.candidates[0])
         people: dict[str, Candidate] = {}
         depts: set[str] = set()
+        short_keys = {k for c in index.contacts() for k in map(search_key, c.department_aliases) if len(k) < 3}
         more = False                      # bir aramada gösterilenden çok aday vardı
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
-                if n == 1 and (len(window) < 3 or strip_suffix(window) in _FILLER):
-                    continue
+                if n == 1 and ((len(window) < 3 and window not in short_keys) or strip_suffix(window) in _FILLER):
+                    continue                  # kısa söz atlanır; birim kısaltması ("it", "ik") hariç
                 dept_hits = [c for c in index.search(department=window).candidates if c.score >= index.high_score]
                 depts |= {search_key(c.contact.department) for c in dept_hits}
                 if dept_hits and not has_role_word(window):
                     continue          # "satış", "muhasebeden": birim adı; unvanında geçen kişiler aday sayılmaz
+                if n == 1 and not self._mentions_person([window]):
+                    # tek söz yalnız ad / soyad olarak kişi seçer; unvan ya da birim sözü ("insan" → İnsan Kaynakları
+                    # Uzmanı, "sistem" → Sistem Yöneticisi) seçmez (diyalog seti D58, D99: yanlış kişiye aktarma)
+                    continue
                 res = index.search(name=window)
                 more = more or res.truncated
                 for c in res.candidates:
@@ -321,6 +326,10 @@ class DialogAgent:
                         people.setdefault(c.contact.id, c)
         if people and depts:
             narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
+            if not narrowed and len(people) == 1:
+                # söylenen birim kişinin birimi değil ("satıştan Burak Bey"; Burak Çelik muhasebede): aktarılmaz,
+                # sorulur (diyalog seti D29: kural modunda birim yok sayılıp aktarılıyordu)
+                return self._confirm(s, next(iter(people.values())).contact)
             people = narrowed or people
         cands = sorted(people.values(), key=lambda c: -c.score)
         if not cands and len(depts) == 1:
@@ -492,8 +501,9 @@ class DialogAgent:
                 return turn
         return None
 
-    def _mentions_department(self, words: list[str]) -> bool:
-        keys = {k for c in self.tools.index.contacts() for k in
+    def _mentions_department(self, words: list[str], only: Any = None) -> bool:
+        """Sözde bir birim adı geçiyor mu; `only` verilirse yalnız o kaydın birimi (ve eş anlamlıları)."""
+        keys = {k for c in ([only] if only is not None else self.tools.index.contacts()) for k in
                 (search_key(c.department), *map(search_key, c.department_aliases)) if k}
         text = " ".join(strip_suffix(w) for w in words)
         return any(f" {strip_suffix(k)} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
@@ -712,6 +722,11 @@ class DialogAgent:
                     turn.fast = True
                     return turn
             return None
+        if (kind != "department" and self._mentions_department(words)
+                and not self._mentions_department(words, only=contact)):
+            # söylenen birim kişinin birimi değil ("satıştan Burak Çelik"; Burak muhasebede): aktarılmaz, sorulur
+            log.info("[%s] hızlı yol: %s başka birimle söylendi — sorulacak", s.call_id, contact.full_name)
+            return self._confirm(s, contact)
         if self._unsure(s):
             return self._confirm(s, contact)
         args = ({"Department": contact.department} if kind == "department"
@@ -971,6 +986,9 @@ def asks_operator(text: str) -> bool:
         return False
     if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
         return True
+    joined = f" {' '.join(raw)} "
+    if any(f" {p} " in joined for p in _OPERATOR_PHRASES):
+        return True
     return any(len(w) >= 7 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 85
                for w in raw)
 
@@ -984,6 +1002,10 @@ def wants_hangup(text: str) -> bool:
         if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w):
             return True
     return any(f" {p}" in f" {t}" for p in _HANGUP_PHRASES)
+# "bir insanla görüşmek istiyorum", "gerçek biriyle": operatör isteği (diyalog seti D58, D59; "insan" tek başına İnsan
+# Kaynakları'na eşleniyordu)
+_OPERATOR_PHRASES = ("insanla", "gercek biri", "gercek biriyle", "gercek bir kisi", "gercek bir kisiyle", "canli biri",
+                     "canli biriyle", "temsilci", "temsilciyle", "musteri temsilcisi", "musteri temsilcisiyle")
 _OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
 _DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
                 "dokuz": 9}

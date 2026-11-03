@@ -69,6 +69,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   hemen ardından verilen "evet" kayboluyor, asistan "duyamıyorum" diyordu.
 - Soru açıkken (teyit, operatör, "hangisi?") arayan susarsa "Sizi duyamadım." + aynı soru yeniden sorulur.
 - Hazır anonslarda "ilk ses" süresi çalma başlarken ölçülür (anonsun süresi gecikme gibi görünüyordu).
+- "Bir insanla görüşmek istiyorum" İnsan Kaynakları'na, "sistem … yönetici" Sistem Yöneticisi'ne aktarılmaz
+  (tek söz unvan / birim sözüyle kişi seçmez); "insanla", "gerçek biriyle", "müşteri temsilcisi" operatör isteği.
+- Tam ad başka bir birimle söylenirse ("satıştan Burak Çelik") aktarılmaz, teyit sorulur.
+- Diyalog seti 110 senaryo (`tests/eval/diyalog.py --kural`: LLM'siz koşu; adımlarda STT güveni; `kapat` beklentisi).
 - Söylenen dahili numara ("iki yüz on dört", "214") LLM açıkken de beklemeden aktarılır.
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
