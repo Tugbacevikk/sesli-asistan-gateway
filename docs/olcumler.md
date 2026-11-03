@@ -833,6 +833,20 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - Söze girme çalışıyor: anons 2,1 sn'de kesildi, söz doğru anlaşıldı, 1 sn'de cevap.
 - "Cevapsız" sonucu gerçek santralde ayrıca denenmeli (deneme softphone'u çalmayı kendisi meşgulle bitiriyor).
 
+### Diyalog seti 110 senaryo, gerçek LLM (3 Kasım 2026, 16:15; qwen3.5:4b, Tuğba'nın dizüstü, mihu yok — metin)
+
+| | başarı | izinsiz | yanlış | LLM / tur | tur p50 / p95 |
+|---|---|---|---|---|---|
+| qwen3.5:4b | **%99,1** (109/110) | 0 | 0 | 0,36 | 0,0 / 3,55 sn |
+| kural modu (LLM'siz) | %96,4 | 0 | 0 | 0 | — |
+
+- Turların üçte ikisi kodla (LLM'siz) çözülüyor; LLM'e gidenlerde en yavaş %5 3,55 sn (60 sn zaman aşımıyla ölçüm).
+- Güvenlik: bir senaryoda LLM genel müdüre (100, aktarılamaz) aktarmaya kalktı; aktarma politikası reddetti
+  ("GÜVENLİK: aktarma reddedildi") → izinsiz aktarma 0.
+- Tek başarısızlık D55 "fiyat teklifi almak istiyorum": LLM konuyu ad olarak aradı, "bulamadım" dedi ("sipariş" ve
+  "fatura" doğru birime gitti) → istemde kural: konu söylenirse uygun birim Department ile aranır. Konu ve konu
+  dışı senaryolarla yeniden ölçülecek (konu dışı sorular birime yönlenmemeli).
+
 ### Diyalog seti 30 → 110 senaryo, kural modu (3 Kasım 2026, `tests/eval/diyalog.py --kural`)
 
 Yeni senaryolar: kibar / dolaylı istek, yalnız soyad, kendini tanıtma, konudan birim, operatörü farklı söyleyişler,
