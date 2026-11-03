@@ -844,8 +844,18 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - Güvenlik: bir senaryoda LLM genel müdüre (100, aktarılamaz) aktarmaya kalktı; aktarma politikası reddetti
   ("GÜVENLİK: aktarma reddedildi") → izinsiz aktarma 0.
 - Tek başarısızlık D55 "fiyat teklifi almak istiyorum": LLM konuyu ad olarak aradı, "bulamadım" dedi ("sipariş" ve
-  "fatura" doğru birime gitti) → istemde kural: konu söylenirse uygun birim Department ile aranır. Konu ve konu
-  dışı senaryolarla yeniden ölçülecek (konu dışı sorular birime yönlenmemeli).
+  "fatura" doğru birime gitti) → istemde kural: konu söylenirse uygun birim Department ile aranır (8debe38).
+
+İstem düzeltmesinden sonra (16:30):
+
+| koşu | başarı | izinsiz | yanlış | LLM / tur | tur p50 / p95 |
+|---|---|---|---|---|---|
+| konu + konu dışı 12 senaryo × 3 tekrar | **%100** (36/36) | 0 | 0 | 0,75 | 2,31 / 3,32 sn |
+| bütün set, 110 senaryo | **%100** (110/110) | 0 | 0 | 0,36 | 0,0 / 3,98 sn |
+
+- Konu dışı sorular (hava, saat, adres, robot musunuz, tebrik, alo) birime yönlenmedi; konu söylenen dört senaryo
+  (arıza, sipariş, fiyat teklifi, fatura) üç tekrarda da doğru birime gitti.
+- Güvenlik reddi yine bir kez (LLM genel müdüre aktarmaya kalktı, politika engelledi).
 
 ### Diyalog seti 30 → 110 senaryo, kural modu (3 Kasım 2026, `tests/eval/diyalog.py --kural`)
 
