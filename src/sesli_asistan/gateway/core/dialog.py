@@ -849,13 +849,32 @@ _TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kirk": 40, "elli": 50, "altmis": 60
          "doksan": 90}
 
 
+_NUM_SOFT = {"dort": "dord"}                     # ünsüz yumuşaması: dört → dördü, dörde
+_NUM_SUFFIX = {"e", "a", "ye", "ya", "i", "u", "yi", "yu", "de", "da", "te", "ta", "den", "dan", "ten", "tan"}
+
+
+def _number_word(w: str, in_run: bool) -> str | None:
+    """Sayı sözcüğünün kökü; çekim ekli hâller de ("dörde", "dördü", "ikiye", "yüze"). "on" / "bir" ekli tek başına
+    sayı sayılmaz ("ona bağlar mısınız", "biri"); sayının içindeyse sayılır ("iki yüz ona")."""
+    if w in _DIGIT_WORDS or w in _TENS or w in ("yuz", "bin"):
+        return w
+    for base in (*_DIGIT_WORDS, *_TENS, "yuz", "bin"):
+        for stem in (base, _NUM_SOFT.get(base)):
+            if stem and w.startswith(stem) and w[len(stem):] in _NUM_SUFFIX:
+                if not in_run and base in ("on", "bir"):
+                    continue
+                return base
+    return None
+
+
 def spoken_numbers(words: list[str]) -> list[str]:
-    """Yazıyla söylenen dahili: "iki yüz on dört" → 214, "iki bir dört" → 214 (rakam rakam). STT bazen yazıyla yazar."""
+    """Yazıyla söylenen dahili: "iki yüz on dört" → 214, "iki bir dört" → 214 (rakam rakam), çekim ekiyle de
+    ("iki yüz on dörde" → 214; canlı deneme 03.11.2026'da ek "dörde" okunmayıp 210 çıkıyordu). STT bazen yazıyla
+    yazar."""
     out, run = [], []
     for w in [*words, ""]:
-        w = w.rstrip("e").rstrip("y") if w and w not in _DIGIT_WORDS and w not in _TENS and w != "yuz" else w
-        if w in _DIGIT_WORDS or w in _TENS or w in ("yuz", "bin"):
-            run.append(w)
+        if w and (base := _number_word(w, bool(run))) is not None:
+            run.append(base)
             continue
         if len(run) >= 2 or (len(run) == 1 and run[0] in _TENS | {"yuz": 0}):
             if all(x in _DIGIT_WORDS for x in run):

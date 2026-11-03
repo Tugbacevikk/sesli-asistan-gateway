@@ -129,7 +129,8 @@ class Sherpa:
         files = {k: next(iter(sorted(d.glob(f"{k}*.onnx"))), None) for k in ("encoder", "decoder", "joiner")}
         if not all(files.values()) or not (d / "tokens.txt").exists():
             raise SystemExit(f"{d}: encoder/decoder/joiner .onnx ve tokens.txt bulunamadı")
-        self.name = f"sherpa:{d.name}" + ("+ipucu" if hotwords else "") + (f"+bas{lead_s:g}" if lead_s else "")
+        self.name = (f"sherpa:{d.name}" + (f"+ipucu{score:g}" if hotwords else "")
+                     + (f"+bas{lead_s:g}" if lead_s else ""))
         extra: dict[str, object] = {}
         if hotwords:
             import tempfile
@@ -175,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
     ap.add_argument("--rehber", type=Path, help="ipuçlarını Gateway gibi bu rehber dosyasından üret "
                                                 "(ör. data/rehber_ornek.json); --ipucu ile birlikte verilebilir")
+    ap.add_argument("--ipucu-puan", type=float, action="append", default=[],
+                    help="sherpa bağlam yanlılığı gücü (ör. --ipucu-puan 1.5 --ipucu-puan 3); her biri ayrı koşu")
     ap.add_argument("--yedeksiz", action="store_true",
                     help="Whisper'ı sıcaklık yedeği olmadan da çalıştır (yalnız 0; bozuk seste hız farkı)")
     ap.add_argument("--beam", type=int, action="append", default=[],
@@ -221,11 +224,14 @@ def main(argv: list[str] | None = None) -> int:
         sp = SherpaService(m, a.threads)
         engines.append((sp.name, sp, None))
         if a.ipucu:
-            try:
-                shi = Sherpa(m, a.threads, a.ipucu)
-                engines.append((shi.name, shi, None))
-            except ImportError:
-                print("not: sentencepiece yok, sherpa ipuçlu koşu atlandı (pip install sentencepiece)")
+            for score in a.ipucu_puan or [1.5]:
+                try:
+                    # servisteki gibi 0,3 sn baş sessizliğiyle (sherpa_engine.LEAD_S)
+                    shi = Sherpa(m, a.threads, a.ipucu, score=score, lead_s=0.3)
+                    engines.append((shi.name, shi, None))
+                except ImportError:
+                    print("not: sentencepiece yok, sherpa ipuçlu koşu atlandı (pip install sentencepiece)")
+                    break
         if a.bas_sessizlik > 0:
             shb = Sherpa(m, a.threads, lead_s=a.bas_sessizlik)
             engines.append((shb.name, shb, None))

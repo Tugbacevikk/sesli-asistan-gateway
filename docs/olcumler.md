@@ -692,6 +692,24 @@ kartta 2,5 / 4 GB) — önceden Whisper medium ile birlikte sığmıyordu.
   doğru anladı. Ad biçimleri iyi ("ayşe hanım'la", "muhasebeye").
 - Cümle başı ve sonu bu denemede kayıpsız (kulaklık; 1–2 sn sözler tam).
 
+#### mihu, ikinci canlı deneme (3 Kasım 2026, 13:35)
+
+| Söylenen | mihu (güven) | Asistan | Süre |
+|---|---|---|---|
+| operatöre bağlanmak istiyorum | **"afiyete bağlanmak istiyorum" (0,62)** | LLM: "bulamadım" | 3,3 sn |
+| operatöre bağlanmak istiyorum | "operatöre bağlanmak istiyorum" (0,81) | operatör ✓ | kodla |
+| 214'ü aramak istiyorum | "iki yüz on dörde aramak istiyorum" (0,80) | Ayşe Yılmaz (214) ✓ | LLM 2,8 sn |
+| operatöre bağlanmak istiyorum | **"efsane bağlanmak istiyorum" (0,64)** | operatör ✓ (LLM bağlamdan) | 1,8 sn |
+
+- **Hata (düzeltildi):** "iki yüz on dörde" kodda 210 okunuyordu (çekim ekli "dörde" sayı sayılmıyordu) → LLM'siz
+  modda Muhasebe'ye (210) aktarırdı. Çekim ekli sayı sözleri artık okunuyor ("dörde", "dördü", "beşe", "yüze").
+- "operatöre" mihu'da dar bantta sık bozuk: canlıda 3 denemenin 2'si ("afiyete", "efsane"; önceki "batıya"),
+  okumada "kafataya". Metin benzerliğiyle yakalanamıyor (benzerlik %20–45). mihu'nun bağlam yanlılığı yalnız
+  "operatör" için denenecek (`karsilastir.py --ipucu operatör --ipucu-puan …`).
+- Santral: 214 ve 900 kayıtlı değildi (ARI 500) → aktarma "başarısız" Gateway'e iletildi; operatör aktarmasında
+  arayan hatta kaldı (deneme santrali: Gateway operatör sonucunu beklemez).
+- LLM turları 1,8–3,3 sn.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

@@ -459,6 +459,17 @@ def test_yaziyla_sayi():
     assert spoken_numbers("iki bir dort".split()) == ["214"]
     assert spoken_numbers("iki yuz otuz bire".split()) == ["231"]
     assert spoken_numbers("ayse yilmaz".split()) == [] and spoken_numbers(["bir"]) == []
+    # çekim ekli son söz (canlı deneme 03.11.2026: "iki yüz on dörde" 210 okunuyordu → yanlış birime aktarma)
+    assert spoken_numbers("iki yuz on dorde aramak istiyorum".split()) == ["214"]
+    assert spoken_numbers("iki yuz on dordu".split()) == ["214"]
+    assert spoken_numbers("iki yuz on bese".split()) == ["215"]
+    assert spoken_numbers("ona baglar misiniz".split()) == [] and spoken_numbers("biri baglasin".split()) == []
+
+
+async def test_ekli_dahili_numarasi_dogru_kisiye():
+    s = agent(ScriptedLlm(), fast_path=True, llm_enabled=False).new_session("n")
+    t = await s.handle_user("iki yüz on dörde aramak istiyorum")
+    assert [a.extension for a in t.actions] == ["214"]
 
 
 async def test_llm_dusunce_tur_kural_tabanli_surer():
