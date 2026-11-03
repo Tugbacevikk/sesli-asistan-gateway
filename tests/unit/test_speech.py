@@ -113,8 +113,9 @@ async def test_hazir_anons_tts_e_gitmez():
     lib = PromptLibrary()
     assert await lib.preload(tts, {"error": "Şu an yardımcı olamıyorum."}) == []
     n = len(tts.calls)
-    r = await Speaker(tts, lib).say("şu an  yardımcı olamıyorum.", Out())
+    r = await Speaker(tts, lib).say("şu an  yardımcı olamıyorum.", Out(play_s=0.2))
     assert r.from_library and len(tts.calls) == n
+    assert r.first_audio_s < 0.05                         # çalma başlarken ölçülür, anonsun süresi değil
 
 
 async def test_tts_hatasinda_yedek_anons():

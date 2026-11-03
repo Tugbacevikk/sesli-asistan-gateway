@@ -798,6 +798,23 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
   "Sizi duyamadım. + soru" karşılıyor.
 - Hoparlör + yankı giderici (2 Kasım A/B) 0,3'te ayrıca izlenecek (anons yankısı riski).
 
+#### Kısa cevap düzeltmeleriyle deneme (3 Kasım 2026, 15:14; eşik 0,3, en az ses 0,15, "duyamadım + soru")
+
+| çağrı | söz | mihu (güven) | asistan |
+|---|---|---|---|
+| Ç1 | operatöre bağlanmak istiyorum | "aparatoraya bağlanmak istiyorum" (0,58) | operatör teyidi ✓ |
+| | evet (hemen) | "evet" (0,80) | operatör ✓ |
+| Ç2 | Ayşe hanım | "ayşen ammak istiyor" (0,58) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" (LLM 3,0 sn) |
+| | Ayşe Yılmaz | "bir şey duymaz" (0,63) | "Ayşe Yılmaz'a mı bağlamamı istersiniz?" ✓ |
+| | evet (hemen) | "evet" (0,81) | aktarma 214 (kayıtlı değil → ulaşılamıyor) ✓ |
+| | operatöre bağlanmak istiyorum | "apetöre bağlanmak istiyorum" (0,49) | operatör teyidi ✓ |
+| | evet (hemen) | "evet" (0,87) | operatör ✓ |
+
+- **Sorunun hemen ardından verilen kısa "evet"lerin hepsi duyuldu**; "konuşmadı" yok, yanlış söze girme yok (0,3
+  eşiği asistanın sesini konuşma saymadı). Yanlış aktarma, döngü yok.
+- Ekrandaki "İlk ses 3,0 sn" (hazır anons "Sizi operatöre bağlıyorum…") ölçüm hatası: hazır anonslarda ilk ses
+  çalma bittikten sonra ölçülüyordu → düzeltildi (çalma başlarken). Önceki hazır anons süreleri (4,4 / 4,9 sn) de bu.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

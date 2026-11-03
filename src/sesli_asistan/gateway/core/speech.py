@@ -148,8 +148,11 @@ class Speaker:
         t0 = time.perf_counter()
         ready = self.library.by_text(text)
         if ready is not None:
+            # ilk ses çalma BAŞLARKEN ölçülür (önceden çalma bittikten sonra ölçülüyordu: hazır anonslarda ekranda ve
+            # turn_latency metriğinde anonsun süresi görünüyordu, ör. "Sizi operatöre bağlıyorum" 3,0 sn)
+            first = time.perf_counter() - t0
             await out.play(ready)
-            return SpeakResult(True, 1, time.perf_counter() - t0, from_library=True)
+            return SpeakResult(True, 1, first, from_library=True)
 
         sentences = split_sentences(text)
         if not sentences:
