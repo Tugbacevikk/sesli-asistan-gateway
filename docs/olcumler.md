@@ -563,6 +563,27 @@ RTP (Gateway): üç çağrıda kayıp 0, geç / tekrar 0, SSRC değişimi 0, kuy
   giderici açık / kapalı) tekrarlıyor, RTP kaybı 0. Kaynağın bilgisayar mı zincir mi olduğu mikrofonsuz arayanla
   (SIPp + Piper sesi, `pcap_yap.py --ses`, `arayan_zincir.xml`) ayrılacak.
 
+#### Mikrofonsuz zincir denemesi — SIPp + Piper sesi (3 Kasım 2026, 09:45)
+
+SIPp, 1001 olarak 500'ü aradı; Piper'ın "Ayşe hanım" ve "Ayşe Yılmaz" sesleri cevaptan itibaren bilinen saniyelerde
+çalındı (`pcap_yap.py --ses`, `arayan_zincir.xml`). Bilgisayarın mikrofonu, MicroSIP ve Windows ses yolu yok.
+
+| | ses (sn) | STT parçası | metin (güven) | asistan |
+|---|---|---|---|---|
+| Z1 hemen | Ayşe hanım @5,2 | 5,09–6,15 | ayşe hanım (0,74) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" |
+| | Ayşe Yılmaz @10,8 (sorunun hemen ardından) | 10,66–11,82 | ayşe yılmaz (0,99) | aktarma 214 |
+| Z2 1 sn bekleyerek | Ayşe hanım @6,2 | 6,21–7,14 | ayşe hanım (0,81) | aynı soru |
+| | Ayşe Yılmaz @11,8 | 11,68–12,81 | ayşe yılmaz (0,99) | aktarma 214 |
+
+Silero olasılığı seslerde 0,87–0,96, araya 0; hat sessizken −73 dBFS (insanlı çağrılarda sürekli −36 / −41 dBFS).
+
+- **Zincir (Asterisk → köprü → Gateway → STT, VAD ve bölücü varsayılan ayarlarla) sesi eksiksiz taşıyor**: her ses
+  doğru saniyede, tam süresiyle; asistanın sorusunun hemen ardından gelen cevap da. Bölücü konuşmayı dar kesmiyor
+  (parçalar sesi ~0,1 sn önce başlatıp tam kapsıyor).
+- İnsanlı çağrılarda kaybolan cevaplar ve sürekli −36 / −41 dBFS gürültü bilgisayar tarafındaki ses yolundan
+  (MicroSIP / Windows ses işleme) geliyor. Gerçek telefonla (cep telefonunda SIP uygulaması) ayrıca denenecek.
+- Bölücüyü gevşetmek (ön tampon 600 ms, en az ses 0,15 sn) insanlı çağrıda yalnız bir kısa parça ekledi; ayar aynı kalır.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
