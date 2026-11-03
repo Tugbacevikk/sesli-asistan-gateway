@@ -815,6 +815,21 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - Ekrandaki "İlk ses 3,0 sn" (hazır anons "Sizi operatöre bağlıyorum…") ölçüm hatası: hazır anonslarda ilk ses
   çalma bittikten sonra ölçülüyordu → düzeltildi (çalma başlarken). Önceki hazır anons süreleri (4,4 / 4,9 sn) de bu.
 
+### Aktarma senaryoları — 214 kayıtlı ikinci softphone ile (3 Kasım 2026, 15:49–16:00, mihu)
+
+| | söylenen → mihu (güven) | asistan / santral | sonuç |
+|---|---|---|---|
+| Ç1 cevaplanan | "ayşe masa barda mı" (0,44) → "bir şey değil mi" (0,46) → "ayşe dunmaz" (0,64) → "evet" (0,47) | soru → anlayamadım → teyit → aktarma; köprü: 214 cevapladı | ✓ aktarıldı, temiz kapandı |
+| Ç2 meşgul | "ayşe yılmaz" (0,83) → aktarma; 214 reddetti (neden 17 → busy) → "apetöre bağlanmak istiyorum" (0,56) → "evet" (0,82) | meşgul anonsu → operatör teyidi → operatör | ✓ |
+| Ç5-a LLM kapalı | "ayşe hanım" (0,80) → "ayşe yılmaz" (0,85) | soru → aktarma; 214 cevapladı | ✓ |
+| Ç5-b LLM kapalı | "hüseyin aydın arıyorum" (0,85) ×2 → "apato'ya bağlanmak istiyorum" (0,46) → "evet" (0,86) | bulamadım → yine bulamadım + operatör teklifi → operatör teyidi → operatör | ✓ |
+
+- Gerçek aktarma (cevaplanan) baştan sona çalışıyor; meşgul sonucu Gateway'e iletiliyor, asistan seçenek sunuyor.
+- LLM kapalıyken (kural modu) de akış tamam: soru, aktarma, bulamadım, operatör teklifi.
+- Ç1'de "bir şey değil mi" (açık seçim sorusunda, güven 0,46) genel "anlayamadım" cümlesi aldı → artık seçim
+  sorusu yinelenir (1fa587b).
+- Cevapsız (Ç3) ve söze girme (Ç4) sonuçları bu raporda yok.
+
 ### Diyalog seti 30 → 110 senaryo, kural modu (3 Kasım 2026, `tests/eval/diyalog.py --kural`)
 
 Yeni senaryolar: kibar / dolaylı istek, yalnız soyad, kendini tanıtma, konudan birim, operatörü farklı söyleyişler,
