@@ -109,9 +109,12 @@ class SegmenterConfig:
     max_utterance_sec: float = 12.0    # durmadan konuşulursa zorla böl
     pre_roll_ms: int = 350             # konuşma başlamadan önceki sesi de al (ilk hece kesilmesin)
     start_frames: int = 3              # konuşma başladı demek için ardışık konuşma çerçevesi (~96 ms)
-    min_voiced_sec: float = 0.3        # toplam sesli süre bundan azsa (öksürük, tık) at
+    # toplam sesli süre bundan azsa (öksürük, tık) at. 0,15: canlı deneme 03.11.2026'da sorunun hemen ardından denen
+    # "evet" (0,7 sn ses, Silero en çok 0,57) 0,3 sınırında atılmış, asistan 8 sn sonra "duyamıyorum" demişti
+    # (tools/stt/vad_incele.py --en-az-ses). Kısa gürültüyü Gateway yine eler (min_noise_ms, boş sonuç).
+    min_voiced_sec: float = 0.15
     # SpeechStarted (barge-in) ancak bu kadar sesli konuşmadan sonra gönderilir. Kısa sesler (öksürük, "hı", hattaki
-    # yankı) asistanı susturmaz; eşik min_voiced_sec ile aynı olduğu için susturan her ses bir cümle sonucu
+    # yankı) asistanı susturmaz; eşik min_voiced_sec'ten büyük ya da eşit olduğu için susturan her ses bir cümle sonucu
     # (FINAL / NOT_RECOGNIZED) da üretir: arayan susturup cevapsız kalmaz.
     speech_started_ms: int = 300
     tail_keep_ms: int = 200            # cümle sonundaki sessizlikten bırakılacak pay

@@ -757,6 +757,20 @@ Düzeltmeler (bu denemeden):
 - "yüzmez", "gülmez" ünlü uyumuyla "-mez": soyad sonu ünlüden bağımsız karşılaştırılır (Yılmaz → teyit).
 - Ortak ad ("Ayşe") benzerliğe katılmaz ("ayşe" ↔ "kaya" %60 Kaya'yı öne çıkarıyordu).
 
+#### Kaybolan kısa cevabın kaynağı bulundu (3 Kasım 2026, 14:24, `vad_incele.py --en-az-ses`)
+
+Çağrı: "Ayşe Yılmaz'la görüşmek istiyorum" → aktarma (214 yok) → "parçaya bağlanmak istiyorum" → "Sizi operatöre mi
+bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**, 14:24:23'te "duyamıyorum".
+
+- Çağrı sesinde 21,4–22,1. sn (14:24:15,8–16,5) "evet" **var**: 0,7 sn, Silero en çok 0,57, enerji algılayıcı da
+  buluyor. Bölücünün "en az 0,3 sn sesli" sınırında **öksürük sayılıp atılmış** (0,15 ile yakalanıyor).
+- Yani "sorunun hemen ardından verilen cevap kayboluyor" sorununun (en azından kısa cevaplarda) kaynağı bizim
+  bölücü ayarı: hızlı ve kısa söylenen cevabın sesli kısmı 0,3 sn'ye varmıyor. 2 Kasım C denemesindeki kayıp ilk
+  cevap da (olasılık 0,91 tek yarım saniyede) aynı nedenle atılmıştı. Önceki "bilgisayar tarafı" sonucu bu
+  cevaplar için yanlıştı; hoparlör + yankı gidericide düşen olasılık (0,4–0,8) ayrıca geçerli.
+- **`STT_MIN_VOICED_S` 0,3 → 0,15.** Söze girme eşiği 300 ms kaldı (kısa ses asistanı susturmaz); boş sonuçlu kısa
+  gürültüyü Gateway eler (`min_noise_ms` 600).
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

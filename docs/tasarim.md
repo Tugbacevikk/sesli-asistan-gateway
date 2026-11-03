@@ -1163,6 +1163,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_VAD_MODEL` | models/silero_vad.onnx | |
 | `STT_VAD_THRESHOLD` | 0.35 | Silero konuşma eşiği. 0,5 hoparlör / yankı gidericiden gelen kısa cevapları kaçırıyordu, 0,2 anons yankısını ve santral sesini konuşma sayıyor (olcumler.md, 02.11.2026). Değiştirmeden önce `tools/stt/vad_incele.py` ile bakın |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
+| `STT_MIN_VOICED_S` | 0.15 | Bundan kısa sesli süre cümle sayılmaz (tık). 0,3 iken sorunun hemen ardından denen kısa "evet" atılıyordu (olcumler.md, 03.11.2026); söze girme eşiği (`STT_SPEECH_STARTED_MS`, 300) ayrı |
 | `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
 | `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin motora giden sesi + sonucu ve çağrının bütün sesi (`<çağrı>_akis.wav`, en çok 10 dk; `tools/stt/vad_incele.py`) bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |

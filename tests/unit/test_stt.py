@@ -30,10 +30,18 @@ def test_konusma_baslangici_ve_cumle_sonu():
 
 
 def test_cok_kisa_ses_atilir_ve_asistani_susturmaz():
-    # öksürük / "hı" / yankı: ne cümle olur ne de SPEECH_STARTED (barge-in) gönderilir
+    # tık: ne cümle olur ne de SPEECH_STARTED (barge-in) gönderilir
+    seg = Segmenter(EnergyDetector())
+    ev = seg.feed(np.concatenate([_silence(0.3), _tone(0.1), _silence(1.0)]))
+    assert ev == []
+
+
+def test_kisa_cevap_cumle_olur_ama_asistani_susturmaz():
+    # sorunun hemen ardından kısa "evet" (canlı 03.11.2026: 0,3 sn sınırında atılıyordu): cümle olarak çözülür;
+    # 300 ms'den kısa olduğu için asistanın sözünü kesmez (öksürük / "hı" gibi)
     seg = Segmenter(EnergyDetector())
     ev = seg.feed(np.concatenate([_silence(0.3), _tone(0.2), _silence(1.0)]))
-    assert ev == []
+    assert len(ev) == 1 and isinstance(ev[0], Utterance)
 
 
 def test_konusma_baslangici_esikten_sonra_bildirilir():
