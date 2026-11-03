@@ -66,6 +66,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   uyumuyla bozulan soyad ("yüzmez" → Yılmaz) eşlenir; ortak ad seçimde ayırt edici sayılmaz.
 - Kısa cevaplar ("evet") öksürük sayılıp atılmaz: en az sesli süre 0,3 → 0,15 sn (`STT_MIN_VOICED_S`); sorunun
   hemen ardından verilen "evet" kayboluyor, asistan "duyamıyorum" diyordu.
+- Soru açıkken (teyit, operatör, "hangisi?") arayan susarsa "Sizi duyamadım." + aynı soru yeniden sorulur.
 - Söylenen dahili numara ("iki yüz on dört", "214") LLM açıkken de beklemeden aktarılır.
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 

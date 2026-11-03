@@ -771,6 +771,20 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - **`STT_MIN_VOICED_S` 0,3 → 0,15.** Söze girme eşiği 300 ms kaldı (kısa ses asistanı susturmaz); boş sonuçlu kısa
   gürültüyü Gateway eler (`min_noise_ms` 600).
 
+#### Sorunun ardından gelen "evet": zayıf ses (3 Kasım 2026, 14:39, STT_MIN_VOICED_S 0,15 ile)
+
+| akış sn | ne | enerji | Silero en çok |
+|---|---|---|---|
+| 18,0–20,4 | asistan: "Sizi operatöre mi bağlamamı istersiniz?" | — | — |
+| **20,7–21,4** | **ilk "evet" (soru biter bitmez)** | var, −30,6 dBFS | **0,34** (eşik 0,35) |
+| 24,9–26,0 | yeniden deneme | var | 0,25 |
+| 39,1–39,9 | ikinci "evet" (bekleyerek) | var, −24,9 dBFS | 0,65 → duyuldu ✓ |
+
+- Kısa ses sınırı düzeltmesi işledi (0,71 sn "evet" yakalandı); ama sorunun hemen ardından gelen ses hem daha
+  kısık hem Silero'da eşiğin altında: MicroSIP yankı gidericisinin asistan sustuktan hemen sonraki bastırması.
+- Eşik düşürmek bu sesi yakalar ama 0,2 karşılama yankısını da sayıyordu → önce dayanıklılık: soru açıkken ses
+  gelmezse "Sizi duyamadım." + aynı soru (genel "duyamıyorum" yerine); soru açık kalır. Eşik için tarama yapılacak.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

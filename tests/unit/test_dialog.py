@@ -790,3 +790,30 @@ async def test_ayni_secim_sorusu_tekrarlanirsa_sonunda_operator():
         if t.actions:
             break
     assert kinds[-1] == ["operator"] and len(kinds) <= 3 and a.llm.seen == []
+
+
+# --- soru açıkken ses gelmedi: aynı soru yinelenir (canlı 03.11.2026) -------------------------------------------
+
+async def test_sessizlikte_acik_soru_yinelenir_ve_acik_kalir():
+    a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
+    s = a.new_session("n")
+    await s.handle_user("afiyete bağlanmak istiyorum")
+    t = s.no_input_turn()
+    assert t.text == "Sizi duyamadım. Sizi operatöre mi bağlamamı istersiniz?" and t.fallback
+    t = await s.handle_user("evet")
+    assert [x.type for x in t.actions] == ["operator"]
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    assert s.no_input_turn().text == "Sizi duyamadım. Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?"
+    s = a.new_session("t")
+    s.stt_confidence = 0.6
+    await s.handle_user("burak çelik")
+    assert s.no_input_turn().text == "Sizi duyamadım. Burak Çelik'e mi bağlamamı istersiniz?"
+    assert s.no_input_turn().text.endswith("istersiniz?")                  # soru hâlâ açık
+
+
+async def test_soru_yokken_sessizlikte_genel_cumle():
+    a = agent(ScriptedLlm(), fast_path=True)
+    s = a.new_session("g")
+    s.greeting()
+    assert s.no_input_turn().text == a.cfg.texts.no_input

@@ -581,7 +581,7 @@ class CallSession:
             if self._silences >= self.cfg.no_input_max:
                 self._start_speech(self._operator_turn("sessiz"), heard_at=None, heard="[sessizlik]")
             else:
-                self._start_speech(DialogTurn(self.dialog.agent.cfg.texts.no_input, fallback=True),
+                self._start_speech(self.dialog.no_input_turn(),
                                    heard_at=None, heard="[sessizlik]")
 
     # --- yardımcılar --------------------------------------------------------------------------------------

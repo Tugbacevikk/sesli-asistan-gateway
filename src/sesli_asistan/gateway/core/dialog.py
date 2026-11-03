@@ -69,6 +69,7 @@ class DialogTexts:
     offer_operator: str = ("Sizi yine anlayamadım. İsterseniz sizi operatöre bağlayabilirim, "
                            "ya da adı tekrar söyleyebilirsiniz.")
     no_input: str = "Sizi duyamıyorum. Görüşmek istediğiniz kişinin adını ya da birimi söyleyebilirsiniz."
+    no_input_question: str = "Sizi duyamadım."      # açık bir soru varken: bu cümle + aynı soru yeniden
     to_operator: str = "Sizi operatöre bağlıyorum, lütfen hatta kalın."
     error: str = "Şu an size yardımcı olamıyorum. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     transferring: str = "Sizi {ad_e} aktarıyorum."
@@ -151,6 +152,16 @@ class DialogSession:
 
     async def handle_transfer_result(self, status: str) -> DialogTurn:
         return await self.agent.handle_transfer_result(self, status)
+
+    def no_input_turn(self) -> DialogTurn:
+        """Arayan dinlemede sustu. Açık bir soru varsa (teyit, operatör, "hangisi?") o soru yeniden sorulur ve açık
+        kalır: canlı deneme 03.11.2026'da sorunun hemen ardından verilen kısa "evet" zayıf gelip duyulmadı; genel
+        "duyamıyorum" cümlesi arayana neye cevap vereceğini söylemiyordu, ikinci cevap ise rahat duyuldu."""
+        texts = self.agent.cfg.texts
+        q = self.agent.pending_question(self)
+        text = f"{texts.no_input_question} {q}" if q else texts.no_input
+        self.history.append({"role": "assistant", "content": text})
+        return DialogTurn(text, fallback=True)
 
 
 _BACK, _FRONT = set("aıou"), set("eiöü")
@@ -530,6 +541,19 @@ class DialogAgent:
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
+
+    def pending_question(self, s: DialogSession) -> str | None:
+        """Arayanın cevabını bekleyen soru (kodla sorulan), yoksa None."""
+        texts = self.cfg.texts
+        if s.state.confirm is not None:
+            c = s.state.confirm.contact
+            name = c.full_name if c.kind != "department" else c.department
+            return texts.confirm.format(ad=name, ad_e=dative(name), mi=question_particle(dative(name)))
+        if s.state.confirm_operator:
+            return texts.confirm_operator
+        if s.state.choice:
+            return which_question([c.contact for c in s.state.choice])
+        return None
 
     def _repeat_choice(self, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
         """"Hangisi?" sorusunun cevabı anlaşılmadı (başka bir istek de yok): soru kodla yeniden sorulur, açık kalır.
