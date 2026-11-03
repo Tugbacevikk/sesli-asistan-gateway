@@ -747,6 +747,16 @@ Düzeltmeler (bu denemeden):
 - Asistanın sorusunun hemen ardından verilen cevap yine duyulmadı (MicroSIP, bilgisayar). SIPp ile zincir aynı
   durumda sesi eksiksiz taşıdı → bilgisayar tarafı (Windows ses işleme) ya da MicroSIP; telefonla denenecek.
 
+#### mihu, seçim sorusu döngüsü (3 Kasım 2026, 14:13)
+
+"Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" sorusuna "Ayşe Yılmaz" → mihu: "ayşe ırmak" (0,63), "ayşe yüzmez"
+(0,78), "ayşe gülmez" (0,67), "bakınma" (0,20) — **asistan aynı soruyu 5 kez sordu, operatöre geçmedi.**
+
+- Neden: cevapta "ayşe" geçince soru hızlı yoldan yeniden kuruluyor ve deneme sayacı sıfırlanıyordu → düzeltildi:
+  aynı adaylarla yeniden sorulan soru deneme sayılır (3. denemede operatör).
+- "yüzmez", "gülmez" ünlü uyumuyla "-mez": soyad sonu ünlüden bağımsız karşılaştırılır (Yılmaz → teyit).
+- Ortak ad ("Ayşe") benzerliğe katılmaz ("ayşe" ↔ "kaya" %60 Kaya'yı öne çıkarıyordu).
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

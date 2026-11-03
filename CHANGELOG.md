@@ -62,6 +62,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - "Hangisi?" sorusunun anlaşılmayan cevabında soru kodla yinelenir ve açık kalır; soyadıyla aynı sesle biten
   bozuk cevap ("yaramaz" → Yılmaz) teyitle sorulur. Harf harf duyulan ("o pt'ye") ya da "operatör"e yakın
   ("aparator") söz operatör teyidine gider.
+- Aynı "hangisi?" sorusu yeniden sorulunca deneme sayılır (sayaç sıfırlandığı için sonsuz döngü vardı); ünlü
+  uyumuyla bozulan soyad ("yüzmez" → Yılmaz) eşlenir; ortak ad seçimde ayırt edici sayılmaz.
 - Söylenen dahili numara ("iki yüz on dört", "214") LLM açıkken de beklemeden aktarılır.
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 

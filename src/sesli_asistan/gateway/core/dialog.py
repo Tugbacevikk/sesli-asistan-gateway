@@ -253,7 +253,14 @@ class DialogAgent:
             return self._repeat_choice(s, choice)
         if self.cfg.fast_path and (turn := self._fast_path(s, text)) is not None:
             return turn
+        failed_before = s.state.failed_attempts
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
+            if choice and {c.contact.id for c in s.state.choice} == {c.contact.id for c in choice}:
+                # aynı soru yeniden: ilerleme yok, deneme sayılır (canlı 03.11.2026: "ayşe ırmak", "ayşe yüzmez"…
+                # her seferinde aynı soru, sayaç sıfırlandığı için hiç operatöre gitmedi)
+                s.state.failed_attempts = failed_before
+                if (op := self._count_failure(s)) is not None:
+                    return op
             return turn
         if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
             return turn
@@ -541,14 +548,17 @@ class DialogAgent:
         """Cevap hiçbir adaya tam uymadı ama bir adayın soyadına açıkça daha yakın: o aday teyitle sorulur.
         Santral denemesi (02.11.2026, mihu): "Ayşe Kaya mı, Ayşe Yılmaz mı?" → "Ayşe Yılmaz" STT'de "her şey uymaz"
         (güven 0,41) LLM'e gitmiş, LLM'in sorusu da anlaşılmayınca çağrı dolanmıştı."""
-        long_words = [w for w in words if len(w) >= 4]
+        # adaylarda ortak ad ("Ayşe") ayırt etmez: puana girmez ("ayşe" ↔ "kaya" %60 Kaya'yı öne çıkarıyordu)
+        firsts = {search_key(c.contact.first_name) for c in choice if c.contact.first_name}
+        long_words = [w for w in words if len(w) >= 4 and not any(similarity(w, f) >= 80 for f in firsts)]
 
         def score(last: str) -> float:
             if not last:
                 return 0.0
             sim = max((similarity(v, last) for w in long_words for v in query_variants(w)), default=0.0)
-            # aynı sesle biten bozuk duyuş: "yılmaz" → "yaramaz", "duymaz" (mihu, canlı 03.11.2026)
-            ending = any(len(last) >= 4 and w.endswith(last[-3:]) for w in long_words)
+            # aynı sesle biten bozuk duyuş, ünlü uyumu dahil: "yılmaz" → "yaramaz", "duymaz", "yüzmez", "gülmez"
+            # (mihu, canlı 03.11.2026)
+            ending = any(len(last) >= 4 and _skeleton(w)[-3:] == _skeleton(last)[-3:] for w in long_words)
             return round(max(sim, FUZZY_CHOICE_MIN + 5 if ending else 0.0), 1)
 
         scores = [score(search_key(c.contact.last_name)) for c in choice]
@@ -887,6 +897,11 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
 
 def _folded_words(text: str) -> list[str]:
     return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+
+
+def _skeleton(word: str) -> str:
+    """Ünlüleri tek işarete indirir ("yılmaz", "yüzmez" → "y?lm?z"): ünlü uyumuyla bozulan sonlar için."""
+    return re.sub(r"[aeıioöuü]", "?", word)
 
 
 _CONNECT_VERB = re.compile(r"^(bagla|baglan|aktar)")

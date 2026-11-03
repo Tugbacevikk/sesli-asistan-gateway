@@ -767,3 +767,26 @@ async def test_operator_teyidinde_hayir_ya_da_yeni_ad():
     await s.handle_user("afiyete bağlanmak istiyorum")
     t = await s.handle_user("hayır elif şahin")
     assert [x.extension for x in t.actions] == ["301"]
+
+
+@pytest.mark.parametrize("answer", ["ayşe yüzmez", "ayşe gülmez", "ayşe duymaz"])
+async def test_secimde_unlu_uyumlu_bozuk_soyad_teyitle(answer):
+    a = clarifier()
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    t = await s.handle_user(answer)
+    assert t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?" and a.llm.seen == []
+
+
+async def test_ayni_secim_sorusu_tekrarlanirsa_sonunda_operator():
+    # canlı 03.11.2026: "ayşe ırmak", "bakınma"… aynı soru sonsuza kadar sorulmuştu
+    a = clarifier()
+    s = a.new_session("c")
+    await s.handle_user("ayşe hanım lütfen")
+    kinds = []
+    for answer in ["ayşe ırmak", "ayşe ırmak", "ayşe ırmak", "ayşe ırmak"]:
+        t = await s.handle_user(answer)
+        kinds.append([x.type for x in t.actions])
+        if t.actions:
+            break
+    assert kinds[-1] == ["operator"] and len(kinds) <= 3 and a.llm.seen == []
