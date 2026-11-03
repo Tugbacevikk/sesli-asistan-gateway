@@ -611,6 +611,26 @@ geçirildi; "evet / hayır" açık teyit sorusuna, "hiçbiri" seçim sorusuna ve
 - En iyi aday: **large-v3-turbo, beam 5, ipucusuz** (15 doğru, 1 yanlış eylem: "iki yüz on dört" → "210").
   Karar için eksik: gecikme (RTF) ve güvenle teyit / tekrar eşiklerinin etkisi → aynı kayıtlarla yeniden.
 
+#### Aynı kayıtlar, güvenle (teyit / tekrar eşikleri işler) — 3 Kasım 2026, 11:00
+
+| ayar | doğru | teyitle doğru | kaçırma | yanlış teyit | YANLIŞ EYLEM | RTF |
+|---|---|---|---|---|---|---|
+| medium, beam 2 | 9 | 2 | 11 | 1 | 0 | 1,33* |
+| medium, beam 2, ipucu (önceki varsayılan) | 5 | 5 | 7 | **6** | 0 | 1,05 |
+| medium, beam 5 | 9 | 2 | 11 | 1 | 0 | 0,88 |
+| large-v3-turbo, beam 2 | **12** | 1 | 9 | 1 | 0 | 2,09 |
+| large-v3-turbo, beam 2, ipucu | 9 | 6 | 8 | 0 | 0 | 2,11 |
+| large-v3-turbo, beam 5 | 12 | 1 | 9 | 1 | 0 | 2,11 |
+
+\* ilk koşu (ısınma dahil). Ölçümde STT servisi de açıktı (GPU paylaşıldı).
+
+- **Teyit kapısı işe yarıyor: hiçbir ayarda yanlış eylem yok** — güveni düşük her yanlış ad teyit sorusuna döndü.
+- İpucu: doğru iş azalıyor, yanlış teyit artıyor (medium 1 → 6: "operatöre bağlanmak istiyorum", "Ferhat
+  Yıldırım'ı arıyorum", "Tuğba Çevik…" → "ayşe yılmaz") → **`STT_HOTWORDS` varsayılanı false**.
+- RTF 1'in üstü (gerçek zamandan yavaş): bozuk seste Whisper'ın sıcaklık yedeği (0 → 0,2 → 0,4) aynı cümleyi
+  2–3 kez çözüyor olabilir; turbo'nun medium'dan yavaş çıkması beklenmedik (GPU paylaşımı?). Hız, STT servisi
+  kapalıyken yeniden ölçülecek (mihu karşılaştırmasıyla birlikte).
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

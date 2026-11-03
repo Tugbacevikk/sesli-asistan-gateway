@@ -82,7 +82,7 @@ class Engine(Protocol):
 class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
     def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
                  segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0,
-                 debug_dir: str | None = None, use_hotwords: bool = True):
+                 debug_dir: str | None = None, use_hotwords: bool = False):
         self.engine, self.detector_factory = engine, detector_factory
         # STT_HOTWORDS=false: Gateway'in ad ipuçları motora verilmez (okuma ölçümü 03.11.2026: bozuk seste ipucu
         # duyulmayan rehber adlarını yazdırıyordu — "evet" → "yılmaz burak çelik"; tools/stt/gorev_olc.py)

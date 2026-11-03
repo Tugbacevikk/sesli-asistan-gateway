@@ -75,7 +75,7 @@ async def gateway():
 
     async def make(stt_text, *llm_replies, **settings):
         whisper = Whisper(stt_text)
-        srv, _, port = await start_server(SttSettings(vad="energy"), whisper, bind="127.0.0.1:0")
+        srv, _, port = await start_server(SttSettings(vad="energy", hotwords=True), whisper, bind="127.0.0.1:0")
         conf = {"directory_path": str(ROOT / "data/rehber_ornek.json"), "api_key": KEY, "rtp_host": "127.0.0.1",
                 "rtp_port_min": 31000, "rtp_port_max": 31099, "pbx_allowed_ips": "127.0.0.1", **settings}
         s = GatewaySettings(_env_file=None, **conf)
@@ -125,7 +125,7 @@ async def test_cagri_bastan_sona(gateway):
     await until(lambda: pbx.actions)
     call_id, action = pbx.actions[0]
     assert call_id == "c-1" and action["type"] == "transfer" and action["extension"] == "214"
-    assert "Ayşe Yılmaz" in whisper.hotwords                                    # rehber ipuçları STT'ye gitti
+    assert "Ayşe Yılmaz" in whisper.hotwords                                    # ipucu yolu (STT_HOTWORDS=true)
 
     r = await api.post("/v1/calls/c-1/events", json={"type": "transfer_result", "status": "answered"})
     assert r.status_code == 202

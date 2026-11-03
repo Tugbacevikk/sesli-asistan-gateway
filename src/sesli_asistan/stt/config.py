@@ -21,8 +21,10 @@ class SttSettings(BaseSettings):
     sherpa_dir: str = "models/turkish-stt-66m-v2"
     sherpa_threads: int = Field(2, ge=1)
 
-    # Gateway'in rehber ad ipuçları motora verilsin mi (tools/stt/gorev_olc.py ile ölçülerek seçilir)
-    hotwords: bool = True
+    # Gateway'in rehber ad ipuçları motora verilsin mi. Kapalı: okuma ölçümünde (03.11.2026, tools/stt/gorev_olc.py,
+    # telefon hattı, 23 cümle) ipucu bozuk sesi rehber adına çevirdi ("operatöre bağlanmak istiyorum" → "ayşe
+    # yılmaz"); güvenle teyit sorulsa da doğru iş azaldı, yanlış teyit arttı (medium: 9 → 5 doğru, 1 → 6 yanlış teyit).
+    hotwords: bool = False
 
     # Whisper (stt/engine.py)
     model_dir: str = "models/faster-whisper-medium"
