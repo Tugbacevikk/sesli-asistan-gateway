@@ -176,6 +176,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
     ap.add_argument("--rehber", type=Path, help="ipuçlarını Gateway gibi bu rehber dosyasından üret "
                                                 "(ör. data/rehber_ornek.json); --ipucu ile birlikte verilebilir")
+    ap.add_argument("--yedeksiz", action="store_true",
+                    help="Whisper'ı sıcaklık yedeği olmadan da çalıştır (yalnız 0; bozuk seste hız farkı)")
     ap.add_argument("--beam", type=int, action="append", default=[],
                     help="Whisper'ı bu beam değerleriyle de çalıştır (ör. --beam 1 --beam 5; servis varsayılanı 2)")
     ap.add_argument("--tsv", type=Path, help="dosya<TAB>doğru metin (dosya adı ya da yolu)")
@@ -208,6 +210,9 @@ def main(argv: list[str] | None = None) -> int:
         engines.append((w.name, w, None))
         if a.ipucu:
             engines.append((w.name + "+ipucu", w, a.ipucu))
+        if a.yedeksiz:
+            nf = WhisperVariant(w, temperatures=(0.0,))
+            engines.append((f"{w.name}+yedeksiz", nf, None))
         for b in a.beam:
             v = WhisperVariant(w, beam_size=b)
             engines.append((f"{w.name}+b{b}", v, None))

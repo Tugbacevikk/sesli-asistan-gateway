@@ -60,6 +60,9 @@ class WhisperParams:
     # Whisper istemi sessiz yerde aynen yazabiliyor; dil verildiği için varsayılan kapalı.
     initial_prompt: str | None = None
     max_repeat: int = 2
+    # Sıcaklık yedeği: ilk çözüm güvensizse (log-olasılık / sıkıştırma eşiği) daha yüksek sıcaklıkla yeniden çözülür.
+    # Bozuk seste aynı cümle 2–3 kez çözülür (gecikme); tools/stt/karsilastir.py --yedeksiz ile ölçülür.
+    temperatures: tuple[float, ...] = (0.0, 0.2, 0.4)
     num_workers: int = 1              # aynı modelle eşzamanlı çözüm sayısı
     cpu_threads: int = 4
 
@@ -198,7 +201,7 @@ class WhisperEngine:
         with self._slots:
             segments, _ = self.model.transcribe(
                 samples, language="tr", task="transcribe", vad_filter=False,
-                beam_size=p.beam_size, temperature=(0.0, 0.2, 0.4),
+                beam_size=p.beam_size, temperature=p.temperatures,
                 initial_prompt=p.initial_prompt,
                 hotwords=" ".join(hotwords) if hotwords else None,
                 condition_on_previous_text=False, without_timestamps=True,
