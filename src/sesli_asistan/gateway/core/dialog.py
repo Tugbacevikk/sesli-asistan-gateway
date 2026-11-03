@@ -246,14 +246,17 @@ class DialogAgent:
         choice, s.state.choice = s.state.choice, ()
         if choice and self.cfg.clarify_by_code and (turn := self._resolve_choice(s, text, choice)) is not None:
             return turn
+        if (choice and self.cfg.clarify_by_code and not set(_folded_words(text)) & (_NEGATION | {"bilmiyorum"})
+                and not self._mentions_target(text)):
+            return self._repeat_choice(s, choice)
         if self.cfg.fast_path and (turn := self._fast_path(s, text)) is not None:
             return turn
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
             return turn
         if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
             return turn
-        if (self.cfg.fast_path and unknown_target(text) is not None and not spoken_numbers(_folded_words(text))
-                and not self._mentions_person_or_department(text)):
+        if (self.cfg.fast_path and (unknown_target(text) is not None or maybe_operator(text))
+                and not spoken_numbers(_folded_words(text)) and not self._mentions_person_or_department(text)):
             return self._confirm_operator(s, text)
         c = s.stt_confidence
         if c is not None and 0 < c < self.cfg.repeat_below:
@@ -519,14 +522,34 @@ class DialogAgent:
         turn.fast = True
         return turn
 
+    def _repeat_choice(self, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
+        """"Hangisi?" sorusunun cevabı anlaşılmadı (başka bir istek de yok): soru kodla yeniden sorulur, açık kalır.
+        Canlı deneme 03.11.2026: anlaşılmayan cevap LLM'e gidince soru kapanıyor, sonraki "Yılmaz"a yakın cevap
+        eşlenemiyordu. Deneme sayılır (sonunda operatör)."""
+        if (turn := self._count_failure(s)) is not None:
+            return turn
+        q = which_question([c.contact for c in choice])
+        s.state.choice = choice
+        turn = self._reply(s, q or self.cfg.texts.not_understood)
+        turn.fast = True
+        return turn
+
     def _fuzzy_choice(self, s: DialogSession, text: str, words: list[str],
                       choice: tuple[Candidate, ...]) -> DialogTurn | None:
         """Cevap hiçbir adaya tam uymadı ama bir adayın soyadına açıkça daha yakın: o aday teyitle sorulur.
         Santral denemesi (02.11.2026, mihu): "Ayşe Kaya mı, Ayşe Yılmaz mı?" → "Ayşe Yılmaz" STT'de "her şey uymaz"
         (güven 0,41) LLM'e gitmiş, LLM'in sorusu da anlaşılmayınca çağrı dolanmıştı."""
         long_words = [w for w in words if len(w) >= 4]
-        scores = [max((similarity(v, search_key(c.contact.last_name)) for w in long_words
-                       for v in query_variants(w)), default=0.0) if c.contact.last_name else 0.0 for c in choice]
+
+        def score(last: str) -> float:
+            if not last:
+                return 0.0
+            sim = max((similarity(v, last) for w in long_words for v in query_variants(w)), default=0.0)
+            # aynı sesle biten bozuk duyuş: "yılmaz" → "yaramaz", "duymaz" (mihu, canlı 03.11.2026)
+            ending = any(len(last) >= 4 and w.endswith(last[-3:]) for w in long_words)
+            return round(max(sim, FUZZY_CHOICE_MIN + 5 if ending else 0.0), 1)
+
+        scores = [score(search_key(c.contact.last_name)) for c in choice]
         best = max(range(len(choice)), key=scores.__getitem__)
         rest = max((sc for i, sc in enumerate(scores) if i != best), default=0.0)
         if scores[best] < FUZZY_CHOICE_MIN or scores[best] - rest < FUZZY_CHOICE_MARGIN:
@@ -882,9 +905,19 @@ def unknown_target(text: str) -> str | None:
             before[-1] += w
         elif w not in _FILLER:
             before.append(w)
+    if len(before) > 1 and all(len(w) <= 2 for w in before[:-1]):
+        # harf harf bölünmüş söz: "o pt'ye", "o p t'ye" (canlı 03.11.2026, mihu "operatöre"yi böyle duydu)
+        before = ["".join(before)]
     if len(before) != 1 or len(before[0]) < 4 or not _DATIVE_END.search(before[0]):
         return None
     return before[0]
+
+
+def maybe_operator(text: str) -> bool:
+    """"operatör"e yakın ama `asks_operator`'ın doğrudan aktarma eşiğine (85) varmayan söz ("aparator", 75): teyitle
+    sorulur. Canlı deneme 03.11.2026: "aparator ev bayranmak istiyorum" LLM'e gitmiş, "bulamadım" denmişti."""
+    return any(len(w) >= 6 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 70
+               for w in _folded_words(text))
 
 
 def asks_operator(text: str) -> bool:

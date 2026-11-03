@@ -59,6 +59,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Yazıyla söylenen dahilide çekim eki: "iki yüz on dörde" 210 değil 214 (yanlış birime aktarma).
 - Rehberde karşılığı olmayan tek bir hedefe bağlanmak istenince ("afiyete bağlanmak istiyorum": bozuk duyulan
   "operatöre") LLM yerine kodla "Sizi operatöre mi bağlamamı istersiniz?" (`CONFIRM_OPERATOR_TEXT`).
+- "Hangisi?" sorusunun anlaşılmayan cevabında soru kodla yinelenir ve açık kalır; soyadıyla aynı sesle biten
+  bozuk cevap ("yaramaz" → Yılmaz) teyitle sorulur. Harf harf duyulan ("o pt'ye") ya da "operatör"e yakın
+  ("aparator") söz operatör teyidine gider.
 - Söylenen dahili numara ("iki yüz on dört", "214") LLM açıkken de beklemeden aktarılır.
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 

@@ -710,6 +710,30 @@ kartta 2,5 / 4 GB) — önceden Whisper medium ile birlikte sığmıyordu.
   arayan hatta kaldı (deneme santrali: Gateway operatör sonucunu beklemez).
 - LLM turları 1,8–3,3 sn.
 
+#### mihu, operatör teyidi denemesi (3 Kasım 2026, 14:01)
+
+| Söylenen | mihu (güven) | Asistan | Yol |
+|---|---|---|---|
+| (karşılamadan hemen sonra) | — (ilk parça 18,6 sn'de) | "Sizi duyamıyorum" | 8 sn sessizlik |
+| operatöre bağlanmak istiyorum | **"o pt'ye bağlanmak istiyorum" (0,69)** | "bulamadım" | LLM 3,0 sn |
+| operatöre … | **"aparator ev bayranmak istiyorum" (0,58)** | "yine bulamadım" | LLM 2,5 sn |
+| operatöre … | "o p t'ye bağlanmak istiyorum" (0,77) | operatör ✓ | LLM 2,4 sn |
+| operatöre bağlanmak istiyorum | "taşınma bağlamak istiyorum" (0,76) | **"Sizi operatöre mi bağlamamı istersiniz?"** ✓ | kodla |
+| (cevap) | "başkanıma davranmak istemiyorum" (0,57) | "bulamadım" ("istemiyorum" = hayır) | kodla |
+| Ayşe hanıma bağlanmak istiyorum | aynı (0,80) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" ✓ | kodla |
+| Ayşe Yılmaz | **"bir işe yaramaz" (0,63)** | "Tamam, birim veya kişiyi tekrar belirtir misiniz?" | LLM 2,0 sn |
+| Ayşe Yılmaz | **"bir şey duymaz" (0,63)** | soruyu yineledi | LLM 2,5 sn |
+
+Düzeltmeler (bu denemeden):
+- Harf harf bölünmüş hedef ("o pt'ye", "o p t'ye") tek söz sayılır → operatör teyidi.
+- "operatör"e %70–85 benzeyen söz ("aparator", %75) → operatör teyidi (%85 ve üstü doğrudan operatör, eskisi gibi).
+- "Hangisi?" cevabı anlaşılmazsa soru kodla yinelenir ve açık kalır (önceden LLM'e gidip kapanıyordu; sonraki
+  "bir şey duymaz" bu yüzden eşlenemedi). Olumsuzluk ya da yeni istek normal akışa gider.
+- Soyadıyla aynı sesle biten bozuk cevap ("yaramaz", "duymaz", "uymaz" → Yılmaz) teyitle sorulur.
+- mihu "Yılmaz"ı "-maz" ile biten sözlere, "operatöre"yi harflere / başka sözlere çeviriyor: dar bantta adların ve
+  bu sözün tanınması mihu'nun zayıf yanı; diyalog teyit soruları bunu güvenle karşılıyor (yanlış aktarma yok).
+- LLM turları 2,0–3,0 sn.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

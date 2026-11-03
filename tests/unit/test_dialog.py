@@ -646,12 +646,29 @@ async def test_secimde_soyada_yakin_bozuk_cevap_teyitle_sorulur(answer):
     assert [x.extension for x in t.actions] == ["214"] and a.llm.seen == []
 
 
-async def test_secimde_iki_adaya_esit_uzak_cevap_llm_e_kalir():
+async def test_secimde_anlasilmayan_cevapta_soru_kodla_yinelenir_ve_acik_kalir():
+    # canlı deneme 03.11.2026: "bir işe yaramaz" LLM'e gidip soru kapanmış, sonraki "bir şey duymaz" eşlenememişti
+    a = clarifier()
+    s = a.new_session("c")
+    q = await s.handle_user("ayşe hanım lütfen")
+    t = await s.handle_user("ateşe girmem")
+    assert not t.actions and t.text == q.text and a.llm.seen == [] and s.state.failed_attempts == 1
+    t = await s.handle_user("bir işe yaramaz")                 # "-maz": Yılmaz'a yakın → teyit
+    assert t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?"
+    t = await s.handle_user("evet")
+    assert [x.extension for x in t.actions] == ["214"] and a.llm.seen == []
+
+
+async def test_secimde_yeni_istek_ya_da_olumsuzluk_normal_akisa_gider():
     a = clarifier(LlmMessage("Kimi aramıştınız?"))
     s = a.new_session("c")
     await s.handle_user("ayşe hanım lütfen")
-    t = await s.handle_user("ateşe girmem")
-    assert not t.actions and len(a.llm.seen) == 1
+    t = await s.handle_user("mehmet demir")
+    assert [x.extension for x in t.actions] == ["230"]
+    s = a.new_session("d")
+    await s.handle_user("ayşe hanım lütfen")
+    await s.handle_user("bilmiyorum emin değilim")
+    assert len(a.llm.seen) == 1
 
 
 @pytest.mark.parametrize("auto", [True, False])
@@ -695,7 +712,7 @@ async def test_cok_dusuk_guvende_secim_sorusu_acik_kalir_operator_ve_kapatma_cal
     await s.handle_user("ayşe hanım lütfen")
     s.stt_confidence = 0.41
     t = await s.handle_user("teşekkürler")
-    assert t.text == a.cfg.texts.not_understood and a.llm.seen == []
+    assert t.text == "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" and a.llm.seen == []
     s.stt_confidence = 0.96
     t = await s.handle_user("yılmaz")
     assert [x.extension for x in t.actions] == ["214"]
@@ -717,7 +734,8 @@ async def test_tekrar_esigi_kapatilabilir():
 
 @pytest.mark.parametrize("text", ["afiyete bağlanmak istiyorum", "efsane bağlanmak istiyorum",
                                   "batıya bağlanmak istiyorum", "bir hafife bağlamak istiyorum",
-                                  "Hakan'a bağlanmak istiyorum"])
+                                  "Hakan'a bağlanmak istiyorum", "o pt'ye bağlanmak istiyorum",
+                                  "o p t'ye bağlanmak istiyorum", "aparator ev bayranmak istiyorum"])
 async def test_anlasilmayan_tek_hedefte_operator_sorulur(text):
     a = agent(ScriptedLlm(), fast_path=True, clarify_by_code=True)
     s = a.new_session("o")
