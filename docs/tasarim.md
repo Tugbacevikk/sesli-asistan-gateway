@@ -1124,7 +1124,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
-| `CONFIRM_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}`) ve arayan kapatmak isteyince veda cümlesi |
+| `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |
 | `LOG_TEXTS` | true (kurulum şablonunda false) | false: loglarda arayanın sözü ve cevaplar yerine yalnız uzunluk (kişisel veri) |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
