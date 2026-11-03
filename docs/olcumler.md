@@ -529,6 +529,26 @@ Akış başı ≈ 16:10:44,3 (çağrı açıldı). Silero 0,5 / 0,35 / 0,2 ve en
   bastırıyor. Kulaklıkla / yankı giderici kapalı karşılaştırılacak.
 - Whisper kırpık 0,8 sn'den "teşekkürler" uydurdu (bilinen uydurma kalıbı); güven 0,41 → artık `REPEAT_BELOW`.
 
+#### Ses kırpılması — MicroSIP ayarlarıyla 3 çağrı (2 Kasım 2026, 16:48–17:07)
+
+A: yankı giderici açık + hoparlör, hemen cevap · B: aynı, 1 sn bekleyerek · C: yankı giderici kapalı + kulaklık,
+hemen cevap. Her çağrıda "Ayşe hanım" → soru gelince "Ayşe Yılmaz".
+
+| | sonuç | hat (ortanca) | konuşmanın Silero olasılığı | 0,5'te | 0,35'te | 0,2'de |
+|---|---|---|---|---|---|---|
+| A | hiç anlaşılmadı → duyamıyorum → operatör | −36 dBFS | 0,4–0,8 | 1 parça | +1 konuşma | +anons yankısı |
+| B | 1. cevap ✓, 2. cevap duyulmadı | −36 dBFS | 0,4–0,77 | 1 | +1 konuşma | +anons yankısı, 2. cevap |
+| C | 1. cevap duyulmadı, sonra "ayşem" | −41 dBFS | 0,91 / 0,92 (kısa) | 1 | +1. cevap | aynı |
+
+RTP (Gateway): üç çağrıda kayıp 0, geç / tekrar 0, SSRC değişimi 0, kuyruk taşması 0 → paketler eksiksiz.
+
+- Bizim zincirde ses kaybı yok; hat çağrı boyunca kesintisiz (sürekli −36 / −41 dBFS gürültü).
+- Hoparlör + yankı gidericide konuşmanın olasılığı 0,4–0,8'e düşüyor: 0,5 eşiği cevapların bir kısmını kaçırıyor.
+  0,35 her çağrıda yalnız gerçek konuşma ekledi; 0,2 karşılama anonsunun yankısını da konuşma saydı (asistan
+  kendi sesiyle sözü kesilmiş sanır) → **`STT_VAD_THRESHOLD` 0,35**.
+- C'de (kulaklık) konuşma temiz (0,91) ama kısa: ilk cevap 0,3 sn'lik sesli süre sınırının altında kaldı. Kaynakta
+  (bilgisayarın mikrofon işlemesi) kırpılıp kırpılmadığı Windows ses iyileştirmeleri kapatılarak denenecek.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

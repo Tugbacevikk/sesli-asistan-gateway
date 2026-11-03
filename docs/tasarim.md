@@ -1157,6 +1157,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_TIMEOUT_S` | 3 | Cümle başına |
 | `STT_VAD` | silero | `silero` / `energy` (yedek) |
 | `STT_VAD_MODEL` | models/silero_vad.onnx | |
+| `STT_VAD_THRESHOLD` | 0.35 | Silero konuşma eşiği. 0,5 hoparlör / yankı gidericiden gelen kısa cevapları kaçırıyordu, 0,2 anons yankısını ve santral sesini konuşma sayıyor (olcumler.md, 02.11.2026). Değiştirmeden önce `tools/stt/vad_incele.py` ile bakın |
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
 | `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin motora giden sesi + sonucu ve çağrının bütün sesi (`<çağrı>_akis.wav`, en çok 10 dk; `tools/stt/vad_incele.py`) bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |

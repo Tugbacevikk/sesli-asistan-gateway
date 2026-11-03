@@ -33,7 +33,10 @@ class SttSettings(BaseSettings):
     # VAD / cümle sonu (stt/vad.py)
     vad: Literal["silero", "energy"] = "silero"
     vad_model: str = "models/silero_vad.onnx"
-    vad_threshold: float = Field(0.5, gt=0, lt=1)
+    # Silero eşiği. 0,35: santral denemelerinde (02.11.2026, tools/stt/vad_incele.py) hoparlör + yankı gidericiyle gelen
+    # konuşmanın olasılığı 0,4–0,8'de kalıyordu (0,5 kısa cevapları kaçırdı); 0,35 yalnız gerçek konuşma ekledi,
+    # 0,2 karşılama anonsunun yankısını ve santral sesini de konuşma saydı.
+    vad_threshold: float = Field(0.35, gt=0, lt=1)
     endpoint_silence_ms: int = Field(700, ge=100)
     speech_started_ms: int = Field(300, ge=0)   # bu kadar sesli konuşmadan sonra SPEECH_STARTED (barge-in)
     metrics_port: int = Field(9101, ge=0)   # Prometheus (yalnız 127.0.0.1); 0: kapalı

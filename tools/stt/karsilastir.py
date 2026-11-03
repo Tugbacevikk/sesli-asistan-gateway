@@ -127,6 +127,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
     ap.add_argument("--tsv", type=Path, help="dosya<TAB>doğru metin (dosya adı ya da yolu)")
     ap.add_argument("--telefon", action="store_true", help="geniş bantlı kaydı önce 8 kHz G.711'e indir")
+    ap.add_argument("--aralik", action="append", default=[], metavar="BAS-SON",
+                    help="kayıttan yalnız bu aralığı çöz (sn, ör. 4.5-6.5; çağrının bütün sesinden parça); tekrar "
+                         "verilebilir: her aralık ayrı satır")
     ap.add_argument("--bas-sessizlik", type=float, default=0.0,
                     help="sherpa'yı ayrıca sesin önüne bu kadar sn sessizlik ekleyerek de çalıştır (ör. 0.3)")
     ap.add_argument("--device", default="auto")
@@ -165,12 +168,23 @@ def main(argv: list[str] | None = None) -> int:
     rows = []
     audio_s = 0.0
     times = {name: 0.0 for name, _, _ in engines}
+    ranges: list[tuple[float, float] | None] = [None]
+    if a.aralik:
+        try:
+            ranges = [(float(b), float(e)) for b, e in (r.split("-", 1) for r in a.aralik)]
+        except ValueError:
+            ap.error("--aralik BAS-SON biçiminde olmalı (ör. 4.5-6.5)")
+    inputs = []
     for path in a.wav:
-        x = read_wav(path)
+        full = read_wav(path)
+        for rg in ranges:
+            name = path.name if rg is None else f"{path.name}@{rg[0]:g}-{rg[1]:g}"
+            inputs.append((name, path.name, full if rg is None else full[int(rg[0] * SR):int(rg[1] * SR)]))
+    for name, base, x in inputs:
         if a.telefon:
             x = telephone(x)
         audio_s += len(x) / SR
-        row = {"dosya": path.name, "sure_sn": round(len(x) / SR, 2), "dogru": refs.get(path.name, "")}
+        row = {"dosya": name, "sure_sn": round(len(x) / SR, 2), "dogru": refs.get(base, "") if name == base else ""}
         for name, eng, hw in engines:
             t0 = time.perf_counter()
             row[name] = eng(x, hw)  # type: ignore[operator]

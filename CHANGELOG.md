@@ -44,6 +44,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Sözde birden çok kişinin tam adı geçince "bulunamadı" yerine kodla "hangisi?" sorulur.
 - Arayan görüşmeyi bitirmek isteyince ("sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim") vedalaşıp kapatılır.
 - Asistanın sözü kesilerek söylenen ve anlaşılamayan söz deneme hakkından düşmez (operatöre gönderilmez).
+- VAD eşiği 0,5 → 0,35 (`STT_VAD_THRESHOLD`): hoparlör / yankı gidericiyle gelen kısa cevaplar kaçıyordu.
 - STT (sherpa): cümlenin ilk kelimesi düşmesin diye sesin önüne 0,3 sn sessizlik.
 - STT teşhis kaydı: çağrı kimliğinde nokta varsa her cümle aynı dosyanın üstüne yazılıyordu.
 - LLM düşük STT güvenli sözle aktarmak isterse aktarmaz, kodla teyit sorar (STT "ateşe girmem", güven 0,31 → aktarmıştı).
