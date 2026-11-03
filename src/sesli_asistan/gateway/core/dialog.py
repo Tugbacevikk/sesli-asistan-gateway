@@ -266,7 +266,8 @@ class DialogAgent:
             return turn
         failed_before = s.state.failed_attempts
         if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
-            if choice and {c.contact.id for c in s.state.choice} == {c.contact.id for c in choice}:
+            asked: tuple[Candidate, ...] = s.state.choice   # (mypy: yukarıdaki atama () olarak daraltıyor)
+            if choice and {x.contact.id for x in asked} == {x.contact.id for x in choice}:
                 # aynı soru yeniden: ilerleme yok, deneme sayılır (canlı 03.11.2026: "ayşe ırmak", "ayşe yüzmez"…
                 # her seferinde aynı soru, sayaç sıfırlandığı için hiç operatöre gitmedi)
                 s.state.failed_attempts = failed_before
@@ -1012,7 +1013,8 @@ def spoken_numbers(words: list[str]) -> list[str]:
     """Yazıyla söylenen dahili: "iki yüz on dört" → 214, "iki bir dört" → 214 (rakam rakam), çekim ekiyle de
     ("iki yüz on dörde" → 214; canlı deneme 03.11.2026'da ek "dörde" okunmayıp 210 çıkıyordu). STT bazen yazıyla
     yazar."""
-    out, run = [], []
+    out: list[str] = []
+    run: list[str] = []
     for w in [*words, ""]:
         if w and (base := _number_word(w, bool(run))) is not None:
             run.append(base)
