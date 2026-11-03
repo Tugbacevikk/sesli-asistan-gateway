@@ -229,9 +229,11 @@ def test_paket_imzasi_dogrulanmadan_kurulmaz(tmp_path):
 
 
 def test_dagitilamayan_model_varsayilan_olamaz():
-    # yalnız değerlendirme lisanslı modeller (ör. mihu) paket.sh / install.sh'ın indirdiği varsayılanlara giremez
+    # dağıtılamaz işaretli modeller paket.sh / install.sh'ın indirdiği varsayılanlara giremez; varsayılan STT modeli
+    # mihu (ADR-021) ve lisans dosyası modelle birlikte gelir
     import yaml
 
     models = yaml.safe_load((ROOT / "deploy/models.yaml").read_text(encoding="utf-8"))["models"]
     assert all(not m.get("varsayilan") for m in models.values() if m.get("dagitilmaz"))
-    assert models["turkish-stt-66m-v2"]["dagitilmaz"] is True
+    stt = [k for k, m in models.items() if m.get("varsayilan") and m.get("rol") == "stt"]
+    assert stt == ["turkish-stt-66m-v2"] and "LICENSE" in models["turkish-stt-66m-v2"]["dosyalar"]

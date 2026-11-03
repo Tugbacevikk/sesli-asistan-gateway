@@ -76,9 +76,10 @@ def test_motor_ayardan_secilir(monkeypatch):
     monkeypatch.setattr(server, "SherpaEngine", lambda p: made.setdefault("sherpa", p))
     monkeypatch.setattr(server, "WhisperEngine", lambda p: made.setdefault("whisper", p))
     server.load_engine(SttSettings(_env_file=None, engine="sherpa", sherpa_dir="m/x", sherpa_threads=3))
-    server.load_engine(SttSettings(_env_file=None))
+    server.load_engine(SttSettings(_env_file=None, engine="whisper"))
     assert made["sherpa"].model_dir == "m/x" and made["sherpa"].threads == 3
     assert made["whisper"].model_dir.endswith("faster-whisper-medium")
+    assert SttSettings(_env_file=None).engine == "sherpa"          # varsayılan mihu (ADR-021, 03.11.2026)
 
 
 def test_guven_whisper_olcegine_cevrilir():

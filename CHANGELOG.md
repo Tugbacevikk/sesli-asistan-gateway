@@ -15,8 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
-- İkinci STT motoru (ADR-021): `STT_ENGINE=sherpa` ile akışlı Zipformer transducer (sherpa-onnx, CPU; ör.
-  mihuai/turkish-stt-66m-v2 — lisansı yalnız değerlendirme). Varsayılan Whisper.
+- İkinci STT motoru (ADR-021): `STT_ENGINE=sherpa` ile akışlı Zipformer transducer (sherpa-onnx, CPU;
+  mihuai/turkish-stt-66m-v2).
 - Yerel LLM + MCP deneyi: `tools/mcp/` (rehber araçları MCP sunucusu, Ollama istemci döngüsü, 8 senaryo).
 - İzleme sekmesinde canlı çağrılar: santral çağrıları dahil, süren her çağrının konuşması (arayan / asistan,
   aktarma, ilk ses süresi) anında (`WS /v1/ui/canli`).
@@ -58,6 +58,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- **Varsayılan STT motoru mihu** (`STT_ENGINE=sherpa`, mihuai/turkish-stt-66m-v2, CPU): okuma ölçümünde hatasız,
+  en düşük kelime hatası, gerçek zamanın ~14 katı hızlı; STT için GPU gerekmez (kurulum GPU'yu yalnız
+  `STT_ENGINE=whisper` ise denetler). Whisper GPU'lu yedek olarak kalır.
 - Rehber dosyası varsayılan yeri `/var/lib/sesli-asistan/rehber.json` (Gateway yazabilsin diye; `/etc` systemd'de
   salt okunur). Eski kurulumlarda `/etc` altındaki dosya salt okunur çalışmaya devam eder.
 - `transfers` tablosuna tarih dizini (geçiş 2).

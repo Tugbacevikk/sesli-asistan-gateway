@@ -25,6 +25,8 @@ OUT = ROOT / "THIRD_PARTY_LICENSES.md"
 SERVICES = {"gateway": "Gateway", "stt": "STT", "stt-gpu": "STT", "tts": "TTS (Seslen)", "araclar": "Kurulum araçları"}
 
 MODELLER = [
+    ("turkish-stt-66m-v2 (mihu) — Powered by mihu", "STT modeli (varsayılan)", "mihu Community License v1.0",
+     "https://huggingface.co/mihuai/turkish-stt-66m-v2"),
     ("faster-whisper-medium (Systran, CTranslate2 dönüşümü)", "STT modeli", "MIT",
      "https://huggingface.co/Systran/faster-whisper-medium"),
     ("Whisper medium ağırlıkları (OpenAI)", "STT modeli", "MIT", "https://github.com/openai/whisper"),

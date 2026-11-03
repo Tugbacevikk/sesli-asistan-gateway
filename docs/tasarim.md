@@ -1149,7 +1149,10 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | *STT servisi (`stt.env`):* | | |
 | `STT_HOST` / `STT_PORT` | 127.0.0.1 / 50051 | Yalnızca yerel |
 | `STT_MAX_STREAMS` | 64 | Eşzamanlı akış üst sınırı |
-| `STT_MODEL_DIR` | models/faster-whisper-medium | Yedek: models/faster-whisper-small |
+| `STT_ENGINE` | sherpa | `sherpa` (mihu, CPU; varsayılan, ADR-021) / `whisper` (GPU) |
+| `STT_SHERPA_DIR` | models/turkish-stt-66m-v2 | mihu model klasörü |
+| `STT_SHERPA_THREADS` | 2 | Bir cümle çözümünün iş parçacığı sayısı |
+| `STT_MODEL_DIR` | models/faster-whisper-medium | Yalnız `STT_ENGINE=whisper`. Yedek: models/faster-whisper-small |
 | `STT_DEVICE` | auto | `auto` / `cuda` / `cpu` |
 | `STT_COMPUTE_TYPE` | auto | cuda'da float16, cpu'da int8 |
 | `STT_HOTWORDS` | false | Gateway'in rehber ad ipuçları motora verilsin mi. Okuma ölçümünde (03.11.2026) bozuk seste ipucu duyulmayan adları yazdırdı ("evet" → "yılmaz burak çelik"); `tools/stt/gorev_olc.py` ile ölçülerek seçilir |
@@ -1645,13 +1648,18 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   uydurdu; ayrıca gerçek zamanlı çalışması GPU ister. mihuai/turkish-stt-66m-v2 (Zipformer transducer, 66 M, ONNX)
   CPU'da gerçek zamanın ~11 katı hızlı ve yapısı gereği istem devamı uydurmaz.
 - **Karar:** STT servisine ikinci motor (`STT_ENGINE=sherpa`, `stt/sherpa_engine.py`); aynı arayüz, Gateway değişmez.
-  Varsayılan Whisper kalır.
+  **03.11.2026'dan beri varsayılan motor mihu (sherpa)**; Whisper GPU'lu yedek (`STT_ENGINE=whisper`).
+- **Ölçüm (03.11.2026, telefon hattından okuma listesi, 23 cümle, `tools/stt/gorev_olc.py`):** mihu WER %50,6,
+  14 doğru + 2 teyitle doğru, 0 yanlış teyit, 0 yanlış eylem, RTF 0,07 (CPU); Whisper medium aynı kayıtlarda WER
+  %72,9, 9 + 2, RTF 1,3–1,9 (4 GB GPU'da Ollama ile bellek çakışması). mihu GPU kullanmadığı için dil modeli GPU'yu
+  tek başına kullanır.
 - **Gerekçe:** Model değişikliği ölçüme bağlı (24 cümlelik okuma listesi, `tools/stt/karsilastir.py`); iki motor
   yan yana olunca karar ayar değişikliğiyle uygulanır ve geri alınır.
 - **Sonuç / sınırlar:** İlk sürüm cümle cümle çözer (kısmi sonuç / konuşurken yazma sonraki adım). Ad ipucu kullanılmaz
-  (ilk ölçümde etkisizdi). Güven ölçeği Whisper'dan farklı: `CONFIRM_BELOW` bu motor için ayrıca ayarlanmalı.
-  **Lisans:** mihu Community License — yıllık geliri 500.000 $ üstü kuruluşta ve ürünle dağıtımda ticari sözleşme
-  gerekir; model pakete girmez (`dagitilmaz`), varsayılan yapılmadan önce hukuk onayı şarttır.
+  (ilk ölçümde etkisizdi; Whisper'da da varsayılan kapalı, `STT_HOTWORDS`). Güven Whisper ölçeğine çevrilir
+  (`calibrate`), Gateway eşikleri ortak. Cümle başına 0,3 sn sessizlik eklenir (ilk kelime düşmesin).
+  **Lisans:** mihu Community License v1.0; kullanım ve dağıtım hakkı proje sahibince teyit edildi (03.11.2026);
+  "Powered by mihu" atfı THIRD_PARTY_LICENSES.md'de, LICENSE dosyası modelle birlikte dağıtılır.
 
 ---
 

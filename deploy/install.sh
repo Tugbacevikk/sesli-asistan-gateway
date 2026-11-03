@@ -90,7 +90,10 @@ on_kontrol() {
     else
         echo "  ✓ $($PY --version)"
     fi
-    if has stt && [[ $CPU -eq 0 ]]; then
+    # GPU yalnız Whisper motoruna gerekir (varsayılan mihu / sherpa işlemcide çalışır, ADR-021)
+    local motor=sherpa
+    [[ -f "$AYAR/stt.env" ]] && motor=$(sed -n 's/^STT_ENGINE=//p' "$AYAR/stt.env" | tail -1)
+    if has stt && [[ $CPU -eq 0 && ${motor:-sherpa} == whisper ]]; then
         if command -v nvidia-smi >/dev/null && nvidia-smi >/dev/null 2>&1; then
             echo "  ✓ GPU: $(nvidia-smi --query-gpu=name,driver_version,memory.total --format=csv,noheader | head -1)"
             local drv; drv=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1 | cut -d. -f1)

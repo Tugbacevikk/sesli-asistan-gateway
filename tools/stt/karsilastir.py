@@ -12,8 +12,7 @@ Her model ipucusuz ve (`--ipucu` verilirse) ipuçlu çalışır (sherpa-onnx'te 
 
 Çıktı: dosya başına her modelin metni ve süresi (tablo), özet (WER, CER, RTF) ve `--json` ile ayrıntı.
 Gereken paketler: faster-whisper (stt extra), sherpa-onnx (`pip install sherpa-onnx`), jiwer (dev extra).
-Modeller: Whisper → tools/models/indir.py; mihu → https://huggingface.co/mihuai/turkish-stt-66m-v2 (lisans: mihu
-Community License — yalnız değerlendirme; ürüne koymak ticari sözleşme ister).
+Modeller: tools/models/indir.py (mihu varsayılan; Whisper: --model faster-whisper-medium).
 """
 from __future__ import annotations
 

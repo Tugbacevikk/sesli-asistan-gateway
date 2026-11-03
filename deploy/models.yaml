@@ -12,8 +12,8 @@ mirror: null   # ör. https://dosya.sirket.local/sesli-asistan/models
 
 models:
   faster-whisper-medium:
-    rol: stt                     # varsayılan (ADR-010)
-    varsayilan: true
+    rol: stt-yedek               # STT_ENGINE=whisper (GPU); 03.11.2026'dan beri varsayılan mihu (ADR-021)
+    varsayilan: false
     lisans: MIT
     hf_repo: Systran/faster-whisper-medium
     hf_revision: 08e178d48790749d25932bbc082711ddcfdfbc4f   # 23.11.2023, depodaki son commit (26.10.2026)
@@ -48,12 +48,11 @@ models:
     sha256: {}
 
   turkish-stt-66m-v2:
-    rol: stt-deneme              # akışlı Zipformer transducer (sherpa-onnx, CPU)
-    varsayilan: false
-    # mihu Community License v1.0: yıllık geliri 500.000 $ altı kuruluşlara ücretsiz; yeniden dağıtım yok;
-    # "Powered by mihu" zorunlu. YALNIZ DEĞERLENDİRME: ürüne / pakete konmaz (ticari sözleşme: support@mihu.ai)
+    rol: stt                     # varsayılan (ADR-021): akışlı Zipformer transducer (sherpa-onnx, CPU), mihu
+    varsayilan: true
+    # mihu Community License v1.0 (LICENSE dosyası modelle gelir); "Powered by mihu" atfı THIRD_PARTY_LICENSES.md'de.
+    # Kullanım ve dağıtım hakkı proje sahibince teyit edildi (03.11.2026).
     lisans: mihu-community-1.0
-    dagitilmaz: true
     hf_repo: mihuai/turkish-stt-66m-v2
     hf_revision: null
     hedef: turkish-stt-66m-v2

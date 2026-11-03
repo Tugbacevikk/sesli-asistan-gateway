@@ -1,4 +1,4 @@
-"""İkinci STT motoru: akışlı Zipformer transducer (sherpa-onnx), ör. mihuai/turkish-stt-66m-v2 (`STT_ENGINE=sherpa`).
+"""Varsayılan STT motoru: akışlı Zipformer transducer (sherpa-onnx), mihuai/turkish-stt-66m-v2 (`STT_ENGINE=sherpa`).
 
 Whisper motoruyla (engine.py) aynı arayüz: `transcribe(16 kHz float32 cümle sesi, ipuçları) → SttResult`. Servis
 cümleyi VAD ile ayırıp verdiği için bu ilk sürümde model "cümle cümle" kullanılır; modelin asıl gücü olan
@@ -10,8 +10,7 @@ gibi istem / ipucu devamı uydurmaz. Sınırlar:
     yok sayılır (bir kez loglanır). Ad doğruluğu diyalogdaki teyit sorusu ve bulanık aramayla korunur.
   - Güven: belirteç log-olasılıklarının ortalamasının üsteli, Whisper ölçeğine çevrilir (`calibrate`): Gateway'in
     eşikleri (CONFIRM_BELOW 0,75, REPEAT_BELOW 0,5) motordan bağımsız aynı anlamda kalır.
-  - LİSANS: mihu Community License — yıllık geliri 500.000 $ üstü kuruluşta ve ürünle dağıtımda ticari sözleşme
-    gerekir (deploy/models.yaml: dagitilmaz). Model pakete girmez; kurulumda elle konur.
+  - Lisans: mihu Community License v1.0 (deploy/models.yaml, THIRD_PARTY_LICENSES.md: "Powered by mihu").
 """
 from __future__ import annotations
 
