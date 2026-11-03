@@ -95,9 +95,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--esik", type=float, action="append", default=[], help="Silero eşiği (tekrar verilebilir)")
     ap.add_argument("--vad-model", default="models/silero_vad.onnx")
     ap.add_argument("--sessizlik-ms", type=int, default=700, help="cümle sonu sessizliği (STT_ENDPOINT_SILENCE_MS)")
+    ap.add_argument("--on-tampon-ms", type=int, default=SegmenterConfig.pre_roll_ms,
+                    help="konuşma başlamadan önce alınan ses")
+    ap.add_argument("--en-az-ses", type=float, default=SegmenterConfig.min_voiced_sec,
+                    help="bundan kısa sesli süre atılır (öksürük / tık), sn")
     a = ap.parse_args(argv)
     x = read_wav(a.wav)
-    cfg = SegmenterConfig(end_silence_ms=a.sessizlik_ms)
+    cfg = SegmenterConfig(end_silence_ms=a.sessizlik_ms, pre_roll_ms=a.on_tampon_ms, min_voiced_sec=a.en_az_ses)
+    print(f"bölücü: sessizlik {cfg.end_silence_ms} ms, ön tampon {cfg.pre_roll_ms} ms, "
+          f"en az ses {cfg.min_voiced_sec} sn")
 
     lv = levels(x)
     print(f"{a.wav.name}: {len(x) / SAMPLE_RATE:.1f} sn, en yüksek {max(lv):.0f} dBFS, ortanca "
