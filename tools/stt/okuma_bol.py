@@ -6,7 +6,9 @@ sırasıyla), tools/stt/karsilastir.py --tsv tests/eval/okuma_listesi.tsv ile ö
 Cümleler STT servisiyle aynı cümle bölücüyle (Silero VAD) ayrılır; cümle sonu sessizliği burada uzun tutulur
 (varsayılan 1000 ms) ki cümle içindeki duraklar bölmesin — okurken cümleler arasında ~1,5 sn susun. Parça sayısı
 listeyle tutmazsa (öksürük, tekrar okunan cümle) dosyalar yine yazılır ve uyarılır: --atla ile o parçalar atılır.
-Her parçanın başına / sonuna 0,3 sn kayıttaki ses eklenir (kesilen hece kalmasın). Kayıtlar kişisel veridir:
+Her parçanın başına / sonuna en çok 0,3 sn kayıttaki ses eklenir (kesilen hece kalmasın); pay komşu cümleye
+taşmaz (aradaki sessizliğin yarısıyla sınırlı — 03.11.2026 ölçümünde taşan pay sonraki cümlenin ilk hecesini
+ekliyordu: "teknik destek lütfen insan"). Kayıtlar kişisel veridir:
 repoya girmez (.gitignore: okuma/), ölçümden sonra silin.
 """
 from __future__ import annotations
@@ -78,10 +80,11 @@ def main(argv: list[str] | None = None) -> int:
                   "bakıp fazlalığı --atla ile atın ya da eksik cümleyi yeniden okuyun.")
         names = [*listed[:len(utts)], *names[len(listed):]]
     a.cikti.mkdir(parents=True, exist_ok=True)
-    pad = int(PAD_S * rate)
-    for name, u in zip(names, utts, strict=True):
-        b, e = int(u.start * rate), int(u.end * rate)
-        write_wav(a.cikti / name, x[max(0, b - pad):e + pad], rate)
+    for i, (name, u) in enumerate(zip(names, utts, strict=True)):
+        before = PAD_S if i == 0 else min(PAD_S, max(0.0, (u.start - utts[i - 1].end) / 2))
+        after = PAD_S if i == len(utts) - 1 else min(PAD_S, max(0.0, (utts[i + 1].start - u.end) / 2))
+        b, e = int((u.start - before) * rate), int((u.end + after) * rate)
+        write_wav(a.cikti / name, x[max(0, b):e], rate)
         print(f"  {name}: {u.start:6.1f}–{u.end:6.1f} sn ({u.end - u.start:.1f} sn)")
     print(f"{len(utts)} parça → {a.cikti}/")
     return 0

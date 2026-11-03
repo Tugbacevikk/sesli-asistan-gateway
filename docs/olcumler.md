@@ -631,6 +631,28 @@ geçirildi; "evet / hayır" açık teyit sorusuna, "hiçbiri" seçim sorusuna ve
   2–3 kez çözüyor olabilir; turbo'nun medium'dan yavaş çıkması beklenmedik (GPU paylaşımı?). Hız, STT servisi
   kapalıyken yeniden ölçülecek (mihu karşılaştırmasıyla birlikte).
 
+#### mihu ↔ Whisper, aynı 23 kayıt (3 Kasım 2026, 11:15; STT servisi kapalı, Ollama açık)
+
+| ayar | WER % | doğru | teyitle doğru | kaçırma | yanlış teyit | YANLIŞ EYLEM | RTF |
+|---|---|---|---|---|---|---|---|
+| medium | 72,9 | 9 | 2 | 11 | 1 | 0 | 1,86 (GPU) |
+| medium, sıcaklık yedeksiz | 70,6 | 10 | 2 | 11 | 0 | 0 | 1,30 (GPU) |
+| large-v3-turbo | 68,2 | 12 | 1 | 9 | 1 | 0 | 2,37 (GPU) |
+| large-v3-turbo, yedeksiz | 70,6 | 11 | 1 | 9 | 1 | **1** ("hayır" → "evet") | 2,24 (GPU) |
+| **mihu** (sherpa, CPU) | **65,9** | 8 | 5 | 10 | 0 | 0 | **0,077** |
+
+- mihu faydalı sonuçta (doğru + teyitle doğru = 13) turbo'yla eşit, hatasız, en düşük WER; CPU'da gerçek zamanın
+  ~13 katı hızlı. Güveni düşük ölçekte (doğrular 0,48–0,65): 5 doğru sonuç teyit sorusuyla geldi → mihu için
+  `CONFIRM_BELOW` / `REPEAT_BELOW` ayrıca ayarlanmalı.
+- Whisper'ın RTF'si 1'in üstünde (26 Ekim ölçümünde aynı GPU'da çözüm 0,5–0,75 sn, RTF ~0,3): RTX 3050 Ti 4 GB'ta
+  Ollama'daki qwen3.5:4b (~3,7 GB) ile Whisper (medium ~2,2 GB, turbo ek) aynı belleğe sığmıyor → bellek taşması.
+  Canlı çağrılarda da aynı çakışma var (LLM turları 8–12 sn). mihu GPU kullanmadığı için bu çakışmayı kaldırır.
+- Sıcaklık yedeğini kapatmak medium'u hızlandırdı (1,86 → 1,30), doğruluğu bozmadı; turbo'da bir "hayır"ı "evet"e
+  çevirdi (yanlış aktarma) → yedek açık kalır.
+- Ölçüm kusuru: mihu metinlerinin sonunda sonraki cümlenin ilk hecesi var ("teknik destek lütfen **insan**",
+  "zeynep arslan **ki ben**"): `okuma_bol.py`'nin kenar payı komşu cümleye taşıyordu → düzeltildi; mihu'nun WER'i
+  ve güveni bundan olumsuz etkilendi, yeniden ölçülecek.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),
