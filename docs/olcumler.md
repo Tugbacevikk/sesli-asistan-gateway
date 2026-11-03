@@ -785,6 +785,19 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 - Eşik düşürmek bu sesi yakalar ama 0,2 karşılama yankısını da sayıyordu → önce dayanıklılık: soru açıkken ses
   gelmezse "Sizi duyamadım." + aynı soru (genel "duyamıyorum" yerine); soru açık kalır. Eşik için tarama yapılacak.
 
+#### VAD eşik taraması — iki çağrı (3 Kasım 2026, 14:38–14:40; en az ses 0,15)
+
+| çağrı | 0,35 | 0,3 | 0,25 | enerji | ne |
+|---|---|---|---|---|---|
+| …931 (14:38) | 4 parça | aynı (biraz uzun) | aynı | +20,7–21,4, +24,9–26,0 | ilk "evet" (Silero 0,34) hiçbirinde yok |
+| …999 (14:39) | 3 parça | **+16,9–17,7** | aynı | +16,7–17,4, +18,1–21,1 | 16,9: sorunun (13,4–15,7) hemen ardından "evet" |
+
+- 0,3: sorunun ardından gelen bir "evet"i ek olarak yakalıyor; asistanın konuştuğu aralıklarda (karşılama, soru)
+  yeni parça yok. 0,25 ek kazanç getirmiyor → **`STT_VAD_THRESHOLD` 0,35 → 0,3**.
+- İki çağrıda sorunun ardından gelen 2 "evet"in biri yine kaçıyor (Silero 0,34'te kalan çok kısa ses): kalanı
+  "Sizi duyamadım. + soru" karşılıyor.
+- Hoparlör + yankı giderici (2 Kasım A/B) 0,3'te ayrıca izlenecek (anons yankısı riski).
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

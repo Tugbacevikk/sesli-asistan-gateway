@@ -41,7 +41,9 @@ class SttSettings(BaseSettings):
     # Silero eşiği. 0,35: santral denemelerinde (02.11.2026, tools/stt/vad_incele.py) hoparlör + yankı gidericiyle gelen
     # konuşmanın olasılığı 0,4–0,8'de kalıyordu (0,5 kısa cevapları kaçırdı); 0,35 yalnız gerçek konuşma ekledi,
     # 0,2 karşılama anonsunun yankısını ve santral sesini de konuşma saydı.
-    vad_threshold: float = Field(0.35, gt=0, lt=1)
+    # 03.11.2026 (14:39–14:40, iki çağrı, STT_MIN_VOICED_S 0,15): 0,3 sorunun hemen ardından denen zayıf "evet"i
+    # yakaladı (0,35 kaçırdı), anons sırasında yeni parça eklemedi; 0,25 ek bir şey yakalamadı.
+    vad_threshold: float = Field(0.3, gt=0, lt=1)
     endpoint_silence_ms: int = Field(700, ge=100)
     speech_started_ms: int = Field(300, ge=0)   # bu kadar sesli konuşmadan sonra SPEECH_STARTED (barge-in)
     min_voiced_s: float = Field(0.15, gt=0, le=1)   # bundan kısa sesli süre cümle sayılmaz (öksürük, tık); vad.py
