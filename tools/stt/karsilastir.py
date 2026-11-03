@@ -66,6 +66,34 @@ class Whisper:
         return self.engine.transcribe(x, hotwords or None).text
 
 
+class WhisperVariant:
+    """Aynı yüklü modelle farklı çözme ayarı (ör. beam): model yeniden yüklenmez, çağrı süresince ayar değişir."""
+
+    def __init__(self, base: Whisper, **params: object):
+        self.base, self.params = base, params
+
+    def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
+        import dataclasses
+
+        eng = self.base.engine
+        old = eng.p
+        eng.p = dataclasses.replace(old, **self.params)
+        try:
+            return eng.transcribe(x, hotwords or None).text
+        finally:
+            eng.p = old
+
+
+def directory_hotwords(path: Path) -> list[str]:
+    """Gateway'in çağrı başında STT'ye verdiği ipucu listesi (rehberin tamamından, çağrı geçmişi önceliği yok)."""
+    from sesli_asistan.gateway.core.models import Contact
+    from sesli_asistan.gateway.core.search import DirectoryIndex
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    contacts = [Contact.from_api(c) for c in data.get("contacts", [])]
+    return DirectoryIndex([c for c in contacts if not c.deleted]).hotwords()
+
+
 class Sherpa:
     """Akışlı transducer (Zipformer): ses 0,1 sn'lik parçalarla verilir (santraldeki gibi), sonda 0,5 sn sessizlik.
     `hotwords` verilirse sherpa-onnx bağlam yanlılığı (contextual biasing) açılır: bpe.model'den kelime listesi
@@ -125,6 +153,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--whisper", action="append", default=[], help="faster-whisper model klasörü (birden çok)")
     ap.add_argument("--sherpa", action="append", default=[], help="sherpa-onnx transducer klasörü (birden çok)")
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
+    ap.add_argument("--rehber", type=Path, help="ipuçlarını Gateway gibi bu rehber dosyasından üret "
+                                                "(ör. data/rehber_ornek.json); --ipucu ile birlikte verilebilir")
+    ap.add_argument("--beam", type=int, action="append", default=[],
+                    help="Whisper'ı bu beam değerleriyle de çalıştır (ör. --beam 1 --beam 5; servis varsayılanı 2)")
     ap.add_argument("--tsv", type=Path, help="dosya<TAB>doğru metin (dosya adı ya da yolu)")
     ap.add_argument("--telefon", action="store_true", help="geniş bantlı kaydı önce 8 kHz G.711'e indir")
     ap.add_argument("--aralik", action="append", default=[], metavar="BAS-SON",
@@ -147,11 +179,19 @@ def main(argv: list[str] | None = None) -> int:
                     refs[Path(row[0].strip()).name] = row[1].strip()
 
     engines: list[tuple[str, object, list[str] | None]] = []
+    if a.rehber:
+        a.ipucu = [*directory_hotwords(a.rehber), *(h for h in a.ipucu)]
+        print(f"ipuçları ({len(a.ipucu)}): {', '.join(a.ipucu)}")
     for m in a.whisper:
         w = Whisper(m, a.device)
         engines.append((w.name, w, None))
         if a.ipucu:
             engines.append((w.name + "+ipucu", w, a.ipucu))
+        for b in a.beam:
+            v = WhisperVariant(w, beam_size=b)
+            engines.append((f"{w.name}+b{b}", v, None))
+            if a.ipucu:
+                engines.append((f"{w.name}+b{b}+ipucu", v, a.ipucu))
     for m in a.sherpa:
         sh = Sherpa(m, a.threads)
         engines.append((sh.name, sh, None))

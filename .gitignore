@@ -49,3 +49,4 @@ tools/santral/sipp/*.pcap
 # TTS ve zincir denemesi sesleri
 ses_ornekleri/
 sonuc_tts.json
+okuma/

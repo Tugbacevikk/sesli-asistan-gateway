@@ -49,3 +49,41 @@ def test_tablo_ve_wer(tmp_path, monkeypatch, capsys):
     s = json.loads(out.read_text())["ozet"]
     assert s["whisper:medium"]["WER"] == 50.0 and s["whisper:medium+ipucu"]["WER"] == 0.0
     assert s["whisper:medium+ipucu"]["tam"] == 1
+
+
+def test_rehberden_ipucu_gateway_ile_ayni():
+    h = k.directory_hotwords(ROOT / "data" / "rehber_ornek.json")
+    assert h[0] == "operatör" and "Ayşe Yılmaz" in h and "Muhasebe" in h
+
+
+def test_beam_cesidi_ayari_yalniz_cagri_boyunca_degistirir():
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class P:
+        beam_size: int = 2
+
+    class Eng:
+        p = P()
+
+        def transcribe(self, x, hotwords):
+            return type("R", (), {"text": f"b{self.p.beam_size}"})()
+
+    base = type("W", (), {"engine": Eng()})()
+    assert k.WhisperVariant(base, beam_size=5)(np.zeros(1), None) == "b5"
+    assert base.engine.p.beam_size == 2
+
+
+def test_aralik_parcalari_ayri_satir(tmp_path, monkeypatch, capsys):
+    class Fake:
+        def __init__(self, model_dir, device):
+            self.name = "whisper:x"
+
+        def __call__(self, x, hotwords):
+            return f"{len(x) / 16000:.1f}"
+
+    monkeypatch.setattr(k, "Whisper", Fake)
+    f = wav(tmp_path / "u.wav", 16000, 3.0)
+    assert k.main([str(f), "--whisper", "m", "--aralik", "0-1", "--aralik", "1.5-3"]) == 0
+    out = capsys.readouterr().out
+    assert "u.wav@0-1 | 1.0" in out and "u.wav@1.5-3 | 1.5" in out
