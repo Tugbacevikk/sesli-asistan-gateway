@@ -7,7 +7,7 @@ Zincir denemesi (mikrofonsuz arayan): gerçek konuşma kayıtları zaman çizgis
     python tools/tts/seslendir.py --metin "Ayşe hanım" --metin "Ayşe Yılmaz" --cikti ses_ornekleri
     python tools/santral/sipp/pcap_yap.py --ses ses_ornekleri/1.wav@5.2 --ses ses_ornekleri/2.wav@10.8 \\
         --sure 30 --cikti tools/santral/sipp/zincir.pcap
-    sipp ... -sf tools/santral/sipp/arayan_zincir.xml -m 1      (zincir.pcap'i çağrı cevaplanır cevaplanmaz oynatır)
+    cd tools/santral/sipp && sipp 127.0.0.1:5060 -sf arayan_zincir.xml -s 500 -au 1001 -ap ŞİFRE -m 1 -mi 127.0.0.1
 Saniyeler çağrının cevaplandığı andan itibarendir. STT teşhis kaydındaki çağrı sesi (`<çağrı>_akis.wav`,
 tools/stt/vad_incele.py) aynı saniyelerde bu sesleri tam içermelidir; eksikse ses santral / köprü / Gateway
 yolunda kayboluyor demektir (02.11.2026 santral denemesi: asistanın sözünün hemen ardından gelen cevaplar).
