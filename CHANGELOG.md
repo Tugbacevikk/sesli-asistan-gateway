@@ -55,6 +55,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - "Hangisi?" sorusuna bozuk duyulan cevap bir adayın soyadına açıkça yakınsa ("her şey uymaz" → Yılmaz) teyitle sorulur.
 - STT güveni çok düşük söz (`REPEAT_BELOW`, 0,5) LLM'e gitmez, kodla tekrar istenir (LLM anlamsız sözle
   aktarıyor / operatöre bağlıyordu).
+- STT güveni karar için yuvarlanmaz (0,495 → 0,5 sayılıp tekrar eşiğini geçiyordu).
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti

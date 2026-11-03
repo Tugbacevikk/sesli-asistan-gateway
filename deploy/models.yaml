@@ -54,10 +54,17 @@ models:
     # Kullanım ve dağıtım hakkı proje sahibince teyit edildi (03.11.2026).
     lisans: mihu-community-1.0
     hf_repo: mihuai/turkish-stt-66m-v2
-    hf_revision: null
+    hf_revision: bc2f77287cfc3ec2568cf5ba9f9181e1a43bfff4   # 03.11.2026, depodaki son commit
     hedef: turkish-stt-66m-v2
     dosyalar: [encoder.int8.onnx, decoder.int8.onnx, joiner.int8.onnx, tokens.txt, bpe.model, LICENSE]
-    sha256: {}
+    # 03.11.2026: Antigravity indirmesi (MANIFEST.json); okuma ölçümü ve canlı deneme bu dosyalarla yapıldı
+    sha256:
+      bpe.model: 85c2b26d039cf12e5b50a2e2cd388bcb5def81143bc2c000b051bc84a82cbfe4
+      decoder.int8.onnx: 9aabfabc289ce9ae738c1a0d77b7105d26678e75651bf9b696f52d6eb2e33a51
+      encoder.int8.onnx: bb045300f990cd17216f21213069e40e494d9f997b39276efdc74df5a0c25ea5
+      joiner.int8.onnx: ce373faa5d418a66f853406282a247c352e03f00c4d24a8a60bc73e310066757
+      LICENSE: 551e083575847adf8be6217ead3f305b7433f0f4c0360c972d66294312659a0e
+      tokens.txt: fc8914b269d37890a06052c7e63cb096e80edf66e63eb73d3409b05e13267f75
 
   silero-vad:
     rol: vad

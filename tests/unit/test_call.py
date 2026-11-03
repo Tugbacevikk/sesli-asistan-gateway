@@ -685,3 +685,16 @@ async def test_stt_guveni_diyaloga_ve_gozlemciye_gider():
         await c.until(lambda: c.session.stats.turns)
         assert c.session.dialog.stt_confidence == 0.62
         assert next(d for k, d in seen if k == "heard")["confidence"] == 0.62
+
+
+async def test_guven_yuvarlanmadan_karar_verilir():
+    # 0,4953 iki basamağa yuvarlanınca 0,5 olur ve tekrar eşiğinin (0,5) altında sayılmazdı (canlı deneme 03.11.2026)
+    seen = []
+    async with Call(Llm(LlmMessage("Tamam."))) as c:
+        c.session.observer = lambda k, d: seen.append((k, d))
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "bir firmam", 0.4953, 0, 900))
+        await c.until(lambda: c.session.stats.turns)
+        assert c.session.dialog.stt_confidence == 0.4953
+        assert next(d for k, d in seen if k == "heard")["confidence"] == 0.5          # arayüze iki basamak
+        assert c.session.stats.turns[-1].reply == c.session.dialog.agent.cfg.texts.not_understood

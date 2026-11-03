@@ -669,6 +669,29 @@ Kenar payı düzeltilince (`okuma_bol.py`) mihu: **WER %65,9 → %50,6**, CER %3
   0,3 → 0,5, 0,5 → 0,75, tekdüze): aynı 23 sonuç Gateway'in varsayılan eşikleriyle (0,75 / 0,5) 14 / 2 / 7 / 0 / 0.
 - Tek konuşmacı, 23 cümle: ölçek, canlı denemelerle ve başka konuşmacılarla doğrulanacak.
 
+### mihu asıl motor — canlı santral denemesi (3 Kasım 2026, 11:35; MicroSIP, kulaklık)
+
+STT: mihu (sherpa, CPU, güven Whisper ölçeğinde). GPU: yalnız Ollama (qwen3.5:4b, 3,7 GB; `ollama ps` 50/50 CPU/GPU,
+kartta 2,5 / 4 GB) — önceden Whisper medium ile birlikte sığmıyordu.
+
+| Söylenen | STT (güven) | Asistan | Süre |
+|---|---|---|---|
+| Ayşe hanım | "ayşe hanım'la görüşmek" (0,76) | "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" | kodla 0,02 |
+| Ayşe Yılmaz | **"bir firmam" (0,495)** | LLM Ayşe Kaya'ya aktarmak istedi → kodla teyit "Ayşe Kaya'ya mı…" | 3,7 sn |
+| Ayşe Yılmaz | "ayşe yılmaz" (0,78) | aktarma 214 ✓ | kodla 0,00 |
+| muhasebeye bağlar mısınız | "muhasebeye bağlanmak istiyorum" (0,80) | aktarma Muhasebe ✓ | kodla 0,01 |
+| Selin Aydın'ı arıyorum (rehberde yok) | "hüseyin aydın'a arıyorum" (0,81) | "bulamadım" ✓ | LLM 2,8 sn |
+| operatöre bağlanmak istiyorum | **"batıya bağlanmak istiyorum" (0,58)** | operatör ✓ | LLM 1,6 sn |
+| görüşmeyi sonlandırmak istiyorum | "görüşme sonlandırmak istiyorum" (0,78) | veda + kapatma ✓ | kodla 0,00 |
+
+- 7 sözden 6'sında doğru iş; yanlış aktarma yok (LLM'in yanlış seçimi teyit kapısında durdu).
+- **LLM turları 1,6–3,7 sn** (Whisper + Ollama aynı 4 GB GPU'dayken 8–12 sn).
+- Hata: güven 0,495 iki basamağa yuvarlanıp 0,5 sayıldı, tekrar eşiğini (0,5) geçip LLM'e gitti → karar artık tam
+  değerle, yuvarlama yalnız arayüzde.
+- mihu "operatöre"yi dar bantta tutturamıyor ("batıya", okumada "kafataya", "bir hafife"); bu denemede LLM bağlamdan
+  doğru anladı. Ad biçimleri iyi ("ayşe hanım'la", "muhasebeye").
+- Cümle başı ve sonu bu denemede kayıpsız (kulaklık; 1–2 sn sözler tam).
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

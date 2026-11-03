@@ -322,8 +322,10 @@ class CallSession:
         finals = [e for e in inputs if e.kind == "final" and e.data["text"]]
         heard = " ".join(e.data["text"] for e in finals)
         confs = [e.data["confidence"] for e in finals if e.data.get("confidence")]
-        conf = round(min(confs), 2) if confs else None   # yazarak denemede (güven yok) teyit sorulmaz
-        self._emit("heard", text=heard, confidence=conf)
+        # karar tam değerle (yuvarlama eşiği aşırmasın: canlı deneme 03.11.2026, güven 0,495 → 0,5 sayılıp tekrar
+        # istenmedi), arayüze iki basamak; yazarak denemede (güven yok) teyit sorulmaz
+        conf = min(confs) if confs else None
+        self._emit("heard", text=heard, confidence=round(conf, 2) if conf is not None else None)
         self.dialog.after_barge_in, self._barged = self._barged, False
         self.dialog.stt_confidence = conf
         self.state = CallState.THINKING
