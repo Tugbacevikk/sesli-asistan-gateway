@@ -823,12 +823,15 @@ bağlamamı istersiniz?" (14:24:12,9; ~15,3'te bitti) → **"evet" duyulmadı**,
 | Ç2 meşgul | "ayşe yılmaz" (0,83) → aktarma; 214 reddetti (neden 17 → busy) → "apetöre bağlanmak istiyorum" (0,56) → "evet" (0,82) | meşgul anonsu → operatör teyidi → operatör | ✓ |
 | Ç5-a LLM kapalı | "ayşe hanım" (0,80) → "ayşe yılmaz" (0,85) | soru → aktarma; 214 cevapladı | ✓ |
 | Ç5-b LLM kapalı | "hüseyin aydın arıyorum" (0,85) ×2 → "apato'ya bağlanmak istiyorum" (0,46) → "evet" (0,86) | bulamadım → yine bulamadım + operatör teklifi → operatör teyidi → operatör | ✓ |
+| Ç3 cevapsız | "iki yüz on dörde bağlanmak istiyorum" (0,80) → aktarma; 214 açılmadı, ~19 sn sonra softphone reddetti (neden 17 → busy) → "sonlandırmak istiyorum" (0,77) | meşgul anonsu → veda + kapatma | ✓ (cevapsız yerine meşgul: MicroSIP kendi zaman aşımında meşgul döndü, köprünün 25 sn'si dolmadan) |
+| Ç4 söze girme | karşılama sürerken (1,5. sn) "muhasebe" (0,81) | anons kesildi → Muhasebe (210; kayıtlı değil → ulaşılamıyor) → "görüşmeyi sonlandırmak istiyorum" (0,85) → kapatma | ✓ |
 
 - Gerçek aktarma (cevaplanan) baştan sona çalışıyor; meşgul sonucu Gateway'e iletiliyor, asistan seçenek sunuyor.
 - LLM kapalıyken (kural modu) de akış tamam: soru, aktarma, bulamadım, operatör teklifi.
 - Ç1'de "bir şey değil mi" (açık seçim sorusunda, güven 0,46) genel "anlayamadım" cümlesi aldı → artık seçim
   sorusu yinelenir (1fa587b).
-- Cevapsız (Ç3) ve söze girme (Ç4) sonuçları bu raporda yok.
+- Söze girme çalışıyor: anons 2,1 sn'de kesildi, söz doğru anlaşıldı, 1 sn'de cevap.
+- "Cevapsız" sonucu gerçek santralde ayrıca denenmeli (deneme softphone'u çalmayı kendisi meşgulle bitiriyor).
 
 ### Diyalog seti 30 → 110 senaryo, kural modu (3 Kasım 2026, `tests/eval/diyalog.py --kural`)
 
