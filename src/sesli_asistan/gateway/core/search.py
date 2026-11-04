@@ -115,8 +115,13 @@ class DirectoryIndex:
     """Bellek içi arama dizini. Rehber değişince `rebuild()` ile yeniden kurulur."""
 
     def __init__(self, contacts: Iterable[Contact] = (), min_score: int = 70, high_score: int = 90,
-                 margin: int = 5, limit: int = 3):
+                 margin: int = 5, limit: int = 3, person_aliases: bool = True):
+        """`person_aliases=False` (ALIAS_LOOKUP=mcp, ADR-023): kişi takma adları ("Ayşe Hanım", arayüzde eklenenler)
+        aramaya girmez; onları akışın 2. adımı (MCP `takma_ad_ara`) tam eşleşmeyle arar. Birim eş anlamlıları
+        ("İK", "Finans") kalır: belirsiz değiller ve diyalog kodu onları doğrudan kullanır."""
         self.min_score, self.high_score, self.margin, self.limit = min_score, high_score, margin, limit
+        self.person_aliases = person_aliases
+        self.version = 0                                      # her rebuild'de artar (önbellek geçersizleştirme)
         self._entries: list[tuple[Contact, list[str], list[str]]] = []
         self._contacts: list[Contact] = []
         self.extra_aliases: dict[str, tuple[str, ...]] = {}   # ayar ekranından: kayıt kimliği → ek takma adlar
@@ -149,14 +154,16 @@ class DirectoryIndex:
         for c in (*self._contacts, *self.local_contacts):
             if c.deleted or not c.transferable:
                 continue
-            extra = self.extra_aliases.get(c.id, ())
-            names = [c.full_name, c.first_name, c.last_name, c.title, *c.aliases, *extra]
+            extra = self.extra_aliases.get(c.id, ()) if self.person_aliases else ()
+            names = [c.full_name, c.first_name, c.last_name, c.title,
+                     *(c.aliases if self.person_aliases else ()), *extra]
             depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
         self._name_ix = _KeyTable([n for _, n, _ in entries])
         self._dept_ix = _KeyTable([d for _, _, d in entries])
         self._cache: dict[tuple[str, str], SearchResult] = {}
+        self.version += 1
         # Ayar ekranında eklenen takma adların tam biçimi: "Ayşe Abla" arama anahtarında "ayse"ye iner ve iki Ayşe'yle
         # çakışır; tam söylenirse (hitabıyla) yalnızca sahibi bulunur (27.10.2026 deneme). Yalnız yerel takma adlar:
         # yönetici bunu bilerek, bulunamayan bir aramadan ekler. Rehber kaynağındaki "Ayşe Hanım" gibi genel hitaplı
