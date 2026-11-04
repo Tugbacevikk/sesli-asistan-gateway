@@ -101,11 +101,11 @@ class SherpaService:
     """Servisteki mihu / sherpa motoru birebir (stt/sherpa_engine.py: baştaki sessizlik, güven); karar ölçümü
     bununla yapılır."""
 
-    def __init__(self, model_dir: str, threads: int):
+    def __init__(self, model_dir: str, threads: int, lm: str = "", lm_scale: float = 0.3):
         from sesli_asistan.stt.sherpa_engine import SherpaEngine, SherpaParams
 
-        self.engine = SherpaEngine(SherpaParams(model_dir=model_dir, threads=threads))
-        self.name = f"sherpa:{Path(model_dir).name}"
+        self.engine = SherpaEngine(SherpaParams(model_dir=model_dir, threads=threads, lm=lm, lm_scale=lm_scale))
+        self.name = f"sherpa:{Path(model_dir).name}" + (f"+lm{lm_scale:g}" if lm else "")
         self.last_conf: float | None = None
 
     def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
@@ -191,6 +191,9 @@ def main(argv: list[str] | None = None) -> int:
                          "verilebilir: her aralık ayrı satır")
     ap.add_argument("--bas-sessizlik", type=float, default=0.0,
                     help="sherpa'yı ayrıca sesin önüne bu kadar sn sessizlik ekleyerek de çalıştır (ör. 0.3)")
+    ap.add_argument("--lm", default="", help="santral dil modeli (tools/stt/dil_modeli/egit.py çıktısı, ADR-028)")
+    ap.add_argument("--lm-olcek", type=float, action="append", default=[],
+                    help="dil modeli ağırlığı; her biri ayrı koşu (ör. --lm-olcek 0.2 --lm-olcek 0.4); varsayılan 0.3")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--threads", type=int, default=2)
     ap.add_argument("--json", type=Path, help="ayrıntılı sonuç dosyası")
@@ -225,6 +228,9 @@ def main(argv: list[str] | None = None) -> int:
     for m in a.sherpa:
         sp = SherpaService(m, a.threads)
         engines.append((sp.name, sp, None))
+        for scale in (a.lm_olcek or [0.3]) if a.lm else []:
+            spl = SherpaService(m, a.threads, lm=a.lm, lm_scale=scale)
+            engines.append((spl.name, spl, None))
         if a.ipucu:
             for score in a.ipucu_puan or [1.5]:
                 try:

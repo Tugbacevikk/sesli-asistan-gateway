@@ -90,3 +90,29 @@ def test_guven_whisper_olcegine_cevrilir():
     ys = [calibrate(x) for x in xs]
     assert ys == sorted(ys)                                     # tekdüze: sıralama korunur
     assert calibrate(0.49) < 0.75 <= calibrate(0.5) and calibrate(0.29) < 0.5 <= calibrate(0.3)
+
+
+def test_dil_modeli_ayardan_motora_ve_sherpaya_gecer(monkeypatch, tmp_path):
+    """ADR-028: STT_LM_PATH / STT_LM_SCALE → SherpaParams → from_transducer(lm, lm_scale, lm_shallow_fusion)."""
+    from sesli_asistan.stt import server
+
+    made = {}
+    monkeypatch.setattr(server, "SherpaEngine", lambda p: made.setdefault("p", p))
+    server.load_engine(SttSettings(_env_file=None, engine="sherpa", lm_path=" lm.onnx ", lm_scale=0.4))
+    assert made["p"].lm == "lm.onnx" and made["p"].lm_scale == 0.4
+    assert SttSettings(_env_file=None).lm_path == ""                                # varsayılan: dil modeli yok
+
+    sherpa_onnx = pytest.importorskip("sherpa_onnx")
+    seen = {}
+    monkeypatch.setattr(sherpa_onnx.OnlineRecognizer, "from_transducer", staticmethod(lambda **kw: seen.update(kw)))
+    for f in ("encoder", "decoder", "joiner"):
+        (tmp_path / f"{f}.int8.onnx").write_bytes(b"")
+    (tmp_path / "tokens.txt").write_text("<blk> 0\n", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="STT_LM_PATH"):
+        SherpaEngine(SherpaParams(model_dir=str(tmp_path), lm=str(tmp_path / "yok.onnx")))
+    (tmp_path / "lm.onnx").write_bytes(b"")
+    SherpaEngine(SherpaParams(model_dir=str(tmp_path), lm=str(tmp_path / "lm.onnx"), lm_scale=0.25))
+    assert seen["lm"].endswith("lm.onnx") and seen["lm_scale"] == 0.25 and seen["lm_shallow_fusion"] is True
+    seen.clear()
+    SherpaEngine(SherpaParams(model_dir=str(tmp_path)))
+    assert "lm" not in seen

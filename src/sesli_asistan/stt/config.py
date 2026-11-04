@@ -20,6 +20,10 @@ class SttSettings(BaseSettings):
     engine: Literal["whisper", "sherpa"] = "sherpa"
     sherpa_dir: str = "models/turkish-stt-66m-v2"
     sherpa_threads: int = Field(2, ge=1)
+    # Santral dil modeli (ADR-028): mihu'nun ağırlıklarına dokunmadan, santral cümlelerini öğrenmiş küçük LSTM;
+    # çözümlemede akustik skora eklenir. Boş: yok. Ağırlık ölçümle seçilir (tools/stt/karsilastir.py --lm --lm-olcek).
+    lm_path: str = ""
+    lm_scale: float = Field(0.3, ge=0, le=2)
 
     # Gateway'in rehber ad ipuçları motora verilsin mi. Kapalı: okuma ölçümünde (03.11.2026, tools/stt/gorev_olc.py,
     # telefon hattı, 23 cümle) ipucu bozuk sesi rehber adına çevirdi ("operatöre bağlanmak istiyorum" → "ayşe

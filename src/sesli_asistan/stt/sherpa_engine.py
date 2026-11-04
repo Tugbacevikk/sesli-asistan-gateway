@@ -53,6 +53,8 @@ class SherpaParams:
     num_workers: int = 2            # aynı anda çözülen cümle
     decoding: str = "modified_beam_search"
     max_active_paths: int = 4
+    lm: str = ""                    # santral dil modeli (ONNX LSTM, tools/stt/dil_modeli; ADR-028); boş: yok
+    lm_scale: float = 0.3           # dil modeli skorunun ağırlığı (shallow fusion)
 
 
 class SherpaEngine:
@@ -74,11 +76,19 @@ class SherpaEngine:
         if missing:
             raise FileNotFoundError(f"{d}: {', '.join(missing)} yok: python tools/models/indir.py "
                                     "--model turkish-stt-66m-v2 (lisansı okuyun: deploy/models.yaml)")
-        log.info("sherpa-onnx transducer yükleniyor: %s (%d iş parçacığı)", d, self.p.threads)
+        extra: dict[str, Any] = {}
+        if self.p.lm:
+            if not Path(self.p.lm).exists():
+                raise FileNotFoundError(f"STT_LM_PATH {self.p.lm} yok (tools/stt/dil_modeli/egit.py)")
+            if self.p.decoding != "modified_beam_search":
+                raise ValueError("dil modeli yalnız modified_beam_search ile kullanılır")
+            extra = {"lm": self.p.lm, "lm_scale": self.p.lm_scale, "lm_shallow_fusion": True}
+        log.info("sherpa-onnx transducer yükleniyor: %s (%d iş parçacığı)%s", d, self.p.threads,
+                 f", dil modeli {self.p.lm} (ağırlık {self.p.lm_scale:g})" if self.p.lm else "")
         return sherpa_onnx.OnlineRecognizer.from_transducer(
             tokens=str(d / "tokens.txt"), encoder=str(files["encoder"]), decoder=str(files["decoder"]),
             joiner=str(files["joiner"]), num_threads=self.p.threads, sample_rate=SR, feature_dim=80,
-            decoding_method=self.p.decoding, max_active_paths=self.p.max_active_paths)
+            decoding_method=self.p.decoding, max_active_paths=self.p.max_active_paths, **extra)
 
     def warmup(self) -> None:
         self.transcribe(np.zeros(SR, np.float32))

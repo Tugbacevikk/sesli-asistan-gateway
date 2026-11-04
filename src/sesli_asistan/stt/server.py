@@ -32,7 +32,7 @@ def load_engine(s: SttSettings) -> WhisperEngine | SherpaEngine:
     """STT_ENGINE'e göre motor: whisper (varsayılan) ya da sherpa (akışlı transducer, CPU)."""
     if s.engine == "sherpa":
         return SherpaEngine(SherpaParams(model_dir=s.sherpa_dir, threads=s.sherpa_threads,
-                                         num_workers=s.num_workers))
+                                         num_workers=s.num_workers, lm=s.lm_path.strip(), lm_scale=s.lm_scale))
     return WhisperEngine(WhisperParams(model_dir=s.model_dir, device=s.device, compute_type=s.compute_type,
                                        beam_size=s.beam, num_workers=s.num_workers, cpu_threads=s.cpu_threads))
 
