@@ -1,7 +1,8 @@
-# Sesli asistan — rehber MCP sunucusu (ADR-022). Yalnız gateway.env'de LLM_TOOLS=mcp ise install.sh etkinleştirir.
-# Yalnız okur (rehber_ara, birimler, mesai_durumu); aktarma yapamaz. Dinlediği adres: MCP_HOST:MCP_PORT (127.0.0.1:8765)
+# Sesli asistan — rehber MCP sunucusu (ADR-022, ADR-023). gateway.env'de MCP_STEP=true ya da LLM_TOOLS=mcp ise
+# install.sh etkinleştirir. Yalnız okur (rehber_ara, konu_ara, birimler, mesai_durumu); aktarma yapamaz.
+# Dinlediği adres: MCP_HOST:MCP_PORT (127.0.0.1:8765)
 [Unit]
-Description=Sesli asistan rehber MCP sunucusu (LLM'in rehber araması)
+Description=Sesli asistan rehber MCP sunucusu (akışın 2. adımı: konu; LLM'in rehber araması)
 Documentation=https://github.com/Tugbacevikk/sesli-asistan-gateway/blob/main/docs/tasarim.md
 After=network-online.target
 Wants=network-online.target

@@ -47,6 +47,10 @@ class RemoteToolsPort(Protocol):
 
     async def in_contacts(self, args: dict[str, Any]) -> dict[str, Any]: ...
 
+    async def find_topic(self, text: str) -> dict[str, Any]:
+        """Akışın 2. adımı (ADR-023, `MCP_STEP`): sözdeki konu → {"adaylar": [{"id", "neden", "eslesen", "birim"}]}."""
+        ...
+
     async def ping(self) -> bool: ...                 # sağlık: sunucu cevap veriyor mu
 
     async def aclose(self) -> None: ...

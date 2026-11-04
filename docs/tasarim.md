@@ -700,8 +700,11 @@ Varsayılan: Ollama yerel API `POST /api/chat` (`think: false`, `stream: false`)
 `POST /v1/chat/completions` (llama.cpp, `chat_template_kwargs.enable_thinking=false`). Çekirdek yalnızca
 `LlmPort` arayüzünü bilir; geçmiş OpenAI biçiminde tutulur, Ollama adaptörü kendi biçimine çevirir (ADR-005).
 
-Araç tanımlarının tek kaynağı `gateway/core/tools.py`'dir. `LLM_TOOLS=mcp` ile LLM'in rehber araması (`InContacts`)
-rehber MCP sunucusunda yapılır (ADR-022); aktarma ve operatör her durumda Gateway'de kalır:
+Her arayan sözü üç adımdan geçer (ADR-023): **1. rehber** (Gateway, yerel kopya: ad, soyad, unvan, birim, dahili;
+hızlı yol, seçim, teyit) → **2. MCP** (yerel MCP sunucusu, `konu_ara`: "faturamla ilgili" → Muhasebe; `MCP_STEP`)
+→ **3. LLM** (yalnız ilk ikisinin çözemediği sözler). Araç tanımlarının tek kaynağı `gateway/core/tools.py`'dir.
+`LLM_TOOLS=mcp` ile LLM'in rehber araması (`InContacts`) rehber MCP sunucusunda yapılır (ADR-022); aktarma ve
+operatör her durumda Gateway'de kalır:
 
 | Araç | Parametreler | Ne yapar |
 |---|---|---|
@@ -1127,6 +1130,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `MCP_URL` | http://127.0.0.1:8765/mcp | Gateway'in bağlandığı rehber MCP sunucusu (Streamable HTTP) |
 | `MCP_TIMEOUT_S` | 1.0 | MCP araması bu sürede dönmezse arama Gateway'de yapılır (arayan beklemez) |
 | `MCP_HOST` / `MCP_PORT` | 127.0.0.1 / 8765 | Sunucunun dinlediği adres. Ağa açmak rehberi (ad, unvan, dahili) okunur kılar: bilinçli karar |
+| `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
+| `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu okur |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `NO_INPUT_QUESTION_TEXT`, `GREETING_REPLY_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |
@@ -1693,6 +1698,32 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   sırasında kapatılınca 9 arama yerele düştü, set %100. Düşük sunucuda zaman aşımı beklenmez (bulgu, düzeltildi).
 - **Sonuç:** Varsayılan `yerel`. MCP, ölçüm ve canlı santral denemesinden (Aşama 4) sonra açılır. Yeni bağımlılık:
   `mcp` (MIT) ve 15 alt paket (hepsi MIT / BSD / Apache).
+
+### ADR-023 — Akış: rehber → MCP → LLM; MCP'nin ilk görevi konu → birim
+- **Bağlam:** Ürün Türkiye genelinde farklı kurumlara dağıtılacak; rehberi her kurum kendisi getirir, kişi takma adı
+  ya da kuruma özel bilgi hazırlanacağı varsayılamaz. Kural modunda kalan başarısızlıkların çoğu arayanın kişi ya da
+  birim değil **konu** söylemesiydi ("sipariş vermek istiyorum", "faturamla ilgili"); bunları yalnız LLM (3–8 sn)
+  çözüyordu. Proje MCP'yi araç katmanı olarak istiyor (yetenek eklemek, ayrı test, kuruma göre araç seti).
+- **Karar:** Her söz üç adımdan geçer. (1) **Rehber** (Gateway içinde, yerel kopya): bugünkü kod yolları aynen.
+  (2) **MCP** (aynı makinedeki MCP sunucusu, `MCP_STEP`): `konu_ara(soz)` sözdeki konuyu birime eşler. Konu listesi
+  şirkete özel değildir: birimler ad kalıbıyla yazılır ("muhasebe", "finans", "mali işler") ve kurumun rehberindeki
+  gerçek birime eşlenir; karşılık yoksa ya da kalıp birden çok birime uyuyorsa sonuç boştur. Ürünle genel bir liste
+  gelir (`gateway/konular.json`: şirket ve kamu konuları); kurum kendi listesini verebilir (`MCP_TOPICS_PATH`,
+  birim yerine doğrudan dahili de yazılabilir). (3) **LLM**: kalan sözler.
+- **Kurallar:** Sözde rehberdeki bir kişinin adı geçiyorsa 2. adım atlanır (arayan kişiyi istiyor). Eşleşme bulanık
+  değil, söz geçmeli (ekler tolere edilir); birden çok konu geçerse en uzun söz kazanır ("su arızası" → su işleri).
+  MCP'nin döndürdüğü kimlikler Gateway'in kendi rehberinde aranır, aktarma TransferPolicy'den geçer, STT güveni
+  düşükse teyit sorulur. MCP ulaşılamazsa adım beklemeden atlanır (söz LLM'e gider).
+- **Kişi takma adları bu adıma alınmadı:** 114 senaryoda kişi takma adları aramada varken ve yokken sonuç birebir
+  aynıydı (%96,5, kural modu); "Ayşe Hanım" gibi hitaplı sözleri hitap atılarak rehber çözüyor (iki Ayşe → "hangisi?"),
+  unvanı rehberin unvan alanı. Kuruma özel lakap gerekirse konu listesinde dahiliye bağlanır.
+- **MCP sözleşmesi (kurum kendi sunucusunu yazarsa):** Streamable HTTP; araçlar yalnız okur. `konu_ara(soz: str)` →
+  `{"adaylar": [{"id": rehber kimliği, "neden": "konu", "eslesen", "birim"}]}` (2. adım için zorunlu);
+  `rehber_ara(ad, birim, dahili)` → `{"content": InContacts sonucu, "adaylar": [{"id", "puan"}]}` (`LLM_TOOLS=mcp`).
+  Cevap `MCP_TIMEOUT_S` (1 sn) içinde gelmeli. Kimlikler Gateway'in rehber kopyasındaki kimliklerdir.
+- **Ölçüm (04.11.2026, kural modu, 114 senaryo):** %96,5 → **%99,1**, izinsiz 0; üç konu senaryosu (D54–D56) LLM'siz
+  çözüldü, 46 konu sorgusunda yanlış eşleşme yok. Kurulum şablonunda açık (`MCP_STEP=true`, `LLM_TOOLS=mcp`); kod
+  varsayılanı kapalı (geliştirme ve testlerde MCP sunucusu gerekmesin).
 
 ---
 

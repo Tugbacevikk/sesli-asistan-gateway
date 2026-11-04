@@ -94,6 +94,13 @@ def search_key(text: str) -> str:
     return " ".join(w for w in t.split() if w not in _STOP and strip_suffix(w) not in _STOP)
 
 
+def fold_words(text: str) -> list[str]:
+    """Küçük harf, Türkçe harfler katlanmış sözcükler; ekler ve hitaplar **atılmaz** (konu sözcükleri için)."""
+    t = unicodedata.normalize("NFC", text or "")
+    t = re.sub(r"['’]\w*", "", t)
+    return strip_punct(turkish_lower(t)).translate(_FOLD).split()
+
+
 def alias_key(text: str) -> str:
     """Takma ad için anahtar: unvan / hitap **atılmaz** ("Ayşe Abla" ↔ "Ayşe Hanım" ayrı), ekler atılır."""
     t = unicodedata.normalize("NFC", text or "")
@@ -115,12 +122,8 @@ class DirectoryIndex:
     """Bellek içi arama dizini. Rehber değişince `rebuild()` ile yeniden kurulur."""
 
     def __init__(self, contacts: Iterable[Contact] = (), min_score: int = 70, high_score: int = 90,
-                 margin: int = 5, limit: int = 3, person_aliases: bool = True):
-        """`person_aliases=False` (ALIAS_LOOKUP=mcp, ADR-023): kişi takma adları ("Ayşe Hanım", arayüzde eklenenler)
-        aramaya girmez; onları akışın 2. adımı (MCP `takma_ad_ara`) tam eşleşmeyle arar. Birim eş anlamlıları
-        ("İK", "Finans") kalır: belirsiz değiller ve diyalog kodu onları doğrudan kullanır."""
+                 margin: int = 5, limit: int = 3):
         self.min_score, self.high_score, self.margin, self.limit = min_score, high_score, margin, limit
-        self.person_aliases = person_aliases
         self.version = 0                                      # her rebuild'de artar (önbellek geçersizleştirme)
         self._entries: list[tuple[Contact, list[str], list[str]]] = []
         self._contacts: list[Contact] = []
@@ -154,9 +157,8 @@ class DirectoryIndex:
         for c in (*self._contacts, *self.local_contacts):
             if c.deleted or not c.transferable:
                 continue
-            extra = self.extra_aliases.get(c.id, ()) if self.person_aliases else ()
-            names = [c.full_name, c.first_name, c.last_name, c.title,
-                     *(c.aliases if self.person_aliases else ()), *extra]
+            extra = self.extra_aliases.get(c.id, ())
+            names = [c.full_name, c.first_name, c.last_name, c.title, *c.aliases, *extra]
             depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries

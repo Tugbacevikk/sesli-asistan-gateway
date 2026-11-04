@@ -128,8 +128,13 @@ onceki_surum() {   # current dışındaki en yeni sürüm
     ls -1dt "$ONEK"/releases/*/ 2>/dev/null | sed 's:/$::' | grep -vx "${cur:-//}" | head -1
 }
 
-mcp_acik() {   # gateway.env'de LLM_TOOLS=mcp mi (ADR-022: LLM'in rehber araması MCP sunucusunda)
-    has gateway && [[ $(sed -n 's/^LLM_TOOLS=//p' "$AYAR/gateway.env" 2>/dev/null | tail -n1 | tr -d '"[:space:]') == mcp ]]
+ayar_degeri() {   # ayar_degeri <AD>: gateway.env'deki son değer (tırnak ve boşluk atılmış)
+    sed -n "s/^$1=//p" "$AYAR/gateway.env" 2>/dev/null | tail -n1 | tr -d '"[:space:]'
+}
+
+mcp_acik() {   # MCP sunucusu gerekli mi: MCP_STEP=true (ADR-023, akışın 2. adımı) ya da LLM_TOOLS=mcp (ADR-022)
+    has gateway && { [[ $(ayar_degeri MCP_STEP | tr '[:upper:]' '[:lower:]') == true ]] \
+        || [[ $(ayar_degeri LLM_TOOLS) == mcp ]]; }
 }
 
 servisleri_yeniden_baslat() {

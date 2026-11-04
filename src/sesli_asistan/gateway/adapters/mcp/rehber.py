@@ -42,6 +42,10 @@ class McpRehber:
         return await self.call("rehber_ara", {"ad": _s(args.get("Name")), "birim": _s(args.get("Department")),
                                               "dahili": _s(args.get("Extension"))})
 
+    async def find_topic(self, text: str) -> dict[str, Any]:
+        """Akışın 2. adımı: konu_ara(soz)."""
+        return await self.call("konu_ara", {"soz": text})
+
     async def call(self, tool: str, args: dict[str, Any]) -> dict[str, Any]:
         self._ensure()
         if self.down:

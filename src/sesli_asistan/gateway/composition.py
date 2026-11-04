@@ -53,14 +53,17 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        llm_timeout_s=s.llm_timeout_s, texts=s.dialog_texts(), fast_path=s.fast_path,
                        clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
                        confirm_below=s.confirm_below, repeat_below=s.repeat_below,
-                       code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback)
+                       code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback,
+                       mcp_step=s.mcp_step)
     remote = None
-    if s.llm_tools == "mcp":
+    if s.llm_tools == "mcp" or s.mcp_step:
         from .adapters.mcp.rehber import McpRehber
 
-        remote = McpRehber(s.mcp_url)        # ADR-022: LLM'in rehber araması MCP sunucusunda
-    return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index, remote=remote,
-                                                         remote_timeout_s=s.mcp_timeout_s), cfg)
+        # ADR-022: LLM'in rehber araması (LLM_TOOLS=mcp); ADR-023: LLM'den önce konu adımı (MCP_STEP)
+        remote = McpRehber(s.mcp_url)
+    tools = ToolRegistry(directory.index, remote=remote, remote_timeout_s=s.mcp_timeout_s,
+                         remote_search=s.llm_tools == "mcp")
+    return DialogAgent(llm or build_llm(s), tools, cfg)
 
 
 def build_tts(s: GatewaySettings) -> CachingTts:

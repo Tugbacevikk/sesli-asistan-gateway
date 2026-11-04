@@ -53,7 +53,7 @@ async def test_sunucu_yalniz_okur_aktarma_araci_yok(index):
 
     async with Client(build_server(lambda: index)) as c:
         names = {t.name for t in (await c.list_tools()).tools}
-    assert names == {"rehber_ara", "birimler", "mesai_durumu"}
+    assert names == {"rehber_ara", "konu_ara", "birimler", "mesai_durumu"}
 
 
 async def test_silinmis_ve_aktarilamaz_kayit_disari_cikmaz(remote):
@@ -247,3 +247,39 @@ async def test_arac_hatasi_baglantiyi_koparmaz():
         await r.call("hatali", {})
     assert await r.call("hizli", {}) == {"ok": True} and r._task is task and r.connected
     await r.aclose()
+
+
+async def test_konu_ara_mcp_uzerinden(index, remote):
+    data = await remote.find_topic("siparişimle ilgili arıyorum")
+    assert [a["id"] for a in data["adaylar"]] == ["d-satis"] and data["adaylar"][0]["neden"] == "konu"
+    assert (await remote.find_topic("merhaba"))["adaylar"] == []
+
+
+async def test_konu_tablosu_rehber_degisince_yenilenir(index):
+    from mcp import Client
+
+    from sesli_asistan.gateway.core.topics import Topic
+
+    srv = build_server(lambda: index, topics=[Topic(("fatura",), ("muhasebe",))])
+    async with Client(srv) as c:
+        first = await c.call_tool("konu_ara", {"soz": "faturam"})
+        index.rebuild([Contact("x", "", "", "Muhasebe", "999", kind="department")])
+        second = await c.call_tool("konu_ara", {"soz": "faturam"})
+    assert first.structured_content["adaylar"][0]["id"] == "d-muhasebe"
+    assert second.structured_content["adaylar"][0]["id"] == "x"
+
+
+async def test_akis_ayarlarla_kurulur(index):
+    from sesli_asistan.gateway.composition import build_agent
+    from sesli_asistan.gateway.config import GatewaySettings
+    from sesli_asistan.gateway.core.directory import DirectoryCache
+
+    class Src:
+        async def fetch(self, updated_since=None):
+            raise RuntimeError
+
+    d = DirectoryCache(Src(), index)
+    a = build_agent(GatewaySettings(_env_file=None, mcp_step=True), d, llm=object())
+    assert isinstance(a.tools.remote, McpRehber) and a.cfg.mcp_step and not a.tools.remote_search
+    b = build_agent(GatewaySettings(_env_file=None, mcp_step=True, llm_tools="mcp"), d, llm=object())
+    assert b.tools.remote_search

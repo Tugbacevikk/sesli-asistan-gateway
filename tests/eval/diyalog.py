@@ -10,6 +10,7 @@ burada yalnızca LLM payı ölçülür) ve NFR-05'i sağlayan en küçük model 
     python tests/eval/diyalog.py --kural            # LLM'siz (kural modu, ADR-019): Ollama gerekmez, kod yolları
     python tests/eval/diyalog.py --araclar mcp      # LLM'in rehber araması MCP sunucusunda (ADR-022; önce
                                                     #   python -m sesli_asistan.gateway.rehber_mcp)
+    python tests/eval/diyalog.py --mcp-adimi        # akış rehber → MCP (konu) → LLM (ADR-023; sunucu gerekir)
 
 Ön koşul: Ollama çalışıyor ve modeller çekilmiş (`ollama pull qwen3.5:9b`).
 """
@@ -131,11 +132,13 @@ def pct(values: list[float], p: float) -> float:
 
 
 async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
-                    rules: bool = False, tools: str = "yerel", mcp_url: str = "") -> dict[str, Any]:
+                    rules: bool = False, tools: str = "yerel", mcp_url: str = "",
+                    mcp_step: bool = False) -> dict[str, Any]:
     s = GatewaySettings()
     s.llm_model = model
     s.llm_enabled = not rules
     s.llm_tools = tools  # type: ignore[assignment]
+    s.mcp_step = mcp_step
     if mcp_url:
         s.mcp_url = mcp_url
     if timeout_s:
@@ -178,6 +181,8 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
         "rehber_aramasi_p50_ms": round(statistics.median(tool_ms), 2) if tool_ms else None,
         "rehber_aramasi_p95_ms": round(pct(tool_ms, 95), 2) if tool_ms else None,
         "mcp_hatasi": agent.tools.remote_failures,
+        "mcp_adimi": mcp_step, "konu_sorgusu": agent.tools.topic_calls, "konu_bulundu": agent.tools.topic_hits,
+        "konu_hatasi": agent.tools.topic_failures,
         "basarisizlar": sorted({r["id"] for r in results if not r["ok"]}),
         "ayrinti": results,
     }
@@ -216,6 +221,8 @@ async def main(argv=None) -> int:
     ap.add_argument("--araclar", choices=["yerel", "mcp"], default="yerel",
                     help="LLM'in rehber araması: yerel (Gateway içinde) ya da mcp (rehber MCP sunucusu, ADR-022)")
     ap.add_argument("--mcp-url", default="", help="varsayılan: MCP_URL (http://127.0.0.1:8765/mcp)")
+    ap.add_argument("--mcp-adimi", action="store_true",
+                    help="akış rehber → MCP (konu_ara) → LLM (ADR-023); MCP sunucusu çalışıyor olmalı")
     ap.add_argument("-v", action="store_true", help="başarısız senaryoların konuşmasını yaz")
     a = ap.parse_args(argv)
 
@@ -229,20 +236,23 @@ async def main(argv=None) -> int:
                                 text=True, check=False).stdout.strip()
     except OSError:
         commit = ""
-    report = {"commit": commit, "set": a.set, "araclar": a.araclar, "sonuclar": []}
-    print(f"araçlar: {a.araclar}")
+    report = {"commit": commit, "set": a.set, "araclar": a.araclar, "mcp_adimi": a.mcp_adimi, "sonuclar": []}
+    print(f"araçlar: {a.araclar}   akış: {'rehber → MCP → LLM' if a.mcp_adimi else 'rehber → LLM'}")
     print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'yanlış':>7} {'LLM hatası':>11} {'LLM/tur':>8} "
           f"{'p50 sn':>7} {'p95 sn':>7} {'arama':>6} {'ara p50 ms':>11} {'ara p95 ms':>11} {'MCP hata':>9}  "
           f"başarısızlar")
     for m in models:
         r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural, tools=a.araclar,
-                            mcp_url=a.mcp_url)
+                            mcp_url=a.mcp_url, mcp_step=a.mcp_adimi)
         report["sonuclar"].append(r)
         print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
               f"{r['llm_hatasi_turu']:>11} "
               f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7} "
               f"{r['rehber_aramasi']:>6} {r['rehber_aramasi_p50_ms']!s:>11} {r['rehber_aramasi_p95_ms']!s:>11} "
               f"{r['mcp_hatasi']:>9}  {','.join(r['basarisizlar'])}")
+        if a.mcp_adimi:
+            print(f"{'':16} konu adımı: {r['konu_sorgusu']} sorgu, {r['konu_bulundu']} bulundu, "
+                  f"{r['konu_hatasi']} hata")
         if a.v:
             by_id = {sc["id"]: sc for sc in scenarios}
             for d in r["ayrinti"]:

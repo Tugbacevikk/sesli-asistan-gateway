@@ -3,7 +3,8 @@
 Araç tanımları tek yerde durur. Araçlar Gateway içinde çalışır ve çağrı başına durum (`CallToolState`) üzerinde
 işlem yapar. `LLM_TOOLS=mcp` (ADR-022): LLM'in rehber araması (`InContacts`) rehber MCP sunucusunda yapılır (aynı
 arama: `in_contacts`); sonuç Gateway'in kendi rehberindeki kayıtlara çevrilir, aktarma yine buradaki
-TransferPolicy'den geçer. MCP ulaşılamazsa arama burada yapılır.
+TransferPolicy'den geçer. MCP ulaşılamazsa arama burada yapılır. `MCP_STEP` (ADR-023): LLM'den önce MCP'ye konu
+sorulur (`find_topic`); dönen kimlikler yine Gateway'in kendi rehberinde aranır.
 """
 from __future__ import annotations
 
@@ -107,13 +108,16 @@ def in_contacts(index: DirectoryIndex, args: dict[str, Any]) -> tuple[SearchResu
 
 class ToolRegistry:
     def __init__(self, index: DirectoryIndex, policy: TransferPolicy | None = None,
-                 remote: RemoteToolsPort | None = None, remote_timeout_s: float = 1.0):
+                 remote: RemoteToolsPort | None = None, remote_timeout_s: float = 1.0, remote_search: bool = True):
+        """`remote_search`: LLM'in InContacts araması MCP'de (LLM_TOOLS=mcp); False ise `remote` yalnız konu adımı."""
         self.index = index
         self.policy = policy or TransferPolicy()
         self.rejections = 0          # TransferPolicy'nin reddettiği aktarmalar (metrik: güvenlik incelemesi)
         self.remote, self.remote_timeout_s = remote, remote_timeout_s
         self.remote_calls = 0        # MCP'ye giden arama (metrik)
         self.remote_failures = 0     # MCP ulaşılamadı / zaman aşımı: yerel aramaya düşüldü
+        self.remote_search = remote_search
+        self.topic_calls = self.topic_hits = self.topic_failures = 0      # konu adımı (metrik)
 
     @property
     def schemas(self) -> list[dict[str, Any]]:
@@ -134,7 +138,8 @@ class ToolRegistry:
     async def execute_async(self, call: ToolCall, state: CallToolState) -> ToolOutcome:
         """LLM'in araç çağrısı. `LLM_TOOLS=mcp` ise rehber araması MCP sunucusunda (zaman sınırlı); ulaşılamazsa ya
         da başka araçsa `execute` (yerel)."""
-        if self.remote is not None and call.name == "InContacts" and not (call.raw_arguments and not call.arguments):
+        if (self.remote is not None and self.remote_search and call.name == "InContacts"
+                and not (call.raw_arguments and not call.arguments)):
             self.remote_calls += 1
             try:
                 data = await asyncio.wait_for(self.remote.in_contacts(call.arguments), self.remote_timeout_s)
@@ -143,6 +148,26 @@ class ToolRegistry:
                 self.remote_failures += 1
                 log.warning("MCP rehber araması olmadı (%s): yerel arama", e or type(e).__name__)
         return self.execute(call, state)
+
+    async def find_topic(self, text: str) -> tuple[Candidate, ...]:
+        """Akışın 2. adımı: MCP'ye sözdeki konu sorulur. Dönen kimlikler Gateway'in kendi rehberinde aranır
+        (bulunmayan atılır: MCP sunucusu kayıt uyduramaz). MCP yoksa, zaman aşımı ya da hata → () (söz LLM'e gider)."""
+        if self.remote is None:
+            return ()
+        self.topic_calls += 1
+        try:
+            data = await asyncio.wait_for(self.remote.find_topic(text), self.remote_timeout_s)
+        except Exception as e:
+            self.topic_failures += 1
+            log.warning("MCP konu araması olmadı (%s): adım atlandı", e or type(e).__name__)
+            return ()
+        cands = tuple(Candidate(c, 100) for a in data.get("adaylar", []) if isinstance(a, dict)
+                      if (c := self.index.get(str(a.get("id", "")))) is not None)
+        if cands:
+            self.topic_hits += 1
+            a0 = data["adaylar"][0]
+            log.info("MCP konu: %r → %s (%s)", a0.get("eslesen"), a0.get("birim"), [c.contact.extension for c in cands])
+        return cands
 
     def _remote_in_contacts(self, call: ToolCall, data: dict[str, Any], state: CallToolState) -> ToolOutcome:
         """MCP sonucu → çağrı durumu. Adaylar Gateway'in KENDİ rehberinden alınır (kimlikle): MCP sunucusu bir kayıt

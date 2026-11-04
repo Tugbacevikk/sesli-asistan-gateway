@@ -897,6 +897,23 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### Akış rehber → MCP → LLM, konu adımı (4 Kasım 2026, 10:04; ADR-023; kural modu, bulut ortamı)
+
+114 senaryo, `tests/eval/diyalog.py --kural`, yerel MCP sunucusu (genel konu listesi, 16 konu, örnek rehber):
+
+| akış | başarı | izinsiz | yanlış | başarısızlar |
+|---|---|---|---|---|
+| rehber → (LLM yerine kural) | %96,5 | 0 | 0 | D14, D54, D55, D56 |
+| rehber → **MCP** → (kural) | **%99,1** | 0 | 0 | D14 |
+
+- Konu adımı 46 söz için soruldu (rehberin çözemedikleri), 3'ünde konu buldu: D54 "sipariş vermek istiyorum" → Satış,
+  D55 "fiyat teklifi almak istiyorum" → Satış, D56 "faturamla ilgili bir sorun var" → Muhasebe; yanlış eşleşme yok.
+  Bu üçü LLM'li kurulumda LLM'e gidiyordu (3–8 sn); artık kodla.
+- Kişi takma adları: aramada varken ve yokken aynı set aynı sonuç (%96,5, aynı dört başarısızlık): katkısı yok
+  (hitap atılıyor, unvan aranıyor) → konu adımına alınmadı.
+- Kalan D14 ("ahmet bey vardı galiba" → rehberde yok, düşük skorla teyit) LLM gerektiriyor.
+- Gerçek LLM'le aynı ölçüm (LLM'e giden tur oranı, süre) dizüstünde yapılacak.
+
 ### Rehber MCP sunucusu — dizüstünde gerçek LLM ile (4 Kasım 2026, 09:28; ADR-022 Aşama 3)
 
 114 senaryo, qwen3.5:4b (Ollama), `tests/eval/diyalog.py --zaman-asimi 60`. "arama": LLM'in rehber araması

@@ -77,11 +77,14 @@ class GatewaySettings(BaseSettings):
     # LLM araçları (ADR-022): yerel = Gateway içinde | mcp = rehber araması rehber MCP sunucusunda (MCP_URL);
     # aktarma / operatör her zaman Gateway'de. MCP ulaşılamazsa o arama yerel yapılır.
     llm_tools: Literal["yerel", "mcp"] = "yerel"
+    # Akış (ADR-023): 1. rehber → 2. MCP (konu → birim, yerel MCP sunucusu) → 3. LLM. false: 2. adım yok
+    mcp_step: bool = False
     mcp_url: str = "http://127.0.0.1:8765/mcp"
     mcp_timeout_s: float = Field(1.0, gt=0)         # tek arama için; aşılırsa yerel arama
     # rehber MCP sunucusu (python -m sesli_asistan.gateway.rehber_mcp): yalnız yerel dinler (ağa açmak bilinçli)
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(8765, ge=1, le=65535)
+    mcp_topics_path: str = ""                       # kurumun konu listesi (JSON); boş: ürünle gelen genel liste
     llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog
     llm_fallback: bool = True                 # ADR-020: LLM düşerse çağrı reddedilmez, kural tabanlı sürer
 

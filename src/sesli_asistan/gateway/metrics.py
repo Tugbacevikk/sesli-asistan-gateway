@@ -99,6 +99,12 @@ class _RuntimeCollector:
         c.add_metric(["mcp"], tools.remote_calls - tools.remote_failures)
         c.add_metric(["yerel"], tools.remote_failures)
         yield c
+        c = CounterMetricFamily("mcp_topic_lookups", "Akışın 2. adımı: MCP'ye konu soruldu (MCP_STEP, ADR-023)",
+                                labels=["result"])
+        c.add_metric(["bulundu"], tools.topic_hits)
+        c.add_metric(["yok"], tools.topic_calls - tools.topic_hits - tools.topic_failures)
+        c.add_metric(["hata"], tools.topic_failures)
+        yield c
         totals: dict[str, int] = {}
         for _, st in rt.manager.results:
             for k, v in (st.rtp or {}).items():

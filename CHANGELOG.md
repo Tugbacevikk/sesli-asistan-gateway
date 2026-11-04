@@ -15,6 +15,11 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Akış rehber → MCP → LLM (ADR-023, `MCP_STEP`): rehber çözemeyince LLM'den önce yerel MCP sunucusuna konu sorulur
+  (`konu_ara`: "faturamla ilgili" → Muhasebe, "arızam var" → Teknik Destek). Ürünle genel konu listesi gelir
+  (şirket ve kamu konuları; birimler kurumun rehberine kendiliğinden eşlenir), kurum kendi listesini verebilir
+  (`MCP_TOPICS_PATH`). Kural modunda diyalog seti %96,5 → %99,1. Kurulum şablonunda açık; metrik
+  `mcp_topic_lookups_total`, değerlendirmede `--mcp-adimi`.
 - Rehber MCP sunucusu (ADR-022): `python -m sesli_asistan.gateway.rehber_mcp` / `sesli-mcp.service`, yalnız okuyan
   araçlar (`rehber_ara`, `birimler`, `mesai_durumu`), varsayılan yalnız 127.0.0.1:8765. `LLM_TOOLS=mcp` ile LLM'in
   rehber araması bu sunucuda; aktarma Gateway'de kalır, sunucu ulaşılamazsa arama yerelde (`MCP_TIMEOUT_S`).

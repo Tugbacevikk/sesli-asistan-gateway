@@ -113,6 +113,7 @@ class DialogConfig:
     code_replies: bool = True                # ADR-019: "bulunamadı" ve aktarma sonucu cümleleri kodla (LLM turu yok)
     llm_enabled: bool = True                 # ADR-019: false → LLM hiç kullanılmaz, kural tabanlı diyalog
     llm_fallback: bool = True                # ADR-020: LLM hata / zaman aşımında operatör yerine kural tabanlı tur
+    mcp_step: bool = False                   # ADR-023: rehber → MCP (konu) → LLM; LLM'den önce MCP'ye konu sorulur
     # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
     # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.
     confirm_below: float = 0.75
@@ -287,6 +288,8 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
             return turn
+        if self.cfg.mcp_step and (turn := await self._topic_step(s, text)) is not None:
+            return turn
         if (self.cfg.fast_path and (unknown_target(text) is not None or maybe_operator(text))
                 and not spoken_numbers(_folded_words(text)) and not self._mentions_person_or_department(text)):
             return self._confirm_operator(s, text)
@@ -427,6 +430,26 @@ class DialogAgent:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 log.info("[%s] dahili numara: %s → %s", s.call_id, log_text(text), digits)
                 return self._code_transfer(s, r.candidates[0])
+        return None
+
+    async def _topic_step(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Akışın 2. adımı (ADR-023): rehber (1. adım) çözemedi; yerel MCP sunucusuna sözdeki konu sorulur
+        ("faturamla ilgili" → Muhasebe, "arızam var" → Teknik Destek). Tek hedef → aktar (güven düşükse teyit), 2–3 kişi
+        → "hangisi?"; konu yok, MCP yok ya da belirsiz → None (3. adım: LLM). Sözde bir kişi adı geçiyorsa atlanır:
+        arayan kişiyi istiyor, konu yalnız gerekçe ("faturam için Ayşe Hanım'ı arıyorum")."""
+        if self._mentions_person(search_key(text).split()):
+            return None
+        cands = await self.tools.find_topic(text)
+        if len(cands) == 1:
+            log.info("[%s] konu (MCP): %s → %s", s.call_id, log_text(text), cands[0].contact.extension)
+            return self._code_transfer(s, cands[0])
+        if 2 <= len(cands) <= 3:
+            s.state.last_results, s.state.truncated = cands, False
+            if (turn := self._clarify(s, cands)) is not None:
+                log.info("[%s] konu (MCP): %s → soru %s", s.call_id, log_text(text),
+                         [c.contact.extension for c in cands])
+                turn.fast = True
+                return turn
         return None
 
     def _confirm_operator(self, s: DialogSession, text: str) -> DialogTurn:
