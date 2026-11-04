@@ -104,6 +104,7 @@ class DialogTexts:
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
     confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
     confirm_operator: str = "Sizi operatöre mi bağlamamı istersiniz?"
+    declined: str = "Peki. Kiminle ya da hangi birimle görüşmek istersiniz?"   # teyit sorusuna "hayır"
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -277,10 +278,11 @@ class DialogAgent:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
         lenient, s.after_barge_in = s.after_barge_in, False
         confirm, s.state.confirm = s.state.confirm, None
+        suggested, s.state.confirm_suggested = s.state.confirm_suggested, False
         op_confirm, s.state.confirm_operator = s.state.confirm_operator, False
         if not text:
             if confirm is not None:
-                s.state.confirm = confirm              # soru hâlâ açık
+                s.state.confirm, s.state.confirm_suggested = confirm, suggested    # soru hâlâ açık
             s.state.confirm_operator = op_confirm
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
@@ -288,11 +290,12 @@ class DialogAgent:
             # "selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
             # (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)
             s.state.confirm, s.state.confirm_operator = confirm, op_confirm
+            s.state.confirm_suggested = suggested
             log.info("[%s] yalnız selam: %s", s.call_id, log_text(text))
             reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
             reply.fast = True
             return reply
-        if confirm is not None and (turn := self._resolve_confirm(s, text, confirm)) is not None:
+        if confirm is not None and (turn := self._resolve_confirm(s, text, confirm, suggested)) is not None:
             return turn
         if op_confirm and (turn := self._resolve_operator_confirm(s, text)) is not None:
             return turn
@@ -439,13 +442,15 @@ class DialogAgent:
         turn.fast = True
         return turn
 
-    def _resolve_confirm(self, s: DialogSession, text: str, cand: Candidate) -> DialogTurn | None:
+    def _resolve_confirm(self, s: DialogSession, text: str, cand: Candidate,
+                         suggested: bool = False) -> DialogTurn | None:
         """Teyit sorusunun cevabı: evet → aktar; "hayır, Y" → Y aranır; yeni istek (kişi, birim, operatör, kapatma) →
         normal akış; geri kalan her şey (hayır, anlaşılmayan kısa söz) → bulamadım. Açık "evet" olmadan aktarılmaz."""
         raw = set(_folded_words(text))
         if raw & _NEGATION or raw & {"yanlis", "degil"}:
             if not self._mentions_person_or_department(text):
-                return self._not_found(s)
+                # öneri (konudan birim) reddedildi → "Peki, kiminle?"; yanlış duyulan ad → "adını tekrar söyler misiniz"
+                return self._declined(s) if suggested else self._not_found(s)
             # "hayır, Elif Şahin": düzeltme — olumsuzluk atılıp söylenen ad hızlı yolla aranır (yoksa LLM)
             rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
                             _NEGATION | {"yanlis", "degil"})
@@ -503,7 +508,9 @@ class DialogAgent:
             log.info("[%s] konu (MCP): %s → %s", s.call_id, log_text(text), cands[0].contact.extension)
             if self.cfg.topic_confirm:
                 # hedef arayanın sözünden değil konudan çıkarıldı: "Muhasebe'ye mi bağlamamı istersiniz?"
-                return self._confirm(s, cands[0].contact, why="konudan çıkarılan hedef")
+                asked = self._confirm(s, cands[0].contact, why="konudan çıkarılan hedef")
+                s.state.confirm_suggested = True
+                return asked
             return self._code_transfer(s, cands[0])
         if 2 <= len(cands) <= 3:
             s.state.last_results, s.state.truncated = cands, False
@@ -537,6 +544,16 @@ class DialogAgent:
                             _NEGATION | {"yanlis"})
             return self._fast_path(s, rest) if rest else None
         return None
+
+    def _declined(self, s: DialogSession) -> DialogTurn:
+        """Teyit sorusuna (öneriye) "hayır": arayan bir şey aramadı, öneriyi reddetti → "bulamadım" değil "Peki,
+        kiminle…?". Döngü olmasın diye deneme sayılır; sondan bir önceki denemede operatör teklifi eklenir."""
+        if (turn := self._count_failure(s)) is not None:
+            return turn
+        text = self.cfg.texts.declined
+        if s.state.failed_attempts == self.cfg.max_failed_attempts - 1:
+            text = f"{text} {self.cfg.texts.offer_operator_suffix}"
+        return self._reply(s, text)
 
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda

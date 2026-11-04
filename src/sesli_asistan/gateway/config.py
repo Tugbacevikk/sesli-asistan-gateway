@@ -17,7 +17,7 @@ from .core.schedule import OfficeHours
 TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
                "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
                "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm",
-               "confirm_operator", "no_input_question", "greeting_reply")
+               "confirm_operator", "no_input_question", "greeting_reply", "declined")
 _NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
@@ -157,6 +157,7 @@ class GatewaySettings(BaseSettings):
     goodbye_text: str = ""                    # arayan görüşmeyi bitirmek istedi (veda, sonra kapatılır)
     confirm_text: str = ""                    # {ad} {ad_e}: STT güveni düşükken aktarmadan önce teyit sorusu
     confirm_operator_text: str = ""           # hedef anlaşılmadığında "operatöre mi bağlayayım?" sorusu
+    declined_text: str = ""                   # teyit sorusuna "hayır" denince ("Peki. Kiminle … ?")
     no_input_question_text: str = ""          # soru açıkken arayan susunca, sorudan önce ("Sizi duyamadım.")
     greeting_reply_text: str = ""             # arayan yalnız selam verince ("Merhaba, kiminle görüşmek istersiniz?")
 

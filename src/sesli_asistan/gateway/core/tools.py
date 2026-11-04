@@ -73,6 +73,7 @@ class CallToolState:
     last_results: tuple[Candidate, ...] = ()
     choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
     confirm: Candidate | None = None        # arayana "X'e mi bağlayayım?" diye soruldu (STT güveni düşüktü)
+    confirm_suggested: bool = False         # o teyit bir öneriydi (konudan çıkarılan birim): "hayır" → "Peki, kiminle?"
     confirm_operator: bool = False          # arayana "operatöre mi bağlayayım?" diye soruldu (hedef anlaşılmadı)
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı
     pending_transfer: TransferAction | None = None

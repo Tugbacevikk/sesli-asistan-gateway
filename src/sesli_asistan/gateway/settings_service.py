@@ -55,6 +55,7 @@ TEXT_LABELS = {
     "goodbye": ("Arayan kapatmak istedi (veda)", ""),
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
+    "declined": ("Teyide \"hayır\" (öneri reddedildi)", ""),
     "no_input_question": ("Soru açıkken ses gelmedi (sorudan önce)", ""),
     "greeting_reply": ("Arayan yalnız selam verdi", ""),
 }

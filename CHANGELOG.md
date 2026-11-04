@@ -101,6 +101,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 ### Değişti
 - Konudan bulunan birime aktarmadan önce teyit sorulur ("Muhasebe'ye mi bağlamamı istersiniz?"; `TOPIC_CONFIRM`).
+  Öneriye "hayır" denince "bulamadım" değil "Peki. Kiminle ya da hangi birimle görüşmek istersiniz?" (`DECLINED_TEXT`);
+  STT güveni düşük teyidinde "hayır" eskisi gibi adı yeniden ister.
 - Rehber yenilemesi değişiklik yoksa loga yazılmaz (yalnız DEBUG düzeyinde).
 - **Varsayılan STT motoru mihu** (`STT_ENGINE=sherpa`, mihuai/turkish-stt-66m-v2, CPU): okuma ölçümünde hatasız,
   en düşük kelime hatası, gerçek zamanın ~14 katı hızlı; STT için GPU gerekmez (kurulum GPU'yu yalnız

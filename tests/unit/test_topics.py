@@ -121,7 +121,17 @@ async def test_konu_teyidine_hayir_aktarmaz(index):
     s = agent.new_session("x")
     await s.handle_user("faturamla ilgili bir sorun var")
     t = await s.handle_user("hayır")
-    assert t.actions == []
+    assert t.actions == [] and t.text == "Peki. Kiminle ya da hangi birimle görüşmek istersiniz?"
+    t = await s.handle_user("ayşe yılmaz ile görüşecektim")                 # bu kez ad söylendi
+    assert [a.extension for a in t.actions] == ["214"]
+
+
+async def test_konu_teyidinde_hayir_ve_ad(index):
+    agent, llm = _agent(index, Remote(TopicTable(index.contacts(), GENEL)))
+    s = agent.new_session("x")
+    await s.handle_user("faturamla ilgili bir sorun var")
+    t = await s.handle_user("hayır ayşe yılmaz ile görüşecektim")
+    assert [a.extension for a in t.actions] == ["214"] and llm.calls == 0
 
 
 async def test_konu_teyidi_kapatilabilir(index):
