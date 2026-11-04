@@ -130,6 +130,7 @@ class DialogConfig:
     llm_enabled: bool = True                 # ADR-019: false → LLM hiç kullanılmaz, kural tabanlı diyalog
     llm_fallback: bool = True                # ADR-020: LLM hata / zaman aşımında operatör yerine kural tabanlı tur
     mcp_step: bool = False                   # ADR-023: rehber → MCP (konu) → LLM; LLM'den önce MCP'ye konu sorulur
+    topic_confirm: bool = True               # ADR-023: konudan bulunan birime aktarmadan önce teyit
     prompt_template: str = ""                # ADR-024: sistem istemi şablonu ({kurum}); boş: SYSTEM_PROMPT
     prompt_departments: int = 0              # ADR-024: isteme kurumun birim listesi (en çok bu kadar); 0: yok
     few_shot: bool = False                   # ADR-024: isteme örnek konuşmalar (FEW_SHOT)
@@ -426,12 +427,13 @@ class DialogAgent:
         c = s.stt_confidence
         return c is not None and 0 < self.cfg.confirm_below and c < self.cfg.confirm_below
 
-    def _confirm(self, s: DialogSession, contact: Any) -> DialogTurn:
-        """STT güveni düşük: aktarmadan önce teyit. Santral denemesi (02.11.2026): rehberde olmayan "Tuğba Çevik" dar
-        bantlı seste "burak çelik" duyuldu; teyit sorusu yanlış kişiye aktarmayı önler."""
+    def _confirm(self, s: DialogSession, contact: Any, why: str = "") -> DialogTurn:
+        """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar
+        bantlı seste "burak çelik" duyuldu), yalnız adla söylendi ya da hedef konudan çıkarıldı (`why`)."""
         s.state.confirm = Candidate(contact, 100)
         name = contact.full_name if contact.kind != "department" else contact.department
-        log.info("[%s] düşük STT güveni (%.2f): %s teyit ediliyor", s.call_id, s.stt_confidence or 0, name)
+        log.info("[%s] %s: %s teyit ediliyor", s.call_id,
+                 why or f"düşük STT güveni ({s.stt_confidence or 0:.2f})", name)
         turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=dative(name),
                                                                        mi=question_particle(dative(name))))
         turn.fast = True
@@ -478,7 +480,8 @@ class DialogAgent:
             if len(cands) == 1:
                 log.info("[%s] kişi (MCP): %s → %s%s", s.call_id, log_text(text), cands[0].contact.extension,
                          "" if sure else " (teyit)")
-                return self._code_transfer(s, cands[0]) if sure else self._confirm(s, cands[0].contact)
+                return self._code_transfer(s, cands[0]) if sure else self._confirm(s, cands[0].contact,
+                                                                                    why="kişi kesin değil")
             if 2 <= len(cands) <= 3:
                 s.state.last_results, s.state.truncated = cands, False
                 if (turn := self._clarify(s, cands)) is not None:
@@ -498,6 +501,9 @@ class DialogAgent:
         cands = await self.tools.find_topic(text)
         if len(cands) == 1:
             log.info("[%s] konu (MCP): %s → %s", s.call_id, log_text(text), cands[0].contact.extension)
+            if self.cfg.topic_confirm:
+                # hedef arayanın sözünden değil konudan çıkarıldı: "Muhasebe'ye mi bağlamamı istersiniz?"
+                return self._confirm(s, cands[0].contact, why="konudan çıkarılan hedef")
             return self._code_transfer(s, cands[0])
         if 2 <= len(cands) <= 3:
             s.state.last_results, s.state.truncated = cands, False

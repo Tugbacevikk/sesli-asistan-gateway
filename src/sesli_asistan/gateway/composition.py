@@ -70,7 +70,8 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
                        confirm_below=s.confirm_below, repeat_below=s.repeat_below,
                        code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback,
-                       mcp_step=s.mcp_step, prompt_template=load_prompt(s.llm_prompt_path),
+                       mcp_step=s.mcp_step, topic_confirm=s.topic_confirm,
+                       prompt_template=load_prompt(s.llm_prompt_path),
                        prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot)
     remote = None
     if s.llm_tools == "mcp" or s.mcp_step:

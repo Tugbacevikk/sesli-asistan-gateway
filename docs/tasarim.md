@@ -1134,6 +1134,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_PROMPT_DEPARTMENTS` | 0 | ADR-024: isteme kurumun birim listesi (en çok N birim, rehberden); 0: yok |
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
+| `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu okur |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
@@ -1715,8 +1716,9 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   birim yerine doğrudan dahili de yazılabilir). (3) **LLM**: kalan sözler.
 - **Kurallar:** Sözde rehberdeki bir kişinin adı geçiyorsa 2. adım atlanır (arayan kişiyi istiyor). Eşleşme bulanık
   değil, söz geçmeli (ekler tolere edilir); birden çok konu geçerse en uzun söz kazanır ("su arızası" → su işleri).
-  MCP'nin döndürdüğü kimlikler Gateway'in kendi rehberinde aranır, aktarma TransferPolicy'den geçer, STT güveni
-  düşükse teyit sorulur. MCP ulaşılamazsa adım beklemeden atlanır (söz LLM'e gider).
+  MCP'nin döndürdüğü kimlikler Gateway'in kendi rehberinde aranır, aktarma TransferPolicy'den geçer. Hedef arayanın
+  sözünden değil konudan çıkarıldığı için aktarmadan önce teyit sorulur ("Muhasebe'ye mi bağlamamı istersiniz?";
+  `TOPIC_CONFIRM`, varsayılan açık; evet → aktar, hayır → yeniden sor, başka ad → o aranır). MCP ulaşılamazsa adım beklemeden atlanır (söz LLM'e gider).
 - **Kişi takma adları bu adıma alınmadı:** 114 senaryoda kişi takma adları aramada varken ve yokken sonuç birebir
   aynıydı (%96,5, kural modu); "Ayşe Hanım" gibi hitaplı sözleri hitap atılarak rehber çözüyor (iki Ayşe → "hangisi?"),
   unvanı rehberin unvan alanı. Kuruma özel lakap gerekirse konu listesinde dahiliye bağlanır.

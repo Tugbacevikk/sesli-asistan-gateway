@@ -265,16 +265,16 @@
   konusma: ["internetim çalışmıyor arıza var"]
   beklenen: {eylem: transfer, dahili: "300"}
 - id: D54
-  aciklama: Konudan birim (sipariş)
-  konusma: ["sipariş vermek istiyorum"]
+  aciklama: Konudan birim (sipariş); teyit → evet
+  konusma: ["sipariş vermek istiyorum", "evet"]
   beklenen: {eylem: transfer, dahili: "229"}
 - id: D55
-  aciklama: Konudan birim (fiyat teklifi)
-  konusma: ["fiyat teklifi almak istiyorum"]
+  aciklama: Konudan birim (fiyat teklifi); teyit → evet
+  konusma: ["fiyat teklifi almak istiyorum", "evet"]
   beklenen: {eylem: transfer, dahili: "229"}
 - id: D56
-  aciklama: Konudan birim (fatura)
-  konusma: ["faturamla ilgili bir sorun var"]
+  aciklama: Konudan birim (fatura); teyit → evet
+  konusma: ["faturamla ilgili bir sorun var", "evet"]
   beklenen: {eylem: transfer, dahili: "210"}
 - id: D57
   aciklama: Uzun, dolambaçlı; sonunda birim

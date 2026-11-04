@@ -107,10 +107,29 @@ def _agent(index, remote, step=True):
     return DialogAgent(llm, tools, DialogConfig(organization="D", mcp_step=step)), llm
 
 
-async def test_konu_llmsiz_birime_aktarilir(index):
+async def test_konu_teyitle_llmsiz_birime_aktarilir(index):
     agent, llm = _agent(index, Remote(TopicTable(index.contacts(), GENEL)))
-    t = await agent.new_session("x").handle_user("faturamla ilgili bir sorun var")
+    s = agent.new_session("x")
+    t = await s.handle_user("faturamla ilgili bir sorun var")
+    assert t.actions == [] and t.text == "Muhasebe'ye mi bağlamamı istersiniz?"
+    t = await s.handle_user("evet")
     assert [a.extension for a in t.actions] == ["210"] and llm.calls == 0 and "Muhasebe" in t.text
+
+
+async def test_konu_teyidine_hayir_aktarmaz(index):
+    agent, llm = _agent(index, Remote(TopicTable(index.contacts(), GENEL)))
+    s = agent.new_session("x")
+    await s.handle_user("faturamla ilgili bir sorun var")
+    t = await s.handle_user("hayır")
+    assert t.actions == []
+
+
+async def test_konu_teyidi_kapatilabilir(index):
+    llm = Llm()
+    tools = ToolRegistry(index, remote=Remote(TopicTable(index.contacts(), GENEL)), remote_search=False)
+    agent = DialogAgent(llm, tools, DialogConfig(organization="D", mcp_step=True, topic_confirm=False))
+    t = await agent.new_session("x").handle_user("faturamla ilgili bir sorun var")
+    assert [a.extension for a in t.actions] == ["210"]
 
 
 async def test_rehber_once_mcp_sonra(index):

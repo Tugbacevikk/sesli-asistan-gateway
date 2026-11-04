@@ -100,6 +100,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Konudan bulunan birime aktarmadan önce teyit sorulur ("Muhasebe'ye mi bağlamamı istersiniz?"; `TOPIC_CONFIRM`).
 - Rehber yenilemesi değişiklik yoksa loga yazılmaz (yalnız DEBUG düzeyinde).
 - **Varsayılan STT motoru mihu** (`STT_ENGINE=sherpa`, mihuai/turkish-stt-66m-v2, CPU): okuma ölçümünde hatasız,
   en düşük kelime hatası, gerçek zamanın ~14 katı hızlı; STT için GPU gerekmez (kurulum GPU'yu yalnız

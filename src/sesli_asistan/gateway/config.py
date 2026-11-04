@@ -83,6 +83,7 @@ class GatewaySettings(BaseSettings):
     llm_tools: Literal["yerel", "mcp"] = "yerel"
     # Akış (ADR-023): 1. rehber → 2. MCP (konu → birim, yerel MCP sunucusu) → 3. LLM. false: 2. adım yok
     mcp_step: bool = False
+    topic_confirm: bool = True                      # konudan bulunan birime aktarmadan önce "…'ye mi bağlayayım?"
     mcp_url: str = "http://127.0.0.1:8765/mcp"
     mcp_timeout_s: float = Field(1.0, gt=0)         # tek arama için; aşılırsa yerel arama
     # rehber MCP sunucusu (python -m sesli_asistan.gateway.rehber_mcp): yalnız yerel dinler (ağa açmak bilinçli)

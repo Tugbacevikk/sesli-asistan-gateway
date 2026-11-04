@@ -66,16 +66,16 @@
   konusma: ["sağlık müdürlüğü lütfen"]
   beklenen: {eylem: transfer, dahili: "5000"}
 - id: K17
-  aciklama: Konu → nüfus
-  konusma: ["pasaport işlemi için arıyorum"]
+  aciklama: Konu → nüfus; teyit → evet
+  konusma: ["pasaport işlemi için arıyorum", "evet"]
   beklenen: {eylem: transfer, dahili: "6000"}
 - id: K18
-  aciklama: Konu → imar
-  konusma: ["imar durumu için arıyorum"]
+  aciklama: Konu → imar; teyit → evet
+  konusma: ["imar durumu için arıyorum", "evet"]
   beklenen: {eylem: transfer, dahili: "7000"}
 - id: K19
-  aciklama: Konu (en belirli) → su idaresi
-  konusma: ["su arızası bildireceğim"]
+  aciklama: Konu (en belirli) → su idaresi; teyit → evet
+  konusma: ["su arızası bildireceğim", "evet"]
   beklenen: {eylem: transfer, dahili: "7200"}
 - id: K20
   aciklama: Kurum adı tek sözcük
