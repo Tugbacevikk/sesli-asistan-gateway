@@ -48,6 +48,7 @@ gateway = [
     "grpcio>=1.85.0",
     "protobuf>=7.35.1",
     "mcp>=2.3",            # rehber MCP sunucusu ve istemcisi (LLM_TOOLS=mcp, ADR-022)
+    "G722>=1.2.8",         # geniş bant ses (santral codec=g722, ADR-027); kamu malı (sippy/libg722)
 ]
 tools = [
     "soundfile",

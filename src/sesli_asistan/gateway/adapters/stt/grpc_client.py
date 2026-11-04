@@ -32,6 +32,12 @@ _TYPE = {stt_pb2.SttEvent.SPEECH_STARTED: "speech_started", stt_pb2.SttEvent.PAR
 _END = object()
 
 
+def stream_format(codec: str, sample_rate_hz: int = 8000) -> tuple[str, int]:
+    """Santral kodeği → STT'ye giden biçim. G.722'yi RTP alıcısı çözer (durumlu, çağrı başına): STT'ye 16 kHz PCM16
+    gider (ADR-027). G.711 baytları olduğu gibi gider, STT çözer."""
+    return ("pcm16", 16000) if codec == "g722" else (codec, sample_rate_hz)
+
+
 class GrpcStt:
     def __init__(self, target: str = "127.0.0.1:50051", connect_timeout_s: float = 2.0,
                  channel: grpc.aio.Channel | None = None):
@@ -67,6 +73,7 @@ class GrpcStt:
 
     async def open(self, call_id: str, codec: str, hotwords: list[str] | None = None,
                    sample_rate_hz: int = 8000) -> GrpcSttStream:
+        codec, sample_rate_hz = stream_format(codec, sample_rate_hz)
         if codec not in _CODEC:
             raise ValueError(f"desteklenmeyen codec: {codec}")
         try:

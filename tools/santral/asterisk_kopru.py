@@ -281,7 +281,7 @@ class AriHttp:
         await self.http.delete(f"/bridges/{bridge}")
 
     async def external_media(self, host_port: str, codec: str) -> str:
-        fmt = {"pcma": "alaw", "pcmu": "ulaw"}[codec]
+        fmt = {"pcma": "alaw", "pcmu": "ulaw", "g722": "g722"}[codec]
         ch = await self._post("/channels/externalMedia", app=self.app, external_host=host_port, format=fmt,
                               encapsulation="rtp", transport="udp", connection_type="client", direction="both")
         v = ch.get("channelvars") or {}
@@ -340,7 +340,7 @@ async def run(a: argparse.Namespace) -> None:
     import websockets
 
     ari = AriHttp(a.ari, a.ari_kullanici, a.ari_sifre)
-    bridge = Bridge(ari, GatewayHttp(a.gateway, a.gateway_anahtar), a.rtp_host, a.operator)
+    bridge = Bridge(ari, GatewayHttp(a.gateway, a.gateway_anahtar), a.rtp_host, a.operator, codec=a.codec)
     app = FastAPI()
 
     @app.post("/v1/calls/{cid}/actions", status_code=202)
@@ -382,6 +382,8 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--rtp-host", default="127.0.0.1", help="Asterisk'in Gateway'e RTP göndereceği adres")
     ap.add_argument("--dinle", default="127.0.0.1:8100", help="Gateway eylemleri için (PBX_BASE_URL)")
     ap.add_argument("--operator", default="900", help="operatör dahilisi")
+    ap.add_argument("--codec", choices=["pcma", "pcmu", "g722"], default="pcma",
+                    help="Asterisk ↔ Gateway ses kodeği; g722: geniş bant (softphone da G.722 konuşmalı, ADR-027)")
     a = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
     with contextlib.suppress(KeyboardInterrupt):

@@ -20,7 +20,7 @@ from .ports import MediaPort
 
 log = logging.getLogger(__name__)
 
-CODECS = ("pcma", "pcmu")
+CODECS = ("pcma", "pcmu", "g722")       # g722: geniş bant (ADR-027)
 
 
 class CallError(Exception):
@@ -109,7 +109,7 @@ class CallManager:
         if not req.call_id:
             raise BadRequest("call_id boş")
         if req.codec not in CODECS:
-            raise BadRequest(f"desteklenmeyen codec: {req.codec} (pcma | pcmu)")
+            raise BadRequest(f"desteklenmeyen codec: {req.codec} (pcma | pcmu | g722)")
         self._admit(req.call_id)
         self._reserved.add(req.call_id)   # await'ler sırasında aynı call_id ikinci kez açılamasın
         media, port = None, None

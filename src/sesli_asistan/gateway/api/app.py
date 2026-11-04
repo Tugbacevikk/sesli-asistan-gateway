@@ -39,7 +39,7 @@ class CreateCall(BaseModel):
     call_id: str = Field(min_length=1, max_length=128)
     caller: str = ""
     called: str = ""
-    codec: Literal["pcma", "pcmu"] = "pcma"
+    codec: Literal["pcma", "pcmu", "g722"] = "pcma"     # g722: geniş bant (16 kHz), STT'de s / ş / f daha iyi
     rtp_remote: RtpRemote | None = None
 
 

@@ -124,7 +124,7 @@ tek referans kaynağıdır.
 |---|---|---|
 | FR-01 | Sistem, santralin bildirdiği her yeni çağrı için ayrı bir oturum açmalıdır. | Zorunlu |
 | FR-02 | Sistem, çağrı açıldığında ayardan gelen karşılama mesajını seslendirmelidir. | Zorunlu |
-| FR-03 | Sistem, G.711 A-law ve μ-law 8 kHz RTP sesini alabilmelidir. | Zorunlu |
+| FR-03 | Sistem, G.711 A-law ve μ-law 8 kHz RTP sesini alabilmelidir; santral destekliyorsa G.722 (16 kHz) de (ADR-027). | Zorunlu |
 | FR-04 | Sistem, arayanın Türkçe konuşmasını metne çevirmelidir. | Zorunlu |
 | FR-05 | Sistem, kişi adı, departman, unvan veya takma ada göre rehberde arama yapabilmelidir. | Zorunlu |
 | FR-06 | Sistem, Türkçe karakter farklarına ve STT yazım hatalarına dayanıklı (bulanık) arama yapmalıdır. | Zorunlu |
@@ -880,7 +880,7 @@ Eşik değerleri (90, deneme sayısı) ayarlanabilir; test setiyle kalibre edili
 |---|---|---|
 | `call_id` | string | Santralin çağrı kimliği |
 | `state` | enum | Bkz. 5.1.1 |
-| `codec` | enum | `pcma` / `pcmu` |
+| `codec` | enum | `pcma` / `pcmu` / `g722` (geniş bant, ADR-027) |
 | `rtp_port` | int | Gateway'in giriş portu |
 | `rtp_remote` | host:port | Santralin ses alma adresi |
 | `history` | liste | LLM konuşma geçmişi (en fazla son N tur) |
@@ -1753,6 +1753,19 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
 - **Aktarılamaz makam:** "valiyle görüşmek istiyorum" → Vali aday olmaz; söz kurumun genel hattına (kalem) gider.
 - **Ölçüm (04.11.2026, kural modu):** şirket seti 123 senaryo %96,7 → **%99,2**; sentetik kamu seti
   (`tests/data/kamu_rehber.json`, `diyalog_seti_kamu.yaml`, 21 senaryo) %66,7 → **%100**; izinsiz 0.
+
+### ADR-027 — Geniş bant ses: G.722 (santral destekliyorsa)
+- **Bağlam:** Ölçüm (04.11.2026, aynı mikrofon kaydı 16 kHz ↔ 8 kHz G.711): toplam WER aynı (%39,3) ama s / ş
+  sesleri hatta kayboluyor: "sipariş" → "taş", "şifremi" → "şifemi", "sevkiyat" → "sevgi"; tam doğru 6 → 3. G.711'in
+  4 kHz sınırı hışırtılı seslerin enerjisini atıyor. Canlıda da aynı ("sipariş" → "harş", "satış" → "taş").
+- **Karar:** Santral `POST /v1/calls` içinde `codec: "g722"` gönderebilir (RTP yük türü 9). Giriş: RTP alıcısı
+  G.722'yi çözer (durumlu ADPCM, çağrı başına çözücü), STT'ye **16 kHz PCM16** gider (STT servisi değişmedi). Çıkış:
+  asistan sesi çekirdekte 8 kHz üretilir, gönderici 16 kHz'e çıkarıp G.722 kodlar (arayanın duyduğu kalite aynı; TTS
+  yolunu genişletmek sonraki adım). RTP saati RFC 3551 gereği 8000: 20 ms = 160 bayt, zaman damgası 160 ilerler.
+  Kitaplık `G722` (sippy/libg722, kamu malı, pip; Windows ve Linux tekerlekleri). Varsayılan `pcma`.
+- **Koşul:** Uçtan uca geniş bant olmalı: softphone ↔ santral ↔ Gateway. Santral dar bantlı bir ucu G.722'ye
+  çevirirse (transcoding) kazanç olmaz. Ürünün bağlanacağı santralin desteği santral ekibine sorulacak. Deneme
+  santrali: `pjsip.conf` `allow=g722,alaw,ulaw`, köprü `--codec g722`, MicroSIP'te G.722 açık ve en üstte.
 
 ### ADR-026 — STT'nin bozduğu adlar için ses benzerliği (yalnız teyitle)
 - **Bağlam:** Ölçüm (04.11.2026, mihu, 16 ve 8 kHz): asıl kayıp adlarda ve iki bantta da: "Ayşe Yılmaz" → "ağlayamaz",

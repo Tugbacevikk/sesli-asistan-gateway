@@ -19,7 +19,8 @@ import time
 
 import numpy as np
 
-from sesli_asistan.libs.audio import g711
+from sesli_asistan.libs.audio import g711, g722
+from sesli_asistan.libs.audio.resample import resample
 
 from .packet import build
 
@@ -30,10 +31,11 @@ SAMPLES_PER_PACKET = SAMPLE_RATE * PTIME_MS // 1000  # 160
 
 class RtpSender:
     def __init__(self, transport: asyncio.DatagramTransport, remote: tuple[str, int], codec: str = "pcma"):
-        if codec not in g711.CODECS:
+        if codec not in (*g711.CODECS, "g722"):
             raise ValueError(f"desteklenmeyen codec: {codec}")
         self.transport, self.remote, self.codec = transport, remote, codec
-        self.pt = g711.PAYLOAD_TYPE[codec]
+        self.pt = g722.PAYLOAD_TYPE if codec == "g722" else g711.PAYLOAD_TYPE[codec]
+        self._g722 = g722.Encoder() if codec == "g722" else None
         self.ssrc = secrets.randbits(32)
         self.seq = secrets.randbits(16)
         self.ts = secrets.randbits(32)
@@ -48,7 +50,8 @@ class RtpSender:
         if n == 0:
             return 0
         pad = np.zeros(n * SAMPLES_PER_PACKET - len(pcm8k), np.int16)
-        payload = g711.encode_int16(np.concatenate([pcm8k, pad]), self.codec)
+        payload = self._encode(np.concatenate([pcm8k, pad]))
+        per_packet = len(payload) // n            # 160 bayt: G.711 (8 bit × 160) ve G.722 (64 kbit/s × 20 ms)
 
         loop = asyncio.get_running_loop()
         now = time.monotonic()
@@ -62,7 +65,7 @@ class RtpSender:
                 delay = t0 + i * PTIME_MS / 1000 - loop.time()
                 if delay > 0:
                     await asyncio.sleep(delay)
-                chunk = payload[i * SAMPLES_PER_PACKET:(i + 1) * SAMPLES_PER_PACKET]
+                chunk = payload[i * per_packet:(i + 1) * per_packet]
                 self.transport.sendto(build(self.pt, self.seq, self.ts, self.ssrc, chunk, marker=(i == 0)),
                                       self.remote)
                 self.seq = (self.seq + 1) & 0xFFFF
@@ -72,3 +75,13 @@ class RtpSender:
             self.sent += sent
             self._last_end = time.monotonic()
         return sent
+
+    def _encode(self, pcm8k: np.ndarray) -> bytes:
+        if self._g722 is None:
+            return g711.encode_int16(pcm8k, self.codec)
+        # Asistan sesi çekirdekte 8 kHz üretilir; G.722 için 16 kHz'e çıkarılır (arayanın duyduğu kalite aynı kalır;
+        # kazanç STT yönünde). Zaman damgası RTP saatinde (8000): pakette yine 160 ilerler (RFC 3551).
+        up = resample(pcm8k.astype(np.float32) / 32768.0, 8000, g722.SAMPLE_RATE)
+        need = 2 * len(pcm8k)
+        up = np.pad(up, (0, max(0, need - len(up))))[:need]
+        return self._g722.encode(np.clip(np.round(up * 32767), -32768, 32767).astype(np.int16))

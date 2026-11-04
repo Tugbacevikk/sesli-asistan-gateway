@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Geniş bant ses (ADR-027): santral `codec: "g722"` gönderebilir; Gateway G.722'yi çözüp STT'ye 16 kHz verir (hatta
+  kaybolan s / ş / f sesleri). Deneme santrali: `allow=g722,…`, köprü `--codec g722`. Yeni bağımlılık `G722` (kamu malı).
 - Ses benzerliğiyle ad (ADR-026): STT adı bozduğunda ("bırakçayı" → Burak Çelik, "ağlayamaz" → Ayşe Yılmaz) rehberdeki
   en benzer kişi teyitle sorulur; LLM'den hemen önce, operatör kuralından sonra.
 - STT hışırtılı ses ölçümü: `tests/eval/okuma_hisirti.tsv` (s / ş / f / z ile başlayan anahtar sözcükler) ve

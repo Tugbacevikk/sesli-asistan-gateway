@@ -10,8 +10,9 @@ Kaynak: Vietnamese-speech-to-text-models `infrastructure/rtp.py` → `RtpSource`
 Uyarlanan:
   - Asistan için çağrı başına port (ADR-002); iş parçacığı yerine asyncio (çok sayıda eşzamanlı çağrı).
   - Kaynak IP izin listesi (tasarim.md 10.1, sahte RTP).
-  - Çıktı çözülmez: G.711 baytları olduğu gibi STT servisine gider (stt.v1.AudioIn.audio).
-Alınmayan: SDP / dinamik yük türü / L16 (santral G.711 gönderir), ffmpeg kaynağı.
+  - G.711 çıktısı çözülmez: baytlar olduğu gibi STT servisine gider (stt.v1.AudioIn.audio). G.722 (geniş bant,
+    ADR-027) burada çözülür (durumlu ADPCM, çağrı başına çözücü): STT'ye 16 kHz PCM16 gider.
+Alınmayan: SDP / dinamik yük türü / L16, ffmpeg kaynağı.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from sesli_asistan.libs.audio import g711
+from sesli_asistan.libs.audio import g711, g722
 
 from .jitter import JitterBuffer
 from .packet import RtpPacket, parse
@@ -31,6 +32,7 @@ from .packet import RtpPacket, parse
 log = logging.getLogger(__name__)
 
 RCVBUF_BYTES = 1 << 20
+LINE_CODECS = (*g711.CODECS, "g722")     # santral ↔ Gateway ses kodekleri (POST /v1/calls `codec`)
 SSRC_SWITCH_S = 0.3        # eski akış bu kadar sessizse yeni SSRC kabul edilir
 
 
@@ -59,10 +61,11 @@ class RtpReceiver(asyncio.DatagramProtocol):
 
     def __init__(self, codec: str = "pcma", allowed_ips: set[str] | None = None,
                  jitter_depth: int = 8, max_queue: int = 500):
-        if codec not in g711.CODECS:
+        if codec not in LINE_CODECS:
             raise ValueError(f"desteklenmeyen codec: {codec}")
         self.codec = codec
-        self.pt = g711.PAYLOAD_TYPE[codec]
+        self.pt = g722.PAYLOAD_TYPE if codec == "g722" else g711.PAYLOAD_TYPE[codec]
+        self._g722 = g722.Decoder() if codec == "g722" else None
         self.allowed_ips = allowed_ips
         self.jitter = JitterBuffer(jitter_depth)
         self.frames: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=max_queue)
@@ -71,8 +74,8 @@ class RtpReceiver(asyncio.DatagramProtocol):
         self.last_packet_at: float | None = None   # time.monotonic(); boşta kalma zaman aşımı için
         self.transport: asyncio.DatagramTransport | None = None
         self.remote: tuple[str, int] | None = None  # paketin geldiği adres (simetrik RTP için)
-        self._frame_len = 160  # 20 ms @ 8 kHz; ilk paketten güncellenir
-        self._silence = g711.encode_int16(np.zeros(self._frame_len, np.int16), codec)
+        self._frame_len = 160  # 20 ms @ 8 kHz G.711 (G.722: 160 bayt yük → 320 örnek); ilk paketten güncellenir
+        self._silence = self._silence_for(self._frame_len)
 
     async def open(self, host: str, port: int) -> int:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -139,6 +142,11 @@ class RtpReceiver(asyncio.DatagramProtocol):
         for q in out:
             self._emit(q)
 
+    def _silence_for(self, payload_len: int) -> bytes:
+        if self._g722 is not None:
+            return bytes(4 * payload_len)                 # G.722: 1 bayt yük = 2 örnek × 2 bayt PCM16
+        return g711.encode_int16(np.zeros(payload_len, np.int16), self.codec)
+
     def _emit(self, p: RtpPacket | None) -> None:
         if p is None:
             self.stats.kayip += 1
@@ -147,7 +155,9 @@ class RtpReceiver(asyncio.DatagramProtocol):
             payload = p.payload
             if len(payload) != self._frame_len:
                 self._frame_len = len(payload)
-                self._silence = g711.encode_int16(np.zeros(self._frame_len, np.int16), self.codec)
+                self._silence = self._silence_for(self._frame_len)
+            if self._g722 is not None:
+                payload = self._g722.decode(payload)
         self._put(payload)
 
     def _put(self, item: bytes | None) -> None:

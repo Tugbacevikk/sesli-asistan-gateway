@@ -37,6 +37,7 @@ elle değiştirmeyin. Lisans metinleri dağıtım paketinde `lisanslar/` klasör
 | filelock | 4.2.4 | MIT | Kurulum araçları, STT, TTS (Seslen) |
 | flatbuffers | 25.12.19 | Apache Software License | STT, TTS (Seslen) |
 | fsspec | 2026.9.0 | BSD-3-Clause | Kurulum araçları, STT, TTS (Seslen) |
+| g722 | 1.2.8 | Public-Domain | Gateway |
 | grpcio | 1.85.0 | Apache-2.0 | Gateway, STT |
 | grpcio-health-checking | 1.85.0 | Apache-2.0 | STT |
 | h11 | 0.16.0 | MIT License | Gateway, Kurulum araçları, STT, TTS (Seslen) |
