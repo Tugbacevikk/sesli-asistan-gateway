@@ -891,3 +891,32 @@ async def test_llm_cevabi_en_cok_iki_cumle():
     a = agent(ScriptedLlm(LlmMessage(long)))
     t = await a.new_session("u").handle_user("seni ara")
     assert t.text == "Teşekkür ederim. Ben yalnız rehberdeki kişileri ararım."
+
+
+async def test_llm_soylenen_numaradan_baska_dahiliye_aktaramaz_teyit_sorar():
+    """Ölçüm 04.11.2026 (örnekli istem): "yüz numaraya bağlayın" → LLM Ayşe Yılmaz'a (214) aktardı."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    from sesli_asistan.gateway.core.models import Contact as _C
+    from sesli_asistan.gateway.core.ports import LlmMessage as _M
+    from sesli_asistan.gateway.core.ports import ToolCall as _T
+    from sesli_asistan.gateway.core.search import DirectoryIndex as _I
+    from sesli_asistan.gateway.core.tools import ToolRegistry as _R
+
+    data = _json.loads((_Path(__file__).resolve().parents[2] / "data/rehber_ornek.json").read_text(encoding="utf-8"))
+    for text, transferred in (("yüz numaraya bağlayın", []), ("iki yüz on dörde bağlayın", ["214"]),
+                              ("ayşe yılmaz, numarası yüz müydü", ["214"])):
+        class Llm:
+            replies = [_M("", [_T("a", "InContacts", {"Name": "ayşe yılmaz"})]),
+                       _M("", [_T("b", "TransferCall", {"Extension": "214"})]), _M("Aktarıyorum.")]
+
+            async def chat(self, messages, tools):
+                return self.replies.pop(0)
+
+        agent = DialogAgent(Llm(), _R(_I(_C.from_api(c) for c in data["contacts"])),
+                            DialogConfig(organization="D", fast_path=False, auto_transfer_single_high=False))
+        t = await agent.new_session("x").handle_user(text)
+        assert [a.extension for a in t.actions] == transferred, text
+        if not transferred:
+            assert "Ayşe Yılmaz" in t.text and "mı" in t.text          # teyit sorusu

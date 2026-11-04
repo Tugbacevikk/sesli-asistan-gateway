@@ -69,7 +69,6 @@ FEW_SHOT = """
 Örnekler (araç çağrıları köşeli parantezle):
 - Arayan: "faturamla ilgili bir sorun var" → [InContacts Department="Muhasebe"] (konuya uygun birim)
 - Arayan: "satış müdürüyle görüşecektim" → [InContacts Name="satış müdürü"] (unvanın tamamı Name alanına)
-- Arayan: "iki yüz on dört" → [InContacts Extension="214"]
 - Sonuç single_low, Ayşe Yılmaz → "Ayşe Yılmaz'ı mı aramıştınız?"
   arayan "evet" → [TransferCall Extension=sonuçtaki dahili]
 - Arayan: "bugün hava çok güzel" → "Kiminle görüşmek istersiniz?" (araç yok)
@@ -686,16 +685,28 @@ class DialogAgent:
 
     def _confirm_llm_transfer(self, s: DialogSession, call: ToolCall) -> DialogTurn | None:
         """LLM düşük güvenli sözle aktarmak istedi: aktarma yerine kodla teyit sorusu. Santral denemesi (02.11.2026):
-        STT "ateşe girmem" (güven 0,31) duyduğu sözle LLM aktarmıştı."""
-        if not self._needs_confirm(s):
-            return None
+        STT "ateşe girmem" (güven 0,31) duyduğu sözle LLM aktarmıştı. Ayrıca arayan bir numara söyleyip LLM başka bir
+        dahiliye aktarmak isterse (kişinin adı sözde geçmiyorsa) teyit: ölçüm 04.11.2026, örnekli istemde "yüz numaraya
+        bağlayın" → LLM 214'e aktardı; politika durduramaz (214 aktarılabilir)."""
         ext = call.arguments.get("Extension")
         cand = next((c for c in s.state.last_results if isinstance(ext, str) and c.contact.extension == ext.strip()),
                     None)
         if cand is None:
             return None                                # politika zaten reddedecek
+        if not self._needs_confirm(s) and not self._other_number(s, cand.contact):
+            return None
         s.history.append(_tool_message(call, {"ok": False, "note": "Aktarmadan önce arayana teyit soruldu."}))
         return self._confirm(s, cand.contact)
+
+    def _other_number(self, s: DialogSession, contact: Any) -> bool:
+        """Arayanın son sözünde bir numara var ve bu kişinin dahilisi değil; kişinin adı ya da soyadı da geçmiyor."""
+        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        numbers = {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}
+        if not numbers or contact.extension in numbers:
+            return False
+        said = set(search_key(user).split()) | {strip_suffix(w) for w in search_key(user).split()}
+        own = set(search_key(f"{contact.first_name} {contact.last_name}").split())
+        return not (own & said)
 
     # --- hızlı yol (ADR-016) ---
 

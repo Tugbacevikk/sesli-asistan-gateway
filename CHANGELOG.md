@@ -53,6 +53,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Arayan bir numara söylediyse LLM başka bir dahiliye (kişinin adı geçmiyorsa) aktaramaz, teyit sorulur (ölçüm:
+  örnekli istemde "yüz numaraya bağlayın" → 214'e aktarılmıştı).
 - MCP sunucusu düşükken LLM'in rehber araması 1 sn zaman aşımını beklemeden yerelde yapılır (ölçüm: her arama ~1 sn
   gecikiyordu).
 - Yanlış kişiye aktarma koruması: STT güveni düşükse (`CONFIRM_BELOW`) aktarmadan önce teyit sorusu; tam adın

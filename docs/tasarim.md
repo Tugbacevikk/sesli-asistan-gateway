@@ -1745,6 +1745,12 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   izinsiz, sızıntı, istem uzunluğu, süre). Varsayılanlar (birim listesi ve örnekler kapalı) gerçek LLM ölçümüne
   kadar değişmez; kazanan varyant ölçümden sonra varsayılan yapılır. Kural modunda (LLM'siz) 120 senaryo: %96,7,
   saldırı senaryoları 6/6, sızıntı 0.
+- **Ölçüm ve karar (04.11.2026, qwen3.5:4b, 120 senaryo, olcumler.md):** MCP adımı %99,2 → **%100** (en iyisi);
+  birim listesi %99,2 (bir yanlış aktarma: saat sorusunu bir kişiye aktardı), birim listesi + örnekler %98,3 (iki
+  yanlış aktarma), LLM çağrısı süresi değişmedi (2,52–2,61 sn). Varsayılan: `MCP_STEP=true`, birim listesi ve
+  örnekler **kapalı**. Bulgu: örnekteki "iki yüz on dört → 214" modeli "yüz numaraya bağlayın"da 214'e aktarmaya
+  itti; örnek çıkarıldı ve kodla kural eklendi: arayan bir numara söylediyse LLM başka bir dahiliye (kişinin adı
+  sözde geçmiyorsa) aktaramaz, teyit sorulur (istemden ve modelden bağımsız).
 
 ---
 
@@ -1906,7 +1912,6 @@ Kurallar:
 Örnekler (araç çağrıları köşeli parantezle):
 - Arayan: "faturamla ilgili bir sorun var" → [InContacts Department="Muhasebe"] (konuya uygun birim)
 - Arayan: "satış müdürüyle görüşecektim" → [InContacts Name="satış müdürü"] (unvanın tamamı Name alanına)
-- Arayan: "iki yüz on dört" → [InContacts Extension="214"]
 - Sonuç single_low, Ayşe Yılmaz → "Ayşe Yılmaz'ı mı aramıştınız?"
   arayan "evet" → [TransferCall Extension=sonuçtaki dahili]
 - Arayan: "bugün hava çok güzel" → "Kiminle görüşmek istersiniz?" (araç yok)
