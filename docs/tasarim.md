@@ -1689,6 +1689,8 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   silinen kişi zaten aktarılamaz).
 - **Kabul ölçütü (Aşama 3):** Diyalog setinde (114 senaryo) `--araclar mcp` ile `yerel` aynı başarı ve 0 izinsiz
   aktarma; LLM'e giden turda ek gecikme ≤ 50 ms; sunucu kapalıyken set yine geçer. Geçmezse varsayılan `yerel` kalır.
+  **Sağlandı (04.11.2026, olcumler.md):** iki yol %100, izinsiz 0, ek gecikme p50 +4,9 / p95 +9,4 ms; sunucu koşu
+  sırasında kapatılınca 9 arama yerele düştü, set %100. Düşük sunucuda zaman aşımı beklenmez (bulgu, düzeltildi).
 - **Sonuç:** Varsayılan `yerel`. MCP, ölçüm ve canlı santral denemesinden (Aşama 4) sonra açılır. Yeni bağımlılık:
   `mcp` (MIT) ve 15 alt paket (hepsi MIT / BSD / Apache).
 

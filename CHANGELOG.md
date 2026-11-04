@@ -44,6 +44,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- MCP sunucusu düşükken LLM'in rehber araması 1 sn zaman aşımını beklemeden yerelde yapılır (ölçüm: her arama ~1 sn
+  gecikiyordu).
 - Yanlış kişiye aktarma koruması: STT güveni düşükse (`CONFIRM_BELOW`) aktarmadan önce teyit sorusu; tam adın
   yanında başka kişinin soyadı geçerse kodla "hangisi?"; "hiçbiri" kodla "bulamadım". İzleme'de STT güveni görünür.
 - "operatör" STT ipucunda her zaman; operatör isteği LLM beklemeden.

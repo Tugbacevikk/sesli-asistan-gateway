@@ -897,6 +897,26 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### Rehber MCP sunucusu — dizüstünde gerçek LLM ile (4 Kasım 2026, 09:28; ADR-022 Aşama 3)
+
+114 senaryo, qwen3.5:4b (Ollama), `tests/eval/diyalog.py --zaman-asimi 60`. "arama": LLM'in rehber araması
+(InContacts) sayısı ve süresi; "kopma": koşu sırasında MCP sunucusu Ctrl+C ile durduruldu, ~30 sn sonra yeniden açıldı.
+
+| koşu | başarı | izinsiz | yanlış | LLM / tur | tur p95 | arama | arama p50 / p95 | MCP hatası |
+|---|---|---|---|---|---|---|---|---|
+| `--araclar yerel` | %100 | 0 | 0 | 0,33 | 4,29 sn | 41 | 0,11 / 0,51 ms | — |
+| `--araclar mcp` | %100 | 0 | 0 | 0,32 | 3,75 sn | 39 | 4,97 / 9,86 ms | 0 |
+| `mcp`, sunucu koşu sırasında kapandı | %100 | 0 | 0 | 0,32 | 4,10 sn | 39 | 5,70 / **1.011,58 ms** | 9 (yerele düştü) |
+
+- Kabul ölçütü (ADR-022) sağlandı: aynı başarı, izinsiz aktarma 0, ek gecikme p50 +4,9 ms / p95 +9,4 ms (sınır 50 ms),
+  sunucu kapalıyken set yine %100. Sunucu yeniden açılınca bağlantı kendiliğinden geri geldi (hata / uyarı yok).
+- Tur p95 farkı (4,29 / 3,75 sn) LLM süresinin oynaklığı; arama farkı ms düzeyinde.
+- **Bulgu:** sunucu kapalıyken yerele düşen her arama ~1 sn bekliyordu (p95 1.011 ms): istemci, bağlantının koptuğunu
+  bildiği hâlde her aramada `MCP_TIMEOUT_S` (1 sn) zaman aşımını bekliyordu → düzeltildi: bağlanma denemesi olmadıysa
+  arama beklemeden hata alır, arka planda yeniden bağlanma sürer (birim testi: 2. aramadan itibaren < 50 ms).
+- Karar: MCP yolu hazır ve güvenli; varsayılan `yerel` kalır (bugün tek kullanıcı Gateway, işlevsel kazanç yok).
+  Canlı santralde `LLM_TOOLS=mcp` denemesi (Aşama 4) MCP'ye ikinci bir kaynak bağlanacağı zaman yapılır.
+
 ### Rehber MCP sunucusu — temel ölçüm (4 Kasım 2026, ADR-022 Aşama 0–2; bulut geliştirme ortamı, Linux, CPU)
 
 Karşılaştırmanın temeli, yerel araçlarla (`LLM_TOOLS=yerel`). Değerler yukarıdaki iki ölçümden:

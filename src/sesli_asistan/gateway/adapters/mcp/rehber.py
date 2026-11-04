@@ -29,6 +29,7 @@ class McpRehber:
         """target: MCP adresi ("http://127.0.0.1:8765/mcp") ya da testte sunucu nesnesi (bellek içi bağlantı)."""
         self.target, self.reconnect_s = target, reconnect_s
         self.connected = False
+        self.down = False        # son bağlanma denemesi olmadı: aramalar beklemeden hata alır (yerele düşer)
         self._q: asyncio.Queue[tuple[str, dict[str, Any], asyncio.Future[dict[str, Any]]]] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
 
@@ -43,6 +44,10 @@ class McpRehber:
 
     async def call(self, tool: str, args: dict[str, Any]) -> dict[str, Any]:
         self._ensure()
+        if self.down:
+            # Sunucu düşük: zaman aşımını (MCP_TIMEOUT_S) beklemeden hata; arka plan görevi bağlanmayı denemeyi
+            # sürdürür. Ölçüm 04.11.2026: beklenince yerele düşen her arama ~1 sn gecikiyordu.
+            raise ConnectionError(f"MCP sunucusuna ulaşılamıyor: {_label(self.target)}")
         fut: asyncio.Future[dict[str, Any]] = asyncio.get_running_loop().create_future()
         await self._q.put((tool, args, fut))
         return await fut
@@ -68,7 +73,7 @@ class McpRehber:
                 async with Client(self.target) as client, anyio.create_task_group() as tg:
                     if not self.connected:
                         log.info("MCP rehber sunucusuna bağlandı: %s", _label(self.target))
-                    self.connected = True
+                    self.connected, self.down = True, False
                     while True:
                         tool, args, fut = await self._q.get()
                         if not fut.done():                    # done: çağıran zaman aşımıyla vazgeçti
@@ -78,7 +83,7 @@ class McpRehber:
             except Exception as e:
                 if self.connected:
                     log.warning("MCP rehber bağlantısı koptu (%s): yeniden bağlanılacak", _reason(e))
-                self.connected = False
+                self.connected, self.down = False, True
                 self._fail_pending(ConnectionError(f"MCP sunucusuna ulaşılamıyor: {_label(self.target)}"))
                 await asyncio.sleep(self.reconnect_s)
 

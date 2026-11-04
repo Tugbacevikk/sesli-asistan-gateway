@@ -105,7 +105,28 @@ async def test_sunucuya_ulasilamazsa_istemci_hizla_hata_verir():
     r = McpRehber("http://127.0.0.1:9/mcp", reconnect_s=0.05)
     with pytest.raises(ConnectionError, match="ulaşılamıyor"):
         await asyncio.wait_for(r.in_contacts({"Name": "ayşe"}), 10)
-    assert not r.connected and not await r.ping()
+    assert not r.connected and r.down and not await r.ping()
+    t0 = asyncio.get_running_loop().time()
+    with pytest.raises(ConnectionError):                    # düşük olduğu biliniyor: zaman aşımı beklenmez
+        await r.in_contacts({"Name": "ayşe"})
+    assert asyncio.get_running_loop().time() - t0 < 0.05
+    await r.aclose()
+
+
+async def test_sunucu_dusunce_arama_beklemeden_yerele_doner(index):
+    async with _http(build_server(lambda: index)) as url:
+        r = McpRehber(url, reconnect_s=0.05)
+        tools = ToolRegistry(index, remote=r, remote_timeout_s=1.0)
+        await tools.execute_async(ToolCall("1", "InContacts", {"Name": "ayşe yılmaz"}), CallToolState())
+        assert tools.remote_failures == 0
+    # sunucu kapandı: ilk arama bağlantı hatasıyla düşer, sonrakiler beklemeden
+    times = []
+    for _ in range(5):
+        t0 = asyncio.get_running_loop().time()
+        out = await tools.execute_async(ToolCall("1", "InContacts", {"Name": "ayşe yılmaz"}), CallToolState())
+        times.append(asyncio.get_running_loop().time() - t0)
+        assert out.content["match"] == "single_high"
+    assert tools.remote_failures == 5 and max(times[1:]) < 0.05, times
     await r.aclose()
 
 
