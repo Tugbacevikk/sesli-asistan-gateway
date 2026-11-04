@@ -22,6 +22,9 @@ OPEN, AFTER_HOURS, HOLIDAY = "acik", "mesai_disi", "tatil"
 
 _DAYS = {"pzt": 0, "pazartesi": 0, "sal": 1, "sali": 1, "car": 2, "carsamba": 2, "per": 3, "pers": 3,
          "persembe": 3, "cum": 4, "cuma": 4, "cmt": 5, "cumartesi": 5, "paz": 6, "pazar": 6}
+_DAY_NAMES = ("pazartesi", "salı", "çarşamba", "perşembe", "cuma", "cumartesi", "pazar")
+_DAY_FROM = ("pazartesiden", "salıdan", "çarşambadan", "perşembeden", "cumadan", "cumartesiden", "pazardan")
+_DAY_TO = ("pazartesiye", "salıya", "çarşambaya", "perşembeye", "cumaya", "cumartesiye", "pazara")
 _TIME = re.compile(r"^(\d{1,2})[:.](\d{2})$")
 
 
@@ -109,6 +112,36 @@ class OfficeHours:
             else:
                 dated[_date(spec)] = close_at
         return cls(weekly, yearly, dated)
+
+    def describe(self) -> str:
+        """Haftalık saatlerin okunuşu (seslendirilecek): "hafta içi sekiz otuz ile on iki otuz ve on üç otuz ile on
+        sekiz arası, cumartesi dokuz ile on üç arası". Kural yoksa ""."""
+        from .search import number_to_words
+
+        def clock(m: int) -> str:
+            h, mi = divmod(m, 60)
+            return number_to_words(h) + (f" {number_to_words(mi)}" if mi else "")
+
+        if not self.weekly or not any(self.weekly):
+            return ""
+        groups: list[tuple[int, int, tuple[tuple[int, int], ...]]] = []
+        for d, spans in enumerate(self.weekly):
+            if groups and groups[-1][2] == spans and groups[-1][1] == d - 1:
+                groups[-1] = (groups[-1][0], d, spans)
+            else:
+                groups.append((d, d, spans))
+        parts = []
+        for a, b, spans in groups:
+            if not spans:
+                continue
+            days = ("hafta içi" if (a, b) == (0, 4) else "her gün" if (a, b) == (0, 6) else
+                    "hafta sonu" if (a, b) == (5, 6) else _DAY_NAMES[a] if a == b else f"{_DAY_FROM[a]} {_DAY_TO[b]}")
+            if spans == ((0, 24 * 60),):
+                parts.append(f"{days} yirmi dört saat")
+                continue
+            hours = " ve ".join(f"{clock(s)} ile {clock(e)}" for s, e in spans)
+            parts.append(f"{days} {hours} arası")
+        return ", ".join(parts)
 
     def status(self, now: datetime) -> str:
         """acik | mesai_disi | tatil."""

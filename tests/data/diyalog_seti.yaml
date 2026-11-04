@@ -589,3 +589,9 @@
   aciklama: Ad içermeyen söz ses benzerliğini tetiklemez
   konusma: ["ne yapıyorsunuz"]
   beklenen: {eylem: aktarma_yok}
+
+# canlı 04.11.2026: aktarma başarısız → "başka birine mi, operatöre mi?" → mesai sorusu → operatöre bağlanmıştı
+- id: D128
+  aciklama: Aktarma ulaşılamadıktan sonra mesai sorusu → kodla cevap, operatör yok
+  konusma: ["ayşe yılmaz", {santral: failed}, "mesai saatleri ne acaba"]
+  beklenen: {eylem: yok}

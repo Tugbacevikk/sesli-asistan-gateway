@@ -955,3 +955,39 @@ async def test_dolgu_sesinde_acik_soru_yinelenir():
     s.stt_confidence = 0.95
     t = await s.handle_user("evet")
     assert [x.extension for x in t.actions] == ["215"]
+
+
+# --- mesai sorusu ve operatör koruması (canlı 04.11.2026) ------------------------------------------------------
+
+@pytest.mark.parametrize("text, asks", [
+    ("mesai saatleri ne acaba", True), ("saat kaça kadar açıksınız", True), ("kaçta açılıyorsunuz", True),
+    ("kaçta açılıyor", True), ("çalışma saatleriniz nedir", True), ("açık mısınız", True),
+    ("saat on ikide ayşe hanımla görüşecektim", False), ("ayşe yılmaz", False), ("muhasebe lütfen", False),
+])
+def test_mesai_sorusu_taninir(text, asks):
+    from sesli_asistan.gateway.core.dialog import asks_office_hours
+
+    assert asks_office_hours(text) is asks
+
+
+async def test_mesai_sorusu_kodla_cevaplanir_acik_soru_yinelenir():
+    a = agent(ScriptedLlm(LlmMessage("Tamam.")), fast_path=True, clarify_by_code=True,
+              office_hours="hafta içi sekiz otuz ile on sekiz arası")
+    s = a.new_session("x")
+    t = await s.handle_user("mesai saatleri ne acaba")
+    assert t.text == "Mesai saatlerimiz hafta içi sekiz otuz ile on sekiz arası. Kiminle görüşmek istersiniz?"
+    assert not t.actions and a.llm.seen == [] and s.state.failed_attempts == 0
+    a2, s2, _ = await _unsure("burak çelik")                     # açık teyit sorusu varken
+    t = await s2.handle_user("saat kaça kadar açıksınız")
+    assert "bilgi veremiyorum" in t.text and "Burak Çelik" in t.text and s2.state.confirm is not None
+
+
+async def test_llm_istenmeden_operatore_baglayamaz():
+    """Canlı 04.11.2026: "başka birine mi, operatöre mi?" → "mesai saatleri ne" → LLM ConnectOperator."""
+    llm = ScriptedLlm(tool_msg(call("ConnectOperator")), LlmMessage("Kiminle görüşmek istersiniz?"))
+    a = agent(llm)
+    t = await a.new_session("x").handle_user("bir bilgi soracaktım")
+    assert t.actions == [] and "Kiminle" in t.text
+    llm = ScriptedLlm(tool_msg(call("ConnectOperator")))
+    t = await agent(llm).new_session("y").handle_user("operatöre bağlar mısınız")
+    assert [type(x).__name__ for x in t.actions] == ["OperatorAction"]

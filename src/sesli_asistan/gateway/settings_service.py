@@ -56,6 +56,9 @@ TEXT_LABELS = {
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
     "declined": ("Teyide \"hayır\" (öneri reddedildi)", ""),
+    "office_hours": ("Mesai sorusunun cevabı", "{saatler}"),
+    "office_hours_unknown": ("Mesai sorusu (saatler tanımlı değil)", ""),
+    "ask_target": ("Bilgiden sonra yönlendirme sorusu", ""),
     "no_input_question": ("Soru açıkken ses gelmedi (sorudan önce)", ""),
     "greeting_reply": ("Arayan yalnız selam verdi", ""),
 }

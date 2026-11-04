@@ -63,6 +63,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Mesai sorusu ("mesai saatleri ne", "saat kaça kadar açıksınız") kodla cevaplanır: OFFICE_HOURS okunuşuyla
+  ("hafta içi sekiz otuz ile on sekiz arası"), açık soru yinelenir, deneme sayılmaz. LLM, arayan istemedikçe operatöre
+  bağlayamaz (kod denetler: operatör isteği ya da teklife "evet"). Canlı: aktarma başarısızlığından sonra mesai
+  sorusu operatöre bağlanmıştı.
 - Dolgu sesleri ("eee", "ıı", "hmm", "şey") sözden atılır; yalnız dolgu varsa LLM'e gidilmez, açık soru yinelenir ya da
   "anlayamadım" denir, deneme sayılmaz (canlı: "eee merhaba" ve "e" LLM'e gidiyordu).
 - Arayan bir numara söylediyse LLM başka bir dahiliye (kişinin adı geçmiyorsa) aktaramaz, teyit sorulur (ölçüm:

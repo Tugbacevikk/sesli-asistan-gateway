@@ -105,6 +105,9 @@ class DialogTexts:
     confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
     confirm_operator: str = "Sizi operatöre mi bağlamamı istersiniz?"
     declined: str = "Peki. Kiminle ya da hangi birimle görüşmek istersiniz?"   # teyit sorusuna "hayır"
+    office_hours: str = "Mesai saatlerimiz {saatler}."      # arayan mesai saatini sordu ({saatler}: OFFICE_HOURS'tan)
+    office_hours_unknown: str = "Mesai saatleri konusunda bilgi veremiyorum."   # OFFICE_HOURS tanımlı değil
+    ask_target: str = "Kiminle görüşmek istersiniz?"
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -132,6 +135,7 @@ class DialogConfig:
     llm_fallback: bool = True                # ADR-020: LLM hata / zaman aşımında operatör yerine kural tabanlı tur
     mcp_step: bool = False                   # ADR-023: rehber → MCP (konu) → LLM; LLM'den önce MCP'ye konu sorulur
     topic_confirm: bool = True               # ADR-023: konudan bulunan birime aktarmadan önce teyit
+    office_hours: str = ""                   # mesai saatlerinin okunuşu (OfficeHours.describe); boş: tanımlı değil
     prompt_template: str = ""                # ADR-024: sistem istemi şablonu ({kurum}); boş: SYSTEM_PROMPT
     prompt_departments: int = 0              # ADR-024: isteme kurumun birim listesi (en çok bu kadar); 0: yok
     few_shot: bool = False                   # ADR-024: isteme örnek konuşmalar (FEW_SHOT)
@@ -310,6 +314,17 @@ class DialogAgent:
             s.state.confirm_suggested = suggested
             log.info("[%s] yalnız selam: %s", s.call_id, log_text(text))
             reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
+            reply.fast = True
+            return reply
+        if asks_office_hours(text) and not self._mentions_target(text):
+            # "saat kaça kadar açıksınız", "mesai saatleri ne": kodla cevap, açık soru yinelenir, deneme sayılmaz
+            # (canlı 04.11.2026: LLM'e gitti ve arayan istemeden operatöre bağlandı)
+            s.state.confirm, s.state.confirm_suggested, s.state.confirm_operator = confirm, suggested, op_confirm
+            texts = self.cfg.texts
+            hours = (texts.office_hours.format(saatler=self.cfg.office_hours) if self.cfg.office_hours
+                     else texts.office_hours_unknown)
+            log.info("[%s] mesai sorusu: %s", s.call_id, log_text(text))
+            reply = self._reply(s, f"{hours} {self.pending_question(s) or texts.ask_target}")
             reply.fast = True
             return reply
         if confirm is not None and (turn := self._resolve_confirm(s, text, confirm, suggested)) is not None:
@@ -964,6 +979,13 @@ class DialogAgent:
                 if (caller_turn and call.name == "TransferCall"
                         and (turn := self._confirm_llm_transfer(s, call)) is not None):
                     return turn
+                if caller_turn and call.name == "ConnectOperator" and not self._operator_requested(s):
+                    # Canlı 04.11.2026: "başka birine mi, operatöre mi?" sorusuna "mesai saatleri ne" → LLM operatöre
+                    # bağladı. Operatör yalnız arayan isterse ya da teklife "evet" derse (kod denetler).
+                    log.warning("[%s] LLM operatöre bağlamak istedi ama arayan istemedi: reddedildi", s.call_id)
+                    s.history.append(_tool_message(call, {"ok": False, "error": "OPERATOR_NOT_REQUESTED",
+                                                          "detail": "Arayan operatör istemedi; ne istediğini sor."}))
+                    continue
                 out = await self.tools.execute_async(call, s.state)
                 content = dict(out.content)
                 if out.failed_search and caller_turn and not failed:
@@ -1076,6 +1098,18 @@ class DialogAgent:
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, fallback=True)
 
+    def _operator_requested(self, s: DialogSession) -> bool:
+        """Arayanın son sözü operatör istiyor ya da operatör teklif eden soruya açık "evet"."""
+        users = [i for i, m in enumerate(s.history) if m["role"] == "user"]
+        if not users:
+            return False
+        user = s.history[users[-1]]["content"]
+        if asks_operator(user):
+            return True
+        before = next((m.get("content") or "" for m in reversed(s.history[:users[-1]]) if m["role"] == "assistant"),
+                      "")
+        return "operatör" in turkish_lower(before) and bool(set(_folded_words(user)) & _YES)
+
     def _operator(self, s: DialogSession, text: str, reason: str) -> DialogTurn:
         s.state.actions = []
         s.history.append({"role": "assistant", "content": text})
@@ -1103,6 +1137,23 @@ _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "
                    "selamun", "aleykum", "aleykumselam", "selamunaleykum", "kolay", "gelsin", "hayirli", "isler",
                    "nasilsiniz", "nasilsin", "efendim", "evet", "buyurun", "hosbulduk", "tesekkurler", "sagolun",
                    "tesekkur", "ederim", "duyuyor", "musunuz", "beni", "sesim", "geliyor", "mu"}
+
+
+_HOURS_WORDS = {"acik", "aciliyor", "acilir", "aciyorsunuz", "kapaniyor", "kapanir", "kapatiyorsunuz", "kadar",
+                "kacta", "kaca", "kac", "calisiyorsunuz", "calisiyor"}
+
+
+def asks_office_hours(text: str) -> bool:
+    """Arayan mesai / çalışma saatini soruyor mu: "mesai saatleri ne", "saat kaça kadar açıksınız", "kaçta açılıyor",
+    "çalışma saatleriniz", "açık mısınız"."""
+    words = _folded_words(text)
+    joined = " ".join(words)
+    if "mesai" in joined or "calisma saat" in joined:
+        return True
+    if any(w.startswith("saat") for w in words) and set(words) & _HOURS_WORDS:
+        return True
+    return bool(re.search(r"\b(kacta|kaca kadar) (aciliyor|acilir|kapaniyor|kapanir|aciksiniz|acik)", joined)
+                or re.search(r"\bacik (misiniz|mi)\b", joined))
 
 
 def is_greeting_only(text: str) -> bool:
