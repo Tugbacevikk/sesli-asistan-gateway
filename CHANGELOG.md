@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Ses benzerliğiyle ad (ADR-026): STT adı bozduğunda ("bırakçayı" → Burak Çelik, "ağlayamaz" → Ayşe Yılmaz) rehberdeki
+  en benzer kişi teyitle sorulur; LLM'den hemen önce, operatör kuralından sonra.
 - STT hışırtılı ses ölçümü: `tests/eval/okuma_hisirti.tsv` (s / ş / f / z ile başlayan anahtar sözcükler) ve
   `tools/stt/mikrofon_kaydet.py` (16 kHz mikrofon kaydı; telefon hattıyla karşılaştırma).
 - MCP adımında kişi çözme (ADR-025, `kisi_coz`): unvan ("il jandarma komutanı", "Nilüfer kaymakamı"), birim + ad

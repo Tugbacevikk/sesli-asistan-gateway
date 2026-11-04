@@ -1724,7 +1724,8 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   unvanı rehberin unvan alanı. Kuruma özel lakap gerekirse konu listesinde dahiliye bağlanır.
 - **MCP sözleşmesi (kurum kendi sunucusunu yazarsa):** Streamable HTTP; araçlar yalnız okur. `konu_ara(soz: str)` →
   `{"adaylar": [{"id": rehber kimliği, "neden": "konu", "eslesen", "birim"}]}` (2. adım için zorunlu);
-  `kisi_coz(soz: str)` → `{"adaylar": [{"id", "neden": "unvan" | "birim_ad" | "ad"}], "kesin": bool}` (ADR-025);
+  `kisi_coz(soz: str)` → `{"adaylar": [{"id", "neden": "unvan" | "birim_ad" | "ad"}], "kesin": bool,
+  "ses": [{"id", "puan"}]}` (ADR-025, ADR-026);
   `rehber_ara(ad, birim, dahili)` → `{"content": InContacts sonucu, "adaylar": [{"id", "puan"}]}` (`LLM_TOOLS=mcp`).
   Cevap `MCP_TIMEOUT_S` (1 sn) içinde gelmeli. Kimlikler Gateway'in rehber kopyasındaki kimliklerdir.
 - **Ölçüm (04.11.2026, kural modu, 114 senaryo):** %96,5 → **%99,1**, izinsiz 0; üç konu senaryosu (D54–D56) LLM'siz
@@ -1752,6 +1753,17 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
 - **Aktarılamaz makam:** "valiyle görüşmek istiyorum" → Vali aday olmaz; söz kurumun genel hattına (kalem) gider.
 - **Ölçüm (04.11.2026, kural modu):** şirket seti 123 senaryo %96,7 → **%99,2**; sentetik kamu seti
   (`tests/data/kamu_rehber.json`, `diyalog_seti_kamu.yaml`, 21 senaryo) %66,7 → **%100**; izinsiz 0.
+
+### ADR-026 — STT'nin bozduğu adlar için ses benzerliği (yalnız teyitle)
+- **Bağlam:** Ölçüm (04.11.2026, mihu, 16 ve 8 kHz): asıl kayıp adlarda ve iki bantta da: "Ayşe Yılmaz" → "ağlayamaz",
+  "Burak Çelik" → "bırakçayı", "Mehmet Demir'e" → "mehmet de mi'ye". Rehber ipucu (bağlam yanlılığı) etkisiz.
+- **Karar:** `kisi_coz` kuralları bir şey bulamazsa söz rehberdeki adlarla sesçe karşılaştırılır: 1–2 sözcüklük
+  pencerelerde yazım benzerliği ile ünsüz iskeleti (ünlüler, ğ, y, h atılır: "burak çelik" → "brkclk")
+  benzerliğinin ortalaması; en iyi aday ≥ 65 ve ikinciden ≥ 25 önde olmalı. Sonuç **her zaman teyitle** kullanılır
+  ("Burak Çelik'e mi bağlamamı istersiniz?"; "hayır" → adı yeniden ister) ve **LLM'den hemen önce**: operatör kuralı
+  ve düşük güven kapısından sonra ("efsane" = "operatöre", Elif Şahin'e benzetilmesin).
+- **Ölçüm:** gerçek STT hatalarından 6/8 doğru aday; ad içermeyen 30 sözün hiçbirinde tetiklenmez (en yakın "fiyat
+  paketi" 68,6 / fark 15). Diyalog seti 127 senaryo %99,2, kamu %100, izinsiz 0.
 
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.

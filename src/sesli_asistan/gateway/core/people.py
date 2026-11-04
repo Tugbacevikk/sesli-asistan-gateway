@@ -15,7 +15,10 @@ işlevi kullanır: MCP düşerse Gateway aynısını kendisi çalıştırır (LL
 """
 from __future__ import annotations
 
+import re
 from typing import Any
+
+from rapidfuzz import fuzz
 
 from .models import Contact, Match
 from .search import (
@@ -36,7 +39,15 @@ _HONORIFIC_WORDS = _HONORIFICS | _RANKS
 
 
 def resolve_person(index: DirectoryIndex, text: str) -> dict[str, Any]:
-    """Söz → {"adaylar": [{"id", "neden": "unvan" | "birim_ad" | "ad"}], "kesin": bool}; çözülemezse adaylar boş."""
+    """Söz → {"adaylar": [{"id", "neden": "unvan" | "birim_ad" | "ad"}], "kesin": bool, "ses": [{"id", "puan"}]};
+    çözülemezse adaylar boş. "ses": kurallar bir şey bulamadıysa ses benzerliğiyle tek aday (`sound_alike`); Gateway
+    onu konu adımından sonra ve **her zaman teyitle** kullanır."""
+    out = _rules(index, text)
+    out["ses"] = [] if out["adaylar"] else sound_alike(index, text)
+    return out
+
+
+def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     words = _without_self(text)
     if not words:
         return _out([], "", False)
@@ -158,3 +169,44 @@ def _by_coverage(index: DirectoryIndex, words: list[str]) -> list[Contact]:
                 best = max((inside, -extra) for inside, extra, _ in hits)
                 return [c for inside, extra, c in hits if (inside, -extra) == best]
     return []
+
+
+# --- ses benzerliği (STT adı bozduğunda) ---------------------------------------------------------------------------
+# Ölçüm 04.11.2026 (mihu, telefon): "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı", "Mehmet Demir'e" →
+# "mehmet de mi'ye". Yazım benzerliği ile ünsüz iskeleti benzerliğinin ortalaması; en iyi aday SOUND_MIN'i geçmeli ve
+# ikinciden en az SOUND_MARGIN önde olmalı. Gerçek STT hatalarından 6/8'i doğru, ad içermeyen 29 sözün hiçbiri
+# tetiklemedi (en yakın: "fiyat paketi" 68,6 / fark 15). Yalnız teyitle kullanılır: yanlış eşleşmenin bedeli tek soru.
+SOUND_MIN = 65.0
+SOUND_MARGIN = 25.0
+# eşleşmeye girmeyen sık sözcükler (katlanmış): istek fiilleri, soru ekleri
+_SOUND_STOP = {"istiyorum", "istiyordum", "ariyorum", "aliyorum", "gorusmek", "gorusecektim", "musunuz", "misiniz",
+               "misin", "musun", "ile", "bir", "lutfen", "baglar", "baglayin", "baglayabilir", "var", "mi", "mu",
+               "icin", "beraber", "verir", "acaba", "rica", "ederim", "orada", "burada", "kim", "kimle", "kiminle"}
+
+
+def _skeleton(text: str) -> str:
+    """Ünsüz iskeleti: ünlüler ve zayıf ünsüzler (ğ, y, h) atılır ("burak celik" → "brkclk")."""
+    return re.sub(r"[aeiou ]", "", text.replace("g", "").replace("y", "").replace("h", ""))
+
+
+def sound_alike(index: DirectoryIndex, text: str) -> list[dict[str, Any]]:
+    """Sözdeki 1–2 sözcüklük pencerelerden birine sesçe en çok benzeyen kişi; belirgin değilse []."""
+    words = [w for w in search_key(text).split() if w not in _SOUND_STOP]
+    wins = [" ".join(words[i:i + n]) for n in (2, 1) for i in range(len(words) - n + 1)]
+    wins = [w for w in wins if len(_skeleton(w)) >= 3]
+    if not wins:
+        return []
+    scored = []
+    for c in index.contacts():
+        if c.kind != "person" or not (name := search_key(c.full_name)):
+            continue
+        flat, sk = name.replace(" ", ""), _skeleton(name)
+        best = max((fuzz.ratio(w.replace(" ", ""), flat) + fuzz.ratio(_skeleton(w), sk)) / 2 for w in wins)
+        scored.append((best, c))
+    scored.sort(key=lambda x: -x[0])
+    if not scored or scored[0][0] < SOUND_MIN:
+        return []
+    if len(scored) > 1 and scored[0][0] - scored[1][0] < SOUND_MARGIN:
+        return []
+    return [{"id": scored[0][1].id, "puan": round(scored[0][0], 1)}]
+

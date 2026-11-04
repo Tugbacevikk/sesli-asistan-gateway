@@ -345,8 +345,11 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
             return turn
-        if self.cfg.mcp_step and (turn := await self._mcp_step(s, text)) is not None:
-            return turn
+        sound: tuple[Candidate, ...] = ()
+        if self.cfg.mcp_step:
+            turn, sound = await self._mcp_step(s, text)
+            if turn is not None:
+                return turn
         if (self.cfg.fast_path and (unknown_target(text) is not None or maybe_operator(text))
                 and not spoken_numbers(_folded_words(text)) and not self._mentions_person_or_department(text)):
             return self._confirm_operator(s, text)
@@ -356,6 +359,13 @@ class DialogAgent:
             if choice:
                 return self._repeat_choice(s, choice)  # "hangisi?" sorusu yinelenir ve açık kalır
             return self._failure(s, count=not lenient)
+        if sound:
+            # STT adı bozmuş olabilir ("ağlayamaz" → Ayşe Yılmaz): ses benzerliği, LLM'den hemen önce ve her zaman
+            # teyitle (ADR-026). Operatör kuralından ve düşük güven kapısından sonra: "efsane" (= "operatöre") Elif
+            # Şahin'e benzetilmesin (D68).
+            log.info("[%s] ses benzerliği (MCP): %s → %s (%d)", s.call_id, log_text(text),
+                     sound[0].contact.extension, sound[0].score)
+            return self._confirm(s, sound[0].contact, why="ses benzerliği")
         if not self.cfg.llm_enabled:
             return self._rule_turn(s, text)
         return await self._run(s)
@@ -492,26 +502,28 @@ class DialogAgent:
                 return self._code_transfer(s, r.candidates[0])
         return None
 
-    async def _mcp_step(self, s: DialogSession, text: str) -> DialogTurn | None:
+    async def _mcp_step(self, s: DialogSession, text: str) -> tuple[DialogTurn | None, tuple[Candidate, ...]]:
         """Akışın 2. adımı (ADR-023, ADR-025): rehber (1. adım) kesin karar veremedi; LLM'den önce MCP'ye sorulur:
         önce kişi çözme (unvan → o makamdaki kişi; birim + ad → o birimdeki kişi: aktar; ad + hitap → tek kişi: teyit,
-        birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın)."""
+        birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın).
+        İkinci değer ses benzerliğiyle aday: çağıran onu LLM'den hemen önce teyitle kullanır."""
         words = search_key(text).split()
+        sound: tuple[Candidate, ...] = ()
         if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
-            cands, sure = await self.tools.resolve_person(text)
+            cands, sure, sound = await self.tools.resolve_person(text)
             if len(cands) == 1:
                 log.info("[%s] kişi (MCP): %s → %s%s", s.call_id, log_text(text), cands[0].contact.extension,
                          "" if sure else " (teyit)")
-                return self._code_transfer(s, cands[0]) if sure else self._confirm(s, cands[0].contact,
-                                                                                    why="kişi kesin değil")
+                return (self._code_transfer(s, cands[0]) if sure
+                        else self._confirm(s, cands[0].contact, why="kişi kesin değil")), ()
             if 2 <= len(cands) <= 3:
                 s.state.last_results, s.state.truncated = cands, False
                 if (turn := self._clarify(s, cands)) is not None:
                     log.info("[%s] kişi (MCP): %s → soru %s", s.call_id, log_text(text),
                              [c.contact.extension for c in cands])
                     turn.fast = True
-                    return turn
-        return await self._topic_step(s, text)
+                    return turn, ()
+        return await self._topic_step(s, text), sound
 
     async def _topic_step(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Akışın 2. adımı (ADR-023): rehber (1. adım) çözemedi; yerel MCP sunucusuna sözdeki konu sorulur

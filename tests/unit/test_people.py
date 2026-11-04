@@ -152,3 +152,59 @@ async def test_mcp_uydurma_kimlik_atilir(sirket):
     agent, llm = _agent(sirket, Lying(sirket))
     t = await agent.new_session("x").handle_user("genel müdür bey lütfen")
     assert t.actions == [] or all(a.extension != "100" for a in t.actions if hasattr(a, "extension"))
+
+
+# --- ses benzerliği (ADR-026): STT'nin bozduğu adlar, yalnız teyitle --------------------------------------------
+
+from sesli_asistan.gateway.core.people import sound_alike  # noqa: E402
+
+
+@pytest.mark.parametrize("heard, expected", [            # ölçüm 04.11.2026, mihu, telefon / mikrofon
+    ("ağlayamaz ile görüşmek istiyorum", "c-101"), ("bırakçayı arıyorum", "c-106"), ("kuba çelik", "c-106"),
+    ("mehmet de mi'ye bağırar mısınız", "c-103"), ("zeynep aysan'a beraber misin", "c-105"),
+    ("ayşe yamaz", "c-101"),
+])
+def test_ses_benzerligi_bozuk_adi_bulur(sirket, heard, expected):
+    assert [a["id"] for a in sound_alike(sirket, heard)] == [expected]
+
+
+@pytest.mark.parametrize("heard", [                      # ad içermeyen sözler: aday önerilmez
+    "bir bilgi almak istiyorum", "saat kaça kadar açıksınız", "taş vermek istiyorum", "şifemi unuttun mu",
+    "servis kanka açtırmak istiyorum", "fiyat paketi saymak istiyorum", "sevgi ne zaman çıkacak",
+    "bugün hava çok güzel",
+    "adres neresi", "teşekkür ederim", "alo duyuyor musunuz", "kargom gelmedi", "bayram kutlu olsun",
+    "teklif almak istiyorum", "fatura itirazı", "harş vermek istiyorum", "söylemek istiyorum",
+    "afiyete bağlanmak istiyorum", "ateşe girmem", "taşınma", "o pt'ye", "hayat", "ne yapıyorsunuz", "robot musunuz",
+    "kimsin sen", "sesim geliyor mu", "şirketiniz nerede", "iş ilanı var mı", "faks numaranız", "kulakçayı alıyorum",
+])
+def test_ses_benzerligi_ad_olmayan_sozde_tetiklenmez(sirket, heard):
+    assert sound_alike(sirket, heard) == []
+
+
+def test_ses_benzerligi_yalniz_kurallar_bulamazsa(sirket):
+    assert resolve_person(sirket, "muhasebeden ayşe hanım")["ses"] == []
+    assert [a["id"] for a in resolve_person(sirket, "bırakçayı arıyorum")["ses"]] == ["c-106"]
+
+
+async def test_ses_benzerligi_teyitle_aktarir(sirket):
+    agent, llm = _agent(sirket, Remote(sirket))
+    s = agent.new_session("x")
+    t = await s.handle_user("bırakçayı arıyorum")
+    assert t.actions == [] and "Burak Çelik" in t.text and llm.calls == 0
+    t = await s.handle_user("evet")
+    assert [a.extension for a in t.actions] == ["215"] and llm.calls == 0
+
+
+async def test_ses_benzerligine_hayir_adi_yeniden_ister(sirket):
+    agent, llm = _agent(sirket, Remote(sirket))
+    s = agent.new_session("x")
+    await s.handle_user("bırakçayı arıyorum")
+    t = await s.handle_user("hayır")
+    assert t.actions == [] and t.text == agent.cfg.texts.not_found      # yanlış duyulan ad: tekrar söylesin
+
+
+async def test_operator_kurali_ses_benzerliginden_once(sirket):
+    """D68: "operatöre" → mihu "efsane"; ses benzerliği Elif Şahin'e benzetmemeli, operatör sorulmalı."""
+    agent, llm = _agent(sirket, Remote(sirket))
+    t = await agent.new_session("x").handle_user("efsane bağlanmak istiyorum")
+    assert "operatör" in t.text and t.actions == []

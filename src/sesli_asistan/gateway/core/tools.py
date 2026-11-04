@@ -152,8 +152,9 @@ class ToolRegistry:
                 log.warning("MCP rehber araması olmadı (%s): yerel arama", e or type(e).__name__)
         return self.execute(call, state)
 
-    async def resolve_person(self, text: str) -> tuple[tuple[Candidate, ...], bool]:
-        """Akışın 2. adımı (ADR-025): MCP'de kişi çözme (unvan, birim + ad, ad + hitap) → (adaylar, kesin mi). MCP
+    async def resolve_person(self, text: str) -> tuple[tuple[Candidate, ...], bool, tuple[Candidate, ...]]:
+        """Akışın 2. adımı (ADR-025): MCP'de kişi çözme (unvan, birim + ad, ad + hitap) → (adaylar, kesin mi, ses
+        benzerliğiyle aday — kurallar bulamadıysa, yalnız teyitle kullanılır). MCP
         ulaşılamazsa aynı işlev burada çalışır (`core.people.resolve_person`): adım kaybolmaz. Kimlikler Gateway'in
         kendi rehberinde aranır (bulunmayan atılır)."""
         data: dict[str, Any] | None = None
@@ -170,7 +171,9 @@ class ToolRegistry:
                       if (c := self.index.get(str(a.get("id", "")))) is not None)
         if cands:
             self.person_hits += 1
-        return cands, bool(data.get("kesin")) and len(cands) == 1
+        sound = tuple(Candidate(c, int(a.get("puan", 0))) for a in data.get("ses") or [] if isinstance(a, dict)
+                      if (c := self.index.get(str(a.get("id", "")))) is not None)[:1]
+        return cands, bool(data.get("kesin")) and len(cands) == 1, sound
 
     async def find_topic(self, text: str) -> tuple[Candidate, ...]:
         """Akışın 2. adımı: MCP'ye sözdeki konu sorulur. Dönen kimlikler Gateway'in kendi rehberinde aranır

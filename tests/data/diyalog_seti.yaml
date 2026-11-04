@@ -571,3 +571,21 @@
   aciklama: Unvan, -yle eki
   konusma: ["satış müdürüyle görüşmek istiyorum"]
   beklenen: {eylem: transfer, dahili: "230"}
+
+# ses benzerliği (ADR-026): STT'nin bozduğu adlar (ölçüm 04.11.2026), yalnız teyitle
+- id: D124
+  aciklama: '"Burak Çelik" → STT "bırakçayı" → teyit → evet'
+  konusma: ["bırakçayı arıyorum", "evet"]
+  beklenen: {eylem: transfer, dahili: "215"}
+- id: D125
+  aciklama: '"Ayşe Yılmaz" → STT "ağlayamaz" → teyit → evet'
+  konusma: ["ağlayamaz ile görüşmek istiyorum", "evet"]
+  beklenen: {eylem: transfer, dahili: "214"}
+- id: D126
+  aciklama: Ses benzerliğine "hayır" → aktarma yok
+  konusma: ["bırakçayı arıyorum", "hayır"]
+  beklenen: {eylem: aktarma_yok}
+- id: D127
+  aciklama: Ad içermeyen söz ses benzerliğini tetiklemez
+  konusma: ["ne yapıyorsunuz"]
+  beklenen: {eylem: aktarma_yok}
