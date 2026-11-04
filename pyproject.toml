@@ -47,6 +47,7 @@ gateway = [
     "tzdata; sys_platform == 'win32'",   # TIMEZONE (Windows'ta saat dilimi veritabanı yok)
     "grpcio>=1.85.0",
     "protobuf>=7.35.1",
+    "mcp>=2.3",            # rehber MCP sunucusu ve istemcisi (LLM_TOOLS=mcp, ADR-022)
 ]
 tools = [
     "soundfile",

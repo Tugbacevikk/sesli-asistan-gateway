@@ -25,10 +25,12 @@ elle değiştirmeyin. Lisans metinleri dağıtım paketinde `lisanslar/` klasör
 | annotated-doc | 0.0.5 | MIT | Gateway, TTS (Seslen) |
 | annotated-types | 0.8.0 | MIT | Gateway, STT, TTS (Seslen) |
 | anyio | 4.15.1 | MIT | Gateway, Kurulum araçları, STT, TTS (Seslen) |
+| attrs | 26.1.0 | MIT | Gateway |
 | av | 19.0.2 | BSD-3-Clause | STT |
 | certifi | 2026.10.23 | Mozilla Public License 2.0 (MPL 2.0) | Gateway |
-| cffi | 2.1.1 | MIT-0 | Kurulum araçları |
+| cffi | 2.1.1 | MIT-0 | Gateway, Kurulum araçları |
 | click | 8.5.0 | BSD-3-Clause | Gateway, Kurulum araçları, STT, TTS (Seslen) |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause | Gateway |
 | ctranslate2 | 4.8.4 | MIT | STT |
 | fastapi | 0.162.0 | MIT | Gateway, TTS (Seslen) |
 | faster-whisper | 1.2.1 | MIT License | STT |
@@ -40,11 +42,15 @@ elle değiştirmeyin. Lisans metinleri dağıtım paketinde `lisanslar/` klasör
 | h11 | 0.16.0 | MIT License | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | hf-xet | 1.7.0 | Apache-2.0 | Kurulum araçları, STT, TTS (Seslen) |
 | httpcore | 1.0.9 | BSD-3-Clause | Gateway |
-| httpcore2 | 2.16.0 | BSD-3-Clause | Kurulum araçları, STT, TTS (Seslen) |
+| httpcore2 | 2.16.0 | BSD-3-Clause | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | httpx | 0.28.1 | BSD License | Gateway |
-| httpx2 | 2.16.0 | BSD-3-Clause | Kurulum araçları, STT, TTS (Seslen) |
+| httpx2 | 2.16.0 | BSD-3-Clause | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | huggingface-hub | 2.3.0 | Apache Software License | Kurulum araçları, STT, TTS (Seslen) |
 | idna | 3.20 | BSD-3-Clause | Gateway, Kurulum araçları, STT, TTS (Seslen) |
+| jsonschema | 4.26.0 | MIT | Gateway |
+| jsonschema-specifications | 2025.9.1 | MIT | Gateway |
+| mcp | 2.3.0 | MIT License | Gateway |
+| mcp-types | 2.3.0 | MIT License | Gateway |
 | numpy | 2.5.4 | BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0 | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | nvidia-cublas-cu12 | 12.9.2.10 | ⚠ LicenseRef-NVIDIA-Proprietary | STT |
 | nvidia-cuda-nvrtc-cu12 | 12.9.86 | ⚠ Other/Proprietary License | STT |
@@ -54,22 +60,27 @@ elle değiştirmeyin. Lisans metinleri dağıtım paketinde `lisanslar/` klasör
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | Kurulum araçları, STT, TTS (Seslen) |
 | prometheus-client | 0.26.0 | Apache-2.0 AND BSD-2-Clause | Gateway, STT |
 | protobuf | 7.36.2 | 3-Clause BSD License | Gateway, STT, TTS (Seslen) |
-| pycparser | 3.12 | BSD-3-Clause | Kurulum araçları |
+| pycparser | 3.12 | BSD-3-Clause | Gateway, Kurulum araçları |
 | pydantic | 2.14.1 | MIT | Gateway, STT, TTS (Seslen) |
 | pydantic-core | 2.50.1 | MIT | Gateway, STT, TTS (Seslen) |
 | pydantic-settings | 2.16.1 | MIT | Gateway, STT, TTS (Seslen) |
+| pyjwt | 2.15.1 | MIT | Gateway |
 | python-dotenv | 1.2.4 | BSD-3-Clause | Gateway, STT, TTS (Seslen) |
+| python-multipart | 0.0.33 | Apache-2.0 | Gateway |
 | pyyaml | 6.0.3 | MIT License | Kurulum araçları, STT, TTS (Seslen) |
 | rapidfuzz | 3.14.6 | MIT | Gateway |
+| referencing | 0.37.0 | MIT | Gateway |
+| rpds-py | 2026.9.1 | MIT | Gateway |
 | scipy | 1.18.1 | BSD License | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | seslen-tts | 0.1.0 | MIT | TTS (Seslen) |
 | sherpa-onnx | 2.0.1 | Apache licensed, as found in the LICENSE file | STT |
 | sherpa-onnx-core | 2.0.1 | Apache-2.0 | STT |
 | soundfile | 0.14.0 | BSD License | Kurulum araçları |
+| sse-starlette | 3.6.0 | BSD-3-Clause | Gateway |
 | starlette | 1.10.0 | BSD-3-Clause | Gateway, TTS (Seslen) |
 | tokenizers | 0.23.3 | Apache Software License | STT |
 | tqdm | 4.70.1 | MPL-2.0 AND MIT | Kurulum araçları, STT, TTS (Seslen) |
-| truststore | 0.10.5 | MIT | Kurulum araçları, STT, TTS (Seslen) |
+| truststore | 0.10.5 | MIT | Gateway, Kurulum araçları, STT, TTS (Seslen) |
 | turkce-normalize | 0.1.1 | MIT | TTS (Seslen) |
 | turkce-vurgu | 0.1.1 | MIT AND CC-BY-SA-4.0 | TTS (Seslen) |
 | typing-extensions | 4.16.0 | PSF-2.0 | Gateway, Kurulum araçları, STT, TTS (Seslen) |

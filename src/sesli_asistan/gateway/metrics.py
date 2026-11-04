@@ -93,6 +93,12 @@ class _RuntimeCollector:
         c = CounterMetricFamily("transfer_policy_rejections", "Güvenlik kuralının reddettiği aktarmalar")
         c.add_metric([], rt.agent.tools.rejections)
         yield c
+        c = CounterMetricFamily("mcp_tool_calls", "LLM rehber aramaları MCP'de (LLM_TOOLS=mcp; yerel = MCP olmadı)",
+                                labels=["result"])
+        tools = rt.agent.tools
+        c.add_metric(["mcp"], tools.remote_calls - tools.remote_failures)
+        c.add_metric(["yerel"], tools.remote_failures)
+        yield c
         totals: dict[str, int] = {}
         for _, st in rt.manager.results:
             for k, v in (st.rtp or {}).items():

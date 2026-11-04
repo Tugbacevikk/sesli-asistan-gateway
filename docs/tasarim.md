@@ -700,7 +700,8 @@ Varsayılan: Ollama yerel API `POST /api/chat` (`think: false`, `stream: false`)
 `POST /v1/chat/completions` (llama.cpp, `chat_template_kwargs.enable_thinking=false`). Çekirdek yalnızca
 `LlmPort` arayüzünü bilir; geçmiş OpenAI biçiminde tutulur, Ollama adaptörü kendi biçimine çevirir (ADR-005).
 
-Araç tanımlarının tek kaynağı `gateway/core/tools.py`'dir (ileride MCP sunucusu olarak açılabilir):
+Araç tanımlarının tek kaynağı `gateway/core/tools.py`'dir. `LLM_TOOLS=mcp` ile LLM'in rehber araması (`InContacts`)
+rehber MCP sunucusunda yapılır (ADR-022); aktarma ve operatör her durumda Gateway'de kalır:
 
 | Araç | Parametreler | Ne yapar |
 |---|---|---|
@@ -1122,6 +1123,10 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
 | `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
 | `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |
+| `LLM_TOOLS` | yerel | ADR-022: `mcp` → LLM'in rehber araması rehber MCP sunucusunda (`sesli-mcp`); aktarma Gateway'de |
+| `MCP_URL` | http://127.0.0.1:8765/mcp | Gateway'in bağlandığı rehber MCP sunucusu (Streamable HTTP) |
+| `MCP_TIMEOUT_S` | 1.0 | MCP araması bu sürede dönmezse arama Gateway'de yapılır (arayan beklemez) |
+| `MCP_HOST` / `MCP_PORT` | 127.0.0.1 / 8765 | Sunucunun dinlediği adres. Ağa açmak rehberi (ad, unvan, dahili) okunur kılar: bilinçli karar |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `NO_INPUT_QUESTION_TEXT`, `GREETING_REPLY_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |
@@ -1257,6 +1262,7 @@ API'si (Sentra) gelince yükleme kapanır, rehber oradan yönetilir. Uçlar yaln
 flowchart TB
     subgraph server[Uygulama sunucusu · Ubuntu 24.04 LTS · NVIDIA GPU]
         gw[sesli-gateway.service]
+        mcp[sesli-mcp.service · LLM_TOOLS=mcp]
         stt[sesli-stt.service]
         ollama[ollama.service]
         tts[Piper TTS · mevcut]
@@ -1264,6 +1270,7 @@ flowchart TB
     pbx[Santral] --- gw
     sentra[Sentra BE] --- gw
     gw --- stt & ollama & tts
+    gw -.->|127.0.0.1:8765| mcp
 ```
 
 ### 14.2 Dizin yapısı
@@ -1662,6 +1669,29 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   **Lisans:** mihu Community License v1.0; kullanım ve dağıtım hakkı proje sahibince teyit edildi (03.11.2026);
   "Powered by mihu" atfı THIRD_PARTY_LICENSES.md'de, LICENSE dosyası modelle birlikte dağıtılır.
 
+### ADR-022 — LLM'in rehber araması yerel MCP sunucusunda (seçilebilir)
+- **Bağlam:** Yerel LLM + MCP deneyi (02.11.2026, `tools/mcp/`) araç çağrısının MCP üzerinden 2–3 ms sürdüğünü
+  gösterdi. Rehberi standart bir protokolle sunmak, ileride başka kaynakların (CRM, takvim) aynı yoldan eklenmesini
+  ve rehberin başka MCP istemcilerinden (MCP Inspector, masaüstü yapay zekâ uygulamaları) sorgulanmasını sağlar.
+- **Karar:** Rehber MCP sunucusu (`gateway/rehber_mcp.py`, `sesli-mcp.service`, Streamable HTTP, varsayılan yalnız
+  127.0.0.1:8765). Araçlar **yalnız okur**: `rehber_ara`, `birimler`, `mesai_durumu`; deneydeki `aktar` aracı alınmadı.
+  `LLM_TOOLS=mcp` ile LLM'in `InContacts` çağrısı bu sunucuya gider. Değişmeyenler:
+  (1) Kodla çözülen yollar (hızlı yol, seçim, teyit, dahili, kural modu) yerel aramayı kullanır: telefondaki gecikme
+  ve davranış aynı kalır. (2) `TransferCall` ve `ConnectOperator` her durumda Gateway'de, TransferPolicy'den geçer.
+  (3) MCP sonucundaki adaylar Gateway'in **kendi** rehberinde kimlikle aranır; bulunmayan atılır. Sunucu bir kayıt
+  uyduramaz, silinmiş ya da aktarılamaz kişiye aktarma açılmaz. (4) Arama iki yerde de aynı işlevdir
+  (`core.tools.in_contacts`); sonuç birebir aynı (birim testi).
+- **Hata davranışı:** Arama `MCP_TIMEOUT_S` (1 sn) içinde dönmezse ya da sunucu yoksa arama Gateway'de yapılır; arayan
+  fark etmez. Takılan çağrı 5 sn sonra bağlantıyı yeniler. MCP sağlıkta görünür (`components.mcp`,
+  `dependency_up{service="mcp"}`) ama zorunlu değildir: düşmesi çağrı kabulünü etkilemez. `mcp_tool_calls_total`
+  `{result=mcp|yerel}` kaç aramanın yerele düştüğünü sayar. Sunucu rehberi 15 sn'de bir okur: arayüzden yüklenen yeni
+  rehberi Gateway hemen görür, MCP en çok 15 sn geriden gelir (bu arada yeni kişi LLM aramasında bulunamayabilir;
+  silinen kişi zaten aktarılamaz).
+- **Kabul ölçütü (Aşama 3):** Diyalog setinde (114 senaryo) `--araclar mcp` ile `yerel` aynı başarı ve 0 izinsiz
+  aktarma; LLM'e giden turda ek gecikme ≤ 50 ms; sunucu kapalıyken set yine geçer. Geçmezse varsayılan `yerel` kalır.
+- **Sonuç:** Varsayılan `yerel`. MCP, ölçüm ve canlı santral denemesinden (Aşama 4) sonra açılır. Yeni bağımlılık:
+  `mcp` (MIT) ve 15 alt paket (hepsi MIT / BSD / Apache).
+
 ---
 
 ## 17. Riskler
@@ -1741,12 +1771,14 @@ sesli-asistan-gateway/
 │   │   │   ├── directory/    # json_dir.py (Sentra API adaptörü Aşama 9)
 │   │   │   ├── tts/          # piper_http.py, cache.py
 │   │   │   ├── stt/          # grpc_client.py (Gateway → STT)
-│   │   │   └── pbx/          # rest.py: Gateway → santral eylemleri (yeniden deneme)
+│   │   │   ├── pbx/          # rest.py: Gateway → santral eylemleri (yeniden deneme)
+│   │   │   └── mcp/          # rehber.py: rehber MCP sunucusunun istemcisi (LLM_TOOLS=mcp)
 │   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog.py, tools.py,
 │   │   │                     #   policy.py, search.py, directory.py, speech.py, models.py, ports.py
 │   │   ├── api/              # app.py: REST uçları (FastAPI); ui.py + ui.html: arayüz (ADR-014)
 │   │   ├── config.py         # GatewaySettings
 │   │   ├── composition.py    # bileşenleri ayarlardan kurar; GatewayRuntime (açılış, sağlık, kapanış)
+│   │   ├── rehber_mcp.py     # rehber MCP sunucusu (ADR-022): python -m sesli_asistan.gateway.rehber_mcp
 │   │   └── server.py         # python -m sesli_asistan.gateway
 │   ├── stt/
 │   │   ├── engine.py         # faster-whisper medium, hotwords

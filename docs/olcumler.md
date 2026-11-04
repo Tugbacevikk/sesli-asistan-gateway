@@ -897,6 +897,31 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### Rehber MCP sunucusu — temel ölçüm (4 Kasım 2026, ADR-022 Aşama 0–2; bulut geliştirme ortamı, Linux, CPU)
+
+Karşılaştırmanın temeli, yerel araçlarla (`LLM_TOOLS=yerel`). Değerler yukarıdaki iki ölçümden:
+
+| | başarı | izinsiz | LLM / tur | tur p95 |
+|---|---|---|---|---|
+| qwen3.5:4b, 110 senaryo (3 Kasım) | %100 | 0 | 0,36 | 3,98 sn |
+| kural modu, 114 senaryo (4 Kasım) | %96,5 | 0 | 0 | — |
+
+MCP yolu (`python -m sesli_asistan.gateway.rehber_mcp`, Streamable HTTP, 127.0.0.1). Gateway'in arama işlevinden
+(`ToolRegistry.execute_async`) ölçüldü, LLM yok, n = 100 (5 sorgu × 20):
+
+| | süre |
+|---|---|
+| `mcp` paketinin içe aktarılması | ~0,8 sn (Gateway açılırken; ilk aramaya binmez) |
+| Bağlanma + oturum açma | 67 ms (açılışta ısıtılır) |
+| `InContacts` MCP üzerinden p50 / p95 | **4,2 / 7,9 ms** |
+| MCP hatası / yerele düşen | 0 / 0 |
+| Takılan çağrı (5 sn sınırı 0,3'e indirilerek) → yeniden bağlanma | ~1,2 sn; o arada aramalar yerelde |
+
+- Ek gecikme LLM'e giden turda 4–8 ms: kabul sınırı (≤ 50 ms) içinde. Kesin karar dizüstünde gerçek LLM ile
+  (Aşama 3: `tests/eval/diyalog.py --araclar yerel` ile `--araclar mcp`, ardından sunucu kapalıyken).
+- MCP yolu, 11 sorguda yerel aramayla birebir aynı sonucu veriyor (birim testi); silinmiş ve aktarılamaz kayıtlar
+  sunucudan çıkmıyor; sunucunun uydurduğu kayıtla aktarma reddediliyor.
+
 ## Yerel LLM + MCP deneyi (2 Kasım 2026, `tools/mcp/`)
 
 Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama istemci döngüsü (`ollama_dene.py`),

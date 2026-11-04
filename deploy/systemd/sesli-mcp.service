@@ -1,0 +1,40 @@
+# Sesli asistan — rehber MCP sunucusu (ADR-022). Yalnız gateway.env'de LLM_TOOLS=mcp ise install.sh etkinleştirir.
+# Yalnız okur (rehber_ara, birimler, mesai_durumu); aktarma yapamaz. Dinlediği adres: MCP_HOST:MCP_PORT (127.0.0.1:8765)
+[Unit]
+Description=Sesli asistan rehber MCP sunucusu (LLM'in rehber araması)
+Documentation=https://github.com/Tugbacevikk/sesli-asistan-gateway/blob/main/docs/tasarim.md
+After=network-online.target
+Wants=network-online.target
+Before=sesli-gateway.service
+
+[Service]
+Type=simple
+User=sesli
+Group=sesli
+WorkingDirectory=/var/lib/sesli-asistan
+# Gateway'in ayarları: aynı rehber kaynağı (DIRECTORY_*), mesai ve MCP_* değerleri
+EnvironmentFile=/etc/sesli-asistan/gateway.env
+EnvironmentFile=/etc/sesli-asistan/secrets.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@ONEK@/current/venv/gateway/bin/python -m sesli_asistan.gateway.rehber_mcp
+Restart=on-failure
+RestartSec=3
+LimitNOFILE=8192
+
+# Rehberi yalnız okur: StateDirectory yok, ProtectSystem=strict her yeri salt okunur yapar
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

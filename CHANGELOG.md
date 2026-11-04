@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Rehber MCP sunucusu (ADR-022): `python -m sesli_asistan.gateway.rehber_mcp` / `sesli-mcp.service`, yalnız okuyan
+  araçlar (`rehber_ara`, `birimler`, `mesai_durumu`), varsayılan yalnız 127.0.0.1:8765. `LLM_TOOLS=mcp` ile LLM'in
+  rehber araması bu sunucuda; aktarma Gateway'de kalır, sunucu ulaşılamazsa arama yerelde (`MCP_TIMEOUT_S`).
+  Metrik `mcp_tool_calls_total`, değerlendirmede `--araclar mcp`. Varsayılan `yerel` (davranış değişmez).
 - İkinci STT motoru (ADR-021): `STT_ENGINE=sherpa` ile akışlı Zipformer transducer (sherpa-onnx, CPU;
   mihuai/turkish-stt-66m-v2).
 - Yerel LLM + MCP deneyi: `tools/mcp/` (rehber araçları MCP sunucusu, Ollama istemci döngüsü, 8 senaryo).
@@ -79,6 +83,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Rehber yenilemesi değişiklik yoksa loga yazılmaz (yalnız DEBUG düzeyinde).
 - **Varsayılan STT motoru mihu** (`STT_ENGINE=sherpa`, mihuai/turkish-stt-66m-v2, CPU): okuma ölçümünde hatasız,
   en düşük kelime hatası, gerçek zamanın ~14 katı hızlı; STT için GPU gerekmez (kurulum GPU'yu yalnız
   `STT_ENGINE=whisper` ise denetler). Whisper GPU'lu yedek olarak kalır.

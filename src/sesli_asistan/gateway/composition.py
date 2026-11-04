@@ -54,7 +54,13 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
                        confirm_below=s.confirm_below, repeat_below=s.repeat_below,
                        code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback)
-    return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index), cfg)
+    remote = None
+    if s.llm_tools == "mcp":
+        from .adapters.mcp.rehber import McpRehber
+
+        remote = McpRehber(s.mcp_url)        # ADR-022: LLM'in rehber araması MCP sunucusunda
+    return DialogAgent(llm or build_llm(s), ToolRegistry(directory.index, remote=remote,
+                                                         remote_timeout_s=s.mcp_timeout_s), cfg)
 
 
 def build_tts(s: GatewaySettings) -> CachingTts:
@@ -103,6 +109,9 @@ class GatewayRuntime:
         self.pbx = pbx or PbxRestClient(s.pbx_base_url, s.pbx_api_key.get_secret_value(), s.pbx_timeout_s)
         self.speaker: Speaker | None = None
         self.components = {"stt": "starting", "tts": "starting", "directory": "starting"}
+        self.mcp = self.agent.tools.remote           # LLM_TOOLS=mcp ise rehber MCP istemcisi (isteğe bağlı bileşen)
+        if self.mcp is not None:
+            self.components["mcp"] = "starting"
         if s.llm_enabled:                  # LLM kapalıysa (ADR-019) sağlıkta hiç yer almaz
             self.components["llm"] = "starting"
         self.health_interval_s = health_interval_s
@@ -133,7 +142,8 @@ class GatewayRuntime:
         """Çağrı kabul edilir mi. LLM zorunlu değil (ADR-020): düşerse diyalog kural tabanlı sürer; yalnız STT, TTS
         ve rehber zorunlu."""
         comps = self.effective_components()
-        required = {k: v for k, v in comps.items() if k != "llm" or not self.s.llm_fallback}
+        # MCP zorunlu değil (ADR-022): ulaşılamazsa LLM'in rehber araması Gateway içinde yapılır
+        required = {k: v for k, v in comps.items() if k != "mcp" and (k != "llm" or not self.s.llm_fallback)}
         return self.speaker is not None and all(v == "ok" for v in required.values())
 
     def effective_components(self) -> dict[str, str]:
@@ -235,6 +245,10 @@ class GatewayRuntime:
                 await asyncio.wait_for(warm(), timeout=60)
             except Exception as e:
                 log.error("LLM ısıtılamadı: %s", e)
+        if self.mcp is not None:
+            # bağlantı açılışta kurulur: ilk bağlantı ~1 sn sürüyor, bir çağrının ilk aramasına denk gelmesin
+            log.info("rehber MCP: %s (%s)", self.s.mcp_url,
+                     "bağlı" if await self.mcp.ping() else "ulaşılamıyor; aramalar yerel yapılacak")
         await self.check_health()
         self._health_task = asyncio.create_task(self._health_loop(), name="saglik")
         log.info("Gateway %s: %s", "hazır" if self.ready else "HAZIR DEĞİL", self.components)
@@ -262,6 +276,8 @@ class GatewayRuntime:
             self.components["stt"] = "down"
         if self.s.llm_enabled:
             self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
+        if self.mcp is not None:
+            self.components["mcp"] = "ok" if await self.mcp.ping() else "down"
         if self._prompts_missing or self.speaker is None:
             self.components["tts"] = "down"
         elif isinstance(self.tts, CachingTts):
@@ -277,7 +293,7 @@ class GatewayRuntime:
         await self.manager.shutdown()
         self.history.close()
         await self.directory.stop()
-        for c in (self.stt, self.pbx, self.llm):
+        for c in (self.stt, self.pbx, self.llm, self.mcp):
             close = getattr(c, "aclose", None)
             if close:
                 await close()

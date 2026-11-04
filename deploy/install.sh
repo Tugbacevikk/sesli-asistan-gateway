@@ -128,10 +128,15 @@ onceki_surum() {   # current dışındaki en yeni sürüm
     ls -1dt "$ONEK"/releases/*/ 2>/dev/null | sed 's:/$::' | grep -vx "${cur:-//}" | head -1
 }
 
+mcp_acik() {   # gateway.env'de LLM_TOOLS=mcp mi (ADR-022: LLM'in rehber araması MCP sunucusunda)
+    has gateway && [[ $(sed -n 's/^LLM_TOOLS=//p' "$AYAR/gateway.env" 2>/dev/null | tail -n1 | tr -d '"[:space:]') == mcp ]]
+}
+
 servisleri_yeniden_baslat() {
     local s
     has gateway && systemctl is-active -q sesli-gateway \
         && bilgi "Gateway yeniden başlatılıyor: açık çağrılar bitene kadar beklenir (en çok 2 dk, yeni çağrı alınmaz)"
+    mcp_acik && systemctl restart sesli-mcp      # Gateway'den önce: açılışta bağlantı ısıtılır
     for s in stt tts gateway; do has $s && systemctl restart "sesli-$s"; done
 }
 
@@ -172,7 +177,7 @@ kaldir() {
     [[ $EUID -eq 0 ]] || dur "root olarak çalıştırın (sudo)"
     # yanlış --onek ile sistem klasörü silinmesin
     [[ "$ONEK" == /* && "$(basename "$ONEK")" == *sesli* ]] || dur "--onek beklenmedik: $ONEK"
-    local birimler=(sesli-gateway sesli-stt sesli-tts sesli-yedek.timer sesli-yedek)
+    local birimler=(sesli-gateway sesli-mcp sesli-stt sesli-tts sesli-yedek.timer sesli-yedek)
     echo "Kaldırılacak:"
     echo "  - servisler: ${birimler[*]} (açık çağrılar bitene kadar beklenir, en çok 2 dk)"
     echo "  - program, sanal ortamlar ve modeller: $ONEK"
@@ -405,6 +410,8 @@ done
 if has gateway; then   # günlük yedek (tasarim.md 14.7)
     sed "s|@ONEK@|$ONEK|g" "$KAYNAK/deploy/systemd/sesli-yedek.service" > /etc/systemd/system/sesli-yedek.service
     cp "$KAYNAK/deploy/systemd/sesli-yedek.timer" /etc/systemd/system/sesli-yedek.timer
+    # rehber MCP sunucusu (ADR-022): birim her zaman kurulur, yalnız LLM_TOOLS=mcp ise çalıştırılır
+    sed "s|@ONEK@|$ONEK|g" "$KAYNAK/deploy/systemd/sesli-mcp.service" > /etc/systemd/system/sesli-mcp.service
 fi
 systemctl daemon-reload
 ONCEKI=$(readlink -f "$ONEK/current" 2>/dev/null || true)
@@ -423,6 +430,11 @@ if [[ $BASLAT -eq 0 ]]; then
 fi
 for s in $SERVISLER; do systemctl enable -q "sesli-$s"; done
 has gateway && systemctl enable -q --now sesli-yedek.timer
+if mcp_acik; then
+    systemctl enable -q sesli-mcp
+elif has gateway; then
+    systemctl disable -q --now sesli-mcp 2>/dev/null || true
+fi
 servisleri_yeniden_baslat
 if ! saglik_bekle; then
     if [[ -n "$ONCEKI" && "$ONCEKI" != "$HEDEF" ]]; then

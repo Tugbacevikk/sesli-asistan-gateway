@@ -63,8 +63,8 @@ class DirectoryCache:
             self.index.rebuild(self._contacts.values())
         self._server_time = page.server_time
         self._last_ok = time.monotonic()
-        log.info("rehber güncellendi: %d değişiklik, %d kayıt (aranabilir: %d)",
-                 changed, len(self._contacts), len(self.index))
+        (log.info if changed else log.debug)("rehber güncellendi: %d değişiklik, %d kayıt (aranabilir: %d)",
+                                             changed, len(self._contacts), len(self.index))
         return True
 
     def start(self) -> None:

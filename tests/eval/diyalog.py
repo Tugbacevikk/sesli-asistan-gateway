@@ -8,6 +8,8 @@ burada yalnızca LLM payı ölçülür) ve NFR-05'i sağlayan en küçük model 
     python tests/eval/diyalog.py --model qwen3.5:9b --model qwen3.5:4b
     python tests/eval/diyalog.py --model qwen3.5:9b --tekrar 3 --sadece D10,D24
     python tests/eval/diyalog.py --kural            # LLM'siz (kural modu, ADR-019): Ollama gerekmez, kod yolları
+    python tests/eval/diyalog.py --araclar mcp      # LLM'in rehber araması MCP sunucusunda (ADR-022; önce
+                                                    #   python -m sesli_asistan.gateway.rehber_mcp)
 
 Ön koşul: Ollama çalışıyor ve modeller çekilmiş (`ollama pull qwen3.5:9b`).
 """
@@ -129,10 +131,13 @@ def pct(values: list[float], p: float) -> float:
 
 
 async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
-                    rules: bool = False) -> dict[str, Any]:
+                    rules: bool = False, tools: str = "yerel", mcp_url: str = "") -> dict[str, Any]:
     s = GatewaySettings()
     s.llm_model = model
     s.llm_enabled = not rules
+    s.llm_tools = tools  # type: ignore[assignment]
+    if mcp_url:
+        s.mcp_url = mcp_url
     if timeout_s:
         s.llm_timeout_s = timeout_s
     directory = build_directory(s)
@@ -141,6 +146,11 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     from sesli_asistan.gateway.composition import build_llm
 
     agent.llm = CountingLlm(build_llm(s))
+    remote = agent.tools.remote
+    if remote is not None and not await remote.ping():
+        # ölçüm sessizce yerel aramaya düşmesin: iki yolu karşılaştırıyoruz
+        raise SystemExit(f"MCP sunucusuna ulaşılamadı ({s.mcp_url}): python -m sesli_asistan.gateway.rehber_mcp")
+    tool_ms = _time_in_contacts(agent.tools)
     if not rules:
         await agent.llm.chat([{"role": "user", "content": "merhaba"}], [])  # ısınma (ölçüme girmez)
     agent.llm.calls, agent.llm.times = 0, []
@@ -150,6 +160,8 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     for _ in range(repeat):
         for sc in scenarios:
             results.append(await run_scenario(agent, sc, allowed))
+    if remote is not None:
+        await remote.aclose()
     lat = [x for r in results for x in r["gecikme"]]
     turns = [c for r in results for c in r["llm_cagri"]]
     return {
@@ -162,9 +174,30 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
         "yanlis_aktarma": sum(len(r["yanlis"]) for r in results),
         "tur_gecikmesi_p50_sn": round(statistics.median(lat), 2) if lat else None,
         "tur_gecikmesi_p95_sn": round(pct(lat, 95), 2),
+        "araclar": tools, "rehber_aramasi": len(tool_ms),
+        "rehber_aramasi_p50_ms": round(statistics.median(tool_ms), 2) if tool_ms else None,
+        "rehber_aramasi_p95_ms": round(pct(tool_ms, 95), 2) if tool_ms else None,
+        "mcp_hatasi": agent.tools.remote_failures,
         "basarisizlar": sorted({r["id"] for r in results if not r["ok"]}),
         "ayrinti": results,
     }
+
+
+def _time_in_contacts(tools: Any) -> list[float]:
+    """LLM'in rehber aramalarının (InContacts) süresi, ms: yerel ve MCP yolu aynı yerden ölçülür."""
+    times: list[float] = []
+    inner = tools.execute_async
+
+    async def timed(call, state):
+        t0 = time.perf_counter()
+        try:
+            return await inner(call, state)
+        finally:
+            if call.name == "InContacts":
+                times.append((time.perf_counter() - t0) * 1000)
+
+    tools.execute_async = timed
+    return times
 
 
 async def main(argv=None) -> int:
@@ -180,6 +213,9 @@ async def main(argv=None) -> int:
                          "zaman aşımı, modelin doğruluğunu gizler. Gecikme ölçümünde varsayılan (5) kalmalı.")
     ap.add_argument("--cikti", default="sonuc_diyalog.json")
     ap.add_argument("--kural", action="store_true", help="LLM'siz (kural modu): Ollama gerekmez")
+    ap.add_argument("--araclar", choices=["yerel", "mcp"], default="yerel",
+                    help="LLM'in rehber araması: yerel (Gateway içinde) ya da mcp (rehber MCP sunucusu, ADR-022)")
+    ap.add_argument("--mcp-url", default="", help="varsayılan: MCP_URL (http://127.0.0.1:8765/mcp)")
     ap.add_argument("-v", action="store_true", help="başarısız senaryoların konuşmasını yaz")
     a = ap.parse_args(argv)
 
@@ -193,16 +229,20 @@ async def main(argv=None) -> int:
                                 text=True, check=False).stdout.strip()
     except OSError:
         commit = ""
-    report = {"commit": commit, "set": a.set, "sonuclar": []}
+    report = {"commit": commit, "set": a.set, "araclar": a.araclar, "sonuclar": []}
+    print(f"araçlar: {a.araclar}")
     print(f"{'model':16} {'başarı %':>9} {'izinsiz':>8} {'yanlış':>7} {'LLM hatası':>11} {'LLM/tur':>8} "
-          f"{'p50 sn':>7} {'p95 sn':>7}  başarısızlar")
+          f"{'p50 sn':>7} {'p95 sn':>7} {'arama':>6} {'ara p50 ms':>11} {'ara p95 ms':>11} {'MCP hata':>9}  "
+          f"başarısızlar")
     for m in models:
-        r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural)
+        r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural, tools=a.araclar,
+                            mcp_url=a.mcp_url)
         report["sonuclar"].append(r)
         print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
               f"{r['llm_hatasi_turu']:>11} "
-              f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7}  "
-              f"{','.join(r['basarisizlar'])}")
+              f"{r['tur_basina_llm_cagrisi']:>8} {r['tur_gecikmesi_p50_sn']:>7} {r['tur_gecikmesi_p95_sn']:>7} "
+              f"{r['rehber_aramasi']:>6} {r['rehber_aramasi_p50_ms']!s:>11} {r['rehber_aramasi_p95_ms']!s:>11} "
+              f"{r['mcp_hatasi']:>9}  {','.join(r['basarisizlar'])}")
         if a.v:
             by_id = {sc["id"]: sc for sc in scenarios}
             for d in r["ayrinti"]:

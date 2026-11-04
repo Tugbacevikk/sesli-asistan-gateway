@@ -1,18 +1,21 @@
 """LLM araçları: tanımlar (JSON Schema) ve yürütücüler (tasarim.md 6.5).
 
-Araç tanımları tek yerde durur; ileride aynen bir MCP sunucusu olarak dışarı açılabilir.
-Araçlar Gateway içinde çalışır ve çağrı başına durum (`CallToolState`) üzerinde işlem yapar.
+Araç tanımları tek yerde durur. Araçlar Gateway içinde çalışır ve çağrı başına durum (`CallToolState`) üzerinde
+işlem yapar. `LLM_TOOLS=mcp` (ADR-022): LLM'in rehber araması (`InContacts`) rehber MCP sunucusunda yapılır (aynı
+arama: `in_contacts`); sonuç Gateway'in kendi rehberindeki kayıtlara çevrilir, aktarma yine buradaki
+TransferPolicy'den geçer. MCP ulaşılamazsa arama burada yapılır.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from .models import Candidate, Match, OperatorAction, TransferAction
+from .models import Candidate, Match, OperatorAction, SearchResult, TransferAction
 from .policy import TransferPolicy
-from .ports import ToolCall
+from .ports import RemoteToolsPort, ToolCall
 from .search import DirectoryIndex, has_role_word
 
 log = logging.getLogger(__name__)
@@ -83,11 +86,34 @@ class ToolOutcome:
     stop: bool = False               # bu turda başka LLM turu gerekmiyor (ör. operatör)
 
 
+def in_contacts(index: DirectoryIndex, args: dict[str, Any]) -> tuple[SearchResult, dict[str, Any], str]:
+    """InContacts araması: (sonuç, LLM'e giden içerik, sorgu özeti). Gateway ve rehber MCP sunucusu aynı işlevi
+    kullanır: iki yol birebir aynı sonucu verir (ADR-022)."""
+    name, dept, ext = _str(args.get("Name")), _str(args.get("Department")), _str(args.get("Extension"))
+    if dept and not name and has_role_word(dept):
+        # "satış müdürü" birim değil, unvanıyla bir kişi: unvan araması (ölçüm 26.10.2026, D07)
+        name, dept = dept, ""
+    res = index.search(name, dept, ext)
+    if res.match == Match.NONE and not ext and bool(name) != bool(dept):
+        # LLM alanı karıştırmış olabilir ("İK"yi Name'e yazmak gibi): diğer alanla bir kez daha dene
+        res = index.search(dept, name)
+    content: dict[str, Any] = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
+    if res.truncated:
+        # yalnız ilk `limit` aday gösterildi: LLM bunlar arasında seçtirmesin, ayırt edici bilgi istesin
+        content["more"] = res.total - len(res.candidates)
+        content["note"] = "Bu ada uyan daha çok kişi var; arayandan soyadı ya da birimi iste."
+    return res, content, " / ".join(x for x in (name, dept, ext) if x)
+
+
 class ToolRegistry:
-    def __init__(self, index: DirectoryIndex, policy: TransferPolicy | None = None):
+    def __init__(self, index: DirectoryIndex, policy: TransferPolicy | None = None,
+                 remote: RemoteToolsPort | None = None, remote_timeout_s: float = 1.0):
         self.index = index
         self.policy = policy or TransferPolicy()
         self.rejections = 0          # TransferPolicy'nin reddettiği aktarmalar (metrik: güvenlik incelemesi)
+        self.remote, self.remote_timeout_s = remote, remote_timeout_s
+        self.remote_calls = 0        # MCP'ye giden arama (metrik)
+        self.remote_failures = 0     # MCP ulaşılamadı / zaman aşımı: yerel aramaya düşüldü
 
     @property
     def schemas(self) -> list[dict[str, Any]]:
@@ -105,23 +131,41 @@ class ToolRegistry:
                  json.dumps(out.content, ensure_ascii=False))
         return out
 
+    async def execute_async(self, call: ToolCall, state: CallToolState) -> ToolOutcome:
+        """LLM'in araç çağrısı. `LLM_TOOLS=mcp` ise rehber araması MCP sunucusunda (zaman sınırlı); ulaşılamazsa ya
+        da başka araçsa `execute` (yerel)."""
+        if self.remote is not None and call.name == "InContacts" and not (call.raw_arguments and not call.arguments):
+            self.remote_calls += 1
+            try:
+                data = await asyncio.wait_for(self.remote.in_contacts(call.arguments), self.remote_timeout_s)
+                return self._remote_in_contacts(call, data, state)
+            except Exception as e:                    # zaman aşımı, bağlantı, bozuk cevap: arayan fark etmez
+                self.remote_failures += 1
+                log.warning("MCP rehber araması olmadı (%s): yerel arama", e or type(e).__name__)
+        return self.execute(call, state)
+
+    def _remote_in_contacts(self, call: ToolCall, data: dict[str, Any], state: CallToolState) -> ToolOutcome:
+        """MCP sonucu → çağrı durumu. Adaylar Gateway'in KENDİ rehberinden alınır (kimlikle): MCP sunucusu bir kayıt
+        uyduramaz; aktarma politikası yalnız bu adaylara izin verir."""
+        content = dict(data["content"])
+        match = Match(content["match"])
+        cands = tuple(Candidate(c, int(a.get("puan", 0))) for a in data.get("adaylar", [])
+                      if (c := self.index.get(str(a.get("id", "")))) is not None)
+        state.last_results = cands
+        state.truncated = "more" in content
+        if match == Match.NONE:
+            args = call.arguments
+            state.misses.append(" / ".join(_str(args.get(k)) for k in ("Name", "Department", "Extension")
+                                           if _str(args.get(k))))
+        log.info("araç %s(%s) → (MCP) %s", call.name, json.dumps(call.arguments, ensure_ascii=False),
+                 json.dumps(content, ensure_ascii=False))
+        return ToolOutcome(content, failed_search=match == Match.NONE)
+
     def _in_contacts(self, args: dict[str, Any], state: CallToolState) -> ToolOutcome:
-        name, dept, ext = _str(args.get("Name")), _str(args.get("Department")), _str(args.get("Extension"))
-        if dept and not name and has_role_word(dept):
-            # "satış müdürü" birim değil, unvanıyla bir kişi: unvan araması (ölçüm 26.10.2026, D07)
-            name, dept = dept, ""
-        res = self.index.search(name, dept, ext)
-        if res.match == Match.NONE and not ext and bool(name) != bool(dept):
-            # LLM alanı karıştırmış olabilir ("İK"yi Name'e yazmak gibi): diğer alanla bir kez daha dene
-            res = self.index.search(dept, name)
+        res, content, query = in_contacts(self.index, args)
         state.last_results = res.candidates
         if res.match == Match.NONE:
-            state.misses.append(" / ".join(x for x in (name, dept, ext) if x))
-        content: dict[str, Any] = {"match": res.match.value, "results": [c.to_tool() for c in res.candidates]}
-        if res.truncated:
-            # yalnız ilk `limit` aday gösterildi: LLM bunlar arasında seçtirmesin, ayırt edici bilgi istesin
-            content["more"] = res.total - len(res.candidates)
-            content["note"] = "Bu ada uyan daha çok kişi var; arayandan soyadı ya da birimi iste."
+            state.misses.append(query)
         state.truncated = res.truncated
         return ToolOutcome(content, failed_search=res.match == Match.NONE)
 

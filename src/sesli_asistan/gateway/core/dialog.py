@@ -816,7 +816,7 @@ class DialogAgent:
                 if (caller_turn and call.name == "TransferCall"
                         and (turn := self._confirm_llm_transfer(s, call)) is not None):
                     return turn
-                out = self.tools.execute(call, s.state)
+                out = await self.tools.execute_async(call, s.state)
                 content = dict(out.content)
                 if out.failed_search and caller_turn and not failed:
                     failed = True

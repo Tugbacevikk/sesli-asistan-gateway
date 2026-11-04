@@ -38,6 +38,20 @@ class LlmPort(Protocol):
     # `message` dolu tek öğe. Uygulamayan adaptörde diyalog akışsız çalışır (ADR-018).
 
 
+class RemoteToolsPort(Protocol):
+    """LLM araçlarının dışarıda (MCP sunucusunda) çalıştırılması (ADR-022, `LLM_TOOLS=mcp`). Yalnız okuma araçları:
+    aktarma ve operatör her zaman Gateway'de (TransferPolicy) kalır.
+
+    `in_contacts(args)` → {"content": InContacts sonucu (LLM'e giden), "adaylar": [{"id", "puan"}]}. Hata ya da
+    zaman aşımında istisna fırlatır; çağıran yerel aramaya düşer."""
+
+    async def in_contacts(self, args: dict[str, Any]) -> dict[str, Any]: ...
+
+    async def ping(self) -> bool: ...                 # sağlık: sunucu cevap veriyor mu
+
+    async def aclose(self) -> None: ...
+
+
 @dataclass(frozen=True)
 class DirectoryPage:
     server_time: str
