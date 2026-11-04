@@ -23,7 +23,9 @@ _HOMOGLYPH = str.maketrans({"ы": "ı", "і": "i", "о": "o", "а": "a", "е": "
 
 
 def turkish_lower(text: str) -> str:
-    return text.replace("I", "ı").replace("İ", "i").lower()
+    # "i̇" (i + U+0307 birleşen nokta): ayrıştırılmış "İ" ya da Türkçe dışı küçültmeden kalır; "i" sayılır, yoksa
+    # "i̇nsan" ≠ "insan" (ölçüm 04.11.2026: ipuçlu STT çıktısında görüldü)
+    return text.replace("I", "ı").replace("İ", "i").lower().replace("i\u0307", "i")
 
 
 def strip_punct(text: str) -> str:

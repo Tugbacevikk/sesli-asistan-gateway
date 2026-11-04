@@ -165,7 +165,9 @@ class Sherpa:
         while self.rec.is_ready(s):
             self.rec.decode_stream(s)
         r = self.rec.get_result(s)
-        return (r if isinstance(r, str) else r.text).strip().lower()
+        from sesli_asistan.libs.text.normalizer import turkish_lower
+
+        return turkish_lower((r if isinstance(r, str) else r.text).strip())
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -29,7 +29,8 @@ from sesli_asistan.libs.text.normalizer import turkish_lower  # noqa: E402
 
 def norm(text: str) -> str:
     text = unicodedata.normalize("NFC", text)
-    return " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text)).split())
+    # kesme işaretinden sonraki ek ayrı sözcük sayılmaz ("arslan'a" = "arslana"); noktalama WER'e girmez
+    return " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).replace("'", "").replace("’", "")).split())
 
 
 def main(argv=None) -> int:

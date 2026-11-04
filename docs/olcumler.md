@@ -897,6 +897,28 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### Hışırtılı sesler: 16 kHz ↔ 8 kHz telefon hattı (4 Kasım 2026, 13:50; mihu, tek konuşmacı, n = 16)
+
+`tests/eval/okuma_hisirti.tsv`, aynı mikrofon kaydı (16 kHz) olduğu gibi ve `--telefon` (8 kHz G.711) ile; rehber
+ipucu (`--rehber`) açık / kapalı. İlk deneme (13:27) cümle bölme kaydığı için (cümle sonu komşu dosyaya) geçersiz;
+ikincide cümleler arası 3 sn sessizlik, kayma yok.
+
+| | WER | CER | tam doğru | s/ş/f/z (10) | diğer (6) |
+|---|---|---|---|---|---|
+| 16 kHz | %39,3 | %14,8 | 6 | 4 | 2 |
+| 8 kHz | %39,3 | %15,0 | 3 | 2 | 1 |
+
+- Ölçüm aracında hata: ipuçlu koşu noktalama ve "İ" → "i̇" (birleşen nokta) üretiyordu; WER bunları sözcük sayıp ipuçlu
+  koşuyu %42,6 gösterdi. Düzeltildi (`turkish_lower` birleşen noktayı atar, WER noktalama ve kesmeyi yok sayar).
+  Metinler ipuçlu ve ipucusuz aynı: **rehber ipucunun etkisi yok** (Zeynep Arslan 8 kHz'de ipucusuz da doğru).
+- Hat etkisi s / ş seslerinde gerçek ama sınırlı: "sipariş" → "taş", "şifremi" → "şifemi", "sevkiyat" → "sevgi"
+  yalnız 8 kHz'de. Toplam WER aynı (8 kHz bazı cümlelerde daha iyi: "satış müdürü", "Zeynep Arslan").
+- **Görev düzeyi** (duyulan metin diyalog kodundan geçirildi: rehber → MCP → kural, teyide "evet"; 14 cümle, beklenen
+  sonucu olanlar): **16 kHz 11/14, 8 kHz 10/14**. WER %39'a rağmen çoğu doğru kişiye / birime gidiyor (konu teyidi,
+  bulanık arama). Yanlış kişiye aktarma yok; 16 kHz'de "satış müdüğü" → Satış birim hattı (müdür yerine).
+- Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
+  "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
+
 ### Canlı santral, rehber → MCP → LLM (4 Kasım 2026, 11:23–11:30; mihu, MicroSIP, qwen3.5:4b)
 
 `MCP_STEP=true`, `LLM_TOOLS=mcp`, konu teyidi açık. Ayrıca aynı gün gerçek LLM'le metin ölçümü (A):
