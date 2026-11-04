@@ -88,10 +88,10 @@ async def test_aramadan_cevap_veren_tur_sayilir():
     # LLM aracı hiç çağırmadan "tekrar söyler misiniz" derse de deneme sayılır (döngüye hapsolmasın)
     llm = ScriptedLlm(LlmMessage("Tekrar söyler misiniz?"), LlmMessage("Anlayamadım."), LlmMessage("Yine?"))
     s = agent(llm).new_session("t1e")
-    t1 = await s.handle_user("şey")
+    t1 = await s.handle_user("filanca")                  # dolgu sesi değil ("şey", "ıı" artık LLM'e gitmez)
     t2 = await s.handle_user("hımm")
     assert not t1.actions and "operatöre" in t2.text   # 2. başarısızlıkta teklif eklendi
-    t3 = await s.handle_user("ıı")
+    t3 = await s.handle_user("zırt")
     assert [a.reason for a in t3.actions] == ["ilerleme_yok"]
 
 
@@ -920,3 +920,38 @@ async def test_llm_soylenen_numaradan_baska_dahiliye_aktaramaz_teyit_sorar():
         assert [a.extension for a in t.actions] == transferred, text
         if not transferred:
             assert "Ayşe Yılmaz" in t.text and "mı" in t.text          # teyit sorusu
+
+
+@pytest.mark.parametrize("text", ["e", "eee", "ııı", "hmm", "e.", "şey"])
+async def test_yalniz_dolgu_sesi_llme_gitmez_deneme_sayilmaz(text):
+    """Canlı deneme 04.11.2026: tek başına "e" LLM'e gitti (1,8 sn)."""
+    from sesli_asistan.gateway.core.dialog import strip_fillers
+
+    assert strip_fillers(text) == ""
+    a = agent(ScriptedLlm(LlmMessage("Tamam.")), fast_path=True, clarify_by_code=True)
+    s = a.new_session("x")
+    t = await s.handle_user(text)
+    assert t.actions == [] and t.text == a.cfg.texts.not_understood and a.llm.seen == []
+    assert s.state.failed_attempts == 0
+
+
+async def test_dolgu_sesi_atilir_selam_ve_istek_taninir():
+    """Canlı deneme 04.11.2026: "eee merhaba" selam sayılmayıp LLM'e gitmişti."""
+    from sesli_asistan.gateway.core.dialog import strip_fillers
+
+    assert strip_fillers("eee merhaba") == "merhaba" and strip_fillers("hı hı") == "hı hı"
+    a = agent(ScriptedLlm(LlmMessage("Tamam.")), fast_path=True, clarify_by_code=True)
+    s = a.new_session("x")
+    t = await s.handle_user("eee merhaba")
+    assert t.text == a.cfg.texts.greeting_reply and a.llm.seen == []
+    t = await s.handle_user("ııı ayşe yılmaz")
+    assert [x.extension for x in t.actions] == ["214"]
+
+
+async def test_dolgu_sesinde_acik_soru_yinelenir():
+    a, s, t = await _unsure("burak çelik")
+    t = await s.handle_user("eee")
+    assert "Burak Çelik" in t.text and not t.actions
+    s.stt_confidence = 0.95
+    t = await s.handle_user("evet")
+    assert [x.extension for x in t.actions] == ["215"]

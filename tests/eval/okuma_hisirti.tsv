@@ -1,0 +1,21 @@
+# Hışırtılı ses ölçümü (04.11.2026 canlı deneme: "sipariş" → "harş", "satış" → "taş"). Hipotez: 8 kHz G.711 hat
+# 4 kHz üstünü atar; s / ş / f / z enerjisi çoğunlukla orada. Aynı kayıt iki yoldan ölçülür:
+#   python tools/stt/karsilastir.py okuma_h/*.wav --sherpa models/turkish-stt-66m-v2 --tsv tests/eval/okuma_hisirti.tsv
+#   python tools/stt/karsilastir.py okuma_h/*.wav --sherpa models/turkish-stt-66m-v2 --tsv tests/eval/okuma_hisirti.tsv --telefon
+# h01–h10: anahtar sözcük s / ş / f / z ile başlar; h11–h16: karşılaştırma (anahtar sözcükte hışırtılı ses yok).
+h01.wav	sipariş vermek istiyorum
+h02.wav	satış müdürüyle görüşmek istiyorum
+h03.wav	faturamla ilgili bir sorun var
+h04.wav	şikayetim var
+h05.wav	servis kaydı açtırmak istiyorum
+h06.wav	Selin Aydın'ı arıyorum
+h07.wav	şifremi unuttum
+h08.wav	fiyat teklifi almak istiyorum
+h09.wav	Zeynep Arslan'a bağlar mısınız
+h10.wav	sevkiyat ne zaman çıkacak
+h11.wav	muhasebe ile görüşmek istiyorum
+h12.wav	Ayşe Yılmaz ile görüşmek istiyorum
+h13.wav	teknik destek lütfen
+h14.wav	Mehmet Demir'e bağlar mısınız
+h15.wav	Burak Çelik'i arıyorum
+h16.wav	insan kaynakları lütfen

@@ -562,7 +562,7 @@ async def test_akista_ilk_cumle_llm_bitmeden_seslendirilir():
     llm = StreamLlm((["Sizi anlayamadım. ", "Adı tekrar ", "söyler misiniz?"], []), gap=0.2)
     async with stream_call(llm, thinking_sound=False) as c:
         n0 = len(c.media.play_at)
-        c.say("şey")
+        c.say("filanca")
         await c.until(lambda: c.session.state == CallState.LISTENING and c.session.stats.turns)
         plays = c.media.play_at[n0:]
         assert plays and plays[0] < llm.done_at[0]                       # ilk ses LLM bitmeden

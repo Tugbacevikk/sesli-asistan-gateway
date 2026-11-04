@@ -897,6 +897,38 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### Canlı santral, rehber → MCP → LLM (4 Kasım 2026, 11:23–11:30; mihu, MicroSIP, qwen3.5:4b)
+
+`MCP_STEP=true`, `LLM_TOOLS=mcp`, konu teyidi açık. Ayrıca aynı gün gerçek LLM'le metin ölçümü (A):
+
+| set | başarı | LLM / tur | tur p95 | başarısız |
+|---|---|---|---|---|
+| şirket, MCP'siz | %100 | 0,36 | 3,57 sn | — |
+| şirket, **MCP'li** | %100 | **0,25** | **3,18 sn** | — |
+| kamu, MCP'siz | %76,2 | 0,74 | 4,82 sn | K01, K06, K14, K17, K21 |
+| kamu, **MCP'li** | **%95,2** | **0,04** | **0,02 sn** | K14 (LLM vali yardımcılarını sordu) |
+
+Canlı (duyulan metin, güven):
+
+| söylenen | duyulan | sonuç | süre | LLM |
+|---|---|---|---|---|
+| faturayla ilgili… → evet | doğru (0,76 / 0,60) | "Muhasebe'ye mi…?" → 210 | 0,1 / 2,3 sn | yok |
+| sipariş vermek istiyorum | **"harş** vermek istiyorum" (0,45) | "anlayamadım" (güven < 0,5) | 0,0 sn | yok |
+| (tekrar) | "eee merhaba" (0,77) | LLM → "yine bulamadım" | 4,3 sn | 1 |
+| mehmet bey orada mı | doğru (0,80) | kişi (MCP) → 230 | 0,1 sn | yok |
+| ayşe hanımla… → ayşe kaya | doğru (0,83 / 0,79) | "hangisi?" → 231 | 0,2 / 0,1 sn | yok |
+| satış müdürüyle görüşmek istiyorum | "e" (0,50), sonra **"taş** müdürüyle…" (0,53) | LLM → teyit "Mehmet Demir'e mi…?" | 1,8 / 4,9 sn | 1 / 2 |
+| MCP kapalı: ayşe hanımla… → ayşe yılmaz | doğru | Gateway yerel kuralı → 214, çağrı aksamadı | 0,02 / 0,1 sn | yok |
+
+- STT doğru duyduğunda bütün istekler kodla, LLM'siz ~0,1 sn. Hatalı duyulanlarda güvenlik doğru: düşük güvende
+  tekrar, emin olunmayan aktarmada teyit.
+- **Bulgu 1:** iki hatada da ilk ses "s": "**s**ipariş" → "harş", "**s**atış" → "taş". VAD konuşmanın öncesinden 350 ms
+  tutuyor (hece kesilmesi değil). Hipotez: 8 kHz G.711 hat 4 kHz üstünü atar; s / ş / f / z enerjisi çoğunlukla
+  orada. Ölçüm: `tests/eval/okuma_hisirti.tsv` (aynı mikrofon kaydı 16 kHz ve `--telefon` ile). Doğrulanırsa çözüm
+  geniş bantlı ses (G.722): santralin desteği sorulacak.
+- **Bulgu 2:** dolgu sesleri ("eee merhaba", tek başına "e") LLM'e gidiyordu → düzeltildi: dolgu sesleri atılır,
+  yalnız dolgu varsa LLM'siz açık soru ya da "anlayamadım" (deneme sayılmaz).
+
 ### MCP adımında kişi çözme (4 Kasım 2026, 11:30; ADR-025; kural modu, bulut ortamı)
 
 | set | rehber → (kural) | rehber → **MCP** → (kural) | kalan |

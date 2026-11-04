@@ -228,6 +228,16 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
 _BRACKETS = re.compile(r"[\[\]]")
+# Dolgu sesleri (katlanmış): "eee merhaba", "ıı ayşe hanım", tek başına "e" — sözden atılır. "hı" yok: "hı hı" = evet.
+# Canlı deneme 04.11.2026: "eee merhaba" selam sayılmayıp LLM'e gitti (4,3 sn, "yine bulamadım"); "e" de LLM'e gitti.
+_FILLERS = {"e", "ee", "eee", "eeee", "eeeee", "ii", "iii", "iiii", "mm", "mmm", "hm", "hmm", "hmmm", "eh", "ehh",
+            "ehm", "eem", "aa", "aaa", "sey", "seyy"}
+
+
+def strip_fillers(text: str) -> str:
+    """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
+    return " ".join(w for w in text.split() if not (_folded_words(w) and _folded_words(w)[0] in _FILLERS
+                                                     and len(_folded_words(w)) == 1))
 
 
 def clean_reply(text: str) -> str:
@@ -276,6 +286,7 @@ class DialogAgent:
 
     async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
+        only_fillers = bool(text) and not (text := strip_fillers(text))
         lenient, s.after_barge_in = s.after_barge_in, False
         confirm, s.state.confirm = s.state.confirm, None
         suggested, s.state.confirm_suggested = s.state.confirm_suggested, False
@@ -284,6 +295,12 @@ class DialogAgent:
             if confirm is not None:
                 s.state.confirm, s.state.confirm_suggested = confirm, suggested    # soru hâlâ açık
             s.state.confirm_operator = op_confirm
+            if only_fillers:
+                # yalnız "eee", "ıı": arayan düşünüyor; deneme sayılmaz, açık soru ya da "anlayamadım" (LLM yok)
+                log.info("[%s] yalnız dolgu sesi", s.call_id)
+                reply = self._reply(s, self.pending_question(s) or self.cfg.texts.not_understood)
+                reply.fast = True
+                return reply
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
         if is_greeting_only(text):

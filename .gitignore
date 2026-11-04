@@ -50,3 +50,4 @@ tools/santral/sipp/*.pcap
 ses_ornekleri/
 sonuc_tts.json
 okuma/
+okuma_h/

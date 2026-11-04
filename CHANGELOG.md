@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- STT hışırtılı ses ölçümü: `tests/eval/okuma_hisirti.tsv` (s / ş / f / z ile başlayan anahtar sözcükler) ve
+  `tools/stt/mikrofon_kaydet.py` (16 kHz mikrofon kaydı; telefon hattıyla karşılaştırma).
 - MCP adımında kişi çözme (ADR-025, `kisi_coz`): unvan ("il jandarma komutanı", "Nilüfer kaymakamı"), birim + ad
   ("muhasebeden Ayşe Hanım"), ad + hitap / rütbe ("Mehmet Bey", "Mehmet Albay") LLM'siz çözülür; MCP düşerse Gateway
   aynı kuralları kendisi çalıştırır. Kamu unvanları ve rütbeler tanınır; "Komutanlığı / Müdürlüğü" kurum sayılır.
@@ -57,6 +59,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Dolgu sesleri ("eee", "ıı", "hmm", "şey") sözden atılır; yalnız dolgu varsa LLM'e gidilmez, açık soru yinelenir ya da
+  "anlayamadım" denir, deneme sayılmaz (canlı: "eee merhaba" ve "e" LLM'e gidiyordu).
 - Arayan bir numara söylediyse LLM başka bir dahiliye (kişinin adı geçmiyorsa) aktaramaz, teyit sorulur (ölçüm:
   örnekli istemde "yüz numaraya bağlayın" → 214'e aktarılmıştı).
 - MCP sunucusu düşükken LLM'in rehber araması 1 sn zaman aşımını beklemeden yerelde yapılır (ölçüm: her arama ~1 sn
