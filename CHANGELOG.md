@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Sistem istemi ölçülerek değiştirilebilir (ADR-024): şablon dosyası (`LLM_PROMPT_PATH`, açılışta doğrulanır), isteme
+  kurumun birim listesi (`LLM_PROMPT_DEPARTMENTS`), örnek konuşmalar (`LLM_FEW_SHOT`); değerlendirmede `--istem`,
+  `--birim-listesi`, `--ornekler` ve cevapta yasak metin denetimi. İsteme saldırılara karşı kural; diyalog setine
+  6 saldırı senaryosu (120 senaryo). Tasarım Ek B'deki istem koddan üretilir, test fark yakalar.
 - Akış rehber → MCP → LLM (ADR-023, `MCP_STEP`): rehber çözemeyince LLM'den önce yerel MCP sunucusuna konu sorulur
   (`konu_ara`: "faturamla ilgili" → Muhasebe, "arızam var" → Teknik Destek). Ürünle genel konu listesi gelir
   (şirket ve kamu konuları; birimler kurumun rehberine kendiliğinden eşlenir), kurum kendi listesini verebilir

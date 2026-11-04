@@ -54,6 +54,10 @@ class GatewaySettings(BaseSettings):
     llm_model: str = "qwen3.5:4b"                        # ADR-005; alternatif: qwen3.5:9b
     llm_temperature: float = Field(0.2, ge=0, le=2)
     llm_timeout_s: float = Field(5.0, gt=0)
+    # Sistem istemi (ADR-024). Her değişiklik diyalog setiyle ölçülür: tests/eval/diyalog.py --istem / --birim-listesi
+    llm_prompt_path: str = ""                            # şablon dosyası ({kurum}); boş: koddaki istem
+    llm_prompt_departments: int = Field(0, ge=0, le=500)  # isteme kurumun birim listesi (en çok); 0: yok
+    llm_few_shot: bool = False                           # isteme örnek konuşmalar
 
     # Rehber (ADR-008)
     directory_source: Literal["json", "sentra"] = "json"

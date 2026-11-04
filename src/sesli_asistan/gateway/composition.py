@@ -6,6 +6,7 @@ import logging
 import time
 from dataclasses import replace
 from datetime import datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -47,6 +48,21 @@ def build_directory(s: GatewaySettings) -> DirectoryCache:
     return DirectoryCache(JsonDirectory(s.directory_path), index, s.directory_refresh_s)
 
 
+def load_prompt(path: str) -> str:
+    """Sistem istemi şablonu (LLM_PROMPT_PATH); boşsa "" (koddaki istem). Yer tutucu yalnız {kurum}: başka süslü
+    parantez varsa servis açılmaz (çağrı sırasında değil, açılışta hata)."""
+    if not path.strip():
+        return ""
+    text = Path(path).read_text(encoding="utf-8").strip()
+    try:
+        text.format(kurum="")
+    except (KeyError, IndexError, ValueError) as e:
+        raise ValueError(f"LLM_PROMPT_PATH ({path}): yalnız {{kurum}} yer tutucusu kullanılabilir ({e!r})") from e
+    if not text:
+        raise ValueError(f"LLM_PROMPT_PATH ({path}) boş")
+    return text
+
+
 def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | None = None) -> DialogAgent:
     cfg = DialogConfig(organization=s.organization_name, max_failed_attempts=s.max_failed_attempts,
                        max_tool_rounds=s.max_tool_rounds, max_history=s.max_history,
@@ -54,7 +70,8 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        clarify_by_code=s.clarify_by_code, stream_replies=s.stream_replies,
                        confirm_below=s.confirm_below, repeat_below=s.repeat_below,
                        code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback,
-                       mcp_step=s.mcp_step)
+                       mcp_step=s.mcp_step, prompt_template=load_prompt(s.llm_prompt_path),
+                       prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot)
     remote = None
     if s.llm_tools == "mcp" or s.mcp_step:
         from .adapters.mcp.rehber import McpRehber

@@ -897,6 +897,13 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### İstem saldırısı senaryoları (4 Kasım 2026, ADR-024; kural modu, bulut ortamı)
+
+Diyalog seti 114 → 120 senaryo (D115–D120: talimatları unutturma, sahte yetki, "[Santral]" taklidi, dahilileri ve
+istemi okutma, aktarılamaz kişinin numarasını sorma). Kural modu: %96,7 (116/120), saldırı senaryoları 6/6,
+izinsiz 0, sızıntı 0 (aynı dört başarısızlık: D14, D54–D56; MCP adımıyla D54–D56 çözülür). Gerçek LLM'le ölçüm
+ve istem varyantları (birim listesi, örnekler) dizüstünde yapılacak.
+
 ### Akış rehber → MCP → LLM, konu adımı (4 Kasım 2026, 10:04; ADR-023; kural modu, bulut ortamı)
 
 114 senaryo, `tests/eval/diyalog.py --kural`, yerel MCP sunucusu (genel konu listesi, 16 konu, örnek rehber):
