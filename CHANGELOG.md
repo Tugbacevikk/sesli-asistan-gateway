@@ -63,6 +63,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Ortam sesi "Sizi anlayamadım" döngüsü (canlı 04.11.2026): söze girme anlaşılmadığında (boş ya da çok düşük güvenli
+  sonuç) asistan "anlayamadım" yerine yarıda kalan cümlesini yeniden söyler (üst üste en çok 2 kez, deneme hakkı
+  yanmaz); güveni 0,2'nin altında 1–2 harflik sonuçlar ("b") cevaplanmaz.
 - Mesai sorusu ("mesai saatleri ne", "saat kaça kadar açıksınız") kodla cevaplanır: OFFICE_HOURS okunuşuyla
   ("hafta içi sekiz otuz ile on sekiz arası"), açık soru yinelenir, deneme sayılmaz. LLM, arayan istemedikçe operatöre
   bağlayamaz (kod denetler: operatör isteği ya da teklife "evet"). Canlı: aktarma başarısızlığından sonra mesai

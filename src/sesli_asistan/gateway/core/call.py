@@ -66,6 +66,10 @@ class CallConfig:
     transfer_result_timeout_s: float = 30.0
     barge_in: bool = True
     min_noise_ms: int = 600            # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
+    # Gürültü kırıntısı: güveni bunun altında ve en çok `noise_max_letters` harf ("b", "e"): cevaplanmaz, deneme
+    # sayılmaz (canlı 04.11.2026: ortam sesi "b" (0,05) → "anlayamadım"). 0: kapalı
+    noise_below: float = 0.2
+    noise_max_letters: int = 2
     dtmf_operator_digit: str = "0"     # FR-15: tuşlayınca operatör
     no_input_s: float = 8.0            # dinlemede bu kadar sessizlik → "Sizi duyamıyorum"
     no_input_max: int = 2              # kaçıncı sessizlikte operatöre
@@ -297,6 +301,10 @@ class CallSession:
         elif k in ("final", "not_recognized"):
             if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
                 return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
+            if k == "final" and self._noise_fragment(ev.data):
+                log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
+                         ev.data.get("confidence") or 0)
+                return
             if self.state in (CallState.GREETING, CallState.LISTENING, CallState.THINKING, CallState.SPEAKING):
                 self._inputs.append(ev)
         elif k == "speech_done":
@@ -316,6 +324,12 @@ class CallSession:
                 await self._emergency_operator("stt_koptu")
         elif k == "tick":
             await self._tick(ev.at)
+
+    def _noise_fragment(self, data: dict) -> bool:
+        conf = data.get("confidence")
+        letters = sum(ch.isalpha() for ch in data.get("text") or "")
+        return (self.cfg.noise_below > 0 and conf is not None and 0 < conf < self.cfg.noise_below
+                and letters <= self.cfg.noise_max_letters)
 
     async def _turn(self) -> None:
         inputs, self._inputs = self._inputs, []

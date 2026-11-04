@@ -671,7 +671,31 @@ async def test_soze_girip_anlasilmayan_soz_operatore_gondermez():
         c.stt.stream.ev.put_nowait(SttEvent("not_recognized", "", 0.0, 0, 900, reason="empty"))  # … anlaşılmadı
         await c.until(lambda: len(c.session.stats.turns) >= 2)
         assert c.session.stats.barge_ins == 1 and not c.pbx.actions
-        assert c.session.stats.turns[-1].reply == c.session.dialog.agent.cfg.texts.not_understood
+        # "anlayamadım" değil: yarıda kalan cümle yeniden (canlı 04.11.2026, ortam sesi)
+        turns = c.session.stats.turns
+        assert turns[-1].reply == turns[-2].reply != c.session.dialog.agent.cfg.texts.not_understood
+
+
+async def test_gurultu_kirintisi_cevaplanmaz():
+    # canlı 04.11.2026: ortam sesi "b" (güven 0,05) → "Sizi anlayamadım". Düşük güvenli 1–2 harf yok sayılır
+    llm = Llm(LlmMessage("Tamam."))
+    async with Call(llm) as c:
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "b", 0.05, 0, 700))
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "filanca", 0.9, 0, 900))
+        await c.until(lambda: c.session.stats.turns)
+        await asyncio.sleep(0.05)
+        assert [t.heard for t in c.session.stats.turns if t.heard] == ["filanca"]
+
+
+@pytest.mark.parametrize(("text", "conf"), [("b", 0.35), ("evet", 0.05), ("ha", 0.0)])
+async def test_gurultu_kirintisi_disindakiler_cevaplanir(text, conf):
+    # güven yeterli, söz uzun ya da güven bilinmiyor (0): olağan tur
+    async with Call(Llm(LlmMessage("Tamam."))) as c:
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", text, conf, 0, 700))
+        await c.until(lambda: c.session.stats.turns)
 
 
 

@@ -78,6 +78,7 @@ class CallToolState:
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı
     pending_transfer: TransferAction | None = None
     failed_attempts: int = 0
+    barge_repeats: int = 0                  # söze girme anlaşılmadı, yarıda kalan cümle üst üste yinelendi
     actions: list[TransferAction | OperatorAction] = field(default_factory=list)
     misses: list[str] = field(default_factory=list)   # bulunamayan aramalar (rehbere takma ad eklemek için)
 

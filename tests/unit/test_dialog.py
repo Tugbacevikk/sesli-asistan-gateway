@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig, clean_reply, dative
+from sesli_asistan.gateway.core.dialog import MAX_BARGE_REPEATS, DialogAgent, DialogConfig, clean_reply, dative
 from sesli_asistan.gateway.core.models import Contact
 from sesli_asistan.gateway.core.ports import LlmError, LlmMessage, ToolCall
 from sesli_asistan.gateway.core.search import DirectoryIndex
@@ -521,6 +521,32 @@ async def test_soze_girilen_soz_anlasilamazsa_deneme_hakki_yanmaz():
     for _ in range(limit):                                   # söze girmeden anlaşılmayan: sayılır
         t = await s.handle_user("")
     assert [x.type for x in t.actions] == ["operator"]
+
+
+async def test_soze_girme_anlasilmazsa_yarida_kalan_cumle_yinelenir():
+    # canlı 04.11.2026: ortam sesi asistanı susturdu, ardından üst üste "Sizi anlayamadım"
+    a = clarifier(LlmMessage("Muhasebe'ye bağlıyorum, başka bir isteğiniz var mı?"))
+    s = a.new_session("c")
+    first = await s.handle_user("filanca")
+    before = s.state.failed_attempts
+    for _ in range(MAX_BARGE_REPEATS):
+        s.after_barge_in = True
+        t = await s.handle_user("")
+        assert t.text == first.text and not t.actions
+    s.after_barge_in = True                                   # gürültü sürüyor: sonsuz yineleme yok
+    t = await s.handle_user("")
+    assert t.text == a.cfg.texts.not_understood
+    assert s.state.failed_attempts == before                  # söze girme: deneme hakkı yanmaz
+
+
+async def test_soze_girme_dusuk_guvenli_soz_de_cumleyi_yineler():
+    a = clarifier(LlmMessage("Kiminle görüşmek istersiniz?"))
+    s = a.new_session("c")
+    await s.handle_user("filanca")
+    before = s.state.failed_attempts
+    s.after_barge_in, s.stt_confidence = True, 0.3
+    t = await s.handle_user("zırt pırt")
+    assert t.text == "Kiminle görüşmek istersiniz?" and s.state.failed_attempts == before
 
 
 @pytest.mark.parametrize("text", ["operatöre bağlanmak istiyorum", "oparatöre bağlayın", "operatörle görüşeyim",

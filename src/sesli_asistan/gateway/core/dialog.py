@@ -229,6 +229,7 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
             "goodbye": t.goodbye}
 
 
+MAX_BARGE_REPEATS = 2   # söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
 _BRACKETS = re.compile(r"[\[\]]")
@@ -305,8 +306,12 @@ class DialogAgent:
                 reply = self._reply(s, self.pending_question(s) or self.cfg.texts.not_understood)
                 reply.fast = True
                 return reply
+            if lenient and (again := self._repeat_cut(s)) is not None:
+                return again
             return self._failure(s, count=not lenient)
         s.history.append({"role": "user", "content": text})
+        if not (s.stt_confidence is not None and 0 < s.stt_confidence < self.cfg.repeat_below):
+            s.state.barge_repeats = 0       # anlaşılır söz: gürültü yinelemesi sayacı sıfırlanır
         if is_greeting_only(text):
             # "selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
             # (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)
@@ -373,6 +378,8 @@ class DialogAgent:
             log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, c, log_text(text))
             if choice:
                 return self._repeat_choice(s, choice)  # "hangisi?" sorusu yinelenir ve açık kalır
+            if lenient and (again := self._repeat_cut(s)) is not None:
+                return again
             return self._failure(s, count=not lenient)
         if sound:
             # STT adı bozmuş olabilir ("ağlayamaz" → Ayşe Yılmaz): ses benzerliği, LLM'den hemen önce ve her zaman
@@ -1097,6 +1104,26 @@ class DialogAgent:
         text = self.cfg.texts.offer_operator if n == limit - 1 else self.cfg.texts.not_understood
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, fallback=True)
+
+    def _repeat_cut(self, s: DialogSession) -> DialogTurn | None:
+        """Söze girildi ama söz anlaşılmadı (çoğu kez ortam sesi): "anlayamadım" yerine yarıda kalan cümle yeniden;
+        deneme sayılmaz. Canlı 04.11.2026: gürültü asistanı susturdu, ardından üst üste "Sizi anlayamadım". Gürültü
+        sürerse sonsuz döngü olmasın: üst üste MAX_BARGE_REPEATS kez, sonra olağan "anlayamadım" ve sayaç."""
+        cut = self._last_assistant(s)
+        if not cut or s.state.barge_repeats >= MAX_BARGE_REPEATS:
+            s.state.barge_repeats = 0
+            return None
+        s.state.barge_repeats += 1
+        log.info("[%s] söze girme anlaşılmadı: yarıda kalan cümle yineleniyor", s.call_id)
+        s.state.actions = []
+        reply = self._reply(s, cut)
+        reply.fast = True
+        return reply
+
+    @staticmethod
+    def _last_assistant(s: DialogSession) -> str:
+        return next((m.get("content") or "" for m in reversed(s.history) if m["role"] == "assistant"
+                     and (m.get("content") or "").strip()), "")
 
     def _operator_requested(self, s: DialogSession) -> bool:
         """Arayanın son sözü operatör istiyor ya da operatör teklif eden soruya açık "evet"."""
