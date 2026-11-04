@@ -53,7 +53,7 @@ async def test_sunucu_yalniz_okur_aktarma_araci_yok(index):
 
     async with Client(build_server(lambda: index)) as c:
         names = {t.name for t in (await c.list_tools()).tools}
-    assert names == {"rehber_ara", "konu_ara", "birimler", "mesai_durumu"}
+    assert names == {"rehber_ara", "kisi_coz", "konu_ara", "birimler", "mesai_durumu"}
 
 
 async def test_silinmis_ve_aktarilamaz_kayit_disari_cikmaz(remote):

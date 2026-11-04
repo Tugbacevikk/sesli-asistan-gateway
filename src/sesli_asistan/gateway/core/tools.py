@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .models import Candidate, Match, OperatorAction, SearchResult, TransferAction
+from .people import resolve_person
 from .policy import TransferPolicy
 from .ports import RemoteToolsPort, ToolCall
 from .search import DirectoryIndex, has_role_word
@@ -118,6 +119,7 @@ class ToolRegistry:
         self.remote_failures = 0     # MCP ulaşılamadı / zaman aşımı: yerel aramaya düşüldü
         self.remote_search = remote_search
         self.topic_calls = self.topic_hits = self.topic_failures = 0      # konu adımı (metrik)
+        self.person_calls = self.person_hits = self.person_failures = 0   # kişi çözme adımı (metrik)
 
     @property
     def schemas(self) -> list[dict[str, Any]]:
@@ -148,6 +150,26 @@ class ToolRegistry:
                 self.remote_failures += 1
                 log.warning("MCP rehber araması olmadı (%s): yerel arama", e or type(e).__name__)
         return self.execute(call, state)
+
+    async def resolve_person(self, text: str) -> tuple[tuple[Candidate, ...], bool]:
+        """Akışın 2. adımı (ADR-025): MCP'de kişi çözme (unvan, birim + ad, ad + hitap) → (adaylar, kesin mi). MCP
+        ulaşılamazsa aynı işlev burada çalışır (`core.people.resolve_person`): adım kaybolmaz. Kimlikler Gateway'in
+        kendi rehberinde aranır (bulunmayan atılır)."""
+        data: dict[str, Any] | None = None
+        if self.remote is not None:
+            self.person_calls += 1
+            try:
+                data = await asyncio.wait_for(self.remote.resolve_person(text), self.remote_timeout_s)
+            except Exception as e:
+                self.person_failures += 1
+                log.warning("MCP kişi çözme olmadı (%s): yerel", e or type(e).__name__)
+        if data is None:
+            data = resolve_person(self.index, text)
+        cands = tuple(Candidate(c, 100) for a in data.get("adaylar", []) if isinstance(a, dict)
+                      if (c := self.index.get(str(a.get("id", "")))) is not None)
+        if cands:
+            self.person_hits += 1
+        return cands, bool(data.get("kesin")) and len(cands) == 1
 
     async def find_topic(self, text: str) -> tuple[Candidate, ...]:
         """Akışın 2. adımı: MCP'ye sözdeki konu sorulur. Dönen kimlikler Gateway'in kendi rehberinde aranır

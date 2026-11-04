@@ -47,6 +47,10 @@ class RemoteToolsPort(Protocol):
 
     async def in_contacts(self, args: dict[str, Any]) -> dict[str, Any]: ...
 
+    async def resolve_person(self, text: str) -> dict[str, Any]:
+        """Akışın 2. adımı (ADR-025): unvan, birim + ad, ad + hitap → {"adaylar": [{"id", "neden"}], "kesin"}."""
+        ...
+
     async def find_topic(self, text: str) -> dict[str, Any]:
         """Akışın 2. adımı (ADR-023, `MCP_STEP`): sözdeki konu → {"adaylar": [{"id", "neden", "eslesen", "birim"}]}."""
         ...

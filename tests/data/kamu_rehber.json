@@ -1,0 +1,212 @@
+{
+ "aciklama": "Sentetik kamu kurumu rehberi (Türkiye geneli dağıtım ölçümü; gerçek kişi değil)",
+ "server_time": "2026-11-04T00:00:00+03:00",
+ "contacts": [
+  {
+   "id": "k-valilik",
+   "first_name": "",
+   "last_name": "",
+   "department": "Valilik",
+   "extension": "1000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  },
+  {
+   "id": "k-vali",
+   "first_name": "Veli",
+   "last_name": "Akın",
+   "department": "Valilik",
+   "extension": "1001",
+   "title": "Vali",
+   "transferable": false
+  },
+  {
+   "id": "k-vy1",
+   "first_name": "Ayşe",
+   "last_name": "Yıldız",
+   "department": "Valilik",
+   "extension": "1002",
+   "title": "Vali Yardımcısı"
+  },
+  {
+   "id": "k-vy2",
+   "first_name": "Kemal",
+   "last_name": "Arslan",
+   "department": "Valilik",
+   "extension": "1003",
+   "title": "Vali Yardımcısı"
+  },
+  {
+   "id": "k-jandarma",
+   "first_name": "",
+   "last_name": "",
+   "department": "İl Jandarma Komutanlığı",
+   "extension": "2000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": [
+    "Jandarma"
+   ]
+  },
+  {
+   "id": "k-jk",
+   "first_name": "Mehmet",
+   "last_name": "Kaya",
+   "department": "İl Jandarma Komutanlığı",
+   "extension": "2001",
+   "title": "İl Jandarma Komutanı"
+  },
+  {
+   "id": "k-jky",
+   "first_name": "Ali",
+   "last_name": "Demir",
+   "department": "İl Jandarma Komutanlığı",
+   "extension": "2002",
+   "title": "İl Jandarma Komutan Yardımcısı"
+  },
+  {
+   "id": "k-asayis",
+   "first_name": "Osman",
+   "last_name": "Arı",
+   "department": "İl Jandarma Komutanlığı",
+   "extension": "2003",
+   "title": "Asayiş Şube Müdürü"
+  },
+  {
+   "id": "k-emniyet",
+   "first_name": "",
+   "last_name": "",
+   "department": "İl Emniyet Müdürlüğü",
+   "extension": "3000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": [
+    "Emniyet",
+    "Polis"
+   ]
+  },
+  {
+   "id": "k-em",
+   "first_name": "Hasan",
+   "last_name": "Çelik",
+   "department": "İl Emniyet Müdürlüğü",
+   "extension": "3001",
+   "title": "İl Emniyet Müdürü"
+  },
+  {
+   "id": "k-trafik",
+   "first_name": "Murat",
+   "last_name": "Er",
+   "department": "İl Emniyet Müdürlüğü",
+   "extension": "3002",
+   "title": "Trafik Şube Müdürü"
+  },
+  {
+   "id": "k-nilufer",
+   "first_name": "",
+   "last_name": "",
+   "department": "Nilüfer Kaymakamlığı",
+   "extension": "4000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  },
+  {
+   "id": "k-nk",
+   "first_name": "Fatma",
+   "last_name": "Şen",
+   "department": "Nilüfer Kaymakamlığı",
+   "extension": "4001",
+   "title": "Kaymakam"
+  },
+  {
+   "id": "k-inegol",
+   "first_name": "",
+   "last_name": "",
+   "department": "İnegöl Kaymakamlığı",
+   "extension": "4100",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  },
+  {
+   "id": "k-ik",
+   "first_name": "Oya",
+   "last_name": "Su",
+   "department": "İnegöl Kaymakamlığı",
+   "extension": "4101",
+   "title": "Kaymakam"
+  },
+  {
+   "id": "k-saglik",
+   "first_name": "",
+   "last_name": "",
+   "department": "İl Sağlık Müdürlüğü",
+   "extension": "5000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": [
+    "Sağlık Müdürlüğü"
+   ]
+  },
+  {
+   "id": "k-sm",
+   "first_name": "Zeynep",
+   "last_name": "Aydın",
+   "department": "İl Sağlık Müdürlüğü",
+   "extension": "5001",
+   "title": "İl Sağlık Müdürü"
+  },
+  {
+   "id": "k-nufus",
+   "first_name": "",
+   "last_name": "",
+   "department": "İl Nüfus ve Vatandaşlık Müdürlüğü",
+   "extension": "6000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": [
+    "Nüfus Müdürlüğü"
+   ]
+  },
+  {
+   "id": "k-imar",
+   "first_name": "",
+   "last_name": "",
+   "department": "İmar ve Şehircilik Daire Başkanlığı",
+   "extension": "7000",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  },
+  {
+   "id": "k-imarb",
+   "first_name": "Can",
+   "last_name": "Yurt",
+   "department": "İmar ve Şehircilik Daire Başkanlığı",
+   "extension": "7001",
+   "title": "Daire Başkanı"
+  },
+  {
+   "id": "k-zabita",
+   "first_name": "",
+   "last_name": "",
+   "department": "Zabıta Daire Başkanlığı",
+   "extension": "7100",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  },
+  {
+   "id": "k-su",
+   "first_name": "",
+   "last_name": "",
+   "department": "Su ve Kanalizasyon İdaresi",
+   "extension": "7200",
+   "kind": "department",
+   "title": "Birim hattı",
+   "department_aliases": []
+  }
+ ]
+}

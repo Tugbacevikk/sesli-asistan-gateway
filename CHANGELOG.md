@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- MCP adımında kişi çözme (ADR-025, `kisi_coz`): unvan ("il jandarma komutanı", "Nilüfer kaymakamı"), birim + ad
+  ("muhasebeden Ayşe Hanım"), ad + hitap / rütbe ("Mehmet Bey", "Mehmet Albay") LLM'siz çözülür; MCP düşerse Gateway
+  aynı kuralları kendisi çalıştırır. Kamu unvanları ve rütbeler tanınır; "Komutanlığı / Müdürlüğü" kurum sayılır.
+  Sentetik kamu rehberi ve 21 senaryoluk kamu seti (`--rehber`): %66,7 → %100; şirket seti %96,7 → %99,2.
 - Sistem istemi ölçülerek değiştirilebilir (ADR-024): şablon dosyası (`LLM_PROMPT_PATH`, açılışta doğrulanır), isteme
   kurumun birim listesi (`LLM_PROMPT_DEPARTMENTS`), örnek konuşmalar (`LLM_FEW_SHOT`); değerlendirmede `--istem`,
   `--birim-listesi`, `--ornekler` ve cevapta yasak metin denetimi. İsteme saldırılara karşı kural; diyalog setine

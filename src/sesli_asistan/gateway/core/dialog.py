@@ -324,7 +324,7 @@ class DialogAgent:
             return turn
         if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
             return turn
-        if self.cfg.mcp_step and (turn := await self._topic_step(s, text)) is not None:
+        if self.cfg.mcp_step and (turn := await self._mcp_step(s, text)) is not None:
             return turn
         if (self.cfg.fast_path and (unknown_target(text) is not None or maybe_operator(text))
                 and not spoken_numbers(_folded_words(text)) and not self._mentions_person_or_department(text)):
@@ -468,6 +468,26 @@ class DialogAgent:
                 return self._code_transfer(s, r.candidates[0])
         return None
 
+    async def _mcp_step(self, s: DialogSession, text: str) -> DialogTurn | None:
+        """Akışın 2. adımı (ADR-023, ADR-025): rehber (1. adım) kesin karar veremedi; LLM'den önce MCP'ye sorulur:
+        önce kişi çözme (unvan → o makamdaki kişi; birim + ad → o birimdeki kişi: aktar; ad + hitap → tek kişi: teyit,
+        birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın)."""
+        words = search_key(text).split()
+        if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
+            cands, sure = await self.tools.resolve_person(text)
+            if len(cands) == 1:
+                log.info("[%s] kişi (MCP): %s → %s%s", s.call_id, log_text(text), cands[0].contact.extension,
+                         "" if sure else " (teyit)")
+                return self._code_transfer(s, cands[0]) if sure else self._confirm(s, cands[0].contact)
+            if 2 <= len(cands) <= 3:
+                s.state.last_results, s.state.truncated = cands, False
+                if (turn := self._clarify(s, cands)) is not None:
+                    log.info("[%s] kişi (MCP): %s → soru %s", s.call_id, log_text(text),
+                             [c.contact.extension for c in cands])
+                    turn.fast = True
+                    return turn
+        return await self._topic_step(s, text)
+
     async def _topic_step(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Akışın 2. adımı (ADR-023): rehber (1. adım) çözemedi; yerel MCP sunucusuna sözdeki konu sorulur
         ("faturamla ilgili" → Muhasebe, "arızam var" → Teknik Destek). Tek hedef → aktar (güven düşükse teyit), 2–3 kişi
@@ -604,6 +624,11 @@ class DialogAgent:
                        for k in dept_keys if " " not in k):
                     picked.add(i)
             if any(" " in k and k in " ".join(words) for k in dept_keys):
+                picked.add(i)
+            # çok sözcüklü birimin ayırt edici sözcüğü: "Nilüfer Kaymakamlığı mı, İnegöl Kaymakamlığı mı?" → "nilüfer"
+            others = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.department).split()}
+            own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
+            if any(w.startswith(x) or similarity(strip_suffix(w), x) >= 90 for w in words for x in own):
                 picked.add(i)
         for word, idx in _ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):

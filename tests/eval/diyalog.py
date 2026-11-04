@@ -139,13 +139,15 @@ def pct(values: list[float], p: float) -> float:
 async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
                     rules: bool = False, tools: str = "yerel", mcp_url: str = "",
                     mcp_step: bool = False, prompt: str = "", departments: int = 0,
-                    few_shot: bool = False) -> dict[str, Any]:
+                    few_shot: bool = False, rehber: str = "") -> dict[str, Any]:
     s = GatewaySettings()
     s.llm_model = model
     s.llm_enabled = not rules
     s.llm_tools = tools  # type: ignore[assignment]
     s.mcp_step = mcp_step
     s.llm_prompt_path, s.llm_prompt_departments, s.llm_few_shot = prompt, departments, few_shot
+    if rehber:
+        s.directory_path = rehber
     if mcp_url:
         s.mcp_url = mcp_url
     if timeout_s:
@@ -218,6 +220,8 @@ async def main(argv=None) -> int:
 
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--set", default=str(ROOT / "tests/data/diyalog_seti.yaml"))
+    ap.add_argument("--rehber", default="",
+                    help="rehber dosyası (varsayılan: DIRECTORY_PATH); ör. tests/data/kamu_rehber.json")
     ap.add_argument("--model", action="append", help="birden çok kez verilebilir")
     ap.add_argument("--tekrar", type=int, default=1)
     ap.add_argument("--sadece", default="", help="virgülle senaryo kimlikleri")
@@ -259,7 +263,7 @@ async def main(argv=None) -> int:
     for m in models:
         r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural, tools=a.araclar,
                             mcp_url=a.mcp_url, mcp_step=a.mcp_adimi, prompt=a.istem,
-                            departments=a.birim_listesi, few_shot=a.ornekler)
+                            departments=a.birim_listesi, few_shot=a.ornekler, rehber=a.rehber)
         report["sonuclar"].append(r)
         print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
               f"{r['llm_hatasi_turu']:>11} "

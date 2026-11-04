@@ -1722,11 +1722,34 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   unvanı rehberin unvan alanı. Kuruma özel lakap gerekirse konu listesinde dahiliye bağlanır.
 - **MCP sözleşmesi (kurum kendi sunucusunu yazarsa):** Streamable HTTP; araçlar yalnız okur. `konu_ara(soz: str)` →
   `{"adaylar": [{"id": rehber kimliği, "neden": "konu", "eslesen", "birim"}]}` (2. adım için zorunlu);
+  `kisi_coz(soz: str)` → `{"adaylar": [{"id", "neden": "unvan" | "birim_ad" | "ad"}], "kesin": bool}` (ADR-025);
   `rehber_ara(ad, birim, dahili)` → `{"content": InContacts sonucu, "adaylar": [{"id", "puan"}]}` (`LLM_TOOLS=mcp`).
   Cevap `MCP_TIMEOUT_S` (1 sn) içinde gelmeli. Kimlikler Gateway'in rehber kopyasındaki kimliklerdir.
 - **Ölçüm (04.11.2026, kural modu, 114 senaryo):** %96,5 → **%99,1**, izinsiz 0; üç konu senaryosu (D54–D56) LLM'siz
   çözüldü, 46 konu sorgusunda yanlış eşleşme yok. Kurulum şablonunda açık (`MCP_STEP=true`, `LLM_TOOLS=mcp`); kod
   varsayılanı kapalı (geliştirme ve testlerde MCP sunucusu gerekmesin).
+
+### ADR-025 — MCP adımında kişi çözme: unvan, birim + ad, ad + hitap (Türkiye geneli kamu kullanımı)
+- **Bağlam:** Rehber adımı (hızlı yol) kişiye yalnız tam adla aktarıyor; "Mehmet Bey", "muhasebeden Ayşe Hanım",
+  "il jandarma komutanı" gibi sözler LLM'e gidiyordu (3–6 sn) ya da yanlış yere: kamu unvanları (komutan, vali,
+  kaymakam…) unvan sayılmadığı için "il jandarma komutanını ara" komutanlığın genel hattına aktarılıyordu. Ürün
+  Türkiye genelinde kamu kurumlarına da dağıtılacak.
+- **Karar:** MCP adımına (rehber → **MCP** → LLM) `kisi_coz` aracı; kurallar ortak işlevde (`core/people.py`), MCP
+  düşerse Gateway aynısını kendisi çalıştırır (adım kaybolmaz). Sıra: kişi çözme, sonra konu. Kurallar:
+  (1) **Unvan**: unvan sözcüğü ve önündeki en çok 3 sözcüğün hepsi kişinin unvanında ya da biriminde geçmeli ("Nilüfer
+  kaymakamı", "jandarma komutanıyla"); unvan sözcükleri sağdan sola taranır ("komutan **yardımcısı**"); birden çok
+  kişi uyarsa söz unvanında en çok geçen, sonra unvanında fazladan sözcüğü en az olan; tek → aktar, 2–3 → hangisi.
+  (2) **Birim + ad**: söylenen birimde o ad / soyadla tek kişi → aktar; kişi söylenen birimde değilse teyit.
+  (3) **Ad + hitap / rütbe ya da soyad** ("Zeynep Hanım", "Mehmet Albay", "Öztürk Bey"): tek kişi → aktar; **yalnız
+  ad** ("Mehmet var mı") → teyit; birden çok → hangisi. Arayanın kendini tanıttığı ad ("ben Mehmet") aday sayılmaz;
+  olumsuzluk / soru sözcüğünde kişi çözülmez (LLM yorumlar).
+- **Türkçe:** kamu unvanları unvan sözcüğü listesine; askerî ve emniyet rütbeleri hitap gibi atılır; "-lık / -lüğü"
+  biçimleri ("Komutanlığı", "Müdürlüğüne") kurum adıdır, unvan değil (birim hattına gider). Katmanlı eklerde
+  ("yardımcısına") ek atmak tutarsız olduğundan sözcükler ortak başla karşılaştırılır. Seçim cevabında çok sözcüklü
+  birimin ayırt edici sözcüğü tanınır ("Nilüfer mi İnegöl mü?" → "nilüfer").
+- **Aktarılamaz makam:** "valiyle görüşmek istiyorum" → Vali aday olmaz; söz kurumun genel hattına (kalem) gider.
+- **Ölçüm (04.11.2026, kural modu):** şirket seti 123 senaryo %96,7 → **%99,2**; sentetik kamu seti
+  (`tests/data/kamu_rehber.json`, `diyalog_seti_kamu.yaml`, 21 senaryo) %66,7 → **%100**; izinsiz 0.
 
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.

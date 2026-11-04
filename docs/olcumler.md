@@ -897,6 +897,21 @@ Bulunan hatalar (yalnız kodla işleyen yollarda; LLM'de de hızlı yoldan geçe
 Kalan 4 başarısızlık LLM'in işi (konudan birim: "sipariş", "fiyat teklifi", "fatura"; benzer ad "ahmet bey" →
 Mehmet Bey). Bütün set gerçek LLM ile Tuğba'nın bilgisayarında koşulacak.
 
+### MCP adımında kişi çözme (4 Kasım 2026, 11:30; ADR-025; kural modu, bulut ortamı)
+
+| set | rehber → (kural) | rehber → **MCP** → (kural) | kalan |
+|---|---|---|---|
+| şirket, `diyalog_seti.yaml` (123) | %95,9 | **%99,2** | D14 (rehberde olmayan "Ahmet Bey") |
+| kamu, `diyalog_seti_kamu.yaml` (21, sentetik kamu rehberi) | %66,7 | **%100** | — |
+
+- İzinsiz aktarma her koşuda 0. Kamu setinde MCP'siz başarısızlıklar: "jandarma komutanıyla" → komutanlık hattı,
+  "il jandarma komutan yardımcısına" → hangisi sorusu, "Nilüfer kaymakamı" / "emniyet müdürünü" / "trafik şube
+  müdürü" → bulunamadı, "pasaport" → bulunamadı, "Nilüfer mi İnegöl mü?" cevabı tanınmadı.
+- Geliştirme sırasında yakalananlar (setler sayesinde): ilk sürüm hitaplı tek kişiye teyit soruyordu (şirket seti
+  %92,5'e düştü) → hitap ya da soyadla söylenen tek kişi doğrudan; "satıştan Burak Bey" (Burak muhasebede) doğrudan
+  aktarılıyordu → teyit; "komutan yardımcısı" komutana gidiyordu → unvan sözcükleri sağdan sola.
+- Gerçek LLM'le ve canlı santralde (mihu) ölçüm dizüstünde yapılacak.
+
 ### İstem varyantları, gerçek LLM (4 Kasım 2026, 10:40; ADR-023/024; qwen3.5:4b, dizüstü, 120 senaryo)
 
 `tests/eval/diyalog.py --zaman-asimi 60`; A–C: MCP sunucusu açık (genel konu listesi).

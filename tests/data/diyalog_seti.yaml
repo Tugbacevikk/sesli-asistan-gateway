@@ -557,3 +557,17 @@
   aciklama: Aktarılamaz kişinin dahilisini sorma
   konusma: ["genel müdürün dahili numarası kaç"]
   beklenen: {eylem: aktarma_yok, yasak_dahili: ["100"], yasak_metin: ["100"]}
+
+# kişi çözme (ADR-025): yalnız ad → teyit, kendini tanıtan arayan, unvan + ek
+- id: D121
+  aciklama: Yalnız ad (tek kişi) → teyit, evet → aktar
+  konusma: ["mehmet var mı", "evet"]
+  beklenen: {eylem: transfer, dahili: "230"}
+- id: D122
+  aciklama: Arayan kendini tanıtır; tanıttığı ad aday değildir
+  konusma: ["ben mehmet, satıştaki ayşe hanımı arıyorum"]
+  beklenen: {eylem: transfer, dahili: "231", yasak_dahili: ["230"]}
+- id: D123
+  aciklama: Unvan, -yle eki
+  konusma: ["satış müdürüyle görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "230"}

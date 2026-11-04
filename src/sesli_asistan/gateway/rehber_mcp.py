@@ -30,6 +30,7 @@ from zoneinfo import ZoneInfo
 
 from mcp.server.mcpserver import MCPServer
 
+from .core.people import resolve_person
 from .core.schedule import OfficeHours
 from .core.search import DirectoryIndex, search_key
 from .core.tools import in_contacts
@@ -43,8 +44,9 @@ log = logging.getLogger(__name__)
 REFRESH_S = 15.0
 
 INSTRUCTIONS = ("Kurumun telefon rehberi (yalnız okuma). Kişi, birim ya da dahili için rehber_ara'yı kullan; "
-                "arayanın söylediği konunun birimi için konu_ara, birimlerin listesi için birimler, mesai durumu için "
-                "mesai_durumu. Rehberde olmayan bilgiyi uydurma.")
+                "unvan, birim + ad ya da ad + hitapla söylenen kişi için kisi_coz, arayanın söylediği konunun birimi "
+                "için konu_ara, birimlerin listesi için birimler, mesai durumu için mesai_durumu. Rehberde olmayan "
+                "bilgiyi uydurma.")
 
 
 def load_topics(path: str = "") -> list[Topic]:
@@ -72,6 +74,13 @@ def build_server(index: Callable[[], DirectoryIndex], office: OfficeHours | None
             cache.update(key=(id(ix), ix.version), table=TopicTable(ix.contacts(), topic_list))
         table: TopicTable = cache["table"]
         return table
+
+    @srv.tool()
+    def kisi_coz(soz: str) -> dict[str, Any]:
+        """Arayanın sözündeki kişiyi kurallarla çözer: unvan ("il jandarma komutanı", "muhasebe müdürü") → o makamdaki
+        kişi; birim + ad ("muhasebeden Ayşe Hanım") → o birimdeki kişi; ad + hitap ("Mehmet Bey") → o addaki kişi(ler).
+        adaylar: [{id, neden: unvan | birim_ad | ad}], kesin: tek aday ve doğrudan aktarılabilir mi (değilse teyit)."""
+        return resolve_person(index(), soz)
 
     @srv.tool()
     def konu_ara(soz: str) -> dict[str, Any]:

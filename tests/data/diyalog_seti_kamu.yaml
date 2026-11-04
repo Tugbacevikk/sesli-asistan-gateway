@@ -1,0 +1,87 @@
+# Kamu kurumu senaryoları (ADR-025): unvan, rütbe, kaymakamlık / müdürlük, konu. Rehber: tests/data/kamu_rehber.json
+#   python tests/eval/diyalog.py --set tests/data/diyalog_seti_kamu.yaml --rehber tests/data/kamu_rehber.json --mcp-adimi
+# (MCP sunucusu aynı rehberle: DIRECTORY_PATH=tests/data/kamu_rehber.json python -m sesli_asistan.gateway.rehber_mcp)
+- id: K01
+  aciklama: İl adı + unvan, ekli
+  konusma: ["bursa il jandarma komutanını ara"]
+  beklenen: {eylem: transfer, dahili: "2001"}
+- id: K02
+  aciklama: Kısa unvan, -yla eki
+  konusma: ["jandarma komutanıyla görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "2001"}
+- id: K03
+  aciklama: Yardımcı unvanı
+  konusma: ["il jandarma komutan yardımcısına bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "2002"}
+- id: K04
+  aciklama: Kurum (birim hattı), eş anlamlıyla
+  konusma: ["jandarmaya bağlayın"]
+  beklenen: {eylem: transfer, dahili: "2000"}
+- id: K05
+  aciklama: Kurum adı (-lığı) birimdir, kişi değil
+  konusma: ["jandarma komutanlığı lütfen"]
+  beklenen: {eylem: transfer, dahili: "2000"}
+- id: K06
+  aciklama: İlçe + kaymakam
+  konusma: ["nilüfer kaymakamı"]
+  beklenen: {eylem: transfer, dahili: "4001"}
+- id: K07
+  aciklama: Kaymakamlık (birim)
+  konusma: ["inegöl kaymakamlığına bağlayın"]
+  beklenen: {eylem: transfer, dahili: "4100"}
+- id: K08
+  aciklama: İki kaymakam → hangisi, ilçe ile seçim
+  konusma: ["kaymakamla görüşecektim", "nilüfer"]
+  beklenen: {eylem: transfer, dahili: "4001"}
+- id: K09
+  aciklama: Müdür unvanı, ekli
+  konusma: ["emniyet müdürünü bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "3001"}
+- id: K10
+  aciklama: Müdürlük (birim), kişi değil
+  konusma: ["emniyet müdürlüğüne bağlayın"]
+  beklenen: {eylem: transfer, dahili: "3000"}
+- id: K11
+  aciklama: Şube müdürü
+  konusma: ["trafik şube müdürü ile görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "3002"}
+- id: K12
+  aciklama: Ad + rütbe
+  konusma: ["mehmet albay"]
+  beklenen: {eylem: transfer, dahili: "2001"}
+- id: K13
+  aciklama: Rütbe + ad soyad
+  konusma: ["albay mehmet kaya"]
+  beklenen: {eylem: transfer, dahili: "2001"}
+- id: K14
+  aciklama: Aktarılamaz makam (vali) → kurumun genel hattı (kalem), makamın kendisi asla
+  konusma: ["valiyle görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "1000", yasak_dahili: ["1001"]}
+- id: K15
+  aciklama: İki vali yardımcısı → hangisi, ad + hitapla seçim
+  konusma: ["vali yardımcısı ile görüşecektim", "kemal bey"]
+  beklenen: {eylem: transfer, dahili: "1003"}
+- id: K16
+  aciklama: Kurum, eş anlamlıyla
+  konusma: ["sağlık müdürlüğü lütfen"]
+  beklenen: {eylem: transfer, dahili: "5000"}
+- id: K17
+  aciklama: Konu → nüfus
+  konusma: ["pasaport işlemi için arıyorum"]
+  beklenen: {eylem: transfer, dahili: "6000"}
+- id: K18
+  aciklama: Konu → imar
+  konusma: ["imar durumu için arıyorum"]
+  beklenen: {eylem: transfer, dahili: "7000"}
+- id: K19
+  aciklama: Konu (en belirli) → su idaresi
+  konusma: ["su arızası bildireceğim"]
+  beklenen: {eylem: transfer, dahili: "7200"}
+- id: K20
+  aciklama: Kurum adı tek sözcük
+  konusma: ["zabıtaya bağlayın"]
+  beklenen: {eylem: transfer, dahili: "7100"}
+- id: K21
+  aciklama: Unvan + ad + hitap
+  konusma: ["daire başkanı can bey"]
+  beklenen: {eylem: transfer, dahili: "7001"}

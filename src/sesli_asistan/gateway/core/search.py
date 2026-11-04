@@ -30,17 +30,40 @@ _FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",
            "op", "operator", "muh", "muhendis", "ogr", "gor", "sayin"}
 _HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
+# Askerî ve emniyet rütbeleri: hitap gibi atılır ("Mehmet Albay", "Albay Mehmet Kaya" → "mehmet kaya"). "Er" yok:
+# soyadı olarak da geçer.
+_RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzbasi", "binbasi",
+          "yarbay", "albay", "tuggeneral", "tumgeneral", "korgeneral", "orgeneral", "kurmay", "komiser", "baskomiser"}
 # Genel birim sözcükleri: "satış departmanı", "finans birimi" → "satış", "finans"
 _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
-_STOP = _TITLES | _HONORIFICS | _GENERIC
+_STOP = _TITLES | _HONORIFICS | _RANKS | _GENERIC
 
 # Görev/unvan sözcükleri: birim alanında geçerse sorgu bir kişiyi (unvanıyla) arıyordur: "satış müdürü"
 ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "sorumlu", "sorumlusu",
-              "yonetici", "yoneticisi", "direktor", "direktoru", "asistan", "asistani", "sekreter", "sekreteri"}
+              "yonetici", "yoneticisi", "direktor", "direktoru", "asistan", "asistani", "sekreter", "sekreteri",
+              # kamu unvanları (Türkiye geneli dağıtım): "il jandarma komutanı" birim hattı değil, o makamdaki kişi
+              "komutan", "komutani", "vali", "valisi", "kaymakam", "kaymakami", "baskan", "baskani", "amir", "amiri",
+              "savci", "savcisi", "hakim", "hakimi", "rektor", "rektoru", "dekan", "dekani", "mufettis", "mufettisi",
+              "yardimci", "yardimcisi", "koordinator", "koordinatoru", "temsilci", "temsilcisi", "mudire",
+              "muavin", "muavini"}
+
+
+# Unvan kökleri: sözcük bununla başlıyorsa (ekli biçimler: "komutanıyla", "yardımcısına") unvandır; ardından -lık /
+# -lüğü gelirse kurum adıdır ("Komutanlığı", "Müdürlüğüne": birim, kişi değil). Kısa kökler yalnız tam / tek ekle.
+_ROLE_STEMS = ("mudur", "uzman", "sorumlu", "yonetici", "direktor", "asistan", "sekreter", "komutan", "kaymakam",
+               "baskan", "savci", "hakim", "rektor", "dekan", "mufettis", "yardimci", "koordinator", "temsilci",
+               "mudire", "muavin")
+_INSTITUTION = ("lig", "lug", "lik", "luk")
+
+
+def is_role_word(word: str) -> bool:
+    if word in ROLE_WORDS or strip_suffix(word) in ROLE_WORDS:
+        return True
+    return any(word.startswith(s) and not word[len(s):].lstrip("iu").startswith(_INSTITUTION) for s in _ROLE_STEMS)
 
 
 def has_role_word(text: str) -> bool:
-    return any(w in ROLE_WORDS or strip_suffix(w) in ROLE_WORDS for w in search_key(text).split())
+    return any(is_role_word(w) for w in search_key(text).split())
 
 _ONES = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
 _TENS = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"]

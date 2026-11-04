@@ -99,6 +99,11 @@ class _RuntimeCollector:
         c.add_metric(["mcp"], tools.remote_calls - tools.remote_failures)
         c.add_metric(["yerel"], tools.remote_failures)
         yield c
+        c = CounterMetricFamily("mcp_person_lookups", "Akışın 2. adımı: kişi çözme (MCP_STEP, ADR-025; hata = yerelde)",
+                                labels=["result"])
+        c.add_metric(["bulundu"], tools.person_hits)
+        c.add_metric(["hata"], tools.person_failures)
+        yield c
         c = CounterMetricFamily("mcp_topic_lookups", "Akışın 2. adımı: MCP'ye konu soruldu (MCP_STEP, ADR-023)",
                                 labels=["result"])
         c.add_metric(["bulundu"], tools.topic_hits)
