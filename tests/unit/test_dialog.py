@@ -539,6 +539,34 @@ async def test_soze_girme_anlasilmazsa_yarida_kalan_cumle_yinelenir():
     assert s.state.failed_attempts == before                  # söze girme: deneme hakkı yanmaz
 
 
+async def test_soze_girme_yalniz_dolgu_sesi_cumleyi_yineler():
+    # canlı 05.11.2026: karşılama sırasında gürültü "şey" (0,31) → "Sizi anlayamadım"
+    a = clarifier(LlmMessage("Kiminle görüşmek istersiniz?"))
+    s = a.new_session("c")
+    await s.handle_user("filanca")
+    s.after_barge_in, s.stt_confidence = True, 0.31
+    t = await s.handle_user("şey")
+    assert t.text == "Kiminle görüşmek istersiniz?"
+
+
+@pytest.mark.parametrize("conf", [0.31, 0.16])
+async def test_cok_dusuk_guvenli_kapatma_sozu_kapatmaz(conf):
+    # canlı 05.11.2026: arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu, çağrı kapandı
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    s.stt_confidence = conf
+    t = await s.handle_user("kapatıya geç")
+    assert "hangup" not in [x.type for x in t.actions] and t.text == a.cfg.texts.not_understood
+
+
+async def test_yeterli_guvenle_kapatma_sozu_kapatir():
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    s.stt_confidence = 0.8
+    t = await s.handle_user("görüşmeyi sonlandırmak istiyorum")
+    assert [x.type for x in t.actions] == ["hangup"]
+
+
 async def test_soze_girme_dusuk_guvenli_soz_de_cumleyi_yineler():
     a = clarifier(LlmMessage("Kiminle görüşmek istersiniz?"))
     s = a.new_session("c")

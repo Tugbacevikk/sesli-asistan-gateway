@@ -305,6 +305,8 @@ class DialogAgent:
             if only_fillers:
                 # yalnız "eee", "ıı": arayan düşünüyor; deneme sayılmaz, açık soru ya da "anlayamadım" (LLM yok)
                 log.info("[%s] yalnız dolgu sesi", s.call_id)
+                if lenient and not self.pending_question(s) and (again := self._repeat_cut(s)) is not None:
+                    return again                 # canlı 05.11.2026: söze giren gürültü "şey" (0,31) → "anlayamadım"
                 reply = self._reply(s, self.pending_question(s) or self.cfg.texts.not_understood)
                 reply.fast = True
                 return reply
@@ -342,7 +344,10 @@ class DialogAgent:
             # "operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)
             log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(text))
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
-        if wants_hangup(text) and not self._mentions_target(text):
+        low = s.stt_confidence is not None and 0 < s.stt_confidence < self.cfg.repeat_below
+        if wants_hangup(text, strict=low) and not self._mentions_target(text):
+            # çok düşük güvenle yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak istiyorum"); canlı 05.11.2026:
+            # arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve çağrı kapandı. Gerisi aşağıdaki tekrar kapısına
             log.info("[%s] arayan kapatmak istedi: %s", s.call_id, log_text(text))
             s.state.actions = []
             s.history.append({"role": "assistant", "content": self.cfg.texts.goodbye})
@@ -1182,6 +1187,9 @@ _YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", 
         "baglayabilirsiniz"}
 _NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
 _NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
+# kurallı kapatma fiilleri (katlanmış): düşük güvende yalnız bunlar
+_HANGUP_FORM = re.compile(r"(kapat|sonlandir)(|in|iniz|mak|ir|irsiniz|iyorum|abilir\w*|ayim|alim|sana)"
+                          r"|vazgec(tim|tik|iyorum)|gorusuruz|hoscakal(in)?")
 _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter", "baska bir sey yok",
                    "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
 
@@ -1275,13 +1283,14 @@ def asks_operator(text: str) -> bool:
                for w in raw)
 
 
-def wants_hangup(text: str) -> bool:
-    """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz"."""
+def wants_hangup(text: str, strict: bool = False) -> bool:
+    """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz". `strict`
+    (STT güveni çok düşük): kök yalnız kurallı bir fiil ekiyle ("kapatın", "kapatabilirsiniz"; "kapatıya" değil)."""
     t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_ASCII)).split())
     words = t.split()
     for w in words:
         # olumsuz: "kapatma", "kapatmayın", "sonlandırmadan" (ama "kapatmak", "sonlandırmak" olumlu)
-        if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w):
+        if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w) and (not strict or _HANGUP_FORM.fullmatch(w)):
             return True
     return any(f" {p}" in f" {t}" for p in _HANGUP_PHRASES)
 # "bir insanla görüşmek istiyorum", "gerçek biriyle": operatör isteği (diyalog seti D58, D59; "insan" tek başına İnsan

@@ -63,6 +63,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Çok düşük güvenli sözle çağrı kapanmaz (canlı 05.11.2026: arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve
+  çağrı kapandı): güven tekrar eşiğinin altındaysa yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak
+  istiyorum") kapatır. Söze giren gürültü yalnız dolgu sesi ("şey") verdiyse de yarıda kalan cümle yinelenir. D130.
 - LLM düşük güvenli sözde geçmeyen kişiyi öneremez (canlı 05.11.2026): rehberde olmayan "Tuğba Çevik" STT'de
   "çokağa çeviriyle" (güven 0,6) duyuldu, LLM "Kaya" diye arayıp "Ayşe Kaya'ya mı bağlamamı istersiniz?" sordurdu.
   Hedefin adı / soyadı / unvanı / birimi / dahilisi arayanın sözünde benzer biçimde (≥ 75) geçmiyorsa teyit de

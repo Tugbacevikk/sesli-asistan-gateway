@@ -600,3 +600,8 @@
   aciklama: Bozuk duyulan, rehberde olmayan ad (düşük güven) → LLM sözde geçmeyen kişiyi öneremez
   konusma: [{arayan: "çokağa çeviriyle görüşmek istiyorum", guven: 0.6}]
   beklenen: {eylem: aktarma_yok, yasak_dahili: ["231"], yasak_metin: ["Kaya"]}
+# canlı 05.11.2026: arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve çağrı kapandı
+- id: D130
+  aciklama: Çok düşük güvenli kapatma sözü çağrıyı kapatmaz
+  konusma: [{arayan: "kapatıya geç", guven: 0.31}]
+  beklenen: {eylem: yok}
