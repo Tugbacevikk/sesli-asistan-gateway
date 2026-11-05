@@ -1836,6 +1836,32 @@ satır alınamıyordu; arayan kısaltma söylemez ("asayiş daire başkanlığı
 dökümde söz başına 350–1000 ms → 40–300 ms. Açık: `access_code` satırların çoğunda santralin numarası (her hattın
 dahilisi değil); kurumun gerçek dahili sütunu olmadan aktarma ayırt edilemez. Kurumun kısaltma sözlüğü gerekiyor.
 
+
+### ADR-031 — Canlı prova düzeltmeleri: genel istek, ortak birim sözcüğü, ulaşılamayan dahili, ses seviyesi kapısı
+
+**Bağlam.** Canlı prova (5 Kasım 2026, MicroSIP, qwen3.5:4b): "bilgi almak istiyorum" → LLM `Department="bilgi"` →
+rehber "Bilgi İşlem"i %100 eşledi → kod tek kesin sonucu aktardı; üstelik o dahiliye (Can Öztürk) aynı çağrıda az
+önce ulaşılamamıştı. Aynı provada ses seviyesi ölçüldü: arayan -29 / -31 dBFS, arkadaki video -37 / -38 dBFS.
+
+**Karar.**
+1. Hedefsiz genel istek ("bilgi almak istiyorum", "bir sorum var", "yardım istiyorum"; sözde kişi, birim ya da konu
+   yoksa) LLM'e gitmez: "Hangi konuda bilgi almak istersiniz? …" (`ASK_TOPIC_TEXT`), deneme sayılmaz.
+2. Çok sözcüklü birimin yalnız sık bir sözcüğüyle ("bilgi", "insan", "genel", "mali" …) birim araması kesin
+   (`single_high`) sayılmaz: en çok `single_low` (kod aktarmaz, LLM / teyit).
+3. Aynı çağrıda ulaşılamayan (meşgul, cevapsız, hata) dahiliye, arayan son sözünde onu kendisiyle (ad, soyad, takma
+   ad, unvan, dahili; birim hattında birim adı) yeniden istemedikçe aktarılmaz; "X'e şu an ulaşılamıyor …" denir.
+   Kodun ve LLM'in bütün aktarma yollarında.
+4. LLM ısıtması gerçek çağrının başıyla (sistem istemi + araç tanımları): Ollama bu başı saklar.
+5. Söze girmede ses seviyesi kapısı (`core/level.py`): Gateway STT'ye giden her 20 ms karenin seviyesini ölçer,
+   arayanın kendi seviyesini anlaşılan sözlerinden (güven ≥ 0,5) öğrenir. Söze girme anındaki son 300 ms'nin sesli
+   karelerinin ortancası bunun 6 dB altındaysa söze girme sayılmaz, asistan konuşmasını sürdürür ve o sesin metni
+   cevaplanmaz. Arayanın seviyesi bilinmiyorken yalnız -45 dBFS altı elenir. Asistan sustuktan sonra arayan her
+   seviyede dinlenir. `BARGE_IN_LEVEL_MARGIN_DB` 0: kapalı (CallConfig).
+
+**Sonuç.** Senaryo D139–D140; şirket %99,3 (D14), kamu ve makam %100. Kapı ölçülen 7–9 dB farkın içinde 6 dB payla
+çalışır; payı daralan ortamlarda (çok yüksek arka plan) etkisi azalır, ama yanlış eylemi önleyen kurallar (ADR-029)
+ondan bağımsızdır.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği
@@ -2117,6 +2143,9 @@ Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalo
 | SOUND_MIN / SOUND_MARGIN | 65 / 25 | ses benzerliğiyle ad, teyitle | ADR-026, ölçüm 04.11.2026 |
 | MIN_NOISE_MS | 600 | kısa boş sonuç gürültü | canlı 02.11.2026 |
 | NOISE_BELOW / NOISE_MAX_LETTERS | 0,2 / 2 | gürültü kırıntısı ("b") cevaplanmaz | canlı 04.11.2026 |
+| BARGE_IN_LEVEL_MARGIN_DB | 6 dB | söze girme anı arayanın kendi seviyesinin bu kadar altındaysa sayılmaz | canlı 05.11.2026 (arayan -29 / -31, video -37 / -38 dBFS) |
+| BARGE_IN_FLOOR_DB | -45 dBFS | arayanın seviyesi henüz bilinmiyorken söze girme alt sınırı | aynı ölçüm |
+| LEVEL_LEARN_CONF | 0,5 | arayanın seviyesi bu güvenin üstündeki sözlerinden öğrenilir | tekrar eşiğiyle aynı |
 | MAX_BARGE_REPEATS | 2 | söze girme anlaşılmazsa cümle yinelemesi | canlı 05.11.2026 |
 | MAX_PERSON_CANDIDATES / MAX_TOPIC_CANDIDATES | 3 / 5 | aday sayısı | ADR-025, ADR-023 |
 | MAX_REPLY_SENTENCES | 2 | LLM cevabı telefonda | canlı 03.11.2026 |

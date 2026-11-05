@@ -49,6 +49,13 @@ MIN_NOISE_MS = 600
 # Gürültü kırıntısı: güveni bunun altında ve en çok bu kadar harf ("b" 0,05; "s" 0,23 geçer, tekrar kapısına düşer).
 NOISE_BELOW = 0.2
 NOISE_MAX_LETTERS = 2
+# Söze girmede ses seviyesi kapısı (core/level.py): son 300 ms arayanın kendi seviyesinin bu kadar altındaysa
+# söze girme sayılmaz. Canlı 05.11.2026: arayan -29 / -31 dBFS, arkadaki video -37 / -38 dBFS (7–9 dB fark).
+# Seviyesi henüz bilinmeyen arayanda yalnız BARGE_IN_FLOOR_DB altı; arayanın seviyesi güveni LEVEL_LEARN_CONF
+# üstündeki sözlerinden öğrenilir. 0: kapalı (BARGE_IN_LEVEL_MARGIN_DB).
+BARGE_IN_LEVEL_MARGIN_DB = 6.0
+BARGE_IN_FLOOR_DB = -45.0
+LEVEL_LEARN_CONF = 0.5
 # Söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir (sonra olağan "anlayamadım").
 MAX_BARGE_REPEATS = 2
 

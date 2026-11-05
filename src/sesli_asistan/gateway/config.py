@@ -18,7 +18,7 @@ TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_o
                "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
                "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm",
                "confirm_operator", "no_input_question", "greeting_reply", "declined", "office_hours",
-               "office_hours_unknown", "ask_target", "which_department", "indistinct")
+               "office_hours_unknown", "ask_target", "which_department", "indistinct", "ask_topic")
 _NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
@@ -167,6 +167,7 @@ class GatewaySettings(BaseSettings):
     ask_target_text: str = ""                 # bilgi verildikten sonra "Kiminle görüşmek istersiniz?"
     which_department_text: str = ""           # aynı unvanlı çok hat: "Hangi birimdeki {unvan}?" (ADR-030)
     indistinct_text: str = ""                 # aynı unvan, aynı birim: ayırt edilemedi → operatör
+    ask_topic_text: str = ""                  # hedefsiz genel istek ("bilgi almak istiyorum") cevabı
     no_input_question_text: str = ""          # soru açıkken arayan susunca, sorudan önce ("Sizi duyamadım.")
     greeting_reply_text: str = ""             # arayan yalnız selam verince ("Merhaba, kiminle görüşmek istersiniz?")
 

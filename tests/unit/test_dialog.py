@@ -1065,7 +1065,7 @@ async def test_llm_istenmeden_operatore_baglayamaz():
     """Canlı 04.11.2026: "başka birine mi, operatöre mi?" → "mesai saatleri ne" → LLM ConnectOperator."""
     llm = ScriptedLlm(tool_msg(call("ConnectOperator")), LlmMessage("Kiminle görüşmek istersiniz?"))
     a = agent(llm)
-    t = await a.new_session("x").handle_user("bir bilgi soracaktım")
+    t = await a.new_session("x").handle_user("şöyle bir durum oldu")
     assert t.actions == [] and "Kiminle" in t.text
     llm = ScriptedLlm(tool_msg(call("ConnectOperator")))
     t = await agent(llm).new_session("y").handle_user("operatöre bağlar mısınız")
@@ -1170,3 +1170,56 @@ def test_kural_modunda_kesinlik(text, sure):
     name = next(v for k, v in who.items() if k in text)
     c = next(c for c in ix.contacts() if c.full_name == name)
     assert said_surely(ix, c, text) is sure
+
+
+# --- canlı prova 05.11.2026: genel istek, ortak birim sözcüğü, ulaşılamayan dahili ------------------------------
+
+@pytest.mark.parametrize("text", ["bilgi almak istiyorum", "bir sorum var", "bir şey soracaktım",
+                                  "yardım istiyorum"])
+async def test_hedefsiz_genel_istek_llm_e_gitmez(text):
+    a = clarifier(LlmMessage("Tamam."))
+    t = await a.new_session("c").handle_user(text)
+    assert not t.actions and t.text == a.cfg.texts.ask_topic and a.llm.seen == []
+
+
+@pytest.mark.parametrize(("text", "ext"), [("bilgi işlemden can bey", "245"), ("bilgi işlem lütfen", "245")])
+async def test_bilgi_islem_genel_istek_sayilmaz(text, ext):
+    t = await rules().new_session("c").handle_user(text)
+    assert [x.extension for x in t.actions] == [ext]
+
+
+def test_ortak_birim_sozcugu_kesin_eslesme_degil():
+    from sesli_asistan.gateway.core.models import Match
+    ix = _index()
+    assert ix.search(department="bilgi").match == Match.SINGLE_LOW       # "bilgi almak": Bilgi İşlem değil
+    assert ix.search(department="bilgi işlem").match == Match.SINGLE_HIGH
+    assert ix.search(department="muhasebe").match == Match.SINGLE_HIGH
+
+
+async def test_llm_birim_sozcugunu_aradiginda_kesin_degilse_aktarilmaz():
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Department="bilgi")), LlmMessage("Hangi konuda?")))
+    t = await a.new_session("c").handle_user("biraz bilgi lazım")
+    assert not t.actions
+
+
+async def test_ulasilamayan_dahiliye_istenmeden_yeniden_aktarilmaz():
+    # canlı 05.11.2026: Can Öztürk'e ulaşılamadı; "bilgi almak istiyorum" → LLM yine Can Öztürk'e aktardı
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="Can Öztürk")),
+                          LlmMessage("Can Öztürk cevap vermiyor, başka birine mi bağlayayım?"),   # santral olayı
+                          tool_msg(call("InContacts", Department="bilgi işlem"))))
+    s = a.new_session("c")
+    t = await s.handle_user("can öztürk ile görüşmek istiyorum")
+    assert [x.extension for x in t.actions] == ["245"]
+    await s.handle_transfer_result("no_answer")
+    t = await s.handle_user("biraz bilgi lazım")                      # Can Öztürk'ü yeniden istemedi
+    assert not t.actions and "ulaşılamıyor" in t.text
+
+
+async def test_ulasilamayan_dahili_aranan_yeniden_soylerse_aktarilir():
+    a = clarifier(LlmMessage("Tamam."))
+    s = a.new_session("c")
+    t = await s.handle_user("can öztürk")
+    assert [x.extension for x in t.actions] == ["245"]
+    await s.handle_transfer_result("busy")
+    t = await s.handle_user("can öztürk'ü tekrar dener misiniz")
+    assert [x.extension for x in t.actions] == ["245"]

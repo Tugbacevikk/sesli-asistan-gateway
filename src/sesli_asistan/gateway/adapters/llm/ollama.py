@@ -67,11 +67,17 @@ class OllamaChat:
             raise LlmError(f"Ollama: {e}") from e
         return LlmMessage(content=msg.get("content") or "", tool_calls=_calls(msg.get("tool_calls")))
 
-    async def warmup(self, timeout_s: float = 120.0) -> None:
-        """Modeli belleğe yükler (ilk çağrı yavaş olmasın). Yükleme, tur zaman aşımından (5 sn) uzun sürebilir."""
-        r = await self.http.post("/api/chat", timeout=timeout_s, json={
-            "model": self.model, "messages": [{"role": "user", "content": "merhaba"}], "stream": False,
-            "think": self.think, "keep_alive": self.keep_alive, "options": {"num_predict": 1}})
+    async def warmup(self, timeout_s: float = 120.0, messages: list[dict[str, Any]] | None = None,
+                     tools: list[dict[str, Any]] | None = None) -> None:
+        """Modeli belleğe yükler (ilk çağrı yavaş olmasın). Yükleme, tur zaman aşımından (5 sn) uzun sürebilir.
+        `messages` / `tools` verilirse (sistem istemi + araç tanımları) Ollama bu başı da hesaplayıp saklar: ilk
+        çağrının ilk turu aynı başı yeniden hesaplamaz (canlı 05.11.2026: yalnız model yüklenince ilk tur 14,5 sn)."""
+        msgs = to_ollama(messages) if messages else [{"role": "user", "content": "merhaba"}]
+        body: dict[str, Any] = {"model": self.model, "messages": msgs, "stream": False, "think": self.think,
+                                "keep_alive": self.keep_alive, "options": {"num_predict": 1}}
+        if tools:
+            body["tools"] = tools
+        r = await self.http.post("/api/chat", timeout=timeout_s, json=body)
         r.raise_for_status()
 
 

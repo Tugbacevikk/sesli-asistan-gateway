@@ -38,11 +38,19 @@ from typing import Any
 from sesli_asistan.libs.obs import log_text
 
 from .dialog import DialogSession
+from .level import LevelGate, frame_db
 from .models import Action, DialogTurn, HangupAction, OperatorAction, TransferAction
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
 from .schedule import HOLIDAY, OPEN
 from .speech import Speaker, keyboard_sound
-from .thresholds import MIN_NOISE_MS, NOISE_BELOW, NOISE_MAX_LETTERS
+from .thresholds import (
+    BARGE_IN_FLOOR_DB,
+    BARGE_IN_LEVEL_MARGIN_DB,
+    LEVEL_LEARN_CONF,
+    MIN_NOISE_MS,
+    NOISE_BELOW,
+    NOISE_MAX_LETTERS,
+)
 
 log = logging.getLogger(__name__)
 
@@ -66,6 +74,7 @@ class CallConfig:
     max_call_duration_s: float = 600.0
     transfer_result_timeout_s: float = 30.0
     barge_in: bool = True
+    barge_in_level_margin_db: float = BARGE_IN_LEVEL_MARGIN_DB   # ses seviyesi kapısı (core/level.py); 0: kapalı
     min_noise_ms: int = MIN_NOISE_MS   # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
     # Gürültü kırıntısı: güveni bunun altında ve en çok `noise_max_letters` harf ("b"): cevaplanmaz, deneme sayılmaz
     # (canlı 04.11.2026: ortam sesi "b" (0,05) → "anlayamadım"). 0: kapalı
@@ -97,6 +106,7 @@ class TurnRecord:
 class CallStats:
     turns: list[TurnRecord] = field(default_factory=list)
     barge_ins: int = 0
+    barge_ins_ignored: int = 0          # ses seviyesi kapısının saymadığı söze girmeler (arka plan sesi)
     tts_failures: int = 0
     no_inputs: int = 0
     outcome: str = ""                  # transferred | operator | closed | hangup | error
@@ -134,6 +144,9 @@ class CallSession:
         self.hotword_priority = list(hotword_priority or [])   # en çok aranan dahililer (ipucu sırası)
         self._hint_for: tuple = ()
         self.clock = clock
+        self.level = LevelGate(self.cfg.barge_in_level_margin_db, BARGE_IN_FLOOR_DB)
+        self._speech_at: float | None = None      # son "konuşma başladı" anı (arayan seviyesini öğrenmek için)
+        self._ignore_next = False                 # kapının saymadığı söze girmenin sonucu cevaplanmaz
         self.state = CallState.GREETING
         self.stats = CallStats(channel=channel, started=datetime.now().isoformat(timespec="seconds"))
         self.started_at = clock()
@@ -248,6 +261,8 @@ class CallSession:
     async def _pump(self) -> None:
         assert self._stream is not None
         async for frame in self.media.frames():
+            if self.cfg.barge_in_level_margin_db > 0:
+                self.level.add(self.clock(), frame_db(frame, self.codec))
             await self._stream.send(frame)
 
     async def _stt_events(self) -> None:
@@ -291,9 +306,18 @@ class CallSession:
             self._listen_since = ev.at
             self._silences = 0
         if k == "speech_started":
+            self._speech_at = ev.at
             # konuşma başlamadan önce algılanmış ses (asistan düşünürken) bu konuşmayı kesmez
             if (self._speaking() and self.cfg.barge_in and ev.at >= self._speech_began
                     and self.state in (CallState.SPEAKING, CallState.GREETING) and not self._closing()):
+                if not self.level.allows_barge_in(ev.at):
+                    # arka plan sesi (odadaki video, ikinci konuşan): arayanın kendi seviyesinin çok altında
+                    log.info("[%s] söze girme sayılmadı: ses seviyesi düşük (%.1f dBFS, arayan %s)", self.call_id,
+                             self.level.recent_db(ev.at) or -120,
+                             f"{self.level.caller_db:.1f} dBFS" if self.level.caller_db is not None else "bilinmiyor")
+                    self.stats.barge_ins_ignored += 1
+                    self._ignore_next = True
+                    return
                 log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
                 self.stats.barge_ins += 1
                 self._emit("barge_in")
@@ -306,6 +330,14 @@ class CallSession:
                 log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
                          ev.data.get("confidence") or 0)
                 return
+            if self._ignore_next:
+                # kapının saymadığı söze girmenin metni (arka plan): cevaplanmaz, deneme sayılmaz
+                self._ignore_next = False
+                log.info("[%s] arka plan sesinin sonucu yok sayıldı", self.call_id)
+                return
+            if (k == "final" and self._speech_at is not None
+                    and (ev.data.get("confidence") or 0) >= LEVEL_LEARN_CONF):
+                self.level.learn(self._speech_at, ev.at)         # anlaşılan söz: arayanın kendi sesi
             if self.state in (CallState.GREETING, CallState.LISTENING, CallState.THINKING, CallState.SPEAKING):
                 self._inputs.append(ev)
         elif k == "speech_done":

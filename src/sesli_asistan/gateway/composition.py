@@ -279,7 +279,12 @@ class GatewayRuntime:
         warm = getattr(self.llm, "warmup", None) if self.s.llm_enabled else None
         if warm:
             try:
-                await asyncio.wait_for(warm(), timeout=60)
+                # gerçek çağrıyla aynı baş: sistem istemi + araçlar (Ollama önceki isteğin hesabını yeniden kullanır)
+                head = [{"role": "system", "content": self.agent.system_prompt}, {"role": "user", "content": "merhaba"}]
+                try:
+                    await asyncio.wait_for(warm(messages=head, tools=self.agent.tools.schemas), timeout=60)
+                except TypeError:                   # isteğe bağlı parametreleri almayan adaptör
+                    await asyncio.wait_for(warm(), timeout=60)
             except Exception as e:
                 log.error("LLM ısıtılamadı: %s", e)
         if self.mcp is not None:

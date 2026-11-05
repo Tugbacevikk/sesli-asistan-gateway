@@ -39,6 +39,7 @@ from .phrases import (
     _YES,
     _folded_words,
     _vowel_mask,
+    asks_general_help,
     asks_office_hours,
     asks_operator,
     contact_dative,
@@ -142,6 +143,8 @@ class DialogTexts:
     office_hours: str = "Mesai saatlerimiz {saatler}."      # arayan mesai saatini sordu ({saatler}: OFFICE_HOURS'tan)
     office_hours_unknown: str = "Mesai saatleri konusunda bilgi veremiyorum."   # OFFICE_HOURS tanımlı değil
     ask_target: str = "Kiminle görüşmek istersiniz?"
+    ask_topic: str = ("Hangi konuda bilgi almak istersiniz? Görüşmek istediğiniz kişiyi ya da birimi de "
+                      "söyleyebilirsiniz.")
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
     indistinct: str = "Bu unvanda birden fazla hat var. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -220,6 +223,7 @@ class _Run:
 STEPS = (
     "_step_greeting",           # yalnız selam: açık soru yinelenir
     "_step_office_hours",       # mesai sorusu: kodla cevap
+    "_step_general_help",       # "bilgi almak istiyorum": hangi konu / kim sorulur
     "_step_confirm",            # açık teyit sorusunun cevabı
     "_step_operator_confirm",   # açık "operatöre mi?" sorusunun cevabı
     "_step_conflict",           # sözde birden çok hedef (arkada ikinci konuşan): sorulur
@@ -406,6 +410,17 @@ class DialogAgent:
                  else texts.office_hours_unknown)
         log.info("[%s] mesai sorusu: %s", s.call_id, log_text(u.text))
         reply = self._reply(s, f"{hours} {self.pending_question(s) or texts.ask_target}")
+        reply.fast = True
+        return reply
+
+    async def _step_general_help(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Hedefsiz genel istek ("bilgi almak istiyorum", "bir sorum var"): LLM'e gitmeden konu / kişi sorulur, deneme
+        sayılmaz, açık soru yinelenir. Canlı 05.11.2026: LLM "bilgi"yi birim sanıp Bilgi İşlem'e aktarmıştı."""
+        if not asks_general_help(u.text) or self._mentions_target(u.text) or self.tools.local_topic(u.text):
+            return None
+        u.reopen(s)
+        log.info("[%s] genel istek: %s", s.call_id, log_text(u.text))
+        reply = self._reply(s, self.pending_question(s) or self.cfg.texts.ask_topic)
         reply.fast = True
         return reply
 
@@ -713,6 +728,8 @@ class DialogAgent:
                             else Match.MULTIPLE if s.state.last_results else Match.NONE)
 
     def _code_transfer(self, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
+        if not confirmed and (turn := self._unreachable_again(s, cand.contact)) is not None:
+            return turn
         if not confirmed and (turn := self._topic_clash(s, cand.contact)) is not None:
             return turn
         if not confirmed and self._unsure(s):
@@ -1030,6 +1047,8 @@ class DialogAgent:
                     None)
         if cand is None:
             return None                                # politika zaten reddedecek
+        if (turn := self._unreachable_again(s, cand.contact, call)) is not None:
+            return turn
         if self._needs_confirm(s) and (turn := self._ungrounded(s, call, cand.contact)) is not None:
             return turn
         if not self._needs_confirm(s) and not self._other_number(s, cand.contact):
@@ -1048,11 +1067,12 @@ class DialogAgent:
         s.state.last_results = ()
         return self._not_found(s)
 
-    def _grounded(self, s: DialogSession, contact: Any) -> bool:
-        """Arayanın bu çağrıdaki sözlerinde hedefin bir izi var: ad, soyad, takma ad, unvan ya da birim sözcüğüne
-        benzeyen (≥ GROUNDED_MIN) bir sözcük ya da dahili numarası. Yoksa LLM hedefi kendisi uydurmuştur (STT sözü
-        bozduğunda arama sözcüğünü kendisi seçer)."""
-        user = " ".join(m["content"] for m in s.history if m["role"] == "user" and m.get("content"))
+    def _grounded(self, s: DialogSession, contact: Any, last_only: bool = False) -> bool:
+        """Arayanın bu çağrıdaki sözlerinde (`last_only`: yalnız son sözünde) hedefin bir izi var: ad, soyad, takma ad,
+        unvan ya da birim sözcüğüne benzeyen (≥ GROUNDED_MIN) bir sözcük ya da dahili numarası. Yoksa LLM hedefi
+        kendisi uydurmuştur (STT sözü bozduğunda arama sözcüğünü kendisi seçer)."""
+        users = [m["content"] for m in s.history if m["role"] == "user" and m.get("content")]
+        user = " ".join(users[-1:] if last_only else users)
         said = search_key(user).split()
         if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
             return True
@@ -1181,6 +1201,37 @@ class DialogAgent:
             turn.fast = True
         return turn
 
+    def _unreachable_again(self, s: DialogSession, contact: Any, call: ToolCall | None = None,
+                           content: dict[str, Any] | None = None) -> DialogTurn | None:
+        """Bu çağrıda az önce ulaşılamayan dahiliye, arayan son sözünde onu yeniden söylemedikçe ("Can Bey'i tekrar
+        dener misiniz") aktarılmaz; yine ulaşılamadığı söylenir. Canlı 05.11.2026: Can Öztürk'e ulaşılamadı,
+        sonra "bilgi almak istiyorum" → LLM yeniden Can Öztürk'e aktardı."""
+        if contact.extension not in s.state.unreachable or self._asked_again(s, contact):
+            return None
+        log.info("[%s] %s bu çağrıda ulaşılamamıştı, arayan yeniden istemedi: aktarılmadı", s.call_id,
+                 contact.extension)
+        if call is not None:
+            s.history.append(_tool_message(call, {**(content or {}), "ok": False,
+                                                  "note": "Bu kişiye az önce ulaşılamadı; yeniden aktarılmadı."}))
+        s.state.actions = []
+        text = self.cfg.texts.transfer_failed.format(ad=contact.full_name, ad_e=contact_dative(contact))
+        turn = self._reply(s, text[0].upper() + text[1:])
+        turn.fast = True
+        return turn
+
+    def _asked_again(self, s: DialogSession, contact: Any) -> bool:
+        """Arayan son sözünde bu kaydı **kendisiyle** yeniden istedi: kişide adı / soyadı / takma adı / unvanı, birim
+        hattında birimin adı, ya da dahili numarası. Birim sözcüğü kişiyi yeniden istemek sayılmaz ("biraz bilgi
+        lazım" ≠ Bilgi İşlem'deki Can Öztürk)."""
+        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
+            return True
+        names = ((contact.department, *contact.department_aliases) if contact.kind == "department"
+                 else (contact.first_name, contact.last_name, *contact.aliases, contact.title))
+        keys = {k for n in names for k in search_key(n).split() if len(k) >= 3}
+        said = search_key(user).split()
+        return any(similarity(v, k) >= NAME_SAME for w in said for v in query_variants(w) for k in keys)
+
     def _topic_clash(self, s: DialogSession, contact: Any) -> DialogTurn | None:
         """Kod doğrudan aktarmadan önce: sözdeki konu başka bir birime gidiyorsa ikisi de sorulur ("zeynep … faturam
         ile ilgili bir sorun var" → "Zeynep Arslan mı, Muhasebe mi?"). Sesli set 05.11.2026: arka plandan gelen tek bir
@@ -1204,6 +1255,8 @@ class DialogAgent:
         return turn
 
     def _fast_transfer(self, s: DialogSession, text: str, contact: Any, kind: str) -> DialogTurn | None:
+        if (turn := self._unreachable_again(s, contact)) is not None:
+            return turn
         if (turn := self._topic_clash(s, contact)) is not None:
             return turn
         args = {"Department": contact.department} if kind == "department" else {"Name": contact.full_name}
@@ -1227,6 +1280,8 @@ class DialogAgent:
         s.state.pending_transfer = None
         if status == "answered":
             return DialogTurn("", ended=True)
+        if pending is not None:
+            s.state.unreachable.add(pending.extension)     # aynı çağrıda istenmeden yeniden aktarılmasın
         reasons = {"busy": "meşgul", "no_answer": "cevap vermiyor", "failed": "aktarma başarısız oldu"}
         target = next((c.contact for c in s.state.last_results
                        if pending and c.contact.extension == pending.extension), None)
@@ -1351,6 +1406,8 @@ class DialogAgent:
         if not (self.cfg.auto_transfer_single_high and match == "single_high"):
             return None
         contact = s.state.last_results[0].contact
+        if r.caller_turn and (turn := self._unreachable_again(s, contact, call, content)) is not None:
+            return turn
         if r.caller_turn and self._needs_confirm(s):
             if (turn := self._ungrounded(s, call, contact)) is not None:
                 return turn

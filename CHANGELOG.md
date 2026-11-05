@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Söze girmede ses seviyesi kapısı (ADR-031, `core/level.py`): arayanın kendi seviyesinin 6 dB altındaki arka plan sesi
+  asistanın sözünü kesmez (canlı ölçüm: arayan -29 / -31, video -37 / -38 dBFS).
 - Rehber yüklemede "Mevcut rehbere ekle" seçeneği: dosyadaki kayıtlar eklenir, hiçbir kayıt silinmez; aynı
   kayıt dosyadakiyle güncellenir (`/v1/admin/directory/preview?mode=merge`). Varsayılan yine "Rehberi değiştir".
 - Makam hatlı rehber (ADR-030): rehber yükleme UTF-16 dökümleri ve `access_code` / `sip_name` başlıklarını okur; adı
@@ -76,6 +78,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Canlı prova düzeltmeleri (ADR-031): hedefsiz genel istek ("bilgi almak istiyorum") LLM'e gitmeden konu sorulur;
+  çok sözcüklü birimin yalnız sık sözcüğüyle ("bilgi" → Bilgi İşlem) eşleşme kesin sayılmaz; aynı çağrıda ulaşılamayan
+  dahiliye arayan yeniden istemedikçe aktarılmaz; LLM sistem istemi ve araçlarla ısıtılır.
 - Büyük rehberde hız: rehberden türetilen tablolar rehberin kendisinde önbellekte (3.500 kayıtla söz başına
   0,35–1 sn → 0,04–0,3 sn); `DirectoryIndex.get` sözlükle.
 - Genel konu listesine "servis kaydı", "arıza kaydı" (→ teknik destek). `gorev_olc.py`: teyitle gidecek hedefe

@@ -63,6 +63,18 @@ def contact_dative(c: Any) -> str:
     return common_dative(name) if c.kind == "role" else dative(name)
 
 
+def asks_general_help(text: str) -> bool:
+    """Hedefsiz genel istek: "bilgi almak istiyorum", "bir sorum var", "bir şey soracaktım", "yardım istiyorum"
+    (canlı 05.11.2026: "bilgi almak istiyorum" Bilgi İşlem'e aktarıldı). Kişi / birim / konu ayrıca denetlenir."""
+    w = _folded_words(text)
+    joined = " ".join(w)
+    if any(a == "bilgi" and b.startswith("al") for a, b in zip(w, w[1:], strict=False)):
+        return True
+    # "şey" dolgu sesi olarak atıldığı için "bir şey soracaktım" buraya "bir soracaktım" diye gelir
+    return bool(re.search(r"\b(bir )?(sorum|soru) (var|olacak|soracaktim|sormak)|\b(soracaktim|soracagim|"
+                          r"danisacaktim)\b|\bsormak istiyorum|\byardim (istiyorum|almak|lazim)", joined))
+
+
 def strip_fillers(text: str) -> str:
     """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
     return " ".join(w for w in text.split() if not (_folded_words(w) and _folded_words(w)[0] in _FILLERS

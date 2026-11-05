@@ -919,6 +919,24 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Canlı prova ve ses seviyesi (5 Kasım 2026, 15:42–15:51; MicroSIP, G.722, qwen3.5:4b)
+
+| aralık | kim | ortalama | tepe | VAD (ort.) |
+|---|---|---|---|---|
+| 0,0–5,0 sn | video | -37,9 dBFS | -24,2 | %10 |
+| 11,7–14,3 sn | arayan | -29,2 dBFS | -6,7 | %63 |
+| 17,9–19,9 sn | arayan | -31,9 dBFS | -11,5 | %51 |
+| 19,9–31,9 sn | video | -37,3 dBFS | -16,3 | %7 |
+
+- Arayan ile arkadaki video arasında **7–9 dB** fark; bu provada video kısıktı ve VAD onu konuşma saymadı (ort.
+  %4–10), asistan hiç bölünmedi. Önceki denemede (10:20) video daha yüksekti. Ses seviyesi kapısı (ADR-031) 6 dB payla.
+- Hatalar: "bilgi almak istiyorum" → Bilgi İşlem'e aktarma (LLM birim sandı, eşleşme %100) ve aynı çağrıda az önce
+  ulaşılamayan dahiliye yeniden aktarma → ADR-031. "aş'a görüşmek istiyorum" ilk tur 14,5 sn (LLM'in ilk çağrısı):
+  ısıtma artık sistem istemi + araçlarla.
+- Doğru çalışanlar: yalnız adla teyit ("zeynep" → "evet"), konudan birim teyidi (fatura → Muhasebe), unvan (satış
+  müdürü → Mehmet Demir), mesai sorusu, operatör isteği, söze giren gürültüden sonra cümle yinelemesi, 5 sn
+  sessizlikte çağrı kapanmadı. "Ulaşılamıyor" cevapları deneme santralinde dahililer kayıtlı olmadığı için.
+
 ### Sesli set beşinci tur ve makam rehberi önizlemesi (5 Kasım 2026, 14:40; commit 08fecb8, Tuğba'nın dizüstü)
 
 | hat | arka plan | WER | doğru | teyitle | kaçırma | yanlış teyit | YANLIŞ EYLEM |

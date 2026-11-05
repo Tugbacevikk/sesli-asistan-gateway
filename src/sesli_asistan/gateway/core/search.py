@@ -39,6 +39,10 @@ _RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzb
 _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
 _STOP = _TITLES | _HONORIFICS | _RANKS | _GENERIC
 
+# Çok sözcüklü birim adlarında geçen, tek başına birim anlamına gelmeyen sık sözcükler (katlanmış): "bilgi almak",
+# "insan" (İnsan Kaynakları), "genel" (Genel Müdürlük), "mali" (Mali İşler)
+_WEAK_DEPT_WORDS = {"bilgi", "insan", "genel", "mali", "ozel", "musteri", "is", "hizmet", "hizmetler", "kurumsal"}
+
 # Görev/unvan sözcükleri: birim alanında geçerse sorgu bir kişiyi (unvanıyla) arıyordur: "satış müdürü"
 ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "sorumlu", "sorumlusu",
               "yonetici", "yoneticisi", "direktor", "direktoru", "asistan", "asistani", "sekreter", "sekreteri",
@@ -270,6 +274,13 @@ class DirectoryIndex:
             scored = lines or scored
         if not scored:
             return SearchResult((), Match.NONE)
+        if qd and not qn and len(qd.split()) == 1 and qd in _WEAK_DEPT_WORDS:
+            # canlı 05.11.2026: "bilgi almak istiyorum" → LLM Department="bilgi" → Bilgi İşlem %100 → aktarıldı.
+            # Çok sözcüklü birimin yalnız sık kullanılan bir sözcüğü kesin eşleşme sayılmaz (teyit / soru)
+            cap = self.high_score - 1
+            scored = [Candidate(x.contact, min(x.score, cap)) if len(search_key(x.contact.department).split()) > 1
+                      else x for x in scored]
+            scored.sort(key=lambda x: (-x.score, x.contact.full_name))
         top = scored[0].score
         close = [x for x in scored if x.score >= top - self.margin]
         if len(close) > 1:

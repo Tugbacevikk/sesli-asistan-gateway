@@ -639,3 +639,12 @@
   aciklama: Aktarılamayan kişi + birim → aktarma yok
   konusma: ["muhasebeyi hakan bey ile görüşecektim"]
   beklenen: {eylem: aktarma_yok}
+# canlı prova 05.11.2026: "bilgi almak istiyorum" → LLM Department="bilgi" → Bilgi İşlem'e aktarılmıştı
+- id: D139
+  aciklama: Hedefsiz genel istek → konu / kişi sorulur, aktarma yok
+  konusma: ["bilgi almak istiyorum"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["245"]}
+- id: D140
+  aciklama: Ulaşılamayan kişiye, arayan yeniden istemedikçe yeniden aktarma yok
+  konusma: ["can bey ile görüşmek istiyorum", {santral: failed}, "bilgi almak istiyorum"]
+  beklenen: {eylem: yok}

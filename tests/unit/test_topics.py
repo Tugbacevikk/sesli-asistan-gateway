@@ -158,8 +158,15 @@ async def test_kisi_adi_gecerse_konu_adimi_atlanir(index):
 
 async def test_konu_yoksa_llm(index):
     agent, llm = _agent(index, Remote(TopicTable(index.contacts(), GENEL)))
-    t = await agent.new_session("x").handle_user("bir bilgi almak istiyorum")
+    t = await agent.new_session("x").handle_user("yarın için bir randevu ayarlamak istiyorum")
     assert t.actions == [] and llm.calls == 1
+
+
+async def test_hedefsiz_genel_istek_kodla_sorulur(index):
+    # canlı 05.11.2026: "bilgi almak istiyorum" → LLM Department="bilgi" → Bilgi İşlem'e aktarılmıştı
+    agent, llm = _agent(index, Remote(TopicTable(index.contacts(), GENEL)))
+    t = await agent.new_session("x").handle_user("bir bilgi almak istiyorum")
+    assert t.actions == [] and llm.calls == 0 and t.text == agent.cfg.texts.ask_topic
 
 
 async def test_mcp_yoksa_llm_ve_hata_sayilir(index):
