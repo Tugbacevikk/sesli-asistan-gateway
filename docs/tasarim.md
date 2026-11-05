@@ -1765,8 +1765,12 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   yolunu genişletmek sonraki adım). RTP saati RFC 3551 gereği 8000: 20 ms = 160 bayt, zaman damgası 160 ilerler.
   Kitaplık `G722` (sippy/libg722, kamu malı, pip; Windows ve Linux tekerlekleri). Varsayılan `pcma`.
 - **Koşul:** Uçtan uca geniş bant olmalı: softphone ↔ santral ↔ Gateway. Santral dar bantlı bir ucu G.722'ye
-  çevirirse (transcoding) kazanç olmaz. Ürünün bağlanacağı santralin desteği santral ekibine sorulacak. Deneme
-  santrali: `pjsip.conf` `allow=g722,alaw,ulaw`, köprü `--codec g722`, MicroSIP'te G.722 açık ve en üstte.
+  çevirirse (transcoding) kazanç olmaz. Deneme santrali: `pjsip.conf` `allow=g722,alaw,ulaw`, köprü `--codec g722`,
+  MicroSIP'te G.722 açık ve en üstte.
+- **Durum (05.11.2026):** santral ekibi ürünün bağlanacağı santralde G.722 desteğini **onayladı**. Önerilen yapılandırma:
+  santral Gateway'e `codec: "g722"` ile çağrı açar; dahili telefonlarda G.722 öncelikli. Sesli sette (olcumler.md,
+  5 Kasım) temiz seste WER %11,4 → %6,8, karışık seste yanlış eylem aynı; ölçümler bundan sonra G.722 ile esas alınır.
+  G.711 (`pcma` / `pcmu`) dar bantlı uçlar için desteklenmeye devam eder.
 
 ### ADR-026 — STT'nin bozduğu adlar için ses benzerliği (yalnız teyitle)
 - **Bağlam:** Ölçüm (04.11.2026, mihu, 16 ve 8 kHz): asıl kayıp adlarda ve iki bantta da: "Ayşe Yılmaz" → "ağlayamaz",
