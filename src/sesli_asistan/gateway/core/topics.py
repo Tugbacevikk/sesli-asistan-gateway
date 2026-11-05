@@ -20,8 +20,9 @@ from typing import Any
 
 from .models import Contact
 from .search import fold_words, search_key, strip_suffix
+from .thresholds import MAX_TOPIC_CANDIDATES
 
-MAX_CANDIDATES = 5
+MAX_CANDIDATES = MAX_TOPIC_CANDIDATES
 
 
 @dataclass(frozen=True)

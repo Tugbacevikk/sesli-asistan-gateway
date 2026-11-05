@@ -32,8 +32,9 @@ from .search import (
     search_key,
     similarity,
 )
+from .thresholds import MAX_PERSON_CANDIDATES, NAME_SAME, SOUND_MARGIN, SOUND_MIN
 
-MAX_CANDIDATES = 3
+MAX_CANDIDATES = MAX_PERSON_CANDIDATES
 _SELF = {"ben", "adim", "ismim", "benim"}
 _HONORIFIC_WORDS = _HONORIFICS | _RANKS
 
@@ -77,7 +78,7 @@ def _has_honorific(text: str) -> bool:
 
 def _last_name_said(c: Contact, words: list[str]) -> bool:
     k = search_key(c.last_name)
-    return bool(k) and any(similarity(v, k) >= 92 for w in words for v in query_variants(w))
+    return bool(k) and any(similarity(v, k) >= NAME_SAME for w in words for v in query_variants(w))
 
 
 def _out(cands: list[Contact], why: str, sure: bool) -> dict[str, Any]:
@@ -94,7 +95,7 @@ def _without_self(text: str) -> list[str]:
 
 def _name_said(c: Contact, words: list[str]) -> bool:
     keys = [k for k in (search_key(c.first_name), search_key(c.last_name)) if k and " " not in k and len(k) >= 3]
-    return any(any(similarity(v, k) >= 92 for v in query_variants(w)) for w in words for k in keys)
+    return any(any(similarity(v, k) >= NAME_SAME for v in query_variants(w)) for w in words for k in keys)
 
 
 def _mentioned_departments(index: DirectoryIndex, words: list[str]) -> set[str]:
@@ -175,9 +176,7 @@ def _by_coverage(index: DirectoryIndex, words: list[str]) -> list[Contact]:
 # Ölçüm 04.11.2026 (mihu, telefon): "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı", "Mehmet Demir'e" →
 # "mehmet de mi'ye". Yazım benzerliği ile ünsüz iskeleti benzerliğinin ortalaması; en iyi aday SOUND_MIN'i geçmeli ve
 # ikinciden en az SOUND_MARGIN önde olmalı. Gerçek STT hatalarından 6/8'i doğru, ad içermeyen 29 sözün hiçbiri
-# tetiklemedi (en yakın: "fiyat paketi" 68,6 / fark 15). Yalnız teyitle kullanılır: yanlış eşleşmenin bedeli tek soru.
-SOUND_MIN = 65.0
-SOUND_MARGIN = 25.0
+# tetiklemedi. Eşikler: thresholds.SOUND_MIN / SOUND_MARGIN. Yalnız teyitle: yanlış eşleşmenin bedeli tek soru.
 # eşleşmeye girmeyen sık sözcükler (katlanmış): istek fiilleri, soru ekleri
 _SOUND_STOP = {"istiyorum", "istiyordum", "ariyorum", "aliyorum", "gorusmek", "gorusecektim", "musunuz", "misiniz",
                "misin", "musun", "ile", "bir", "lutfen", "baglar", "baglayin", "baglayabilir", "var", "mi", "mu",

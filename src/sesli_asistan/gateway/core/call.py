@@ -42,6 +42,7 @@ from .models import Action, DialogTurn, HangupAction, OperatorAction, TransferAc
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
 from .schedule import HOLIDAY, OPEN
 from .speech import Speaker, keyboard_sound
+from .thresholds import MIN_NOISE_MS, NOISE_BELOW, NOISE_MAX_LETTERS
 
 log = logging.getLogger(__name__)
 
@@ -65,11 +66,11 @@ class CallConfig:
     max_call_duration_s: float = 600.0
     transfer_result_timeout_s: float = 30.0
     barge_in: bool = True
-    min_noise_ms: int = 600            # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
-    # Gürültü kırıntısı: güveni bunun altında ve en çok `noise_max_letters` harf ("b", "e"): cevaplanmaz, deneme
-    # sayılmaz (canlı 04.11.2026: ortam sesi "b" (0,05) → "anlayamadım"). 0: kapalı
-    noise_below: float = 0.2
-    noise_max_letters: int = 2
+    min_noise_ms: int = MIN_NOISE_MS   # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
+    # Gürültü kırıntısı: güveni bunun altında ve en çok `noise_max_letters` harf ("b"): cevaplanmaz, deneme sayılmaz
+    # (canlı 04.11.2026: ortam sesi "b" (0,05) → "anlayamadım"). 0: kapalı
+    noise_below: float = NOISE_BELOW
+    noise_max_letters: int = NOISE_MAX_LETTERS
     dtmf_operator_digit: str = "0"     # FR-15: tuşlayınca operatör
     no_input_s: float = 8.0            # dinlemede bu kadar sessizlik → "Sizi duyamıyorum"
     no_input_max: int = 2              # kaçıncı sessizlikte operatöre

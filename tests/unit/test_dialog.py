@@ -1085,3 +1085,12 @@ def test_adim_zinciri_tutarli():
     assert at("_step_office_hours") < at("_step_confirm")          # mesai sorusu açık teyidi kapatmaz
     assert at("_step_greeting") < at("_step_confirm")              # "alo?" teyidi kapatmaz
     assert at("_step_hangup") < at("_step_fast_path") < at("_step_mcp") < at("_step_answer")
+
+
+def test_esikler_tasarimda_belgelenmis():
+    # core/thresholds.py'deki her eşik tasarim.md Ek E tablosunda (yeni eşik belgesiz eklenmesin)
+    from sesli_asistan.gateway.core import thresholds
+    doc = (ROOT / "docs" / "tasarim.md").read_text(encoding="utf-8").split("### Ek E", 1)[1]
+    names = [n for n in vars(thresholds) if n.isupper()]
+    missing = [n for n in names if n not in doc]
+    assert names and not missing, missing

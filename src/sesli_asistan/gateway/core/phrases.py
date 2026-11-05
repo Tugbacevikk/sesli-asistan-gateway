@@ -10,6 +10,7 @@ from typing import Any
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .search import _FOLD, search_key, similarity, strip_suffix
+from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
 _FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
@@ -129,7 +130,7 @@ def unknown_target(text: str) -> str | None:
 def maybe_operator(text: str) -> bool:
     """"operatör"e yakın ama `asks_operator`'ın doğrudan aktarma eşiğine (85) varmayan söz ("aparator", 75): teyitle
     sorulur. Canlı deneme 03.11.2026: "aparator ev bayranmak istiyorum" LLM'e gitmiş, "bulamadım" denmişti."""
-    return any(len(w) >= 6 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 70
+    return any(len(w) >= 6 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= OPERATOR_MAYBE
                for w in _folded_words(text))
 
 
@@ -145,7 +146,7 @@ def asks_operator(text: str) -> bool:
     joined = f" {' '.join(raw)} "
     if any(f" {p} " in joined for p in _OPERATOR_PHRASES):
         return True
-    return any(len(w) >= 7 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 85
+    return any(len(w) >= 7 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= OPERATOR_LIKE
                for w in raw)
 
 

@@ -1,0 +1,55 @@
+"""Diyalog ve çağrı eşikleri: tek yerde, her biri dayandığı ölçüm ya da canlı denemeyle (tasarim.md Ek E).
+
+Ayardan değiştirilebilenler burada **değil**, `config.py`'de (ortam değişkeni) ve tasarim.md 13'te:
+  CONFIRM_BELOW 0,75 (STT güveni altındaysa aktarmadan önce teyit), REPEAT_BELOW 0,5 (altında LLM yok, tekrar
+  istenir), MATCH_MIN_SCORE 70 / MATCH_HIGH_SCORE 90 / MATCH_MARGIN 5 (rehber araması), FAST_PATH_MIN_SCORE,
+  STT tarafında VAD_THRESHOLD 0,3 ve SPEECH_STARTED_MS 300 (söze girme).
+Buradakiler kurumdan kuruma değişmesi beklenmeyen, senaryo setleriyle (tests/data/diyalog_seti*.yaml) kalibre
+edilmiş değerlerdir. Değiştirmeden önce iki set de çalıştırılmalı (`tests/eval/diyalog.py --kural --mcp-adimi`).
+
+Benzerlik puanları rapidfuzz ölçeğinde (0–100), katlanmış sözcükler üzerinde (`search.similarity`).
+"""
+from __future__ import annotations
+
+# --- sözcük benzerliği -----------------------------------------------------------------------------------------
+# Bir sözcük kişinin adının / soyadının kendisi (ekli ya da tek harf hatalı: "yılmazla", "öztürk'ü"). Bunun altında
+# başka adlar karışıyor ("demir" ~ "deniz" 80).
+NAME_SAME = 92.0
+# "X mı, Y mi?" cevabında soyad ya da birim sözcüğü ("yılmaz olan", "muhasebedeki").
+CHOICE_WORD = 90.0
+# Seçim cevabı hiçbir adayı tam söylemiyorsa soyada en yakın aday **teyitle** sorulur: en az bu puan ve öbür
+# adaylardan bu kadar önde (canlı 03.11.2026: "Ayşe Yılmaz" → STT "her şey uymaz"; yanlış seçim zaten teyitle sorulur).
+FUZZY_CHOICE_MIN = 70.0
+FUZZY_CHOICE_MARGIN = 10.0
+# Seçim cevabında adın kendisi (adaylar aynı adlı: "Ayşe") soyad sayılmasın.
+FIRST_NAME_LIKE = 80.0
+# Kısa cevap "evet"e benziyor ("evt", "eve"; teyit sorusunda).
+YES_LIKE = 75.0
+# "operatör"ün STT bozulmaları: kesin istek ("oparatöre", "operetör") ve operatör teyidi sorulacak belirsiz biçim.
+OPERATOR_LIKE = 85.0
+OPERATOR_MAYBE = 70.0
+
+# --- LLM hedefinin sözde geçmesi (canlı 05.11.2026) ---------------------------------------------------------------
+# Düşük güvenli sözle LLM'in seçtiği kişinin adı / soyadı / unvanı / birimi sözde en az bu benzerlikte geçmeli; yoksa
+# teyit de sorulmaz, "bulamadım". "çokağa" ~ "kaya" 67,5 (geçmez), "kayayla" ~ "kaya" 100.
+GROUNDED_MIN = 75.0
+
+# --- ses benzerliği (ADR-026, ölçüm 04.11.2026) -------------------------------------------------------------------
+# (yazım + ünsüz iskeleti benzerliği) / 2. Gerçek STT hatalarından 6/8'i doğru, ad içermeyen 29 sözün hiçbiri
+# tetiklemedi (en yakın: "fiyat paketi" 68,6 / fark 15). Her zaman teyitle.
+SOUND_MIN = 65.0
+SOUND_MARGIN = 25.0
+
+# --- söze girme ve gürültü (canlı 04–05.11.2026) ------------------------------------------------------------------
+# Bundan kısa "anlaşılamadı" (boş) sesler gürültü (öksürük, tık): cevaplanmaz, deneme sayılmaz.
+MIN_NOISE_MS = 600
+# Gürültü kırıntısı: güveni bunun altında ve en çok bu kadar harf ("b" 0,05; "s" 0,23 geçer, tekrar kapısına düşer).
+NOISE_BELOW = 0.2
+NOISE_MAX_LETTERS = 2
+# Söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir (sonra olağan "anlayamadım").
+MAX_BARGE_REPEATS = 2
+
+# --- aday sayıları ------------------------------------------------------------------------------------------------
+MAX_PERSON_CANDIDATES = 3   # kişi çözme: "hangisi?" en çok 3 aday (telefonda dördüncü akılda kalmıyor)
+MAX_TOPIC_CANDIDATES = 5    # konu → birim
+MAX_REPLY_SENTENCES = 2     # LLM cevabı telefonda (canlı 03.11.2026: "seni ara" → 3 cümle, 8,5 sn)

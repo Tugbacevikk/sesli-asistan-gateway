@@ -2039,3 +2039,25 @@ düzeltmesi dahil). `Tugbacevikk/kelime-kelime` bunun deneysel kopyasıdır (sed
 
 **Not:** Kaynak repolarda `LICENSE` dosyası yoktur ve kişisel hesapta durmaktadır. Kodun şirket ürününe
 taşınmasından önce mülkiyet ve kullanım koşulları şirket ile netleştirilmelidir (bkz. 19, madde 7).
+
+### Ek E — Diyalog ve çağrı eşikleri
+
+Kurumdan kuruma değişmesi beklenmeyen eşikler `core/thresholds.py`'de, her biri dayandığı ölçümle; ayardan
+değişenler (CONFIRM_BELOW, REPEAT_BELOW, MATCH_*, FAST_PATH_MIN_SCORE, VAD_THRESHOLD, SPEECH_STARTED_MS) 13'te.
+Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalog.py --kural --mcp-adimi`).
+
+| Eşik | Değer | Ne için | Dayanak |
+|------|-------|---------|---------|
+| NAME_SAME | 92 | sözcük adın / soyadın kendisi (ekli, tek harf hatalı) | senaryo seti; "demir" ~ "deniz" 80 karışır |
+| CHOICE_WORD | 90 | "X mı, Y mi?" cevabında soyad / birim | ADR-017 |
+| FUZZY_CHOICE_MIN / FUZZY_CHOICE_MARGIN | 70 / 10 | cevap adayı tam söylemiyorsa en yakın soyad, teyitle | canlı 03.11.2026 |
+| FIRST_NAME_LIKE | 80 | seçim cevabında adların kendisi (aynı adlı adaylar) soyad sayılmaz | canlı 03.11.2026 |
+| YES_LIKE | 75 | "evet"e benzeyen kısa cevap ("evt") | canlı 03.11.2026 |
+| OPERATOR_LIKE / OPERATOR_MAYBE | 85 / 70 | "operatör"ün bozulmaları: istek / teyit sorulur | canlı 03.11.2026 |
+| GROUNDED_MIN | 75 | düşük güvende LLM'in hedefi sözde geçmeli | canlı 05.11.2026 ("çokağa" ~ "kaya" 67,5) |
+| SOUND_MIN / SOUND_MARGIN | 65 / 25 | ses benzerliğiyle ad, teyitle | ADR-026, ölçüm 04.11.2026 |
+| MIN_NOISE_MS | 600 | kısa boş sonuç gürültü | canlı 02.11.2026 |
+| NOISE_BELOW / NOISE_MAX_LETTERS | 0,2 / 2 | gürültü kırıntısı ("b") cevaplanmaz | canlı 04.11.2026 |
+| MAX_BARGE_REPEATS | 2 | söze girme anlaşılmazsa cümle yinelemesi | canlı 05.11.2026 |
+| MAX_PERSON_CANDIDATES / MAX_TOPIC_CANDIDATES | 3 / 5 | aday sayısı | ADR-025, ADR-023 |
+| MAX_REPLY_SENTENCES | 2 | LLM cevabı telefonda | canlı 03.11.2026 |

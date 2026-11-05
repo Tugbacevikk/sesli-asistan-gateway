@@ -54,6 +54,17 @@ from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
 from .search import _FOLD, has_role_word, query_variants, search_key, similarity, strip_suffix
 from .speech import ABBREVIATIONS, split_sentences
+from .thresholds import (
+    CHOICE_WORD,
+    FIRST_NAME_LIKE,
+    FUZZY_CHOICE_MARGIN,
+    FUZZY_CHOICE_MIN,
+    GROUNDED_MIN,
+    MAX_BARGE_REPEATS,
+    MAX_REPLY_SENTENCES,
+    NAME_SAME,
+    YES_LIKE,
+)
 from .tools import CallToolState, ToolRegistry
 
 log = logging.getLogger(__name__)
@@ -280,9 +291,6 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
             "goodbye": t.goodbye}
 
 
-# LLM'in düşük güvenli sözle seçtiği hedefin adı sözde bu benzerlikte geçmeli ("çokağa" ~ "kaya" 67,5: geçmez)
-GROUNDED_MIN = 75.0
-MAX_BARGE_REPEATS = 2   # söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
 _BRACKETS = re.compile(r"[\[\]]")
@@ -620,7 +628,7 @@ class DialogAgent:
             return self._fast_path(s, rest) if self.cfg.fast_path and rest else None
         if asks_operator(text) or wants_hangup(text):
             return None                                # yeni bir istek ("operatöre bağlayın"): normal akış
-        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= 75 for w in raw)):
+        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
             return self._code_transfer(s, cand, confirmed=True)
         if self._mentions_person_or_department(text):
             return None                                # başka bir ad / birim söyledi: normal akış
@@ -699,7 +707,7 @@ class DialogAgent:
     def _resolve_operator_confirm(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Evet → operatör; hayır → bulamadım; başka bir istek (ad, birim, kapatma) → normal akış."""
         raw = set(_folded_words(text))
-        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= 75 for w in raw)):
+        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
         if raw & _NEGATION or raw & {"yanlis"}:
             if not self._mentions_person_or_department(text):
@@ -850,7 +858,7 @@ class DialogAgent:
         (güven 0,41) LLM'e gitmiş, LLM'in sorusu da anlaşılmayınca çağrı dolanmıştı."""
         # adaylarda ortak ad ("Ayşe") ayırt etmez: puana girmez ("ayşe" ↔ "kaya" %60 Kaya'yı öne çıkarıyordu)
         firsts = {search_key(c.contact.first_name) for c in choice if c.contact.first_name}
-        long_words = [w for w in words if len(w) >= 4 and not any(similarity(w, f) >= 80 for f in firsts)]
+        long_words = [w for w in words if len(w) >= 4 and not any(similarity(w, f) >= FIRST_NAME_LIKE for f in firsts)]
 
         def score(last: str) -> float:
             if not last:
@@ -946,7 +954,7 @@ class DialogAgent:
             if len(last) < 3 or last in own:
                 continue
             for w in rest:
-                if any(v == last or (len(v) >= 4 and similarity(v, last) >= 92) for v in query_variants(w)):
+                if any(v == last or (len(v) >= 4 and similarity(v, last) >= NAME_SAME) for v in query_variants(w)):
                     out[c.id] = c
         return list(out.values())
 
@@ -967,7 +975,7 @@ class DialogAgent:
         known = self.tools.index.person_words
         for w in words:
             for v in query_variants(w):
-                if v in known or (len(v) >= 4 and any(similarity(v, k) >= 92 for k in known)):
+                if v in known or (len(v) >= 4 and any(similarity(v, k) >= NAME_SAME for k in known)):
                     return True
         return False
 
@@ -1304,8 +1312,6 @@ class DialogAgent:
         return DialogTurn(text, [OperatorAction(reason=reason)], fallback=True)
 
 
-FUZZY_CHOICE_MIN = 70.0       # seçim cevabında soyada yakınlık (teyitle sorulur)
-FUZZY_CHOICE_MARGIN = 10.0    # ...ve öbür adaylardan bu kadar fark (yanlış seçim zaten teyitle sorulur)
 
 
 def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> bool:
@@ -1315,21 +1321,18 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
     dept_keys = [k for k in (search_key(c.department), *map(search_key, c.department_aliases)) if k]
     last = search_key(c.last_name)
     for w in words:
-        if last and any(similarity(v, last) >= 90 for v in query_variants(w)):
+        if last and any(similarity(v, last) >= CHOICE_WORD for v in query_variants(w)):
             return True
-        if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= 90)
+        if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= CHOICE_WORD)
                for k in dept_keys if " " not in k):
             return True
     if any(" " in k and k in " ".join(words) for k in dept_keys):
         return True
     others = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.department).split()}
     own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
-    return any(w.startswith(x) or similarity(strip_suffix(w), x) >= 90 for w in words for x in own)
+    return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in words for x in own)
 
 
-# LLM cevabı telefonda en çok bu kadar cümle (istem "en fazla iki kısa cümle" der ama model her zaman uymuyor:
-# canlı 03.11.2026, "seni ara" → 3 cümle, 8,5 sn); fazlası ne söylenir ne geçmişe yazılır
-MAX_REPLY_SENTENCES = 2
 
 
 def first_sentences(text: str, n: int) -> str:
