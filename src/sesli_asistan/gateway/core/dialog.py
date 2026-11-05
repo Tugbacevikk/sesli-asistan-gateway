@@ -29,7 +29,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
-from .people import mentioned_targets, said_surely
+from .people import fuzzy_departments, mentioned_targets, resolve_person, said_surely, same_title
 from .phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -41,6 +41,7 @@ from .phrases import (
     _vowel_mask,
     asks_office_hours,
     asks_operator,
+    contact_dative,
     dative,
     is_greeting_only,
     maybe_operator,
@@ -53,7 +54,7 @@ from .phrases import (
 )
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
-from .search import _FOLD, has_role_word, query_variants, search_key, similarity, strip_suffix
+from .search import _FOLD, has_role_word, is_role_word, query_variants, search_key, similarity, strip_suffix
 from .speech import ABBREVIATIONS, split_sentences
 from .thresholds import (
     CHOICE_WORD,
@@ -141,6 +142,8 @@ class DialogTexts:
     office_hours: str = "Mesai saatlerimiz {saatler}."      # arayan mesai saatini sordu ({saatler}: OFFICE_HOURS'tan)
     office_hours_unknown: str = "Mesai saatleri konusunda bilgi veremiyorum."   # OFFICE_HOURS tanımlı değil
     ask_target: str = "Kiminle görüşmek istersiniz?"
+    which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
+    indistinct: str = "Bu unvanda birden fazla hat var. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -226,7 +229,9 @@ STEPS = (
     "_step_fast_path",          # 1. rehber: tam ad, birim
     "_step_fast_clarify",       # 1. rehber: "hangisi?" sorusu
     "_step_fast_extension",     # 1. rehber: dahili numara
+    "_step_same_title",         # aynı unvanlı çok hat: "Hangi birimdeki müfettiş?" (ADR-030)
     "_step_mcp",                # 2. MCP: kişi çözme, konu → birim
+    "_step_fuzzy_target",       # bozuk duyulan birim / konu ("masebeye", "çifremi"): teyitle
     "_step_unknown_target",     # hedef anlaşılmadı: operatör teyidi
     "_step_repeat_gate",        # STT güveni çok düşük: tekrar istenir
     "_step_sound_alike",        # ses benzerliği: teyitle
@@ -461,7 +466,13 @@ class DialogAgent:
             # hattı olmayan birim ("insan kaynaklarıyla") ya da yalnız soyad ("operate eli şahin'e"): hedef sayılır
             targets = [c for d in m.departments if (c := self._department_target(search_key(d))[0]) is not None]
             targets += [c for c in m.surnames if c not in targets]
-        if not m.others and (topic := self._topic_conflict(u.text, [*persons, *lines], m.departments)):
+        fuzzy = [c for d in sorted(fuzzy_departments(self.tools.index, u.text) - {x.department for x in lines}
+                                   - set(m.departments))
+                 if (c := self._department_target(search_key(d))[0]) is not None]
+        if lines and not persons and fuzzy:
+            # birim + bozuk duyulan başka birim ("teknik destek masebeye bağlar mısınız"): ikisi de sorulur
+            targets = [*lines, *(c for c in fuzzy if c not in lines)]
+        elif not m.others and (topic := self._topic_conflict(u.text, [*persons, *lines], m.departments)):
             # söylenen kişi / birim ile konunun birimi farklı ("satış mı faturamla ilgili bir sorun var", "ayşe
             # yılmaz fiyat teklifi almak istiyoruz"): ikisi de sorulur
             targets = [*persons, *lines, *(c for c in topic if c not in lines)]
@@ -517,6 +528,38 @@ class DialogAgent:
         """1. rehber: söylenen dahili numara."""
         return self._fast_extension(s, u.text) if self.cfg.fast_path else None
 
+    async def _step_same_title(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Sözdeki unvana birden çok hat uyuyor ve "X mı, Y mi?" ile sorulamıyor (3'ten çok ya da aynı adlı): birim
+        sorulur ("Hangi birimdeki müfettiş?"), cevapla süzülür. Hepsi aynı birimde aynı unvansa ayırt edilemez:
+        operatör (ADR-030; makam hatlarında ad yok, "Teftiş Kurulu Müfettişi" onlarca hat olabilir)."""
+        if not self.cfg.clarify_by_code:
+            return None
+        cands = [c for c in same_title(self.tools.index, u.text) if c.transferable]
+        if len(cands) < 2:
+            return None
+        return self._narrow(s, tuple(Candidate(c, 100) for c in cands), u.text)
+
+    def _narrow(self, s: DialogSession, cands: tuple[Candidate, ...], text: str = "") -> DialogTurn | None:
+        """Birden çok aday: 2–3 ve ayırt edilebiliyorsa "X mı, Y mi?"; birimleri farklıysa "Hangi birimdeki …?";
+        aynı unvan ve aynı birimse operatör. None: normal akış."""
+        if len(cands) <= 3 and which_question([c.contact for c in cands]) is not None:
+            if text:
+                return None                          # sorulabilir: kişi çözme / hızlı yol soracak
+            s.state.truncated = False
+            return self._clarify(s, cands, lines=True)
+        depts = {search_key(c.contact.department) for c in cands}
+        if len(depts) >= 2:
+            unvan = _common_title(cands) or _spoken_title(text)
+            q = (self.cfg.texts.which_department.format(unvan=unvan) if unvan
+                 else s.state.choice_question or self.cfg.texts.too_many)
+            log.info("[%s] aynı unvanlı %d hat (%s): birim soruluyor", s.call_id, len(cands), unvan)
+            s.state.choice, s.state.choice_question = cands, q
+            turn = self._reply(s, q)
+            turn.fast = True
+            return turn
+        log.info("[%s] aynı unvan ve birimde %d hat: ayırt edilemedi", s.call_id, len(cands))
+        return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+
     async def _step_mcp(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """2. MCP: kişi çözme (unvan, birim + ad, ad + hitap; ADR-025) ve konu → birim (ADR-023). Ses benzerliği
         adayı burada kullanılmaz, `u.sound`'a yazılır (`_step_sound_alike`)."""
@@ -555,6 +598,25 @@ class DialogAgent:
                  u.sound[0].contact.extension, u.sound[0].score)
         return self._confirm(s, u.sound[0].contact, why="ses benzerliği")
 
+    async def _step_fuzzy_target(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """STT birim adını ya da konu sözcüğünü bozmuş ("masebeye bağlar mısınız", "çifremi unuttum"): tek birime
+        benziyorsa **teyitle** sorulur ("Muhasebe'ye mi bağlamamı istersiniz?"). Sesli set 05.11.2026: temiz seste
+        kalan kaçırmaların çoğu bu. Benzerlik: uzun sözcükte (≥ 5 harf) yazım benzerliği FUZZY_TARGET_MIN ya da s / ş /
+        ç karışması düzeltilmiş baş eşleşmesi."""
+        if not self.cfg.fast_path or u.low:
+            return None                      # çok düşük güven: tekrar kapısı ister
+        depts = fuzzy_departments(self.tools.index, u.text, self.tools.topic_table())
+        if len(depts) != 1:
+            return None
+        pick, members = self._department_target(search_key(next(iter(depts))))
+        target = pick or (members[0].contact if len(members) == 1 else None)
+        if target is None:
+            return None
+        log.info("[%s] bozuk birim / konu: %s → %s (teyit)", s.call_id, log_text(u.text), target.extension)
+        asked = self._confirm(s, target, why="bozuk duyulan birim ya da konu")
+        s.state.confirm_suggested = True
+        return asked
+
     async def _step_answer(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """3. LLM (ya da LLM kapalıyken kural modu, ADR-019): her zaman cevap verir."""
         if not self.cfg.llm_enabled:
@@ -571,6 +633,16 @@ class DialogAgent:
         for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(_folded_words(text))]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 return self._code_transfer(s, r.candidates[0])
+        if not self.cfg.mcp_step:
+            # MCP adımı kapalıyken de unvan kuralları (ADR-025 / ADR-030: "özlük şube müdürü" → makam hattı)
+            res = resolve_person(self.tools.index, text)
+            titled = [c for a in res["adaylar"] if a.get("neden") == "unvan"
+                      if (c := self.tools.index.get(a["id"])) is not None]
+            if len(titled) == 1 and res["kesin"]:
+                return self._code_transfer(s, Candidate(titled[0], 100))
+            if 2 <= len(titled) <= 3 and (turn := self._clarify(s, tuple(Candidate(c, 100) for c in titled),
+                                                               lines=True)) is not None:
+                return turn
         people, depts, more = self._rule_scan(search_key(text).split())
         if people and depts:
             narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
@@ -641,6 +713,8 @@ class DialogAgent:
                             else Match.MULTIPLE if s.state.last_results else Match.NONE)
 
     def _code_transfer(self, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
+        if not confirmed and (turn := self._topic_clash(s, cand.contact)) is not None:
+            return turn
         if not confirmed and self._unsure(s):
             return self._confirm(s, cand.contact)
         s.state.last_results = (cand,)
@@ -664,8 +738,8 @@ class DialogAgent:
         name = contact.full_name if contact.kind != "department" else contact.department
         log.info("[%s] %s: %s teyit ediliyor", s.call_id,
                  why or f"düşük STT güveni ({s.stt_confidence or 0:.2f})", name)
-        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=dative(name),
-                                                                       mi=question_particle(dative(name))))
+        to = contact_dative(contact)
+        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=to, mi=question_particle(to)))
         turn.fast = True
         return turn
 
@@ -807,7 +881,7 @@ class DialogAgent:
         q = which_question([c.contact for c in candidates])
         if q is None:
             return None
-        s.state.choice = candidates
+        s.state.choice, s.state.choice_question = candidates, ""
         return self._reply(s, q)
 
     def _fast_clarify(self, s: DialogSession, text: str) -> DialogTurn | None:
@@ -846,8 +920,8 @@ class DialogAgent:
 
     def _mentions_department(self, words: list[str], only: Any = None) -> bool:
         """Sözde bir birim adı geçiyor mu; `only` verilirse yalnız o kaydın birimi (ve eş anlamlıları)."""
-        keys = {k for c in ([only] if only is not None else self.tools.index.contacts()) for k in
-                (search_key(c.department), *map(search_key, c.department_aliases)) if k}
+        keys = (self.tools.index.department_keys if only is None else
+                {k for k in (search_key(only.department), *map(search_key, only.department_aliases)) if k})
         text = " ".join(strip_suffix(w) for w in words)
         return any(f" {strip_suffix(k)} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
                    for k in keys)
@@ -871,6 +945,9 @@ class DialogAgent:
         if not picked:
             return self._fuzzy_choice(s, text, words, choice)
         if len(picked) != 1:
+            if len(choice) > 3 or s.state.choice_question:
+                # "Hangi birimdeki müfettiş?" → "teftiş kurulundan": söylenen birimdekilerle yeniden (ADR-030)
+                return self._narrow(s, tuple(choice[i] for i in sorted(picked)))
             return None
         cand = choice[picked.pop()]
         s.state.last_results = choice
@@ -888,12 +965,12 @@ class DialogAgent:
         texts = self.cfg.texts
         if s.state.confirm is not None:
             c = s.state.confirm.contact
-            name = c.full_name if c.kind != "department" else c.department
-            return texts.confirm.format(ad=name, ad_e=dative(name), mi=question_particle(dative(name)))
+            name, to = (c.full_name if c.kind != "department" else c.department), contact_dative(c)
+            return texts.confirm.format(ad=name, ad_e=to, mi=question_particle(to))
         if s.state.confirm_operator:
             return texts.confirm_operator
         if s.state.choice:
-            return which_question([c.contact for c in s.state.choice])
+            return s.state.choice_question or which_question([c.contact for c in s.state.choice])
         return None
 
     def _repeat_choice(self, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
@@ -902,7 +979,7 @@ class DialogAgent:
         eşlenemiyordu. Deneme sayılır (sonunda operatör)."""
         if (turn := self._count_failure(s)) is not None:
             return turn
-        q = which_question([c.contact for c in choice])
+        q = s.state.choice_question or which_question([c.contact for c in choice])
         s.state.choice = choice
         turn = self._reply(s, q or self.cfg.texts.not_understood)
         turn.fast = True
@@ -1104,7 +1181,31 @@ class DialogAgent:
             turn.fast = True
         return turn
 
+    def _topic_clash(self, s: DialogSession, contact: Any) -> DialogTurn | None:
+        """Kod doğrudan aktarmadan önce: sözdeki konu başka bir birime gidiyorsa ikisi de sorulur ("zeynep … faturam
+        ile ilgili bir sorun var" → "Zeynep Arslan mı, Muhasebe mi?"). Sesli set 05.11.2026: arka plandan gelen tek bir
+        ad ya da bozuk birim adı ("teknik şifremi unuttum") konuyu ezip yanlış yere aktarıyordu (ADR-029)."""
+        if not self.cfg.clarify_by_code:
+            return None
+        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        topic = self.tools.local_topic(user)
+        if not topic or contact.department in {c.contact.department for c in topic}:
+            return None
+        pick, _ = self._department_target(search_key(topic[0].contact.department))
+        other = pick or topic[0].contact
+        if other.id == contact.id:
+            return None
+        log.info("[%s] hedef (%s) ile konunun birimi (%s) farklı: sorulacak", s.call_id, contact.extension,
+                 other.department)
+        s.state.truncated = False
+        turn = self._clarify(s, (Candidate(contact, 100), Candidate(other, 100)), lines=True)
+        if turn is not None:
+            turn.fast = True
+        return turn
+
     def _fast_transfer(self, s: DialogSession, text: str, contact: Any, kind: str) -> DialogTurn | None:
+        if (turn := self._topic_clash(s, contact)) is not None:
+            return turn
         args = {"Department": contact.department} if kind == "department" else {"Name": contact.full_name}
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
         out = self.tools.execute(call, s.state)
@@ -1127,15 +1228,16 @@ class DialogAgent:
         if status == "answered":
             return DialogTurn("", ended=True)
         reasons = {"busy": "meşgul", "no_answer": "cevap vermiyor", "failed": "aktarma başarısız oldu"}
-        who = next((c.contact.full_name for c in s.state.last_results
-                    if pending and c.contact.extension == pending.extension), "aranan kişi")
+        target = next((c.contact for c in s.state.last_results
+                       if pending and c.contact.extension == pending.extension), None)
+        who = target.full_name if target is not None else "aranan kişi"
         if self.cfg.code_replies or not self.cfg.llm_enabled:
             # ADR-019: sabit cümle; LLM sonraki turda bağlamı görür
             t = {"busy": self.cfg.texts.busy, "no_answer": self.cfg.texts.no_answer}.get(
                 status, self.cfg.texts.transfer_failed)
             s.history.append({"role": "user", "content": f"[Santral] {who} {reasons.get(status, 'ulaşılamadı')}."})
             name = who if who != "aranan kişi" else "Aradığınız kişi"
-            text = t.format(ad=name, ad_e=dative(name) if who != "aranan kişi" else "Aradığınız kişiye")
+            text = t.format(ad=name, ad_e=contact_dative(target) if target is not None else "Aradığınız kişiye")
             return self._reply(s, text[0].upper() + text[1:])
         s.history.append({"role": "user", "content": f"[Santral] {who} {reasons.get(status, 'ulaşılamadı')}. "
                           "Şimdi araç çağırma; arayana bildir ve başka birine mi yoksa operatöre mi "
@@ -1309,7 +1411,7 @@ class DialogAgent:
             return self.cfg.texts.to_operator
         if c.kind == "department":
             return self.cfg.texts.transferring_department.format(birim=c.department)
-        return self.cfg.texts.transferring.format(ad=c.full_name, ad_e=dative(c.full_name))
+        return self.cfg.texts.transferring.format(ad=c.full_name, ad_e=contact_dative(c))
 
     def _count_failure(self, s: DialogSession) -> DialogTurn | None:
         """Deneme sayacını artırır; sınıra ulaşıldıysa operatör turunu döner."""
@@ -1371,6 +1473,26 @@ class DialogAgent:
 
 
 
+def _common_title(cands: tuple[Candidate, ...]) -> str:
+    """Adayların unvanlarındaki ortak son sözcük(ler) ("Teftiş Kurulu Başkanlığı Müfettiş", "Hukuk Müş. Müfettiş" →
+    "müfettiş"); ortak yoksa ""."""
+    titles = [turkish_lower(c.contact.title).split() for c in cands if c.contact.title]
+    common: list[str] = []
+    for words in zip(*(reversed(t) for t in titles), strict=False):
+        if len(set(words)) != 1:
+            break
+        common.insert(0, words[0])
+    return " ".join(common) if common and len(titles) == len(cands) else ""
+
+
+def _spoken_title(text: str) -> str:
+    """Arayanın söylediği unvan (son unvan sözcüğü ve önündeki en çok iki sözcük): "özel kalem müdürü"."""
+    words = [w.strip(".,;:!?'’") for w in turkish_lower(text).split()]
+    folded = [_folded_words(w)[0] if _folded_words(w) else "" for w in words]
+    i = next((j for j in reversed(range(len(words))) if folded[j] and is_role_word(folded[j])), None)
+    return "" if i is None else " ".join(words[max(0, i - 2):i + 1])
+
+
 def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> bool:
     """"X mı, Y mi?" cevabı i. adayı söylüyor mu: soyadı, birimi (ekli: "muhasebedeki") ya da birimini öbürlerinden
     ayıran sözcük ("Nilüfer Kaymakamlığı mı, İnegöl Kaymakamlığı mı?" → "nilüfer")."""
@@ -1385,8 +1507,14 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
             return True
     if any(" " in k and k in " ".join(words) for k in dept_keys):
         return True
-    others = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.department).split()}
+    # birimi ya da unvanı öbür adaylardan ayıran sözcük: "Nilüfer Kaymakamlığı mı, İnegöl …?" → "nilüfer"; aynı
+    # birimdeki adaylar birbirinin rakibi sayılmaz ("Hangi birimdeki şube müdürü?" → "asayiş" ikisini de seçer);
+    # unvanı ayıran sözcük ("özlük" şube müdürü, "atama" şube müdürü)
+    others = {x for o in choice if o.contact.department != c.department
+              for x in search_key(o.contact.department).split()}
     own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
+    rival_titles = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.title).split()}
+    own += [x for x in search_key(c.title).split() if len(x) >= 4 and x not in rival_titles]
     return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in words for x in own)
 
 

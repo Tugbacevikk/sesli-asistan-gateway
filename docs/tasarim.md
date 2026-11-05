@@ -1135,7 +1135,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
-| `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu okur |
+| `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
+| `ABBREVIATIONS_PATH` | (boş: genel liste) | Kurumun kısaltma sözlüğü (JSON, `gateway/kisaltmalar.json` biçiminde); rehber yüklenirken açılır (ADR-030) |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `NO_INPUT_QUESTION_TEXT`, `GREETING_REPLY_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |
@@ -1801,6 +1802,36 @@ kalanlar metinden ayırt edilemiyor (arayanın rehberde olmayan bir şey söyled
 söylediği durum; "muhasebe" sözü tamamen kaybolmuş). Bunlar için ses seviyesi kapısı gerekir (arayanın kendi
 seviyesi ölçülünce). Bedel: gerçekten iki şey söyleyen arayana bir soru fazladan sorulur.
 
+
+### ADR-030 — Makam hatlı rehber: kişi adı yok, unvan + birim; kısaltmalar yüklemede açılır
+
+**Bağlam.** Kamu kurumlarının santral dökümleri (5 Kasım 2026, test için hazırlanmış örnek: 6.238 dolu satır) kişi
+değil makam hattıdır: "Asyş.D.Bşk.lığı Önl.Hiz.Şb.Md." (satırların %98'i), 537 farklı kısaltmayla. Dosya UTF-16 ve
+sekmeli; başlıklar `access_code`, `sip_name`, `department`. Yalnız kod içeren satırlar (servis kodları) ve birebir
+tekrarlar var; "Belgegeçer" (faks) hatları. Mevcut model iki tür biliyordu (kişi: ad + soyad, birim hattı): hiçbir
+satır alınamıyordu; arayan kısaltma söylemez ("asayiş daire başkanlığı"), asistan da kısaltma okuyamaz.
+
+**Karar.**
+1. Üçüncü kayıt türü: **makam hattı** (`kind=role`): ad yok, unvan zorunlu, birim isteğe bağlı. Görünen / söylenen adı
+   unvandır; teyit ve aktarma cümlelerinde cins isim ekiyle ("Şube Müdürüne", "Salon Sorumlusuna"). İleride kişi
+   adı da eklenebilir: hat adı sütunu kişi adına benziyorsa kişi kaydı olur.
+2. Kısaltmalar **yüklemede** açılır ve açık biçim saklanır (arama, ses, arayüz aynı metni görür): ürünle gelen genel
+   kamu sözlüğü (`kisaltmalar.json`, yalnız anlamından emin olunanlar) + kurumun dosyası (`ABBREVIATIONS_PATH`).
+   Bitişik kısaltmalarda önce en uzun bileşik anahtar ("Bşk.Yrd." → "Başkan Yardımcısı"). Açılımı bilinmeyenler
+   yükleme önizlemesinde sayılarıyla listelenir; kuruma özgü olanlar tahmin edilmez.
+3. Yükleme: UTF-16 okunur; adı, unvanı ve birimi boş satırlar ve birebir tekrarlar sessizce atlanır (tek uyarı);
+   belgegeçer / faks hatları aktarılamaz.
+4. Unvanla kişi çözme (ADR-025) makam hatlarını da kapsar; unvan sözcükleri (avukat, uzman, astsubay) ad aramasında
+   hitap gibi atılır ama unvan aramasında tutulur. MCP adımı kapalıyken kural modu da aynı kuralları kullanır.
+5. Aynı unvanlı çok hat ("müfettiş"): "X mı, Y mi?" ile sorulamıyorsa birim sorulur ("Hangi birimdeki müfettiş?"),
+   cevapla süzülür; aynı birimde aynı unvanlı hatlar ayırt edilemez → operatör.
+6. Büyük rehber: rehberden türetilen tablolar (unvan sözcükleri, birim adları, kişi adı anahtarları) rehberin
+   kendisinde önbellekte, unvan araması 4 harflik kovalarla daraltılır.
+
+**Sonuç.** Sahte makam rehberi (`tests/data/makam_rehber.tsv`) ve senaryo seti (M01–M12) %100; 3.500 makam hatlı
+dökümde söz başına 350–1000 ms → 40–300 ms. Açık: `access_code` satırların çoğunda santralin numarası (her hattın
+dahilisi değil); kurumun gerçek dahili sütunu olmadan aktarma ayırt edilemez. Kurumun kısaltma sözlüğü gerekiyor.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği
@@ -2077,6 +2108,7 @@ Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalo
 | FIRST_NAME_LIKE | 80 | seçim cevabında adların kendisi (aynı adlı adaylar) soyad sayılmaz | canlı 03.11.2026 |
 | YES_LIKE | 75 | "evet"e benzeyen kısa cevap ("evt") | canlı 03.11.2026 |
 | OPERATOR_LIKE / OPERATOR_MAYBE | 85 / 70 | "operatör"ün bozulmaları: istek / teyit sorulur | canlı 03.11.2026 |
+| FUZZY_TARGET_MIN | 82 | bozuk duyulan birim adı ("masebeye"), yalnız teyitle | sesli set 05.11.2026 |
 | GROUNDED_MIN | 75 | düşük güvende LLM'in hedefi sözde geçmeli | canlı 05.11.2026 ("çokağa" ~ "kaya" 67,5) |
 | SOUND_MIN / SOUND_MARGIN | 65 / 25 | ses benzerliğiyle ad, teyitle | ADR-026, ölçüm 04.11.2026 |
 | MIN_NOISE_MS | 600 | kısa boş sonuç gürültü | canlı 02.11.2026 |

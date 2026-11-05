@@ -51,7 +51,7 @@ COLUMNS: dict[str, tuple[str, ...]] = {
     "title": ("unvan", "unvani", "gorev", "gorevi", "pozisyon", "title", "job title"),
     "extension": ("dahili", "dahili no", "dahili numara", "dahili numarasi", "dahili tel", "extension", "ext",
                   "numara", "tel", "telefon", "dahili telefon", "access code", "erisim kodu", "kod", "dahili kod"),
-    # santral dökümlerindeki hat adı: kişi adı ya da makam ("J.Gn.K.Yrd.Belgegeçer"); satır satır ayırt edilir
+    # santral dökümlerindeki hat adı: kişi adı ya da makam ("Bşk.Yrd. Belgegeçer"); satır satır ayırt edilir
     "name_or_title": ("sip name", "hat adi", "gorunen ad", "display name", "caller id", "makam", "makam adi"),
     "kind": ("tur", "turu", "kayit turu", "tip", "kind", "type"),
     "aliases": ("takma ad", "takma adlar", "diger adlar", "aliases", "lakap"),

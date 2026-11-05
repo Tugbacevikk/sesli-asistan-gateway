@@ -919,6 +919,27 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Makam hatlı rehber ve sesli set dördüncü tur (5 Kasım 2026, 14:00–15:00; bulut, kural modu)
+
+**Makam rehberi** (test için hazırlanmış döküm, 8.421 satır; repoya girmedi, yalnız bellekte ölçüldü): şimdiye
+kadar hiçbir satır alınamıyordu (UTF-16, başlıklar tanınmıyor). ADR-030 ile 3.508 kayıt (3.426 makam hattı, 82 kişi),
+2.729 satır atlandı (yalnız kod + tekrar), 1 hata; genel sözlükle açılamayan 475 kısaltma (en sık: A., Kt., Dent.,
+Tyn., Sb., Krm. — kuruma özgü). `access_code` 37906 satırların %79'unda: her hattın dahilisi değil.
+
+| söz (3.500 kayıt) | önce | sonra |
+|---|---|---|
+| uzun unvan (aktarma) | 987 ms | 306 ms |
+| bulunamayan birim | 717 ms | 63 ms |
+| "müfettiş" | 658 ms | 65 ms |
+| "teftiş kurulu başkanı" | 643 ms | 89 ms |
+
+Sahte makam rehberiyle 15 makam araması 3/15 → 15/15; senaryo seti M01–M12 %100 (MCP adımı açık ve kapalı).
+
+**Sesli set dördüncü tur** (commit 0a6205a; 320 kayıt): karışık seste yanlış eylem 8 (G.711 4, G.722 4). Bu
+oturumdaki düzeltmelerle (konu çelişkisi, bozuk birim) aynı 8 metin yeniden oynatıldı: **8 → 3** ("ayşe hanım
+muhasebe" ×2: Ayşe Yılmaz Muhasebe'de, doğru birime; "bir yetkili şemden birine" → operatör). Temiz seste kaçırma
+nedenleri: "patram" (faturam), "masebeye" (muhasebeye), "çifremi" (şifremi) — son ikisi artık teyitle doğru birime.
+
 ### Sesli regresyon seti, üçüncü tur: ADR-029 sonrası (5 Kasım 2026, 13:35; commit 337651e, n = 320)
 
 Ölçüm aracı artık üretim akışıyla (rehber → kişi çözme / konu → kural); dil modeli yok.

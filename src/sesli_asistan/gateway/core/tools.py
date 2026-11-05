@@ -74,6 +74,7 @@ class CallToolState:
 
     last_results: tuple[Candidate, ...] = ()
     choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
+    choice_question: str = ""               # o soru "X mı, Y mi?" değilse ("Hangi birimdeki müfettiş?")
     confirm: Candidate | None = None        # arayana "X'e mi bağlayayım?" diye soruldu (STT güveni düşüktü)
     confirm_suggested: bool = False         # o teyit bir öneriydi (konudan çıkarılan birim): "hayır" → "Peki, kiminle?"
     confirm_operator: bool = False          # arayana "operatöre mi bağlayayım?" diye soruldu (hedef anlaşılmadı)
@@ -204,15 +205,20 @@ class ToolRegistry:
             log.info("MCP konu: %r → %s (%s)", a0.get("eslesen"), a0.get("birim"), [c.contact.extension for c in cands])
         return cands
 
-    def local_topic(self, text: str) -> tuple[Candidate, ...]:
-        """Sözdeki konu → birim (yerel konu listesiyle, MCP'ye gitmeden); konu listesi yoksa ()."""
+    def topic_table(self) -> TopicTable | None:
+        """Yerel konu tablosu (rehber sürümüne göre önbellekte); konu listesi yoksa None."""
         if not self.topics:
-            return ()
+            return None
         ix = self.index
         if self._topic_table is None or self._topic_table[0] != ix.version:
             self._topic_table = (ix.version, TopicTable(ix.contacts(), self.topics))
-        return tuple(Candidate(c, 100) for a in self._topic_table[1].lookup(text)
-                     if (c := ix.get(a["id"])) is not None)
+        return self._topic_table[1]
+
+    def local_topic(self, text: str) -> tuple[Candidate, ...]:
+        """Sözdeki konu → birim (yerel konu listesiyle, MCP'ye gitmeden); konu listesi yoksa ()."""
+        if (table := self.topic_table()) is None:
+            return ()
+        return tuple(Candidate(c, 100) for a in table.lookup(text) if (c := self.index.get(a["id"])) is not None)
 
     def _remote_in_contacts(self, call: ToolCall, data: dict[str, Any], state: CallToolState) -> ToolOutcome:
         """MCP sonucu → çağrı durumu. Adaylar Gateway'in KENDİ rehberinden alınır (kimlikle): MCP sunucusu bir kayıt

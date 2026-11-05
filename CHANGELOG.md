@@ -15,6 +15,14 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Makam hatlı rehber (ADR-030): rehber yükleme UTF-16 dökümleri ve `access_code` / `sip_name` başlıklarını okur; adı
+  olmayan makam hatları (unvan + birim) yeni kayıt türü; kısaltmalar yüklemede açılır (genel sözlük + kurumun
+  `ABBREVIATIONS_PATH` dosyası, bilinmeyenler önizlemede); yalnız kod içeren satırlar ve tekrarlar atlanır;
+  belgegeçer hatları aktarılamaz. Aynı unvanlı çok hatta "Hangi birimdeki müfettiş?" ve birimle süzme. Makam
+  cümlelerinde cins isim eki ("Şube Müdürüne"). Senaryo seti `diyalog_seti_makam.yaml` (sahte rehber).
+- Bozuk duyulan birim / konu teyitle (sesli set: "masebeye bağlar mısınız", "çifremi unuttum"); kod doğrudan
+  aktarmadan önce sözdeki konu başka birime gidiyorsa ikisi sorulur ("zeynep … faturam" → "Zeynep Arslan mı,
+  Muhasebe mi?").
 - Sesli regresyon seti: `tools/stt/sesli_set.py` okuma listelerini Piper'la seslendirip G.711 / G.722 hattından
   geçirir, arkaya ikinci konuşan ya da uğultu katar; karsilastir.py + gorev_olc.py ile ölçülür.
 - Testler: STT sunucusunun yaşam döngüsü, Whisper yükleme yolları, MCP sunucusunun tüm araçları, açılış (kapsam %92).
@@ -66,6 +74,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Büyük rehberde hız: rehberden türetilen tablolar rehberin kendisinde önbellekte (3.500 kayıtla söz başına
+  0,35–1 sn → 0,04–0,3 sn); `DirectoryIndex.get` sözlükle.
 - Genel konu listesine "servis kaydı", "arıza kaydı" (→ teknik destek). `gorev_olc.py`: teyitle gidecek hedefe
   doğrudan gitmek "doğru" sayılır; kaçırmalar da sonuçla birlikte listelenir.
 - Karışık sözde (arkada ikinci konuşan) doğrudan eylem yok, ADR-029: arka plandan tek bir ad ya da birim + arayanın

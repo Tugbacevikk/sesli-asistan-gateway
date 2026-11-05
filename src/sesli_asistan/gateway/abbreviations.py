@@ -34,19 +34,45 @@ class Abbreviations:
         return len(self.table)
 
     def expand(self, text: str, unknown: Counter[str] | None = None) -> str:
-        """Kısaltmaları açar; sözlükte olmayanlar `unknown`a sayılır ve metinde kalır."""
+        """Kısaltmaları açar; sözlükte olmayanlar `unknown`a sayılır ve metinde kalır. Bitişik kısaltmalarda önce
+        en uzun bileşik anahtar ("Bşk.Yrd." → "Başkan Yardımcısı"; tek tek "Başkanı Yardımcısı" olurdu)."""
         if "." not in text:
             return text
+        out: list[str] = []
+        pos = 0
+        for run in self._runs(text):
+            out.append(text[pos:run[0].start()])
+            out.append(f" {self._expand_run([m.group(1) for m in run], unknown)} ")
+            pos = run[-1].end()
+        out.append(text[pos:])
+        return " ".join("".join(out).split())
 
-        def repl(m: re.Match[str]) -> str:
-            tok = m.group(1)
-            if (full := self.table.get(_key(tok))) is not None:
-                return f" {full} "
-            if unknown is not None:
-                unknown[tok] += 1
-            return f" {tok} "
+    @staticmethod
+    def _runs(text: str) -> list[list[re.Match[str]]]:
+        """Bitişik kısaltma dizileri ("Asyş.D.Bşk.lığı" → [Asyş., D., Bşk.lığı])."""
+        runs: list[list[re.Match[str]]] = []
+        for m in _TOKEN.finditer(text):
+            if runs and runs[-1][-1].end() == m.start():
+                runs[-1].append(m)
+            else:
+                runs.append([m])
+        return runs
 
-        return " ".join(_TOKEN.sub(repl, text).split())
+    def _expand_run(self, toks: list[str], unknown: Counter[str] | None) -> str:
+        words: list[str] = []
+        i = 0
+        while i < len(toks):
+            for n in range(min(3, len(toks) - i), 0, -1):
+                if (full := self.table.get(_key("".join(toks[i:i + n])))) is not None:
+                    words.append(full)
+                    i += n
+                    break
+            else:
+                if unknown is not None:
+                    unknown[toks[i]] += 1
+                words.append(toks[i])
+                i += 1
+        return " ".join(words)
 
 
 def load_abbreviations(path: str = "") -> Abbreviations:

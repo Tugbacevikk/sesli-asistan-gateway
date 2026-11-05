@@ -41,6 +41,28 @@ _FILLERS = {"e", "ee", "eee", "eeee", "eeeee", "ii", "iii", "iiii", "mm", "mmm",
             "ehm", "eem", "aa", "aaa", "sey", "seyy"}
 
 
+def common_dative(phrase: str) -> str:
+    """Cins isme yönelme eki, kesmesiz (makam hattı, ADR-030): "Şube Müdürü" → "Şube Müdürüne", "Salon Sorumlusu" →
+    "Salon Sorumlusuna" (tamlamada iyelikten sonra -n-), "Nizamiye" → "Nizamiyeye", "Avukat" → "Avukata"."""
+    w = phrase.strip()
+    vowels = [ch for ch in turkish_lower(w) if ch in _BACK | _FRONT]
+    if not vowels:
+        return w
+    suffix = "a" if vowels[-1] in _BACK else "e"
+    last = turkish_lower(w)[-1]
+    if last in "ıiuü" and " " in w:
+        return f"{w}n{suffix}"
+    if last in _BACK | _FRONT:
+        return f"{w}y{suffix}"
+    return w + suffix
+
+
+def contact_dative(c: Any) -> str:
+    """Kaydın söylenen adı yönelme ekiyle: kişi ve birim özel ad ("Ayşe Yılmaz'a", "Muhasebe'ye"), makam cins isim."""
+    name = c.full_name if c.kind != "department" else c.department
+    return common_dative(name) if c.kind == "role" else dative(name)
+
+
 def strip_fillers(text: str) -> str:
     """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
     return " ".join(w for w in text.split() if not (_folded_words(w) and _folded_words(w)[0] in _FILLERS

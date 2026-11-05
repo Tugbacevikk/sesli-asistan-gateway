@@ -79,6 +79,10 @@ class TopicTable:
         dept, targets = self._targets(topic)
         return [{"id": c.id, "neden": "konu", "eslesen": matched, "birim": dept} for c in targets[:MAX_CANDIDATES]]
 
+    def department_of(self, t: Topic) -> str:
+        """Konunun gittiği birim ("" : belirsiz ya da rehberde yok)."""
+        return self._targets(t)[0]
+
     def _targets(self, t: Topic) -> tuple[str, list[Contact]]:
         if t.extension:
             hit = [c for c in self.contacts if c.extension == t.extension][:1]

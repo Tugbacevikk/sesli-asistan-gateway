@@ -34,6 +34,9 @@ OPERATOR_MAYBE = 70.0
 # teyit de sorulmaz, "bulamadım". "çokağa" ~ "kaya" 67,5 (geçmez), "kayayla" ~ "kaya" 100.
 GROUNDED_MIN = 75.0
 
+# Bozuk duyulan birim adı ("masebeye" ~ "muhasebe" 85,7), yalnız teyitle; "masa" / "mesaj" ~ "muhasebe" 40–50.
+FUZZY_TARGET_MIN = 82.0
+
 # --- ses benzerliği (ADR-026, ölçüm 04.11.2026) -------------------------------------------------------------------
 # (yazım + ünsüz iskeleti benzerliği) / 2. Gerçek STT hatalarından 6/8'i doğru, ad içermeyen 29 sözün hiçbiri
 # tetiklemedi (en yakın: "fiyat paketi" 68,6 / fark 15). Her zaman teyitle.

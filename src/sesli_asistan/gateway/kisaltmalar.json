@@ -11,7 +11,10 @@
   "Brl.": "Birlik",
   "Bşk.": "Başkanı",
   "Bşk.lığı": "Başkanlığı",
+  "Bşk.Yrd.": "Başkan Yardımcısı",
   "D.": "Daire",
+  "D.Bşk.": "Daire Başkanı",
+  "D.Bşk.lığı": "Daire Başkanlığı",
   "Des.": "Destek",
   "Değ.": "Değerlendirme",
   "Eln.": "Elektronik",
@@ -20,6 +23,10 @@
   "Faal.": "Faaliyet",
   "Glş.": "Geliştirme",
   "Gn.": "Genel",
+  "Gn.K.": "Genel Komutanı",
+  "Gn.K.lığı": "Genel Komutanlığı",
+  "Gn.Md.": "Genel Müdürü",
+  "Gn.Md.lüğü": "Genel Müdürlüğü",
   "Gnl.": "Genel",
   "Grp.": "Grup",
   "Güv.": "Güvenlik",
@@ -35,6 +42,7 @@
   "J.": "Jandarma",
   "K.": "Komutanı",
   "K.lığı": "Komutanlığı",
+  "K.Yrd.": "Komutan Yardımcısı",
   "Kdr.": "Kadro",
   "Klm.": "Kalem",
   "Kom.": "Komutanı",
@@ -46,6 +54,7 @@
   "Mak.": "Makam",
   "Md.": "Müdürü",
   "Md.lüğü": "Müdürlüğü",
+  "Md.Yrd.": "Müdür Yardımcısı",
   "Mrk.": "Merkezi",
   "Müd.": "Müdürü",
   "Müd.lüğü": "Müdürlüğü",
@@ -68,6 +77,8 @@
   "Yzlm.": "Yazılım",
   "Önl.": "Önleyici",
   "Özl.": "Özel",
-  "Şb.": "Şube"
+  "Şb.": "Şube",
+  "Şb.Md.": "Şube Müdürü",
+  "Şb.Md.lüğü": "Şube Müdürlüğü"
  }
 }

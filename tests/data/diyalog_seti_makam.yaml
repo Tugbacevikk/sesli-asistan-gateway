@@ -1,0 +1,51 @@
+# Makam hatlı rehber (ADR-030): kişi adı yok, unvan + birim; kısaltmalar yüklemede açıldı. Rehber:
+# tests/data/makam_rehber.json (sahte kurum). Çalıştırma:
+#   python tests/eval/diyalog.py --kural --set tests/data/diyalog_seti_makam.yaml --rehber tests/data/makam_rehber.json
+- id: M01
+  aciklama: Daire başkanı (unvan tam)
+  konusma: ["personel daire başkanı ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "21010"}
+- id: M02
+  aciklama: Şube müdürü, birim söylenmeden ayırt edici sözcükle
+  konusma: ["özlük şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "21013"}
+- id: M03
+  aciklama: Uzun unvan, ekli
+  konusma: ["asayiş önleyici hizmetler şube müdürünü bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "21021"}
+- id: M04
+  aciklama: Başkan yardımcısı (bileşik kısaltma Bşk.Yrd.); belgegeçer hattı aktarılmaz
+  konusma: ["başkan yardımcısı lütfen"]
+  beklenen: {eylem: transfer, dahili: "21001", yasak_dahili: ["21002"]}
+- id: M05
+  aciklama: Aynı unvanlı çok hat → birim sorulur, cevapla süzülür
+  konusma: ["müfettiş ile görüşmek istiyorum", "hukuk müşavirliği"]
+  beklenen: {eylem: transfer, dahili: "21040"}
+- id: M06
+  aciklama: Aynı unvan, aynı birim → ayırt edilemez, operatör
+  konusma: ["teftiş kurulu müfettişi"]
+  beklenen: {eylem: operator}
+- id: M07
+  aciklama: Şube müdürü → hangi birim → hangisi → özlük
+  konusma: ["şube müdürü", "personel", "özlük"]
+  beklenen: {eylem: transfer, dahili: "21013"}
+- id: M08
+  aciklama: Kişi adı olan kayıt da var
+  konusma: ["deniz aksoy ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "21062"}
+- id: M09
+  aciklama: Unvanı tam söylenen (avukat; ad aramasında hitap gibi atılan sözcük)
+  konusma: ["hukuk müşavirliğinden avukat"]
+  beklenen: {eylem: transfer, dahili: "21041"}
+- id: M10
+  aciklama: Yalnız belgegeçer → aktarılmaz
+  konusma: ["belgegeçer"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["21002"]}
+- id: M11
+  aciklama: Teftiş kurulu başkanı (müfettişler değil)
+  konusma: ["teftiş kurulu başkanı"]
+  beklenen: {eylem: transfer, dahili: "21030"}
+- id: M12
+  aciklama: Bütçe şube müdürü
+  konusma: ["bütçe şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "21070"}

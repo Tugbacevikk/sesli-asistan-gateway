@@ -1082,6 +1082,7 @@ def test_adim_zinciri_tutarli():
         assert inspect.iscoroutinefunction(getattr(DialogAgent, name)), name
     at = STEPS.index
     assert at("_step_sound_alike") > max(at("_step_unknown_target"), at("_step_repeat_gate"))   # D68 "efsane"
+    assert at("_step_fuzzy_target") < at("_step_unknown_target")   # "masebeye bağlar mısınız": operatör değil birim
     assert at("_step_office_hours") < at("_step_confirm")          # mesai sorusu açık teyidi kapatmaz
     assert at("_step_greeting") < at("_step_confirm")              # "alo?" teyidi kapatmaz
     assert at("_step_hangup") < at("_step_fast_path") < at("_step_mcp") < at("_step_answer")

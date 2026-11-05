@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 from rapidfuzz import fuzz, process
@@ -48,7 +49,7 @@ ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "
               "muavin", "muavini",
               # makam hatlarında (ADR-030): "hukuk müşavirliğinden avukat", "bilgi işlem mühendisi"
               "avukat", "avukati", "musavir", "musaviri", "muhendis", "muhendisi", "teknisyen", "teknisyeni",
-              "memur", "memuru", "danisman", "danismani", "uzm"}
+              "memur", "memuru", "danisman", "danismani", "astsubay", "astsubayi"}
 
 
 # Unvan kökleri: sözcük bununla başlıyorsa (ekli biçimler: "komutanıyla", "yardımcısına") unvandır; ardından -lık /
@@ -188,6 +189,10 @@ class DirectoryIndex:
             depts = [c.department, *c.department_aliases, *(extra if c.kind == "department" else ())]
             entries.append((c, _keys(names), _keys(depts)))
         self._entries = entries
+        self._by_id = {c.id: c for c, _, _ in entries}
+        # rehberden türetilen tablolar (people.py, tools.py): bu rehbere bağlı, her yeniden kurulmada boşalır.
+        # Modül düzeyinde id(index) ile tutulmaz: çöpe giden dizinin kimliği yeni dizine verilebilir
+        self.derived: dict[str, Any] = {}
         self._name_ix = _KeyTable([n for _, n, _ in entries])
         self._dept_ix = _KeyTable([d for _, _, d in entries])
         self._cache: dict[tuple[str, str], SearchResult] = {}
@@ -201,6 +206,9 @@ class DirectoryIndex:
             for a in self.extra_aliases.get(c.id, ()):
                 if k := alias_key(a):
                     self._aliases.setdefault(k, set()).add(c.id)
+        # birim adı ve eş anlamlılarının anahtarları ("sözde bir birim geçiyor mu"; her sözde yeniden hesaplanmasın)
+        self.department_keys = {k for c, _, _ in entries for k in (search_key(c.department),
+                                                                   *map(search_key, c.department_aliases)) if k}
         # kişilerin ad ve soyad sözcükleri (unvan hariç): "sözde bir kişi geçiyor mu" sorusu için
         self.person_words = {w for c, _, _ in entries if c.kind == "person"
                              for w in search_key(f"{c.first_name} {c.last_name}").split() if len(w) >= 3}
@@ -221,7 +229,7 @@ class DirectoryIndex:
         return self.get(next(iter(ids))) if len(ids) == 1 else None
 
     def get(self, contact_id: str) -> Contact | None:
-        return next((c for c, _, _ in self._entries if c.id == contact_id), None)
+        return self._by_id.get(contact_id)
 
     def search(self, name: str = "", department: str = "", extension: str = "") -> SearchResult:
         ext = "".join(ch for ch in str(extension or "") if ch.isdigit())

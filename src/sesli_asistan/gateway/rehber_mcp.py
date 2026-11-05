@@ -60,13 +60,13 @@ def build_server(index: Callable[[], DirectoryIndex], office: OfficeHours | None
     listesi (None: genel liste)."""
     srv = MCPServer("sesli-asistan-rehber", instructions=INSTRUCTIONS)
     topic_list = load_topics() if topics is None else topics
-    cache: dict[str, Any] = {}
+    key = f"topic_table:{id(topic_list)}"       # bu sunucunun konu listesi (sunucu yaşadıkça liste de yaşar)
 
     def topic_table() -> TopicTable:
         ix = index()
-        if cache.get("key") != (id(ix), ix.version):        # rehber değişince yeniden kurulur
-            cache.update(key=(id(ix), ix.version), table=TopicTable(ix.contacts(), topic_list))
-        table: TopicTable = cache["table"]
+        if key not in ix.derived:                            # rehber değişince (derived boşalır) yeniden kurulur
+            ix.derived[key] = TopicTable(ix.contacts(), topic_list)
+        table: TopicTable = ix.derived[key]
         return table
 
     @srv.tool()

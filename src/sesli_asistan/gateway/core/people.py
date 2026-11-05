@@ -32,8 +32,10 @@ from .search import (
     query_variants,
     search_key,
     similarity,
+    strip_suffix,
 )
-from .thresholds import MAX_PERSON_CANDIDATES, NAME_SAME, SOUND_MARGIN, SOUND_MIN
+from .thresholds import FUZZY_TARGET_MIN, MAX_PERSON_CANDIDATES, NAME_SAME, SOUND_MARGIN, SOUND_MIN
+from .topics import TopicTable
 
 MAX_CANDIDATES = MAX_PERSON_CANDIDATES
 _SELF = {"ben", "adim", "ismim", "benim"}
@@ -54,7 +56,8 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     if not words:
         return _out([], "", False)
     persons = [c for c in index.contacts() if c.kind == "person"]
-    if has_role_word(text) and (hit := _by_title(index, words)):
+    tw = _title_words(text)
+    if any(is_role_word(w) for w in tw) and (hit := _by_title(index, tw)):
         return _out(hit, "unvan", len(hit) == 1)
     depts = _mentioned_departments(index, words)
     named = [c for c in persons if _name_said(c, words)]
@@ -102,14 +105,78 @@ def _name_said(c: Contact, words: list[str]) -> bool:
 
 def _mentioned_departments(index: DirectoryIndex, words: list[str]) -> set[str]:
     """Sözde geçen birimler (adı ya da eş anlamlısı ardışık sözcüklerle; ekli biçimler: "bilgi işlemden")."""
-    out: set[str] = set()
-    for c in index.contacts():
-        for name in (c.department, *c.department_aliases):
-            k = search_key(name).split()
-            if k and any(all(_like(words[i + j], k[j]) for j in range(len(k)))
-                         for i in range(len(words) - len(k) + 1)):
-                out.add(c.department)
+    return {d for d, k in _dept_names(index)
+            if any(all(_like(words[i + j], k[j]) for j in range(len(k))) for i in range(len(words) - len(k) + 1))}
+
+
+def _title_words(text: str) -> list[str]:
+    """Unvan araması için sözcükler: katlanmış, unvan ve rütbe sözcükleri **atılmaz** ("avukat", "uzmanı",
+    "astsubayı" makam hattında asıl sözcüktür; ad aramasında hitap gibi atılırlar); kendini tanıtma ve istek sözleri
+    atılır."""
+    raw = fold_words(text)
+    drop = {raw[i + 1] for i, w in enumerate(raw[:-1]) if w in _SELF}
+    return [w for w in raw if w not in drop and w not in _SELF and w not in _SOUND_STOP]
+
+
+def _title_table(index: DirectoryIndex) -> list[tuple[Contact, set[str], set[str]]]:
+    """(kayıt, unvan sözcükleri, unvan + birim sözcükleri); rehber sürümüne göre önbellekte (büyük rehberde her sözde
+    yeniden kurulmasın)."""
+    def build() -> list[tuple[Contact, set[str], set[str]]]:
+        table = []
+        for c in index.contacts():
+            if c.kind != "department" and c.title:
+                title = set(fold_words(c.title))
+                table.append((c, title, title | set(fold_words(c.department))))
+        return table
+    out: list[tuple[Contact, set[str], set[str]]] = _cached(index, "title_table", build)
     return out
+
+
+def _cached(index: DirectoryIndex, name: str, build: Any) -> Any:
+    """Rehberden türetilen tablo, rehberin kendisinde (`index.derived`, her yeniden kurulmada boşalır): büyük rehberde
+    (binlerce makam hattı) her sözde yeniden hesaplanmasın (ölçüm 05.11.2026: 3.500 kayıtla söz başına 0,5–1 sn →
+    0,05–0,3 sn)."""
+    if name not in index.derived:
+        index.derived[name] = build()
+    return index.derived[name]
+
+
+def _dept_names(index: DirectoryIndex) -> list[tuple[str, list[str]]]:
+    """(birim, ad / eş anlamlı sözcükleri) — tekil."""
+    def build() -> list[tuple[str, list[str]]]:
+        seen = {(c.department, tuple(search_key(name).split())) for c in index.contacts()
+                for name in (c.department, *c.department_aliases)}
+        return sorted((d, list(k)) for d, k in seen if k)
+    out: list[tuple[str, list[str]]] = _cached(index, "dept_names", build)
+    return out
+
+
+def _person_keys(index: DirectoryIndex) -> list[tuple[Contact, str, str]]:
+    """(kişi, ad anahtarı, soyad anahtarı) — kaynak rehberdeki tüm kişiler (aktarılamayanlar dahil)."""
+    def build() -> list[tuple[Contact, str, str]]:
+        return [(c, search_key(c.first_name), search_key(c.last_name))
+                for c in index.source_contacts() if c.kind == "person"]
+    out: list[tuple[Contact, str, str]] = _cached(index, "person_keys", build)
+    return out
+
+
+def _bucket(word: str) -> str:
+    """`_like` ancak ilk 4 harfi aynı (ya da 4'ten kısa ve tıpatıp aynı) sözcükler arasında doğru olabilir."""
+    return word[:4] if len(word) >= 4 else f"={word}"
+
+
+def _title_buckets(index: DirectoryIndex) -> dict[str, set[int]]:
+    """Unvan + birim sözcüğünün kovası → `_title_table` satırları: kapsama araması yalnız olası satırlara bakar."""
+    def build() -> dict[str, set[int]]:
+        out: dict[str, set[int]] = {}
+        for r, (_, _, vocab) in enumerate(_title_table(index)):
+            for v in vocab:
+                out.setdefault(_bucket(v), set()).add(r)
+                if len(v) == 4:                        # 4 harfli sözcük: hem kova hem tam
+                    out.setdefault(f"={v}", set()).add(r)
+        return out
+    result: dict[str, set[int]] = _cached(index, "title_buckets", build)
+    return result
 
 
 def _by_title(index: DirectoryIndex, words: list[str]) -> list[Contact]:
@@ -147,13 +214,39 @@ def _like(a: str, b: str) -> bool:
     return n >= 4 and n >= min(len(a), len(b)) - 1
 
 
+def same_title(index: DirectoryIndex, text: str) -> list[Contact]:
+    """Sözdeki unvana ("müfettiş", "teftiş kurulu müfettişi") uyan **tüm** kişi ve makam hatları (en iyisi değil):
+    aynı unvanlı çok hatta birimle süzmek için (ADR-030). Sözü en çok kapsayanlar; içlerinde unvanı tam söylenen
+    tek kayıt varsa ("personel daire başkanı" → Personel Daire Başkanı, o başkanlığın şube müdürleri değil) boş:
+    hedef belli."""
+    hits = _coverage_hits(index, _title_words(text), exact_single=False)
+    if not hits:
+        return []
+    top = max(inside for inside, _, _ in hits)
+    tier = [(extra, c) for inside, extra, c in hits if inside == top]
+    if sum(extra == 0 for extra, _ in tier) == 1:
+        return []
+    return [c for _, c in tier]
+
+
 def _by_coverage(index: DirectoryIndex, words: list[str]) -> list[Contact]:
     """Unvan sözcüğü ve önündeki en çok 3 sözcüğün **hepsi** kişinin unvanında ya da biriminde geçiyor ("jandarma
     komutanıyla" → İl Jandarma Komutanı; "Nilüfer kaymakamı" → Nilüfer Kaymakamlığı'ndaki Kaymakam). Birden çok kişi
     uyarsa unvanında sözde geçmeyen sözcüğü en az olan(lar) ("komutan yardımcısı" değil "komutan"). Tek sözcükte
     ("kaymakam") yalnız unvanın tamamı o sözcükse."""
-    people = [(c, _words(c.title), _words(c.title) | _words(c.department))
-              for c in index.contacts() if c.kind != "department" and c.title]      # kişi ve makam hattı
+    hits = _coverage_hits(index, words)
+    if not hits:
+        return []
+    best = max((inside, -extra) for inside, extra, _ in hits)
+    return [c for inside, extra, c in hits if (inside, -extra) == best]
+
+
+def _coverage_hits(index: DirectoryIndex, words: list[str], exact_single: bool = True
+                   ) -> list[tuple[int, int, Contact]]:
+    """(unvanında geçen söz sayısı, unvanında sözde geçmeyen sözcük sayısı, kayıt): unvan sözcüğüyle biten en uzun
+    pencere (4 → 1 sözcük) için. `exact_single`: tek sözcükte yalnız unvanı tam o sözcük olanlar."""
+    people = _title_table(index)                       # kişi ve makam hattı
+    buckets = _title_buckets(index)
     for i in reversed(range(len(words))):        # Türkçede unvanın başı sonda: "komutan yardımcısı" → yardımcı
         if not is_role_word(words[i]):
             continue
@@ -163,14 +256,15 @@ def _by_coverage(index: DirectoryIndex, words: list[str]) -> list[Contact]:
             said = words[i - n + 1:i + 1]
             # (unvanında geçen söz sayısı, unvanında sözde geçmeyen sözcük sayısı): "emniyet müdürü" → İl Emniyet
             # Müdürü (emniyet unvanında), Trafik Şube Müdürü değil (emniyet yalnız biriminde)
+            rows = set.intersection(*(buckets.get(_bucket(s), set()) for s in said))   # olası kayıtlar
             hits = [(sum(any(_like(s, x) for x in title) for s in said),
                      sum(not any(_like(s, x) for s in said) for x in title), c)
-                    for c, title, vocab in people if all(any(_like(s, v) for v in vocab) for s in said)]
-            if n == 1:
+                    for c, title, vocab in (people[r] for r in sorted(rows))
+                    if all(any(_like(s, v) for v in vocab) for s in said)]
+            if n == 1 and exact_single:
                 hits = [h for h in hits if h[1] == 0]
             if hits:
-                best = max((inside, -extra) for inside, extra, _ in hits)
-                return [c for inside, extra, c in hits if (inside, -extra) == best]
+                return hits
     return []
 
 
@@ -238,8 +332,9 @@ def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> M
     words = _without_self(text)
     if not words:
         return Mentions((), (), ())
-    persons = [c for c in index.source_contacts() if c.kind == "person"]
-    named = [c for c in persons if _full_name_said(c, words)]
+    keys = _person_keys(index)
+    persons = [c for c, _, _ in keys]
+    named = [c for c, first, last in keys if _full_name_keys_said(first, last, words)]
     by_id: dict[str, Contact] = {c.id: c for c in named if c.transferable}
     # aktarılamayan kişi (yönetim) adıyla ya da soyadıyla da sayılır ("hakan bey"): azdır, karışma riski düşük
     others = tuple(c for c in persons if not c.transferable and (c in named or _name_said(c, words)))
@@ -267,15 +362,16 @@ def _department_tails(index: DirectoryIndex, words: list[str]) -> set[str]:
     "kaynaklarıyla" → İnsan Kaynakları) ya da ilk sözcük + ikincinin başı ("teknik de" → Teknik Destek; "insanla
     görüşmek" değil). Karışık seste sözcüklerden biri düşüyor ya da bozuluyor. Yalnız birden çok hedef denetiminde:
     aktarma bununla yapılmaz."""
-    tails: dict[str, set[str]] = {}
-    heads: dict[tuple[str, str], set[str]] = {}
-    for c in index.contacts():
-        for name in (c.department, *c.department_aliases):
-            k = search_key(name).split()
+    def build() -> tuple[dict[str, set[str]], dict[tuple[str, str], set[str]]]:
+        tails: dict[str, set[str]] = {}
+        heads: dict[tuple[str, str], set[str]] = {}
+        for d, k in _dept_names(index):
             if len(k) >= 2 and len(k[-1]) >= 5:
-                tails.setdefault(k[-1], set()).add(c.department)
+                tails.setdefault(k[-1], set()).add(d)
             if len(k) >= 2 and len(k[0]) >= 5:
-                heads.setdefault((k[0], k[1][:2]), set()).add(c.department)
+                heads.setdefault((k[0], k[1][:2]), set()).add(d)
+        return tails, heads
+    tails, heads = _cached(index, "dept_parts", build)
     out = {d for w in words for tail, ds in tails.items() if len(ds) == 1 and _like(w, tail) for d in ds}
     for i, w in enumerate(words[:-1]):
         for (head, start), ds in heads.items():
@@ -285,7 +381,10 @@ def _department_tails(index: DirectoryIndex, words: list[str]) -> set[str]:
 
 
 def _full_name_said(c: Contact, words: list[str]) -> bool:
-    first, last = search_key(c.first_name), search_key(c.last_name)
+    return _full_name_keys_said(search_key(c.first_name), search_key(c.last_name), words)
+
+
+def _full_name_keys_said(first: str, last: str, words: list[str]) -> bool:
     if not first or not last or " " in last:
         return False
     hit = [i for i, w in enumerate(words) if any(similarity(v, last) >= NAME_SAME for v in query_variants(w))]
@@ -322,3 +421,38 @@ def _other_given_name(index: DirectoryIndex, c: Contact, words: list[str]) -> bo
             continue
         return True
     return False
+
+
+# --- bozuk duyulan birim / konu (sesli set 05.11.2026: "masebeye", "çifremi", "teknikte") -------------------------
+_PHON = str.maketrans("csz", "sss")      # katlanmış metinde ç→c, ş→s: mihu s / ş / ç / z'yi karıştırıyor
+
+
+def _department_keys(index: DirectoryIndex) -> list[tuple[str, str]]:
+    """(birim adının sözcüğü, birim) çiftleri; rehber sürümüne göre önbellekte."""
+    def build() -> list[tuple[str, str]]:
+        return sorted({(k, c.department) for c in index.contacts() for name in (c.department, *c.department_aliases)
+                       for k in search_key(name).split()})
+    out: list[tuple[str, str]] = _cached(index, "dept_keys", build)
+    return out
+
+
+def fuzzy_departments(index: DirectoryIndex, text: str, topics: TopicTable | None = None) -> set[str]:
+    """Sözdeki uzun sözcüklerden birine benzeyen birimler: birim adının sözcüğü (yazım benzerliği ≥ FUZZY_TARGET_MIN)
+    ya da konu sözcüğü (s / ş / ç / z denkleştirilip baş eşleşmesi: "çifremi" ~ "şifre" → Bilgi İşlem). Yalnız teyitle
+    kullanılır."""
+    keys = _department_keys(index)
+    # yalnız gerçekten bozuk sözcükler: bir birimin sözcüğüne zaten uyan ("personel", "kaymakamı" ~ "kaymakamlığı")
+    # ya da unvan sözcüğü olan ("valiyle") bulanık eşlemeye girmez
+    words = [w for w in fold_words(text) if len(w) >= 5 and w not in _SOUND_STOP and not is_role_word(w)
+             and not any(_like(w, k) for k, _ in keys)]
+    if not words:
+        return set()
+    out = {d for k, d in keys if len(k) >= 5 and any(similarity(strip_suffix(w), k) >= FUZZY_TARGET_MIN
+                                                     for w in words)}
+    if topics is not None:
+        phon = [w.translate(_PHON) for w in words]
+        for phrases, topic in topics.topics:
+            if any(len(p) == 1 and len(p[0]) >= 5 and any(w.startswith(p[0].translate(_PHON)) for w in phon)
+                   for p in phrases) and (dept := topics.department_of(topic)):
+                out.add(dept)
+    return out
