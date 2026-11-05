@@ -20,7 +20,7 @@ import hashlib
 import io
 import re
 import zipfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -210,116 +210,150 @@ def map_columns(header: list[str]) -> dict[str, int]:
 def parse(rows: list[list[str]], existing: Sequence[Any] = ()) -> ImportResult:
     """Satırlar → rehber kayıtları (Sentra Rehber API biçimi). `existing`: mevcut kaynak rehber (kimlikler korunur)."""
     res = ImportResult()
+    start, header, cols = _header(rows)
+    res.columns = {k: header[i] for k, i in cols.items()}
+    body = rows[start + 1:]
+    if len(body) > MAX_ROWS:
+        raise ValueError(f"en çok {MAX_ROWS} satır")
+    ids = _Ids(existing)
+    seen: dict[tuple[str, str, str], int] = {}
+    by_ext: dict[str, list[tuple[int, str]]] = {}
+    by_name: dict[str, list[tuple[int, str]]] = {}
+    now = datetime.now(UTC).isoformat(timespec="seconds")
+    for n, row in enumerate(body, start=start + 2):
+        if not any(c.strip() for c in row):
+            continue
+        res.rows += 1
+        get = _getter(row, cols)
+        read = _read_row(n, get)
+        if isinstance(read, Problem):
+            res.errors.append(read)
+            continue
+        rec, who, warning = read
+        if warning:
+            res.warnings.append(warning)
+        key = (rec["kind"], search_key(who), rec["extension"])
+        if key in seen:
+            res.errors.append(Problem(n, f"{who} ({rec['extension']}) {seen[key]}. satırın tekrarı"))
+            continue
+        seen[key] = n
+        res.contacts.append({"id": ids.assign(get("id"), key, n), **rec, "updated_at": now, "deleted": False})
+        by_ext.setdefault(rec["extension"], []).append((n, who))
+        if rec["kind"] == "person":
+            by_name.setdefault(search_key(who), []).append((n, rec["extension"]))
+    res.warnings += _duplicates(by_ext, by_name)
+    res.warnings.sort(key=lambda p: p.row)
+    return res
+
+
+def _header(rows: list[list[str]]) -> tuple[int, list[str], dict[str, int]]:
+    """İlk dolu satır başlıktır; zorunlu sütunlar (dahili; ad-soyad ya da birim) denetlenir."""
     start = next((i for i, r in enumerate(rows) if any(c.strip() for c in r)), None)
     if start is None:
         raise ValueError("dosyada satır yok")
     header = rows[start]
     cols = map_columns(header)
-    res.columns = {k: header[i] for k, i in cols.items()}
     if "extension" not in cols:
         raise ValueError("dahili numara sütunu bulunamadı (başlık örn. 'Dahili'). Bulunan başlıklar: "
                          + ", ".join(h for h in header if h))
     if not ({"first_name", "last_name"} <= cols.keys() or "full_name" in cols or "department" in cols):
         raise ValueError("ad-soyad (ya da 'Ad Soyad') ya da birim sütunu bulunamadı")
-    body = rows[start + 1:]
-    if len(body) > MAX_ROWS:
-        raise ValueError(f"en çok {MAX_ROWS} satır")
+    return start, header, cols
 
-    ids_by_key: dict[tuple[str, str, str], str] = {}
-    for c in existing:
-        ids_by_key.setdefault((c.kind, search_key(c.full_name), c.extension), c.id)
-    seen: dict[tuple[str, str, str], int] = {}
-    used_ids: set[str] = set()
-    by_ext: dict[str, list[tuple[int, str]]] = {}
-    by_name: dict[str, list[tuple[int, str]]] = {}
-    now = datetime.now(UTC).isoformat(timespec="seconds")
 
-    for n, row in enumerate(body, start=start + 2):
-        def get(name: str, row: list[str] = row) -> str:
-            i = cols.get(name)
-            return _unescape(" ".join(row[i].split())) if i is not None and i < len(row) else ""
+def _getter(row: list[str], cols: dict[str, int]) -> Callable[[str], str]:
+    def get(name: str) -> str:
+        i = cols.get(name)
+        return _unescape(" ".join(row[i].split())) if i is not None and i < len(row) else ""
+    return get
 
-        if not any(c.strip() for c in row):
-            continue
-        res.rows += 1
-        first, last = get("first_name"), get("last_name")
-        if not (first or last) and (full := get("full_name")):
-            parts = full.split()
-            first, last = " ".join(parts[:-1]), parts[-1] if len(parts) > 1 else ""
-            if len(parts) == 1:
-                first = full
-        dept, title = get("department"), get("title")
-        ext = re.sub(r"[\s\-./]", "", get("extension"))
-        kind_raw = fold(get("kind"))
-        if kind_raw in ("birim", "birim hatti", "department", "dept", "hat", "genel hat"):
-            kind = "department"
-        elif kind_raw in ("", "kisi", "person", "personel", "calisan"):
-            kind = "person" if (first or last) else "department"
-        else:
-            res.errors.append(Problem(n, f"tür '{get('kind')}' anlaşılmadı (kişi ya da birim)"))
-            continue
-        who = f"{first} {last}".strip() or dept or f"{n}. satır"
-        if kind == "person" and not (first and last):
-            res.errors.append(Problem(n, f"{who}: kişi kaydında ad ve soyad gerekli (birim hattıysa Tür: birim)"))
-            continue
-        if kind == "department":
-            if not dept:
-                res.errors.append(Problem(n, "birim hattında birim adı gerekli"))
-                continue
-            first = last = ""
-        if not ext:
-            res.errors.append(Problem(n, f"{who}: dahili numara boş"))
-            continue
-        if not EXTENSION.match(ext):
-            res.errors.append(Problem(n, f"{who}: dahili '{get('extension')}' 2–6 rakam olmalı "
-                                         "(dış hat / cep numarası yazılamaz)"))
-            continue
-        if long := [v for v in (first, last, dept, title) if len(v) > MAX_FIELD]:
-            res.errors.append(Problem(n, f"{who}: alan en çok {MAX_FIELD} karakter ({long[0][:20]}…)"))
-            continue
-        if kind == "person" and not search_key(who):
-            res.errors.append(Problem(n, f"{who}: ad yalnız unvandan oluşuyor"))
-            continue
-        aliases, bad = _aliases(get("aliases"))
-        dept_aliases, bad2 = _aliases(get("department_aliases"))
-        if bad or bad2:
-            res.warnings.append(Problem(n, f"{who}: takma ad atlandı: {', '.join((bad + bad2)[:3])}"))
-        tr_raw = fold(get("transferable"))
-        if tr_raw and tr_raw not in _YES | _NO:
-            res.errors.append(Problem(n, f"{who}: aktarılabilir '{get('transferable')}' anlaşılmadı (evet/hayır)"))
-            continue
-        transferable = tr_raw not in _NO
 
-        key = (kind, search_key(who), ext)
-        if key in seen:
-            res.errors.append(Problem(n, f"{who} ({ext}) {seen[key]}. satırın tekrarı"))
-            continue
-        seen[key] = n
-        cid = get("id")
-        if not re.fullmatch(r"[A-Za-z0-9_.:\-]{1,64}", cid) or cid in used_ids or cid.startswith("yerel-"):
-            cid = ids_by_key.get(key) or "r-" + hashlib.sha1("|".join(key).encode()).hexdigest()[:12]
-        if cid in used_ids:
+def _names(get: Callable[[str], str]) -> tuple[str, str]:
+    """Ad, soyad; yalnız "Ad Soyad" sütunu varsa son sözcük soyad."""
+    first, last = get("first_name"), get("last_name")
+    if not (first or last) and (full := get("full_name")):
+        parts = full.split()
+        first, last = (" ".join(parts[:-1]), parts[-1]) if len(parts) > 1 else (full, "")
+    return first, last
+
+
+def _kind(raw: str, has_name: bool) -> str | None:
+    k = fold(raw)
+    if k in ("birim", "birim hatti", "department", "dept", "hat", "genel hat"):
+        return "department"
+    if k in ("", "kisi", "person", "personel", "calisan"):
+        return "person" if has_name else "department"
+    return None
+
+
+def _read_row(n: int, get: Callable[[str], str]) -> Problem | tuple[dict[str, Any], str, Problem | None]:
+    """Bir satır → (kayıt (kimliksiz), görünen ad, uyarı) ya da hata."""
+    first, last = _names(get)
+    dept, title = get("department"), get("title")
+    ext = re.sub(r"[\s\-./]", "", get("extension"))
+    kind = _kind(get("kind"), bool(first or last))
+    if kind is None:
+        return Problem(n, f"tür '{get('kind')}' anlaşılmadı (kişi ya da birim)")
+    who = f"{first} {last}".strip() or dept or f"{n}. satır"
+    if kind == "person" and not (first and last):
+        return Problem(n, f"{who}: kişi kaydında ad ve soyad gerekli (birim hattıysa Tür: birim)")
+    if kind == "department":
+        if not dept:
+            return Problem(n, "birim hattında birim adı gerekli")
+        first = last = ""
+    if (problem := _check_fields(n, who, kind, ext, get("extension"), (first, last, dept, title))) is not None:
+        return problem
+    tr_raw = fold(get("transferable"))
+    if tr_raw and tr_raw not in _YES | _NO:
+        return Problem(n, f"{who}: aktarılabilir '{get('transferable')}' anlaşılmadı (evet/hayır)")
+    aliases, bad = _aliases(get("aliases"))
+    dept_aliases, bad2 = _aliases(get("department_aliases"))
+    warning = Problem(n, f"{who}: takma ad atlandı: {', '.join((bad + bad2)[:3])}") if bad or bad2 else None
+    rec = {"kind": kind, "first_name": first, "last_name": last, "department": dept, "title": title,
+           "extension": ext, "aliases": aliases, "department_aliases": dept_aliases,
+           "transferable": tr_raw not in _NO}
+    return rec, who, warning
+
+
+def _check_fields(n: int, who: str, kind: str, ext: str, ext_raw: str, fields: tuple[str, ...]) -> Problem | None:
+    if not ext:
+        return Problem(n, f"{who}: dahili numara boş")
+    if not EXTENSION.match(ext):
+        return Problem(n, f"{who}: dahili '{ext_raw}' 2–6 rakam olmalı (dış hat / cep numarası yazılamaz)")
+    if long := [v for v in fields if len(v) > MAX_FIELD]:
+        return Problem(n, f"{who}: alan en çok {MAX_FIELD} karakter ({long[0][:20]}…)")
+    if kind == "person" and not search_key(who):
+        return Problem(n, f"{who}: ad yalnız unvandan oluşuyor")
+    return None
+
+
+class _Ids:
+    """Kayıt kimlikleri: dosyadaki geçerli kimlik, yoksa mevcut rehberdeki aynı kaydın kimliği, yoksa içerikten
+    türetilen kalıcı kimlik (yeniden yüklemede aynı kalır). "yerel-" ayar ekranının kayıtlarına ayrılmıştır."""
+
+    def __init__(self, existing: Sequence[Any]):
+        self.by_key: dict[tuple[str, str, str], str] = {}
+        for c in existing:
+            self.by_key.setdefault((c.kind, search_key(c.full_name), c.extension), c.id)
+        self.used: set[str] = set()
+
+    def assign(self, given: str, key: tuple[str, str, str], n: int) -> str:
+        cid = given
+        if not re.fullmatch(r"[A-Za-z0-9_.:\-]{1,64}", cid) or cid in self.used or cid.startswith("yerel-"):
+            cid = self.by_key.get(key) or "r-" + hashlib.sha1("|".join(key).encode()).hexdigest()[:12]
+        if cid in self.used:
             cid = f"{cid}-{n}"
-        used_ids.add(cid)
-        res.contacts.append({"id": cid, "kind": kind, "first_name": first, "last_name": last, "department": dept,
-                             "title": title, "extension": ext, "aliases": aliases,
-                             "department_aliases": dept_aliases, "transferable": transferable,
-                             "updated_at": now, "deleted": False})
-        by_ext.setdefault(ext, []).append((n, who))
-        if kind == "person":
-            by_name.setdefault(search_key(who), []).append((n, ext))
+        self.used.add(cid)
+        return cid
 
-    for ext, owners in by_ext.items():
-        if len(owners) > 1:
-            res.warnings.append(Problem(owners[1][0], f"{ext} dahilisi birden çok kayıtta: "
-                                                      + ", ".join(w for _, w in owners[:4])))
-    for owners in by_name.values():
-        if len(owners) > 1:
-            res.warnings.append(Problem(owners[1][0], "aynı ad birden çok kez (dahili "
-                                        + ", ".join(e for _, e in owners[:4])
-                                        + "): asistan arayana hangisi olduğunu soracak"))
-    res.warnings.sort(key=lambda p: p.row)
-    return res
+
+def _duplicates(by_ext: dict[str, list[tuple[int, str]]], by_name: dict[str, list[tuple[int, str]]]) -> list[Problem]:
+    out = [Problem(owners[1][0], f"{ext} dahilisi birden çok kayıtta: " + ", ".join(w for _, w in owners[:4]))
+           for ext, owners in by_ext.items() if len(owners) > 1]
+    out += [Problem(owners[1][0], "aynı ad birden çok kez (dahili " + ", ".join(e for _, e in owners[:4])
+                    + "): asistan arayana hangisi olduğunu soracak")
+            for owners in by_name.values() if len(owners) > 1]
+    return out
 
 
 def _aliases(raw: str) -> tuple[list[str], list[str]]:

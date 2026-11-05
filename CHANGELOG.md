@@ -14,6 +14,17 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 ## [Yayımlanmamış]
 
+### Değişti
+- Diyalog akışı adım zincirine bölündü (`dialog.STEPS`): en karmaşık işlev 63'ten 24'e indi, adımların sırası tek
+  listede ve sıra kuralları testte. Söz kalıpları ve Türkçe ekler `core/phrases.py`'de. Eşikler tek yerde:
+  `core/thresholds.py` (tasarim.md Ek E). Rehber dosyası okuyucu (57 → 15) ve ayar doğrulaması (37 → 14) küçük
+  işlevlere bölündü. Davranış aynı; yalnız reddedilen rehber satırı için artık takma ad uyarısı yazılmaz.
+
+### Eklendi
+- Sesli regresyon seti: `tools/stt/sesli_set.py` okuma listelerini Piper'la seslendirip G.711 / G.722 hattından
+  geçirir, arkaya ikinci konuşan ya da uğultu katar; karsilastir.py + gorev_olc.py ile ölçülür.
+- Testler: STT sunucusunun yaşam döngüsü, Whisper yükleme yolları, MCP sunucusunun tüm araçları, açılış (kapsam %92).
+
 ### Eklendi
 - Geniş bant ses (ADR-027): santral `codec: "g722"` gönderebilir; Gateway G.722'yi çözüp STT'ye 16 kHz verir (hatta
   kaybolan s / ş / f sesleri). Deneme santrali: `allow=g722,…`, köprü `--codec g722`. Yeni bağımlılık `G722` (kamu malı).

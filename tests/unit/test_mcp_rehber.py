@@ -304,3 +304,58 @@ async def test_kisi_cozme_sayaclari_yalniz_mcp_cevabini_sayar(index):
     tools = ToolRegistry(index, remote=Remote(True))
     cands, _, _ = await tools.resolve_person("muhasebe müdürü ayşe yılmaz")
     assert (tools.person_calls, tools.person_hits, tools.person_failures) == (1, 0, 1)
+
+
+async def test_birimler_ve_mesai_durumu(index):
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+
+    from mcp import Client
+
+    from sesli_asistan.gateway.core.schedule import OfficeHours
+
+    async def call(srv, name):
+        async with Client(srv) as c:
+            r = await c.call_tool(name, {})
+        return json.loads(r.content[0].text)
+
+    out = await call(build_server(lambda: index), "birimler")
+    names = [d["ad"] for d in out["birimler"]]
+    assert names == sorted(names) and "Muhasebe" in names
+    assert all(d["hat"] or d["kisi_sayisi"] for d in out["birimler"])
+    assert (await call(build_server(lambda: index), "mesai_durumu")) == {"durum": "bilinmiyor"}
+    tz = ZoneInfo("Europe/Istanbul")
+    office = OfficeHours.parse("pzt-cum 08:30-18:00")
+    expected = office.status(datetime.now(tz))
+    assert (await call(build_server(lambda: index, office, tz), "mesai_durumu")) == {"durum": expected}
+
+
+def test_konu_listesi_dosyadan_ya_da_urunle_gelen(tmp_path):
+    from sesli_asistan.gateway.rehber_mcp import load_topics
+
+    assert load_topics("")                                  # ürünle gelen genel liste boş değil
+    f = tmp_path / "konular.json"
+    f.write_text(json.dumps({"konular": [{"sozler": ["fatura"], "birimler": ["Muhasebe"]}]}), encoding="utf-8")
+    topics = load_topics(str(f))
+    assert len(topics) == 1
+
+
+async def test_sunucu_ayarlarla_baslar_ve_kapanir(monkeypatch, tmp_path):
+    import shutil
+
+    import sesli_asistan.gateway.rehber_mcp as m
+
+    rehber = tmp_path / "rehber.json"
+    shutil.copy(ROOT / "data" / "rehber_ornek.json", rehber)
+    monkeypatch.setenv("DIRECTORY_SOURCE", "json")
+    monkeypatch.setenv("DIRECTORY_PATH", str(rehber))
+    monkeypatch.setenv("LOCAL_SETTINGS_FILE", str(tmp_path / "yerel.json"))
+    seen = {}
+
+    async def fake_run(self, host, port):
+        seen["addr"] = (host, port)
+
+    from mcp.server.mcpserver import MCPServer
+    monkeypatch.setattr(MCPServer, "run_streamable_http_async", fake_run)
+    await m.serve("0.0.0.0", 18765)                        # ağa açık adres uyarısı da
+    assert seen["addr"] == ("0.0.0.0", 18765)

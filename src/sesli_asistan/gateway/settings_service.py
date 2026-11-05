@@ -112,11 +112,30 @@ class SettingsService:
         """Gelen ayarları temizler ve doğrular; ayar dosyasıyla aynı olanları atar (yalnız fark saklanır)."""
         if not isinstance(data, dict):
             raise ValueError("ayarlar JSON nesnesi olmalı")
-        s, base = self.rt.s, self.base_texts()
         out: dict[str, Any] = {}
+        if texts := self._clean_texts(data.get("texts") or {}):
+            out["texts"] = texts
+        out.update(self._clean_office(data))
+        contacts = self._clean_contacts(data.get("contacts", self.local.get("contacts", [])))
+        if contacts:
+            out["contacts"] = contacts
+        known = {c.id: c for c in self.rt.directory.index.source_contacts() if c.transferable}
+        known.update({c["id"]: Contact.from_api(c) for c in contacts})
+        aliases = {}
+        for cid, values in (data.get("aliases") or {}).items():
+            if check_contacts and cid not in known:
+                raise ValueError(f"rehberde olmayan kayıt: {cid}")
+            if clean := _clean_aliases(values):
+                aliases[cid] = clean
+        if aliases:
+            out["aliases"] = aliases
+        return out
 
+    def _clean_texts(self, data: dict[str, Any]) -> dict[str, str]:
+        """Anonslar: bilinen alan, uzunluk, yer tutucular ({ad}, {saatler} …); varsayılanla aynı olan atılır."""
+        base = self.base_texts()
         texts = {}
-        for name, value in (data.get("texts") or {}).items():
+        for name, value in data.items():
             if name not in TEXT_FIELDS:
                 raise ValueError(f"bilinmeyen anons: {name}")
             v = " ".join(str(value or "").split())
@@ -128,9 +147,12 @@ class SettingsService:
             check_texts(replace(base, **texts))
         except ValueError as e:
             raise ValueError(_label_error(str(e))) from None
-        if texts:
-            out["texts"] = texts
+        return texts
 
+    def _clean_office(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Mesai saatleri, tatiller ve mesai dışı davranışı (ayar dosyasından farklıysa)."""
+        s = self.rt.s
+        out: dict[str, Any] = {}
         for key in ("office_hours", "holidays"):
             if key in data and str(data[key] or "").strip() != getattr(s, key).strip():
                 out[key] = " ".join(str(data[key] or "").split())
@@ -143,32 +165,6 @@ class SettingsService:
             raise ValueError("Mesai dışı davranış: announce ya da assistant olmalı")
         if mode != s.after_hours_mode:
             out["after_hours_mode"] = mode
-
-        contacts = self._clean_contacts(data.get("contacts", self.local.get("contacts", [])))
-        if contacts:
-            out["contacts"] = contacts
-        known = {c.id: c for c in self.rt.directory.index.source_contacts() if c.transferable}
-        known.update({c["id"]: Contact.from_api(c) for c in contacts})
-        aliases: dict[str, list[str]] = {}
-        for cid, values in (data.get("aliases") or {}).items():
-            if check_contacts and cid not in known:
-                raise ValueError(f"rehberde olmayan kayıt: {cid}")
-            seen, clean = set(), []
-            for v in values or []:
-                v = " ".join(str(v or "").split())
-                if not v:
-                    continue
-                if not 2 <= len(v) <= 60 or not search_key(v):
-                    raise ValueError(f"takma ad 2–60 harf olmalı ve unvandan ibaret olmamalı: {v!r}")
-                if search_key(v) not in seen:
-                    seen.add(search_key(v))
-                    clean.append(v)
-            if len(clean) > MAX_ALIASES:
-                raise ValueError(f"bir kayda en çok {MAX_ALIASES} takma ad")
-            if clean:
-                aliases[cid] = clean
-        if aliases:
-            out["aliases"] = aliases
         return out
 
     def _clean_contacts(self, items: Any) -> list[dict[str, Any]]:
@@ -179,37 +175,7 @@ class SettingsService:
             raise ValueError(f"en çok {MAX_LOCAL_CONTACTS} yerel kayıt")
         taken = {c.extension: c.full_name for c in self.rt.directory.index.source_contacts()}
         names = {search_key(c.full_name) for c in self.rt.directory.index.source_contacts() if c.kind == "person"}
-        out = []
-        for raw in items:
-            if not isinstance(raw, dict):
-                raise ValueError("kayıt JSON nesnesi olmalı")
-            c = {k: " ".join(str(raw.get(k) or "").split()) for k in
-                 ("first_name", "last_name", "department", "title", "extension")}
-            c["kind"] = raw.get("kind") or "person"
-            if c["kind"] not in ("person", "department"):
-                raise ValueError("kayıt türü kişi ya da birim hattı olmalı")
-            who = f"{c['first_name']} {c['last_name']}".strip() or c["department"]
-            if any(len(v) > 60 for v in c.values()):
-                raise ValueError(f"{who or 'kayıt'}: alanlar en çok 60 karakter")
-            if c["kind"] == "person" and not (c["first_name"] and c["last_name"]):
-                raise ValueError("kişi kaydında ad ve soyad gerekli")
-            if c["kind"] == "department":
-                if not c["department"]:
-                    raise ValueError("birim hattında birim adı gerekli")
-                c["first_name"] = c["last_name"] = ""
-            if not _EXTENSION.match(c["extension"]):
-                raise ValueError(f"{who}: dahili numara 2–6 rakam olmalı (dış hat yazılamaz)")
-            if c["extension"] in taken:
-                raise ValueError(f"{who}: {c['extension']} dahilisi zaten {taken[c['extension']]} kaydında")
-            if c["kind"] == "person" and search_key(who) in names:
-                raise ValueError(f"{who} rehberde zaten var")
-            cid = str(raw.get("id") or "")
-            c["id"] = cid if re.fullmatch(r"yerel-[0-9a-f]{8}", cid) else f"yerel-{secrets.token_hex(4)}"
-            taken[c["extension"]] = who
-            if c["kind"] == "person":
-                names.add(search_key(who))
-            out.append(c)
-        return out
+        return [_clean_contact(raw, taken, names) for raw in items]
 
     async def add_contact(self, contact: dict[str, Any], actor: dict[str, str] | None = None) -> dict[str, Any]:
         if not isinstance(contact, dict):
@@ -485,3 +451,54 @@ def _label_error(msg: str) -> str:
     for name, (label, _) in TEXT_LABELS.items():
         msg = msg.replace(f"{name.upper()}_TEXT", label)
     return msg
+
+
+def _clean_aliases(values: Any) -> list[str]:
+    """Bir kaydın takma adları: 2–60 harf, unvandan ibaret değil, tekrarsız, en çok MAX_ALIASES."""
+    seen: set[str] = set()
+    clean: list[str] = []
+    for v in values or []:
+        v = " ".join(str(v or "").split())
+        if not v:
+            continue
+        if not 2 <= len(v) <= 60 or not search_key(v):
+            raise ValueError(f"takma ad 2–60 harf olmalı ve unvandan ibaret olmamalı: {v!r}")
+        if search_key(v) not in seen:
+            seen.add(search_key(v))
+            clean.append(v)
+    if len(clean) > MAX_ALIASES:
+        raise ValueError(f"bir kayda en çok {MAX_ALIASES} takma ad")
+    return clean
+
+
+def _clean_contact(raw: Any, taken: dict[str, str], names: set[str]) -> dict[str, Any]:
+    """Bir yerel kayıt: biçim, zorunlu alanlar, dahili çakışması. `taken` / `names` (dahili → ad, kişi adları)
+    güncellenir: sonraki kayıtlar bununla da çakışamaz."""
+    if not isinstance(raw, dict):
+        raise ValueError("kayıt JSON nesnesi olmalı")
+    c = {k: " ".join(str(raw.get(k) or "").split()) for k in
+         ("first_name", "last_name", "department", "title", "extension")}
+    c["kind"] = raw.get("kind") or "person"
+    if c["kind"] not in ("person", "department"):
+        raise ValueError("kayıt türü kişi ya da birim hattı olmalı")
+    who = f"{c['first_name']} {c['last_name']}".strip() or c["department"]
+    if any(len(v) > 60 for v in c.values()):
+        raise ValueError(f"{who or 'kayıt'}: alanlar en çok 60 karakter")
+    if c["kind"] == "person" and not (c["first_name"] and c["last_name"]):
+        raise ValueError("kişi kaydında ad ve soyad gerekli")
+    if c["kind"] == "department":
+        if not c["department"]:
+            raise ValueError("birim hattında birim adı gerekli")
+        c["first_name"] = c["last_name"] = ""
+    if not _EXTENSION.match(c["extension"]):
+        raise ValueError(f"{who}: dahili numara 2–6 rakam olmalı (dış hat yazılamaz)")
+    if c["extension"] in taken:
+        raise ValueError(f"{who}: {c['extension']} dahilisi zaten {taken[c['extension']]} kaydında")
+    if c["kind"] == "person" and search_key(who) in names:
+        raise ValueError(f"{who} rehberde zaten var")
+    cid = str(raw.get("id") or "")
+    c["id"] = cid if re.fullmatch(r"yerel-[0-9a-f]{8}", cid) else f"yerel-{secrets.token_hex(4)}"
+    taken[c["extension"]] = who
+    if c["kind"] == "person":
+        names.add(search_key(who))
+    return c

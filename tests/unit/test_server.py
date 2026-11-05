@@ -43,3 +43,22 @@ def test_guvenlik_uyarilari():
     assert len(w) == 3
     ok = GatewaySettings(_env_file=None, api_key="x" * 20, pbx_allowed_ips="10.0.0.5")
     assert security_warnings(ok) == []
+
+
+def test_acilis_guvenlik_uyarilarini_loglar_ve_uvicornu_ayarlarla_baslatir(monkeypatch, tmp_path, caplog):
+    import logging
+
+    import sesli_asistan.gateway.server as srv
+
+    seen = {}
+    monkeypatch.setattr(srv, "setup_logging", lambda name: None)
+    monkeypatch.setattr(srv, "build_app", lambda s: "app")
+    monkeypatch.setattr(srv.uvicorn, "run", lambda app, **kw: seen.update(app=app, **kw))
+    monkeypatch.setenv("GATEWAY_API_HOST", "0.0.0.0")
+    monkeypatch.setenv("FORWARDED_ALLOW_IPS", "127.0.0.1")
+    monkeypatch.setenv("LOCAL_SETTINGS_FILE", str(tmp_path / "yerel.json"))
+    with caplog.at_level(logging.INFO):
+        srv.main()
+    assert seen["app"] == "app" and seen["host"] == "0.0.0.0" and seen["proxy_headers"] is True
+    assert seen["forwarded_allow_ips"] == "127.0.0.1"
+    assert any("GÜVENLİK" in r.message for r in caplog.records)          # deneme ayarları: anahtar yok

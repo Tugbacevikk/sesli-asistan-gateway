@@ -157,3 +157,99 @@ def test_cuda_kutuphaneleri_paket_yoksa_bos(monkeypatch):
 
     monkeypatch.setattr(importlib.util, "find_spec", lambda name: None)
     assert engine.load_cuda_libraries() == []
+
+
+# --- Whisper modelinin diskten yüklenmesi (faster-whisper sahte) ------------------------------------------------
+
+class _FakeWhisperModule:
+    """faster_whisper modülü yerine: WhisperModel çağrılarını kaydeder; istenirse CUDA'da hata verir."""
+
+    def __init__(self, fail_cuda=False):
+        self.calls, self.fail_cuda = [], fail_cuda
+        mod = self
+
+        class WhisperModel:
+            def __init__(self, path, device, compute_type, **kw):
+                mod.calls.append((device, compute_type, kw.get("local_files_only")))
+                if device == "cuda" and mod.fail_cuda:
+                    raise RuntimeError("CUDA driver yok")
+                self.model = SimpleNamespace(device=device)
+
+        self.WhisperModel = WhisperModel
+
+
+def _model_dir(tmp_path):
+    (tmp_path / "model.bin").write_bytes(b"0")
+    return str(tmp_path)
+
+
+def test_model_klasoru_yoksa_ne_yapilacagi_soylenir(tmp_path, monkeypatch):
+    import sys
+
+    import pytest
+
+    monkeypatch.setitem(sys.modules, "faster_whisper", _FakeWhisperModule())
+    with pytest.raises(FileNotFoundError, match="indir.py"):
+        WhisperEngine(WhisperParams(model_dir=str(tmp_path / "yok"), device="cpu"))
+
+
+def test_cpu_yuklemesi_internetsiz_ve_int8(tmp_path, monkeypatch):
+    import sys
+
+    fake = _FakeWhisperModule()
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake)
+    eng = WhisperEngine(WhisperParams(model_dir=_model_dir(tmp_path), device="cpu", compute_type="auto"))
+    assert fake.calls == [("cpu", "int8", True)] and eng.device == "cpu"
+
+
+def test_cuda_yuklemesi_basarisizsa_cpuya_duser(tmp_path, monkeypatch):
+    import sys
+
+    from sesli_asistan.stt import engine
+
+    fake = _FakeWhisperModule(fail_cuda=True)
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake)
+    monkeypatch.setattr(engine, "_cuda_ok", lambda: True)
+    monkeypatch.setattr(engine, "load_cuda_libraries", lambda: [])
+    eng = WhisperEngine(WhisperParams(model_dir=_model_dir(tmp_path), device="cuda", compute_type="auto"))
+    assert [c[0] for c in fake.calls] == ["cuda", "cpu"] and eng.device == "cpu"
+    eng._load_cpu()                                              # ısınmada GPU düşerse kullanılan yol
+    assert fake.calls[-1] == ("cpu", "int8", True)
+
+
+def test_cuda_yoksa_auto_cpu_secer(tmp_path, monkeypatch):
+    import sys
+
+    from sesli_asistan.stt import engine
+
+    fake = _FakeWhisperModule()
+    monkeypatch.setitem(sys.modules, "faster_whisper", fake)
+    monkeypatch.setattr(engine, "_cuda_ok", lambda: False)
+    monkeypatch.setattr(engine, "load_cuda_libraries", lambda: [])
+    WhisperEngine(WhisperParams(model_dir=_model_dir(tmp_path), device="auto"))
+    assert fake.calls[0][:2] == ("cpu", "int8")
+
+
+def test_cuda_kutuphaneleri_linuxta_onceden_yuklenir(tmp_path, monkeypatch):
+    import ctypes
+    import importlib.util
+
+    from sesli_asistan.stt import engine
+
+    lib = tmp_path / "cublas" / "lib"
+    lib.mkdir(parents=True)
+    (lib / "libcublasLt.so.12").write_bytes(b"")
+    (lib / "libcublas.so.12").write_bytes(b"")
+    loaded = []
+    monkeypatch.setattr(importlib.util, "find_spec",
+                        lambda name: SimpleNamespace(submodule_search_locations=[str(tmp_path)]))
+    monkeypatch.setattr(engine.sys, "platform", "linux")
+
+    def cdll(path, mode=0):
+        loaded.append(path.rsplit("/", 1)[-1])
+        if "Lt" not in path:
+            raise OSError("bozuk")            # biri yüklenemese de devam edilir
+
+    monkeypatch.setattr(ctypes, "CDLL", cdll)
+    assert engine.load_cuda_libraries() == [str(lib)]
+    assert loaded == ["libcublasLt.so.12", "libcublas.so.12"]       # cublasLt önce

@@ -66,3 +66,22 @@ def test_tur_yolu_metrigi():
     on("turn", {"heard": "[santral: busy]", "llm_calls": 0, "final_to_audio_s": None, "dialog_s": 0.0})
     g = m.registry.get_sample_value
     assert g("dialog_turns_total", {"yol": "kod"}) == 1 and g("dialog_turns_total", {"yol": "llm"}) == 1
+
+
+def test_gunluk_kurulumu_bicim_duzey_ve_gizli_deger_suzgeci(monkeypatch):
+    from sesli_asistan.libs.obs import RedactSecrets, setup_logging
+
+    root = logging.getLogger()
+    saved = (root.handlers[:], root.level)
+    try:
+        monkeypatch.setenv("LOG_FORMAT", "json")
+        setup_logging("gateway", level="debug")
+        (h,) = root.handlers
+        assert isinstance(h.formatter, JsonFormatter) and root.level == logging.DEBUG
+        assert any(isinstance(f, RedactSecrets) for f in h.filters)
+        assert logging.getLogger("httpx").level == logging.WARNING      # gürültülü kütüphaneler susar
+        setup_logging("stt", fmt="text", level="WARNING")
+        assert not isinstance(root.handlers[0].formatter, JsonFormatter) and root.level == logging.WARNING
+    finally:
+        root.handlers[:] = saved[0]
+        root.setLevel(saved[1])

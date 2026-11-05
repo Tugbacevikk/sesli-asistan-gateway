@@ -286,3 +286,78 @@ HW = ["Ayşe Yılmaz", "Zeynep Arslan", "Muhasebe", "Satış", "İsmail Işık"]
 def test_ipucu_listesinin_devami_yazilirsa_atilir(text, kept, echo):
     assert strip_hotword_echo(text, HW) == (kept, echo)
     assert strip_hotword_echo(text, []) == (text, "")
+
+
+# --- sunucu yaşam döngüsü: motor sonradan yüklenir, hata, kapanış ------------------------------------------------
+
+async def test_motor_hazir_olana_dek_hizmet_vermez_sonra_verir(monkeypatch):
+    import sesli_asistan.stt.server as srv_mod
+
+    gate = asyncio.Event()
+
+    class Slow(FakeEngine):
+        def warmup(self):
+            while not gate.is_set():
+                time.sleep(0.01)
+
+    monkeypatch.setattr(srv_mod, "load_engine", lambda s: Slow())
+    task = asyncio.create_task(start_server(SttSettings(vad="energy"), None, bind="127.0.0.1:0"))
+    await asyncio.sleep(0.2)
+    assert not task.done()                                       # ısınma sürüyor: sağlık NOT_SERVING
+    gate.set()
+    srv, health_svc, port = await task
+    try:
+        async with grpc.aio.insecure_channel(f"127.0.0.1:{port}") as ch:
+            r = await health_pb2_grpc.HealthStub(ch).Check(health_pb2.HealthCheckRequest(service=""))
+            assert r.status == health_pb2.HealthCheckResponse.SERVING
+    finally:
+        await srv.stop(0)
+
+
+async def test_motor_yuklenemezse_sunucu_kapanir_ve_hata_yukselir(monkeypatch):
+    import sesli_asistan.stt.server as srv_mod
+
+    def boom(s):
+        raise FileNotFoundError("model.bin yok")
+
+    monkeypatch.setattr(srv_mod, "load_engine", boom)
+    with pytest.raises(FileNotFoundError):
+        await start_server(SttSettings(vad="energy"), None, bind="127.0.0.1:0")
+
+
+async def test_serve_model_yoksa_cikis_kodu_1(monkeypatch):
+    import sesli_asistan.stt.server as srv_mod
+
+    async def fail(s, *a, **k):
+        raise FileNotFoundError("yok")
+
+    monkeypatch.setattr(srv_mod, "start_server", fail)
+    with pytest.raises(SystemExit) as e:
+        await srv_mod.serve(SttSettings(vad="energy", metrics_port=0))
+    assert e.value.code == 1
+
+
+async def test_serve_sinyalle_duzgun_kapanir(monkeypatch):
+    import signal
+
+    import sesli_asistan.stt.server as srv_mod
+
+    stopped = []
+
+    class Srv:
+        async def stop(self, grace=None):
+            stopped.append(grace)
+
+    started = asyncio.Event()
+
+    async def fake_start(s, *a, **k):
+        started.set()
+        return Srv(), None, 0
+
+    monkeypatch.setattr(srv_mod, "start_server", fake_start)
+    task = asyncio.create_task(srv_mod.serve(SttSettings(vad="energy", metrics_port=0)))
+    await started.wait()
+    await asyncio.sleep(0.05)
+    signal.raise_signal(signal.SIGTERM)
+    await asyncio.wait_for(task, 2)
+    assert stopped == [5]
