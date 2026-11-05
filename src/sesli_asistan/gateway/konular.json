@@ -6,7 +6,7 @@
      "birimler": ["muhasebe", "finans", "mali işler", "mali hizmetler", "tahsilat"]},
     {"sozler": ["sipariş", "fiyat teklifi", "teklif", "fiyat", "bayilik", "ürün bilgisi", "kampanya"],
      "birimler": ["satış", "pazarlama", "ticari"]},
-    {"sozler": ["arıza", "bozuldu", "bozuk", "çalışmıyor", "tamir", "onarım", "kurulum", "montaj", "garanti"],
+    {"sozler": ["arıza", "servis kaydı", "arıza kaydı", "bozuldu", "bozuk", "çalışmıyor", "tamir", "onarım", "kurulum", "montaj", "garanti"],
      "birimler": ["teknik destek", "teknik servis", "destek", "müşteri hizmetleri"]},
     {"sozler": ["iş başvurusu", "staj", "özgeçmiş", "işe alım", "bordro", "maaş"],
      "birimler": ["insan kaynakları", "personel", "ik"]},

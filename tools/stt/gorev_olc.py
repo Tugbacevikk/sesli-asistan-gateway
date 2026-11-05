@@ -86,6 +86,8 @@ def classify(got: str, exp: str) -> str:
         return "doğru"
     if got.startswith("teyit:") and exp == "transfer:" + got.split(":", 1)[1]:
         return "teyitle doğru"
+    if got.startswith("transfer:") and exp == "teyit:" + got.split(":", 1)[1]:
+        return "doğru"          # doğru metin teyitle gidecekti (konu, yalnız ad); duyulanla doğrudan aynı yere
     if got.split(":")[0] in ACTIONS:
         return "YANLIŞ EYLEM"
     if got.startswith("teyit:"):
@@ -109,8 +111,8 @@ async def run(data: dict[str, Any], judge: Judge, verbose: bool) -> dict[str, di
             got = await judge.outcome(r.get(n, ""), r.get(f"{n}#guven"), judge.context(r["dogru"]))
             k = classify(got, e)
             counts[k] = counts.get(k, 0) + 1
-            if k in ("YANLIŞ EYLEM", "yanlış teyit"):
-                bad.append(f"{r['dosya']} {r.get(n, '')!r}→{got}")
+            if k in ("YANLIŞ EYLEM", "yanlış teyit", "kaçırma"):
+                bad.append(f"[{k}] {r['dosya']} {r.get(n, '')!r} → {got} (doğru metinle: {e})")
         out[n] = {"sayilar": counts, "hatalar": bad, "RTF": data["ozet"][n].get("RTF")}
     return out
 

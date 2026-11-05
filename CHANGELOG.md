@@ -66,6 +66,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Genel konu listesine "servis kaydı", "arıza kaydı" (→ teknik destek). `gorev_olc.py`: teyitle gidecek hedefe
+  doğrudan gitmek "doğru" sayılır; kaçırmalar da sonuçla birlikte listelenir.
 - Karışık sözde (arkada ikinci konuşan) doğrudan eylem yok, ADR-029: arka plandan tek bir ad ya da birim + arayanın
   konusu ("satış mı faturamla ilgili bir sorun var" → "Satış mı, Muhasebe mi?"), soyadın önünde başka ad ("murat
   çelik" → Burak Çelik: teyit), aktarılamayan kişi + birim, operatör isteği + bozuk birim adı. Kural modunda yalnız adla

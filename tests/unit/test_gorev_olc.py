@@ -33,3 +33,9 @@ def test_guvenle_teyit_ve_baglam(tmp_path, capsys):
     # B: "evet" yerine "ayşe yılmaz" teyitteki kişiye gider (doğru); boş cevap "hiçbiri" gibi bulamadım (doğru);
     # ama ad yanlış kişiye aktarır
     assert "| B | 2 | 0 | 0 | 0 | 1 | 0.2 |" in out
+
+
+def test_teyitle_gidecek_hedefe_dogrudan_gitmek_dogru_sayilir():
+    assert g.classify("transfer:300", "teyit:300") == "doğru"
+    assert g.classify("transfer:210", "teyit:300") == "YANLIŞ EYLEM"
+    assert g.classify("teyit:300", "transfer:300") == "teyitle doğru"

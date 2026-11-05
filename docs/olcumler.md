@@ -919,6 +919,27 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Sesli regresyon seti, üçüncü tur: ADR-029 sonrası (5 Kasım 2026, 13:35; commit 337651e, n = 320)
+
+Ölçüm aracı artık üretim akışıyla (rehber → kişi çözme / konu → kural); dil modeli yok.
+
+| hat | arka plan | WER | doğru | teyitle | kaçırma | yanlış teyit | YANLIŞ EYLEM |
+|---|---|---|---|---|---|---|---|
+| G.711 | temiz | %12,5 | 72 | 4 | 4 | 0 | 0 |
+| G.711 | konuşma 10 | %72,5 | 37 | 6 | 17 | 16 | **4** |
+| G.722 | temiz | %4,6 | 79 | 1 | 0 | 0 | 0 |
+| G.722 | konuşma 10 | %73,6 | 29 | 9 | 18 | 21 | **3** |
+
+- **Karışık seste yanlış eylem 36 → 7** (aynı ses, aynı STT; yalnız diyalog kuralları). Karışan sözler artık çoğunlukla
+  teyit sorusuna dönüşüyor (yanlış teyit 12 → 37: arayan "hayır" der, bir soru kaybı).
+- Kalan 7: "teknik de servis kaydı …" → Teknik Destek ×2 (doğru birim; konu listesinde "servis kaydı" yoktu → eklendi,
+  ölçüm aracı "teyitle gidecek yere doğrudan" durumunu artık doğru sayıyor), "ayşe hanım muhasebe ile …" → Ayşe
+  Yılmaz ×2 (arayan Muhasebe'yi istedi, arka plandan "Ayşe Hanım"; Ayşe Yılmaz Muhasebe'de: doğru birime, yanlış
+  kişiye), "can öztürk senin aydın orada mı" (ayırt edilemez), "bir yetkiliye geçenden birine" → operatör ×2 ("bilgi
+  işlemden" tamamen bozuk; operatör insan olduğu için zararı düşük).
+- Temiz G.711'de "doğru" 79 → 72, kaçırma 0 → 4: ölçüm aracı değişti (yalnız adla kişi ve konu artık teyitle;
+  önceki tur eski kural modunu ölçüyordu), aynı tur içinde kıyaslanmalı. Kaçırmalar sonraki turda listelenecek.
+
 ### Sesli regresyon seti, ikinci tur: birden çok hedef düzeltmesi ve düşük dil modeli ölçeği (5 Kasım 2026, 13:10; n = 320)
 
 Aynı araç, yalnız temiz ve konuşma 10; commit aef6af6 (ilk birden çok hedef kuralı).
