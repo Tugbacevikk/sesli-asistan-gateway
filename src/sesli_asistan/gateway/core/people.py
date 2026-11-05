@@ -127,7 +127,7 @@ def _by_title(index: DirectoryIndex, words: list[str]) -> list[Contact]:
             if res.match in (Match.SINGLE_HIGH, Match.MULTIPLE) and not res.truncated:
                 for cand in res.candidates:
                     c = cand.contact
-                    if c.kind == "person" and c.title and cand.score >= index.high_score:
+                    if c.kind != "department" and c.title and cand.score >= index.high_score:
                         found[c.id] = c
         if found:
             return list(found.values())
@@ -153,7 +153,7 @@ def _by_coverage(index: DirectoryIndex, words: list[str]) -> list[Contact]:
     uyarsa unvanında sözde geçmeyen sözcüğü en az olan(lar) ("komutan yardımcısı" değil "komutan"). Tek sözcükte
     ("kaymakam") yalnız unvanın tamamı o sözcükse."""
     people = [(c, _words(c.title), _words(c.title) | _words(c.department))
-              for c in index.contacts() if c.kind == "person" and c.title]
+              for c in index.contacts() if c.kind != "department" and c.title]      # kişi ve makam hattı
     for i in reversed(range(len(words))):        # Türkçede unvanın başı sonda: "komutan yardımcısı" → yardımcı
         if not is_role_word(words[i]):
             continue

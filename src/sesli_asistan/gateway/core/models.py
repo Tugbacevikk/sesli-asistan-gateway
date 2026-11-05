@@ -21,11 +21,13 @@ class Contact:
     department_aliases: tuple[str, ...] = ()
     updated_at: str = ""
     deleted: bool = False
-    kind: str = "person"          # "person" | "department" (birimin genel hattı)
+    kind: str = "person"          # "person" | "department" (birimin genel hattı) | "role" (makam hattı, ADR-030)
 
     @property
     def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}".strip() or self.department
+        """Görünen / söylenen ad: kişinin adı, makam hattının unvanı, birim hattının birimi."""
+        return (f"{self.first_name} {self.last_name}".strip() or (self.title if self.kind == "role" else "")
+                or self.department)
 
     @classmethod
     def from_api(cls, d: dict[str, Any]) -> Contact:

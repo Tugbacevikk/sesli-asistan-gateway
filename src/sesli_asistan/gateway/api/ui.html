@@ -984,7 +984,7 @@ $("upFile").onchange = async () => {
     upToken = d.token; upErrors = d.errors; upRemoved = d.diff.removed;
     upTotal = d.diff.removed + d.diff.changed + d.diff.unchanged;
     const df = d.diff, li = (a) => a.map((x) => `<li>${esc(x.name)} · ${esc(x.department || "–")} · ${esc(x.extension)}</li>`).join("");
-    let h = `<p><b>${d.contacts}</b> kayıt alınacak (${d.rows} satır). Yeni: <b>${df.added}</b> · silinecek: <b>${df.removed}</b>` +
+    let h = `<p><b>${d.contacts}</b> kayıt alınacak (${d.rows} satır${d.skipped ? `, ${d.skipped} boş ya da tekrar satır atlandı` : ""}). Yeni: <b>${df.added}</b> · silinecek: <b>${df.removed}</b>` +
       ` · değişen: <b>${df.changed}</b> · aynı: ${df.unchanged}</p>`;
     h += `<p class="note">Tanınan sütunlar: ${Object.entries(d.columns).map(([k, v]) => esc(v)).join(", ")}</p>`;
     if (df.removed) h += `<p class="status-bad">Silinecek kayıtlar (ilk 10):</p><ul>${li(df.examples.removed)}</ul>`;

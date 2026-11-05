@@ -136,16 +136,16 @@ def test_hatali_satirlar_satir_numarasiyla():
             ["Veli", "Can", "Satış", "0532 123 45 67", "", ""],  # dış hat
             ["Can", "Ak", "Satış", "", "", ""],                # dahili boş
             ["", "", "", "", "", ""],                          # boş satır sayılmaz
-            ["", "", "", "250", "birim", ""],                  # birim adı yok
-            ["Ayşe", "Yılmaz", "Muhasebe", "214", "", ""],     # tekrar
+            ["", "", "", "250", "birim", ""],                  # yalnız kod: kime ait olduğu yok → atlanır
+            ["Ayşe", "Yılmaz", "Muhasebe", "214", "", ""],     # tekrar → alınmaz, uyarı
             ["Su", "Ay", "Satış", "240", "müdür", ""],         # tür anlaşılmadı
             ["Ece", "Su", "Satış", "241", "", "belki"],        # aktarılabilir anlaşılmadı
             ["Deniz", "Er", "Satış", "242", "", "hayır"]]
     res = parse(rows)
     errs = {p.row: p.message for p in res.errors}
-    assert set(errs) == {3, 4, 5, 7, 8, 9, 10}, errs
+    assert set(errs) == {3, 4, 5, 9, 10}, errs
     assert "ad ve soyad" in errs[3] and "dış hat" in errs[4] and "boş" in errs[5]
-    assert "birim adı" in errs[7] and "2. satırın tekrarı" in errs[8]
+    assert res.skipped == 2 and any("8. satır = 2. satır" in p.message for p in res.warnings)
     assert res.rows == 9 and [c["extension"] for c in res.contacts] == ["214", "242"]
     assert res.contacts[1]["transferable"] is False
 

@@ -73,7 +73,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 "sesli_asistan.gateway.api" = ["ui.html"]
-"sesli_asistan.gateway" = ["konular.json"]
+"sesli_asistan.gateway" = ["konular.json", "kisaltmalar.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -45,7 +45,10 @@ ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "
               "komutan", "komutani", "vali", "valisi", "kaymakam", "kaymakami", "baskan", "baskani", "amir", "amiri",
               "savci", "savcisi", "hakim", "hakimi", "rektor", "rektoru", "dekan", "dekani", "mufettis", "mufettisi",
               "yardimci", "yardimcisi", "koordinator", "koordinatoru", "temsilci", "temsilcisi", "mudire",
-              "muavin", "muavini"}
+              "muavin", "muavini",
+              # makam hatlarında (ADR-030): "hukuk müşavirliğinden avukat", "bilgi işlem mühendisi"
+              "avukat", "avukati", "musavir", "musaviri", "muhendis", "muhendisi", "teknisyen", "teknisyeni",
+              "memur", "memuru", "danisman", "danismani", "uzm"}
 
 
 # Unvan kökleri: sözcük bununla başlıyorsa (ekli biçimler: "komutanıyla", "yardımcısına") unvandır; ardından -lık /

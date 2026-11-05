@@ -301,7 +301,7 @@ class DirectoryUpload:
             raise ValueError(st["reason"])
         rows = await asyncio.to_thread(dimp.read_table, data, filename)
         old = self._source()
-        res = await asyncio.to_thread(dimp.parse, rows, old)
+        res = await asyncio.to_thread(dimp.parse, rows, old, getattr(self.rt, "abbreviations", None))
         if not res.contacts:
             raise ValueError("dosyada alınabilecek kayıt yok"
                              + (f": {res.errors[0].message} ({res.errors[0].row}. satır)" if res.errors else ""))
@@ -324,7 +324,7 @@ class DirectoryUpload:
         now = time.monotonic()
         self._pending = {k: v for k, v in self._pending.items() if v[0] > now}
         token = secrets.token_urlsafe(16)
-        summary = {"rows": res.rows, "contacts": len(res.contacts), "errors": len(res.errors),
+        summary = {"rows": res.rows, "contacts": len(res.contacts), "errors": len(res.errors), "skipped": res.skipped,
                    "diff": {k: d[k] for k in ("added", "removed", "changed", "unchanged")}}
         self._pending[token] = (now + self.TTL_S, res.contacts, summary)
         if len(self._pending) > 5:            # bellekte sınırlı önizleme

@@ -91,6 +91,7 @@ class GatewaySettings(BaseSettings):
     mcp_host: str = "127.0.0.1"
     mcp_port: int = Field(8765, ge=1, le=65535)
     mcp_topics_path: str = ""                       # kurumun konu listesi (JSON); boş: ürünle gelen genel liste
+    abbreviations_path: str = ""                    # kurumun kısaltma sözlüğü (JSON, ADR-030); boş: yalnız genel liste
     llm_enabled: bool = True                  # ADR-019: false → Ollama kullanılmaz, kural tabanlı diyalog
     llm_fallback: bool = True                 # ADR-020: LLM düşerse çağrı reddedilmez, kural tabanlı sürer
 
