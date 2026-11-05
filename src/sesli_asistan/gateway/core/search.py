@@ -314,7 +314,6 @@ class _KeyTable:
         self.keys = sorted({k for ks in per_entry for k in ks})
         pos = {k: i for i, k in enumerate(self.keys)}
         self.words = [set(k.split()) for k in self.keys]
-        self.nwords = np.array([len(w) for w in self.words])
         flat: list[int] = []
         starts: list[int] = []
         for ks in per_entry:

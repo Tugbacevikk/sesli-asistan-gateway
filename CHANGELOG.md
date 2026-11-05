@@ -63,6 +63,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- `mcp_person_lookups` metriği konu adımıyla aynı: bulundu / **yok** / hata; MCP düşünce yerelde bulunan kişi "bulundu"
+  sayılmaz. Ölü kod temizliği (kullanılmayan `nwords`, `stream_time`, `RTP_CLOCK`); dialog'daki yinelenen harf
+  katlama ve `_skeleton` adı (people.py'dekiyle karışıyordu → `_vowel_mask`).
 - Çok düşük güvenli sözle çağrı kapanmaz (canlı 05.11.2026: arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve
   çağrı kapandı): güven tekrar eşiğinin altındaysa yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak
   istiyorum") kapatır. Söze giren gürültü yalnız dolgu sesi ("şey") verdiyse de yarıda kalan cümle yinelenir. D130.

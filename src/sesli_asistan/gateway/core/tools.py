@@ -166,12 +166,13 @@ class ToolRegistry:
             except Exception as e:
                 self.person_failures += 1
                 log.warning("MCP kişi çözme olmadı (%s): yerel", e or type(e).__name__)
+        remote = data is not None
         if data is None:
             data = resolve_person(self.index, text)
         cands = tuple(Candidate(c, 100) for a in data.get("adaylar", []) if isinstance(a, dict)
                       if (c := self.index.get(str(a.get("id", "")))) is not None)
-        if cands:
-            self.person_hits += 1
+        if cands and remote:
+            self.person_hits += 1           # metrik: MCP'nin cevabı (konu adımıyla aynı: bulundu / yok / hata)
         sound = tuple(Candidate(c, int(a.get("puan", 0))) for a in data.get("ses") or [] if isinstance(a, dict)
                       if (c := self.index.get(str(a.get("id", "")))) is not None)[:1]
         return cands, bool(data.get("kesin")) and len(cands) == 1, sound

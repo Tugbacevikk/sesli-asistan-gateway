@@ -11,7 +11,6 @@ import numpy as np
 
 PAYLOAD_TYPE = 9
 SAMPLE_RATE = 16000          # ses
-RTP_CLOCK = 8000             # RTP zaman damgası (RFC 3551)
 BIT_RATE = 64000
 
 

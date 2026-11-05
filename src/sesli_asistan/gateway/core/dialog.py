@@ -31,7 +31,7 @@ from sesli_asistan.libs.text.normalizer import turkish_lower
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
-from .search import has_role_word, query_variants, search_key, similarity, strip_suffix
+from .search import _FOLD, has_role_word, query_variants, search_key, similarity, strip_suffix
 from .speech import ABBREVIATIONS, split_sentences
 from .tools import CallToolState, ToolRegistry
 
@@ -405,7 +405,7 @@ class DialogAgent:
         """LLM kapalıyken: sözde operatör isteği, dahili numara, kişi / unvan / birim aranır. Tek aday → aktarma,
         2–3 kişi → soru, bulunamazsa tekrar sor (deneme sayacı; sonunda operatör)."""
         words = search_key(text).split()
-        raw = re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()   # unvanlar atılmadan
+        raw = _folded_words(text)   # unvanlar atılmadan
         if asks_operator(text):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
         index = self.tools.index
@@ -524,7 +524,7 @@ class DialogAgent:
     def _fast_extension(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Sözde rehberdeki bir dahili numara ("214", "iki yüz on dörde"): LLM beklemeden aktarılır (kural modundaki
         gibi; güven düşükse teyit). Canlı deneme 03.11.2026: aynı söz LLM'le 2,8 sn."""
-        raw = re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+        raw = _folded_words(text)
         for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 log.info("[%s] dahili numara: %s → %s", s.call_id, log_text(text), digits)
@@ -769,7 +769,7 @@ class DialogAgent:
             sim = max((similarity(v, last) for w in long_words for v in query_variants(w)), default=0.0)
             # aynı sesle biten bozuk duyuş, ünlü uyumu dahil: "yılmaz" → "yaramaz", "duymaz", "yüzmez", "gülmez"
             # (mihu, canlı 03.11.2026)
-            ending = any(len(last) >= 4 and _skeleton(w)[-3:] == _skeleton(last)[-3:] for w in long_words)
+            ending = any(len(last) >= 4 and _vowel_mask(w)[-3:] == _vowel_mask(last)[-3:] for w in long_words)
             return round(max(sim, FUZZY_CHOICE_MIN + 5 if ending else 0.0), 1)
 
         scores = [score(search_key(c.contact.last_name)) for c in choice]
@@ -867,7 +867,7 @@ class DialogAgent:
 
     def _mentions_target(self, text: str) -> bool:
         """Sözde aranacak biri / bir birim / operatör / dahili numara var mı ("vazgeçtim, Mehmet Kaya'ya bağla")."""
-        raw = turkish_lower(text).translate(_ASCII).split()
+        raw = turkish_lower(text).translate(_FOLD).split()
         if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS or any(ch.isdigit() for ch in text):
             return True
         words = search_key(text).split()
@@ -1178,7 +1178,6 @@ class DialogAgent:
         return DialogTurn(text, [OperatorAction(reason=reason)], fallback=True)
 
 
-_ASCII = str.maketrans("çğıöşü", "cgiosu")
 # arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
 _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
 FUZZY_CHOICE_MIN = 70.0       # seçim cevabında soyada yakınlık (teyitle sorulur)
@@ -1195,7 +1194,7 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
 
 
 def _folded_words(text: str) -> list[str]:
-    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_ASCII).split()
+    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
 
 
 _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
@@ -1229,7 +1228,7 @@ def is_greeting_only(text: str) -> bool:
         "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"})
 
 
-def _skeleton(word: str) -> str:
+def _vowel_mask(word: str) -> str:
     """Ünlüleri tek işarete indirir ("yılmaz", "yüzmez" → "y?lm?z"): ünlü uyumuyla bozulan sonlar için."""
     return re.sub(r"[aeıioöuü]", "?", word)
 
@@ -1286,7 +1285,7 @@ def asks_operator(text: str) -> bool:
 def wants_hangup(text: str, strict: bool = False) -> bool:
     """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz". `strict`
     (STT güveni çok düşük): kök yalnız kurallı bir fiil ekiyle ("kapatın", "kapatabilirsiniz"; "kapatıya" değil)."""
-    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_ASCII)).split())
+    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_FOLD)).split())
     words = t.split()
     for w in words:
         # olumsuz: "kapatma", "kapatmayın", "sonlandırmadan" (ama "kapatmak", "sonlandırmak" olumlu)

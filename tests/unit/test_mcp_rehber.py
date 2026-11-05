@@ -283,3 +283,24 @@ async def test_akis_ayarlarla_kurulur(index):
     assert isinstance(a.tools.remote, McpRehber) and a.cfg.mcp_step and not a.tools.remote_search
     b = build_agent(GatewaySettings(_env_file=None, mcp_step=True, llm_tools="mcp"), d, llm=object())
     assert b.tools.remote_search
+
+
+async def test_kisi_cozme_sayaclari_yalniz_mcp_cevabini_sayar(index):
+    # mcp_person_lookups metriği: bulundu / yok / hata (konu adımıyla aynı); MCP düşünce yerelde bulunan "bulundu"
+    # sayılmaz (sayaçlar tutarsız kalıyordu: "yok" = çağrı - bulundu - hata eksiye düşebilirdi)
+    class Remote:
+        def __init__(self, fail):
+            self.fail = fail
+
+        async def resolve_person(self, text):
+            if self.fail:
+                raise ConnectionError("yok")
+            return {"adaylar": [{"id": "c-101", "neden": "ad"}] if "ayşe" in text else [], "kesin": False, "ses": []}
+
+    tools = ToolRegistry(index, remote=Remote(False))
+    await tools.resolve_person("ayşe yılmaz")
+    await tools.resolve_person("filanca")
+    assert (tools.person_calls, tools.person_hits, tools.person_failures) == (2, 1, 0)
+    tools = ToolRegistry(index, remote=Remote(True))
+    cands, _, _ = await tools.resolve_person("muhasebe müdürü ayşe yılmaz")
+    assert (tools.person_calls, tools.person_hits, tools.person_failures) == (1, 0, 1)

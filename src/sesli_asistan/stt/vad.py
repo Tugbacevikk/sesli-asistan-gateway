@@ -155,10 +155,6 @@ class Segmenter:
         self._start_frame = 0
         self._announced = False
 
-    @property
-    def stream_time(self) -> float:
-        return self._frames_seen * FRAME_SEC
-
     def _audio(self) -> np.ndarray:
         return np.concatenate(self._frames) if self._frames else np.zeros(0, dtype=np.float32)
 
