@@ -919,6 +919,24 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Sesli set beşinci tur ve makam rehberi önizlemesi (5 Kasım 2026, 14:40; commit 08fecb8, Tuğba'nın dizüstü)
+
+| hat | arka plan | WER | doğru | teyitle | kaçırma | yanlış teyit | YANLIŞ EYLEM |
+|---|---|---|---|---|---|---|---|
+| G.711 | temiz | %11,4 | 73 | 4 | 3 | 0 | 0 |
+| G.711 | konuşma 10 | %77,9 | 38 | 5 | 15 | 21 | 1 |
+| G.722 | temiz | %6,8 | 76 | 1 | 3 | 0 | 0 |
+| G.722 | konuşma 10 | %75,7 | 37 | 6 | 14 | 21 | 2 |
+
+- **Karışık seste yanlış eylem: 36 → 8 → 3** (aynı ses; yalnız diyalog kuralları değişti). Kalan 3 metinden ayırt
+  edilemez: "teknik teşekküremi unuttum" ×2 ("şifremi" tamamen bozuk, konu yok → Teknik Destek), "can öztürk senin
+  aydın orada mı" (arayan rehberden silinmiş kişiyi istiyor). Bunlar için ses seviyesi kapısı gerekir.
+- Temiz seste yanlış eylem yine 0.
+- Arayüzden makam rehberi önizlemesi (kaydedilmedi): 3.508 kayıt alınacak, 2.729 satır atlandı, 1 hata — bulut
+  ölçümüyle aynı. Açılımı bilinmeyen 475 kısaltmanın en sıkları: A. (922), Kt. (904), Dent. (868), Tyn. (834),
+  Sb. (556), Krm. (484), Müc. (470), Bl. (410), Bilş. (388), Trf. (388), Erb. (280), Gör. (268), Me. (268),
+  Prj. (242), Elm. (238) — kurumun sözlüğü gerekiyor.
+
 ### Makam hatlı rehber ve sesli set dördüncü tur (5 Kasım 2026, 14:00–15:00; bulut, kural modu)
 
 **Makam rehberi** (test için hazırlanmış döküm, 8.421 satır; repoya girmedi, yalnız bellekte ölçüldü): şimdiye
