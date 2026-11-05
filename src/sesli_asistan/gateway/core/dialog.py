@@ -29,6 +29,27 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
+from .phrases import (
+    _FAST_BLOCK,
+    _FILLER,
+    _NEGATION,
+    _OPERATOR_WORDS,
+    _ORDINALS,
+    _YES,
+    _folded_words,
+    _vowel_mask,
+    asks_office_hours,
+    asks_operator,
+    dative,
+    is_greeting_only,
+    maybe_operator,
+    question_particle,
+    spoken_numbers,
+    strip_fillers,
+    unknown_target,
+    wants_hangup,
+    which_question,
+)
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
 from .search import _FOLD, has_role_word, query_variants, search_key, similarity, strip_suffix
@@ -149,10 +170,55 @@ class DialogConfig:
     texts: DialogTexts = field(default_factory=DialogTexts)
 
 
-# Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
-_FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
-               "ama", "veya", "ya", "kim", "hangi", "nerede", "numara", "numarasi", "dahili",
-               "ne", "neden", "niye", "nasil", "alaka", "alakasi", "yanlis", "diyorsun", "dedin", "mu"}
+@dataclass
+class _Utterance:
+    """Bir sözün adımlar boyunca taşınan bilgisi. Açık sorular (teyit, operatör teyidi) sözle kapanır; burada
+    saklanır ki cevap vermeyen adımlar (selam, mesai sorusu) `reopen` ile geri açabilsin."""
+
+    text: str
+    lenient: bool                       # söze girildi: anlaşılmazsa deneme sayılmaz
+    confirm: Candidate | None           # açık teyit sorusunun adayı
+    suggested: bool                     # o teyit bir öneriydi (konudan birim)
+    op_confirm: bool                    # açık "operatöre mi?" sorusu
+    low: bool                           # STT güveni tekrar eşiğinin altında
+    choice: tuple[Candidate, ...] = ()  # açık "hangisi?" sorusunun adayları (`_step_choice` alır)
+    sound: tuple[Candidate, ...] = ()   # ses benzerliği adayı (`_step_mcp` bulur, `_step_sound_alike` kullanır)
+
+    def reopen(self, s: DialogSession) -> None:
+        s.state.confirm, s.state.confirm_suggested = self.confirm, self.suggested if self.confirm else False
+        s.state.confirm_operator = self.op_confirm
+
+
+# Akış (tasarim.md 8, ADR-016/017/019/023/025/026): adımların sırası anlamlıdır, değiştirmeden önce senaryo setleri
+# (tests/data/diyalog_seti*.yaml) çalıştırılmalı. Örnekler: ses benzerliği operatör kuralından ve tekrar kapısından
+# sonra ("efsane" = operatöre, D68); mesai sorusu teyit cevabından önce ("mesai ne?" teyidi kapatmaz).
+@dataclass
+class _Run:
+    """Bir LLM döngüsünün (`_run`) durumu."""
+
+    caller_turn: bool       # arayanın sözü (False: santral olayından sonra)
+    found: bool = False     # bu sözde rehberde biri bulundu
+    failed: bool = False    # bu sözde arama bir şey bulamadı (deneme bir kez sayılır)
+    stop: bool = False      # araç bu turu bitirdi (operatör)
+
+
+STEPS = (
+    "_step_greeting",           # yalnız selam: açık soru yinelenir
+    "_step_office_hours",       # mesai sorusu: kodla cevap
+    "_step_confirm",            # açık teyit sorusunun cevabı
+    "_step_operator_confirm",   # açık "operatöre mi?" sorusunun cevabı
+    "_step_asks_operator",      # "operatöre bağlayın"
+    "_step_hangup",             # "görüşmeyi sonlandırmak istiyorum"
+    "_step_choice",             # açık "hangisi?" sorusunun cevabı
+    "_step_fast_path",          # 1. rehber: tam ad, birim
+    "_step_fast_clarify",       # 1. rehber: "hangisi?" sorusu
+    "_step_fast_extension",     # 1. rehber: dahili numara
+    "_step_mcp",                # 2. MCP: kişi çözme, konu → birim
+    "_step_unknown_target",     # hedef anlaşılmadı: operatör teyidi
+    "_step_repeat_gate",        # STT güveni çok düşük: tekrar istenir
+    "_step_sound_alike",        # ses benzerliği: teyitle
+    "_step_answer",             # 3. LLM (ya da kural modu)
+)
 
 
 class DialogSession:
@@ -193,21 +259,6 @@ class DialogSession:
         return DialogTurn(text, fallback=True)
 
 
-_BACK, _FRONT = set("aıou"), set("eiöü")
-
-
-def dative(name: str) -> str:
-    """Özel ada Türkçe yönelme hâli eki (ünlü uyumu): Kartal → Kartal'a, Bursa → Bursa'ya, Deniz → Deniz'e."""
-    word = (name or "").strip()
-    vowels = [ch for ch in word.lower() if ch in _BACK | _FRONT]
-    if not vowels:
-        return word
-    suffix = "a" if vowels[-1] in _BACK else "e"
-    if word[-1].lower() in _BACK | _FRONT:
-        suffix = "y" + suffix
-    return f"{word}'{suffix}"
-
-
 GREETING_NO_ORG = "Hoş geldiniz. Ben sesli asistanım, kiminle görüşmek istersiniz?"
 
 
@@ -235,18 +286,6 @@ MAX_BARGE_REPEATS = 2   # söze girme anlaşılmadığında yarıda kalan cümle
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
 _BRACKETS = re.compile(r"[\[\]]")
-# Dolgu sesleri (katlanmış): "eee merhaba", "ıı ayşe hanım", tek başına "e" — sözden atılır. "hı" yok: "hı hı" = evet.
-# Canlı deneme 04.11.2026: "eee merhaba" selam sayılmayıp LLM'e gitti (4,3 sn, "yine bulamadım"); "e" de LLM'e gitti.
-_FILLERS = {"e", "ee", "eee", "eeee", "eeeee", "ii", "iii", "iiii", "mm", "mmm", "hm", "hmm", "hmmm", "eh", "ehh",
-            "ehm", "eem", "aa", "aaa", "sey", "seyy"}
-
-
-def strip_fillers(text: str) -> str:
-    """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
-    return " ".join(w for w in text.split() if not (_folded_words(w) and _folded_words(w)[0] in _FILLERS
-                                                     and len(_folded_words(w)) == 1))
-
-
 def clean_reply(text: str) -> str:
     """Seslendirilecek metin: düşünme blokları, markdown işaretleri ve fazla boşluk atılır."""
     t = _MARKDOWN.sub("", _THINK.sub("", text or ""))
@@ -292,111 +331,172 @@ class DialogAgent:
         return turn
 
     async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
+        """Arayanın bir sözü: hazırlık, sonra adımlar sırayla (`STEPS`); ilk cevap veren adım turu bitirir."""
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
         only_fillers = bool(text) and not (text := strip_fillers(text))
-        lenient, s.after_barge_in = s.after_barge_in, False
-        confirm, s.state.confirm = s.state.confirm, None
-        suggested, s.state.confirm_suggested = s.state.confirm_suggested, False
-        op_confirm, s.state.confirm_operator = s.state.confirm_operator, False
-        if not text:
-            if confirm is not None:
-                s.state.confirm, s.state.confirm_suggested = confirm, suggested    # soru hâlâ açık
-            s.state.confirm_operator = op_confirm
-            if only_fillers:
-                # yalnız "eee", "ıı": arayan düşünüyor; deneme sayılmaz, açık soru ya da "anlayamadım" (LLM yok)
-                log.info("[%s] yalnız dolgu sesi", s.call_id)
-                if lenient and not self.pending_question(s) and (again := self._repeat_cut(s)) is not None:
-                    return again                 # canlı 05.11.2026: söze giren gürültü "şey" (0,31) → "anlayamadım"
-                reply = self._reply(s, self.pending_question(s) or self.cfg.texts.not_understood)
-                reply.fast = True
-                return reply
-            if lenient and (again := self._repeat_cut(s)) is not None:
-                return again
-            return self._failure(s, count=not lenient)
-        s.history.append({"role": "user", "content": text})
-        if not (s.stt_confidence is not None and 0 < s.stt_confidence < self.cfg.repeat_below):
-            s.state.barge_repeats = 0       # anlaşılır söz: gürültü yinelemesi sayacı sıfırlanır
-        if is_greeting_only(text):
-            # "selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
-            # (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)
-            s.state.confirm, s.state.confirm_operator = confirm, op_confirm
-            s.state.confirm_suggested = suggested
-            log.info("[%s] yalnız selam: %s", s.call_id, log_text(text))
-            reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
-            reply.fast = True
-            return reply
-        if asks_office_hours(text) and not self._mentions_target(text):
-            # "saat kaça kadar açıksınız", "mesai saatleri ne": kodla cevap, açık soru yinelenir, deneme sayılmaz
-            # (canlı 04.11.2026: LLM'e gitti ve arayan istemeden operatöre bağlandı)
-            s.state.confirm, s.state.confirm_suggested, s.state.confirm_operator = confirm, suggested, op_confirm
-            texts = self.cfg.texts
-            hours = (texts.office_hours.format(saatler=self.cfg.office_hours) if self.cfg.office_hours
-                     else texts.office_hours_unknown)
-            log.info("[%s] mesai sorusu: %s", s.call_id, log_text(text))
-            reply = self._reply(s, f"{hours} {self.pending_question(s) or texts.ask_target}")
-            reply.fast = True
-            return reply
-        if confirm is not None and (turn := self._resolve_confirm(s, text, confirm, suggested)) is not None:
-            return turn
-        if op_confirm and (turn := self._resolve_operator_confirm(s, text)) is not None:
-            return turn
-        if self.cfg.fast_path and asks_operator(text) and not self._mentions_person_or_department(text):
-            # "operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)
-            log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(text))
-            return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
-        low = s.stt_confidence is not None and 0 < s.stt_confidence < self.cfg.repeat_below
-        if wants_hangup(text, strict=low) and not self._mentions_target(text):
-            # çok düşük güvenle yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak istiyorum"); canlı 05.11.2026:
-            # arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve çağrı kapandı. Gerisi aşağıdaki tekrar kapısına
-            log.info("[%s] arayan kapatmak istedi: %s", s.call_id, log_text(text))
-            s.state.actions = []
-            s.history.append({"role": "assistant", "content": self.cfg.texts.goodbye})
-            return DialogTurn(self.cfg.texts.goodbye, [HangupAction("arayan_istedi")])
-        choice, s.state.choice = s.state.choice, ()
-        if choice and self.cfg.clarify_by_code and (turn := self._resolve_choice(s, text, choice)) is not None:
-            return turn
-        if (choice and self.cfg.clarify_by_code and not set(_folded_words(text)) & (_NEGATION | {"bilmiyorum"})
-                and not self._mentions_target(text)):
-            return self._repeat_choice(s, choice)
-        if self.cfg.fast_path and (turn := self._fast_path(s, text)) is not None:
-            return turn
-        failed_before = s.state.failed_attempts
-        if self.cfg.fast_path and self.cfg.clarify_by_code and (turn := self._fast_clarify(s, text)) is not None:
-            asked: tuple[Candidate, ...] = s.state.choice   # (mypy: yukarıdaki atama () olarak daraltıyor)
-            if choice and {x.contact.id for x in asked} == {x.contact.id for x in choice}:
-                # aynı soru yeniden: ilerleme yok, deneme sayılır (canlı 03.11.2026: "ayşe ırmak", "ayşe yüzmez"…
-                # her seferinde aynı soru, sayaç sıfırlandığı için hiç operatöre gitmedi)
-                s.state.failed_attempts = failed_before
-                if (op := self._count_failure(s)) is not None:
-                    return op
-            return turn
-        if self.cfg.fast_path and (turn := self._fast_extension(s, text)) is not None:
-            return turn
-        sound: tuple[Candidate, ...] = ()
-        if self.cfg.mcp_step:
-            turn, sound = await self._mcp_step(s, text)
-            if turn is not None:
-                return turn
-        if (self.cfg.fast_path and (unknown_target(text) is not None or maybe_operator(text))
-                and not spoken_numbers(_folded_words(text)) and not self._mentions_person_or_department(text)):
-            return self._confirm_operator(s, text)
         c = s.stt_confidence
-        if c is not None and 0 < c < self.cfg.repeat_below:
-            log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, c, log_text(text))
-            if choice:
-                return self._repeat_choice(s, choice)  # "hangisi?" sorusu yinelenir ve açık kalır
-            if lenient and (again := self._repeat_cut(s)) is not None:
-                return again
-            return self._failure(s, count=not lenient)
-        if sound:
-            # STT adı bozmuş olabilir ("ağlayamaz" → Ayşe Yılmaz): ses benzerliği, LLM'den hemen önce ve her zaman
-            # teyitle (ADR-026). Operatör kuralından ve düşük güven kapısından sonra: "efsane" (= "operatöre") Elif
-            # Şahin'e benzetilmesin (D68).
-            log.info("[%s] ses benzerliği (MCP): %s → %s (%d)", s.call_id, log_text(text),
-                     sound[0].contact.extension, sound[0].score)
-            return self._confirm(s, sound[0].contact, why="ses benzerliği")
+        u = _Utterance(text=text, lenient=s.after_barge_in, confirm=s.state.confirm,
+                       suggested=s.state.confirm_suggested, op_confirm=s.state.confirm_operator,
+                       low=c is not None and 0 < c < self.cfg.repeat_below)
+        # açık sorular bu sözle kapanır; cevaplamayan adımlar (selam, mesai) `u.reopen` ile geri açar
+        s.after_barge_in = False
+        s.state.confirm, s.state.confirm_suggested, s.state.confirm_operator = None, False, False
+        if not text:
+            return self._empty_turn(s, u, only_fillers)
+        s.history.append({"role": "user", "content": text})
+        if not u.low:
+            s.state.barge_repeats = 0       # anlaşılır söz: gürültü yinelemesi sayacı sıfırlanır
+        for name in STEPS:
+            if (turn := await getattr(self, name)(s, u)) is not None:
+                log.debug("[%s] cevap veren adım: %s", s.call_id, name)
+                return turn
+        raise AssertionError("son adım (_step_answer) her zaman cevap verir")
+
+    def _empty_turn(self, s: DialogSession, u: _Utterance, only_fillers: bool) -> DialogTurn:
+        """STT boş ya da yalnız dolgu sesi ("eee", "şey") verdi: açık soru açık kalır."""
+        u.reopen(s)
+        if only_fillers:
+            # arayan düşünüyor; deneme sayılmaz, açık soru ya da "anlayamadım" (LLM yok)
+            log.info("[%s] yalnız dolgu sesi", s.call_id)
+            if u.lenient and not self.pending_question(s) and (again := self._repeat_cut(s)) is not None:
+                return again                 # canlı 05.11.2026: söze giren gürültü "şey" (0,31) → "anlayamadım"
+            reply = self._reply(s, self.pending_question(s) or self.cfg.texts.not_understood)
+            reply.fast = True
+            return reply
+        if u.lenient and (again := self._repeat_cut(s)) is not None:
+            return again
+        return self._failure(s, count=not u.lenient)
+
+    # --- adımlar (sıra: STEPS; her biri DialogTurn ya da None — None: sıradaki adım) ---
+
+    async def _step_greeting(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """"selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
+        (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)."""
+        if not is_greeting_only(u.text):
+            return None
+        u.reopen(s)
+        log.info("[%s] yalnız selam: %s", s.call_id, log_text(u.text))
+        reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
+        reply.fast = True
+        return reply
+
+    async def _step_office_hours(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """"saat kaça kadar açıksınız", "mesai saatleri ne": kodla cevap, açık soru yinelenir, deneme sayılmaz
+        (canlı 04.11.2026: LLM'e gitti ve arayan istemeden operatöre bağlandı)."""
+        if not asks_office_hours(u.text) or self._mentions_target(u.text):
+            return None
+        u.reopen(s)
+        texts = self.cfg.texts
+        hours = (texts.office_hours.format(saatler=self.cfg.office_hours) if self.cfg.office_hours
+                 else texts.office_hours_unknown)
+        log.info("[%s] mesai sorusu: %s", s.call_id, log_text(u.text))
+        reply = self._reply(s, f"{hours} {self.pending_question(s) or texts.ask_target}")
+        reply.fast = True
+        return reply
+
+    async def _step_confirm(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Açık teyit sorusunun ("X'e mi bağlamamı istersiniz?") cevabı."""
+        if u.confirm is None:
+            return None
+        return self._resolve_confirm(s, u.text, u.confirm, u.suggested)
+
+    async def _step_operator_confirm(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Açık "operatöre mi bağlamamı istersiniz?" sorusunun cevabı."""
+        return self._resolve_operator_confirm(s, u.text) if u.op_confirm else None
+
+    async def _step_asks_operator(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """"operatöre bağlanmak istiyorum": LLM beklemeden (dizüstü ölçümde LLM turu 7–8 sn)."""
+        if not (self.cfg.fast_path and asks_operator(u.text) and not self._mentions_person_or_department(u.text)):
+            return None
+        log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(u.text))
+        return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
+
+    async def _step_hangup(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Kapatma isteği. Çok düşük güvenle yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak istiyorum");
+        canlı 05.11.2026: arkadaki boğuk ses "kapatıya geç" (0,31) duyuldu ve çağrı kapandı."""
+        if not wants_hangup(u.text, strict=u.low) or self._mentions_target(u.text):
+            return None
+        log.info("[%s] arayan kapatmak istedi: %s", s.call_id, log_text(u.text))
+        s.state.actions = []
+        s.history.append({"role": "assistant", "content": self.cfg.texts.goodbye})
+        return DialogTurn(self.cfg.texts.goodbye, [HangupAction("arayan_istedi")])
+
+    async def _step_choice(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Açık "X mı, Y mi?" sorusunun cevabı; cevap değilse ve yeni bir istek de değilse soru yinelenir."""
+        u.choice, s.state.choice = s.state.choice, ()
+        if not (u.choice and self.cfg.clarify_by_code):
+            return None
+        if (turn := self._resolve_choice(s, u.text, u.choice)) is not None:
+            return turn
+        if not set(_folded_words(u.text)) & (_NEGATION | {"bilmiyorum"}) and not self._mentions_target(u.text):
+            return self._repeat_choice(s, u.choice)
+        return None
+
+    async def _step_fast_path(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """1. rehber, hızlı yol (ADR-016): tam ad, birim hattı."""
+        return self._fast_path(s, u.text) if self.cfg.fast_path else None
+
+    async def _step_fast_clarify(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """1. rehber: ad birden çok kişiye uyuyor → "hangisi?" (ADR-017)."""
+        if not (self.cfg.fast_path and self.cfg.clarify_by_code):
+            return None
+        failed_before = s.state.failed_attempts
+        if (turn := self._fast_clarify(s, u.text)) is None:
+            return None
+        if u.choice and {x.contact.id for x in s.state.choice} == {x.contact.id for x in u.choice}:
+            # aynı soru yeniden: ilerleme yok, deneme sayılır (canlı 03.11.2026: "ayşe ırmak", "ayşe yüzmez"…
+            # her seferinde aynı soru, sayaç sıfırlandığı için hiç operatöre gitmedi)
+            s.state.failed_attempts = failed_before
+            if (op := self._count_failure(s)) is not None:
+                return op
+        return turn
+
+    async def _step_fast_extension(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """1. rehber: söylenen dahili numara."""
+        return self._fast_extension(s, u.text) if self.cfg.fast_path else None
+
+    async def _step_mcp(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """2. MCP: kişi çözme (unvan, birim + ad, ad + hitap; ADR-025) ve konu → birim (ADR-023). Ses benzerliği
+        adayı burada kullanılmaz, `u.sound`'a yazılır (`_step_sound_alike`)."""
+        if not self.cfg.mcp_step:
+            return None
+        turn, u.sound = await self._mcp_step(s, u.text)
+        return turn
+
+    async def _step_unknown_target(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Hedef anlaşılmadı ("afiyete bağlanmak istiyorum" = operatöre): operatör teyidi."""
+        if (self.cfg.fast_path and (unknown_target(u.text) is not None or maybe_operator(u.text))
+                and not spoken_numbers(_folded_words(u.text)) and not self._mentions_person_or_department(u.text)):
+            return self._confirm_operator(s, u.text)
+        return None
+
+    async def _step_repeat_gate(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """STT güveni tekrar eşiğinin altında: LLM'e gitmez, tekrar istenir (açık "hangisi?" yinelenir; söze girmede
+        yarıda kalan cümle)."""
+        if not u.low:
+            return None
+        log.info("[%s] STT güveni çok düşük (%.2f): tekrar istendi: %s", s.call_id, s.stt_confidence or 0,
+                 log_text(u.text))
+        if u.choice:
+            return self._repeat_choice(s, u.choice)  # "hangisi?" sorusu yinelenir ve açık kalır
+        if u.lenient and (again := self._repeat_cut(s)) is not None:
+            return again
+        return self._failure(s, count=not u.lenient)
+
+    async def _step_sound_alike(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """STT adı bozmuş olabilir ("ağlayamaz" → Ayşe Yılmaz): ses benzerliği, LLM'den hemen önce ve her zaman
+        teyitle (ADR-026). Operatör kuralından ve tekrar kapısından sonra: "efsane" (= "operatöre") Elif Şahin'e
+        benzetilmesin (D68)."""
+        if not u.sound:
+            return None
+        log.info("[%s] ses benzerliği (MCP): %s → %s (%d)", s.call_id, log_text(u.text),
+                 u.sound[0].contact.extension, u.sound[0].score)
+        return self._confirm(s, u.sound[0].contact, why="ses benzerliği")
+
+    async def _step_answer(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """3. LLM (ya da LLM kapalıyken kural modu, ADR-019): her zaman cevap verir."""
         if not self.cfg.llm_enabled:
-            return self._rule_turn(s, text)
+            return self._rule_turn(s, u.text)
         return await self._run(s)
 
     # --- LLM'siz diyalog (ADR-019) ---
@@ -404,18 +504,44 @@ class DialogAgent:
     def _rule_turn(self, s: DialogSession, text: str) -> DialogTurn:
         """LLM kapalıyken: sözde operatör isteği, dahili numara, kişi / unvan / birim aranır. Tek aday → aktarma,
         2–3 kişi → soru, bulunamazsa tekrar sor (deneme sayacı; sonunda operatör)."""
-        words = search_key(text).split()
-        raw = _folded_words(text)   # unvanlar atılmadan
         if asks_operator(text):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
-        index = self.tools.index
-        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
+        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(_folded_words(text))]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 return self._code_transfer(s, r.candidates[0])
+        people, depts, more = self._rule_scan(search_key(text).split())
+        if people and depts:
+            narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
+            if not narrowed and len(people) == 1:
+                # söylenen birim kişinin birimi değil ("satıştan Burak Bey"; Burak Çelik muhasebede): aktarılmaz,
+                # sorulur (diyalog seti D29: kural modunda birim yok sayılıp aktarılıyordu)
+                return self._confirm(s, next(iter(people.values())).contact)
+            people = narrowed or people
+        cands = sorted(people.values(), key=lambda c: -c.score)
+        if not cands and len(depts) == 1:
+            pick, cands = self._department_target(next(iter(depts)))
+            if pick is not None:
+                return self._code_transfer(s, Candidate(pick, 100))
+        if len(cands) == 1 and not more:
+            return self._code_transfer(s, cands[0])
+        if len(cands) > 1 or more:
+            s.state.last_results = tuple(cands[:3])
+            s.state.truncated = more or len(cands) > 3
+            if (turn := self._clarify(s, s.state.last_results)) is not None:
+                s.state.failed_attempts = 0
+                return turn
+            s.state.choice = ()
+            return self._reply(s, self.cfg.texts.too_many)
+        s.state.misses.append(text)
+        return self._not_found(s)
+
+    def _rule_scan(self, words: list[str]) -> tuple[dict[str, Candidate], set[str], bool]:
+        """Sözün 3, 2, 1 sözcüklük pencereleri rehberde: (kişiler, söylenen birimler, gösterilenden çok aday var mı)."""
+        index = self.tools.index
         people: dict[str, Candidate] = {}
         depts: set[str] = set()
         short_keys = {k for c in index.contacts() for k in map(search_key, c.department_aliases) if len(k) < 3}
-        more = False                      # bir aramada gösterilenden çok aday vardı
+        more = False
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
@@ -434,34 +560,15 @@ class DialogAgent:
                 for c in res.candidates:
                     if c.score >= index.high_score and c.contact.kind == "person":
                         people.setdefault(c.contact.id, c)
-        if people and depts:
-            narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
-            if not narrowed and len(people) == 1:
-                # söylenen birim kişinin birimi değil ("satıştan Burak Bey"; Burak Çelik muhasebede): aktarılmaz,
-                # sorulur (diyalog seti D29: kural modunda birim yok sayılıp aktarılıyordu)
-                return self._confirm(s, next(iter(people.values())).contact)
-            people = narrowed or people
-        cands = sorted(people.values(), key=lambda c: -c.score)
-        if not cands and len(depts) == 1:
-            dept = next(iter(depts))
-            line = [c for c in index.contacts() if c.kind == "department" and search_key(c.department) == dept]
-            members = [c for c in index.contacts() if c.kind == "person" and search_key(c.department) == dept]
-            pick = line or (members if len(members) == 1 else [])
-            if pick:
-                return self._code_transfer(s, Candidate(pick[0], 100))
-            cands = [Candidate(c, 100) for c in members]
-        if len(cands) == 1 and not more:
-            return self._code_transfer(s, cands[0])
-        if len(cands) > 1 or more:
-            s.state.last_results = tuple(cands[:3])
-            s.state.truncated = more or len(cands) > 3
-            if (turn := self._clarify(s, s.state.last_results)) is not None:
-                s.state.failed_attempts = 0
-                return turn
-            s.state.choice = ()
-            return self._reply(s, self.cfg.texts.too_many)
-        s.state.misses.append(text)
-        return self._not_found(s)
+        return people, depts, more
+
+    def _department_target(self, dept: str) -> tuple[Any, list[Candidate]]:
+        """Yalnız birim söylendi: birimin hattı, yoksa tek kişisi (aktarılacak); birden çok kişi → adaylar."""
+        index = self.tools.index
+        line = [c for c in index.contacts() if c.kind == "department" and search_key(c.department) == dept]
+        members = [c for c in index.contacts() if c.kind == "person" and search_key(c.department) == dept]
+        pick = line or (members if len(members) == 1 else [])
+        return (pick[0], []) if pick else (None, [Candidate(c, 100) for c in members])
 
     def _code_search(self, s: DialogSession, args: dict[str, str]):
         call = ToolCall(id=f"kural_{len(s.history)}", name="InContacts", arguments=args)
@@ -692,25 +799,7 @@ class DialogAgent:
             return self._not_found(s)
         if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
             return None
-        picked: set[int] = set()
-        for i, cand in enumerate(choice):
-            c = cand.contact
-            dept_keys = [k for k in (search_key(c.department), *map(search_key, c.department_aliases)) if k]
-            last = search_key(c.last_name)
-            for w in words:
-                variants = query_variants(w)
-                if last and any(similarity(v, last) >= 90 for v in variants):
-                    picked.add(i)
-                if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= 90)
-                       for k in dept_keys if " " not in k):
-                    picked.add(i)
-            if any(" " in k and k in " ".join(words) for k in dept_keys):
-                picked.add(i)
-            # çok sözcüklü birimin ayırt edici sözcüğü: "Nilüfer Kaymakamlığı mı, İnegöl Kaymakamlığı mı?" → "nilüfer"
-            others = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.department).split()}
-            own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
-            if any(w.startswith(x) or similarity(strip_suffix(w), x) >= 90 for w in words for x in own):
-                picked.add(i)
+        picked = {i for i in range(len(choice)) if _choice_said(choice, i, words)}
         for word, idx in _ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):
                 picked.add(idx % len(choice))
@@ -890,38 +979,12 @@ class DialogAgent:
         words = search_key(text).split()
         if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
             return None
-        index = self.tools.index
-        found: dict[str, tuple[Any, str]] = {}
-        if (c := index.alias_match(text)) is not None and c.kind == "person":
-            found[c.id] = (c, "alias")                # "Ayşe Abla": takma adın tam hâli tek kişiye ait
-        for n in (3, 2, 1):
-            for i in range(len(words) - n + 1):
-                window = " ".join(words[i:i + n])
-                for kind in ("name", "department"):
-                    if kind == "name" and n < 2:
-                        continue                       # yalnız ad ("ayşe") ya da soyad: kime olduğu belirsiz
-                    res = index.search(**{kind: window})
-                    if res.match != Match.SINGLE_HIGH or res.candidates[0].score < self.cfg.fast_path_min_score:
-                        continue
-                    c = res.candidates[0].contact
-                    if kind == "name":
-                        full = search_key(c.full_name)
-                        # unvan ya da takma adla değil, gerçekten ad + soyadla eşleşmeli
-                        if c.kind != "person" or len(full.split()) < 2 or max(
-                                similarity(q, full) for q in query_variants(window)) < self.cfg.fast_path_min_score:
-                            continue
-                    if kind == "department":
-                        if c.kind != "department" or has_role_word(text) or self._mentions_person(words):
-                            continue                   # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
-                    found.setdefault(c.id, (c, kind))
+        found = self._fast_matches(text, words)
         persons = [c for c, kind in found.values() if kind in ("name", "alias") and c.kind == "person"]
         if len(found) >= 2 and len(persons) == len(found) and self.cfg.clarify_by_code:
             # sözde birden çok kişinin tam adı geçiyor ("Ayşe Yılmaz mı Zeynep Arslan mı"): kodla sorulur
-            s.state.truncated = False
-            if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in persons))) is not None:
-                log.info("[%s] birden çok tam ad: %s", s.call_id, ", ".join(c.full_name for c in persons))
-                turn.fast = True
-                return turn
+            log.info("[%s] birden çok tam ad: %s", s.call_id, ", ".join(c.full_name for c in persons))
+            return self._fast_clarify_of(s, persons)
         if len(found) != 1:
             return None                                # hiç ya da birden çok aday: LLM karar versin
         contact, kind = next(iter(found.values()))
@@ -931,10 +994,7 @@ class DialogAgent:
             log.info("[%s] hızlı yol: %s yanında başka soyad (%s) — sorulacak", s.call_id, contact.full_name,
                      ", ".join(c.full_name for c in others))
             if self.cfg.clarify_by_code and len(others) <= 2:
-                s.state.truncated = False
-                if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in [*others, contact]))) is not None:
-                    turn.fast = True
-                    return turn
+                return self._fast_clarify_of(s, [*others, contact])
             return None
         if (kind != "department" and self._mentions_department(words)
                 and not self._mentions_department(words, only=contact)):
@@ -943,8 +1003,44 @@ class DialogAgent:
             return self._confirm(s, contact)
         if self._unsure(s):
             return self._confirm(s, contact)
-        args = ({"Department": contact.department} if kind == "department"
-                else {"Name": contact.full_name})
+        return self._fast_transfer(s, text, contact, kind)
+
+    def _fast_matches(self, text: str, words: list[str]) -> dict[str, tuple[Any, str]]:
+        """Hızlı yolun adayları: kimlik → (kayıt, "alias" | "name" | "department"). Kişi yalnız takma adının tam hâli
+        ya da ad + soyadla; birim yalnız genel hattı ve sözde bir kişi ya da unvan yokken."""
+        index = self.tools.index
+        found: dict[str, tuple[Any, str]] = {}
+        if (c := index.alias_match(text)) is not None and c.kind == "person":
+            found[c.id] = (c, "alias")                # "Ayşe Abla": takma adın tam hâli tek kişiye ait
+        for n in (3, 2, 1):
+            for i in range(len(words) - n + 1):
+                window = " ".join(words[i:i + n])
+                for kind in ("name", "department") if n >= 2 else ("department",):  # yalnız ad / soyad: belirsiz
+                    res = index.search(**{kind: window})
+                    if res.match != Match.SINGLE_HIGH or res.candidates[0].score < self.cfg.fast_path_min_score:
+                        continue
+                    c = res.candidates[0].contact
+                    if kind == "name" and not self._full_name_said(c, window):
+                        continue                       # unvan ya da takma adla değil, gerçekten ad + soyadla
+                    if kind == "department" and (c.kind != "department" or has_role_word(text)
+                                                 or self._mentions_person(words)):
+                        continue                       # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
+                    found.setdefault(c.id, (c, kind))
+        return found
+
+    def _full_name_said(self, c: Any, window: str) -> bool:
+        full = search_key(c.full_name)
+        return (c.kind == "person" and len(full.split()) >= 2
+                and max(similarity(q, full) for q in query_variants(window)) >= self.cfg.fast_path_min_score)
+
+    def _fast_clarify_of(self, s: DialogSession, contacts: list[Any]) -> DialogTurn | None:
+        s.state.truncated = False
+        if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in contacts))) is not None:
+            turn.fast = True
+        return turn
+
+    def _fast_transfer(self, s: DialogSession, text: str, contact: Any, kind: str) -> DialogTurn | None:
+        args = {"Department": contact.department} if kind == "department" else {"Name": contact.full_name}
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
         out = self.tools.execute(call, s.state)
         if out.content.get("match") != "single_high":
@@ -984,91 +1080,121 @@ class DialogAgent:
     # --- LLM döngüsü ---
 
     async def _run(self, s: DialogSession, caller_turn: bool = True) -> DialogTurn:
-        """caller_turn=False: santral olayından sonra (deneme sayacına girmez)."""
-        found = failed = stop = False
+        """LLM döngüsü: en çok `max_tool_rounds` tur (cevap ya da araç çağrıları). caller_turn=False: santral
+        olayından sonra (deneme sayacına girmez, araç verilmez)."""
+        r = _Run(caller_turn)
         for _ in range(self.cfg.max_tool_rounds):
-            try:
-                # Santral olayından sonra LLM yalnızca konuşur: araç verilmez (ölçüm 26.10.2026, D24/D25:
-                # "araç çağırma" istemine rağmen operatöre bağladı / aynı kişiye tekrar aktardı)
-                tools = self.tools.schemas if caller_turn else []
-                # akış: yalnız bu tur operatöre dönüşemeyecekse (söylenen cümle geri alınamaz)
-                # düşük güvende de akış yok: LLM "aktarıyorum" derse teyide dönüşen aktarmayla çelişmesin
-                may_stream = (not caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts) and not (
-                    caller_turn and self._needs_confirm(s))
-                msg = await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
-            except (TimeoutError, LlmError) as e:
-                user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
-                if self.cfg.llm_fallback and caller_turn and user and not s.state.actions and not found:
-                    log.warning("[%s] LLM hatası (%s): bu tur kural tabanlı", s.call_id, e or type(e).__name__)
-                    return self._rule_turn(s, user)
-                log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)
-                return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
-
+            msg = await self._llm_message(s, r)
+            if isinstance(msg, DialogTurn):
+                return msg
             if not msg.tool_calls:
-                text = first_sentences(clean_reply(msg.content), MAX_REPLY_SENTENCES)
-                if caller_turn and not found and not failed and not s.state.actions:
-                    # LLM aramadan cevap verdi ve ilerleme yok: deneme sayılır
-                    if (turn := self._count_failure(s)) is not None:
-                        return turn
-                    if s.state.failed_attempts == self.cfg.max_failed_attempts - 1 and "operatör" not in text:
-                        text = f"{text} {self.cfg.texts.offer_operator_suffix}".strip()
-                return self._reply(s, text)
-
+                return self._llm_text(s, msg.content, r)
             s.history.append(_assistant_tool_message(msg.content, msg.tool_calls))
             for call in msg.tool_calls:
-                if (caller_turn and call.name == "TransferCall"
-                        and (turn := self._confirm_llm_transfer(s, call)) is not None):
+                if (turn := await self._tool_call(s, call, len(msg.tool_calls), r)) is not None:
                     return turn
-                if caller_turn and call.name == "ConnectOperator" and not self._operator_requested(s):
-                    # Canlı 04.11.2026: "başka birine mi, operatöre mi?" sorusuna "mesai saatleri ne" → LLM operatöre
-                    # bağladı. Operatör yalnız arayan isterse ya da teklife "evet" derse (kod denetler).
-                    log.warning("[%s] LLM operatöre bağlamak istedi ama arayan istemedi: reddedildi", s.call_id)
-                    s.history.append(_tool_message(call, {"ok": False, "error": "OPERATOR_NOT_REQUESTED",
-                                                          "detail": "Arayan operatör istemedi; ne istediğini sor."}))
-                    continue
-                out = await self.tools.execute_async(call, s.state)
-                content = dict(out.content)
-                if out.failed_search and caller_turn and not failed:
-                    failed = True
-                    s.state.failed_attempts += 1
-                    if s.state.failed_attempts >= self.cfg.max_failed_attempts:
-                        s.history.append(_tool_message(call, content))
-                        return self._operator(s, self.cfg.texts.to_operator, reason="bulunamadi")
-                    if self.cfg.code_replies and len(msg.tool_calls) == 1:
-                        # ADR-019: "bulamadım" kodla; LLM'e ikinci tur yazdırılmaz
-                        s.history.append(_tool_message(call, content))
-                        s.state.failed_attempts -= 1            # _not_found sayacı kendisi artırır
-                        return self._not_found(s)
-                    if s.state.failed_attempts == self.cfg.max_failed_attempts - 1:
-                        content["note"] = self.cfg.texts.offer_operator_note
-                elif call.name == "InContacts" and not out.failed_search:
-                    found = True
-                    s.state.failed_attempts = 0
-                if (self.cfg.clarify_by_code and caller_turn and call.name == "InContacts"
-                        and content.get("match") == "multiple" and len(msg.tool_calls) == 1):
-                    s.history.append(_tool_message(call, content))
-                    if (turn := self._clarify(s, s.state.last_results)) is not None:
-                        return turn               # ikinci LLM turu beklenmez (ADR-017)
-                    s.history.pop()
-                if (self.cfg.auto_transfer_single_high and call.name == "InContacts"
-                        and content.get("match") == "single_high"):
-                    if caller_turn and self._needs_confirm(s):
-                        if (turn := self._ungrounded(s, call, s.state.last_results[0].contact)) is not None:
-                            return turn
-                        s.history.append(_tool_message(call, content))
-                        return self._confirm(s, s.state.last_results[0].contact)
-                    action = self.tools.transfer(s.state.last_results[0].contact.extension, s.state)
-                    if action is not None:
-                        content["transferred"] = True
-                        s.history.append(_tool_message(call, content))
-                        return self._reply(s, self._transfer_text(action.contact_id))
-                stop = stop or out.stop
-                s.history.append(_tool_message(call, content))
-            if stop:
+            if r.stop:
                 return self._reply(s, self.cfg.texts.to_operator)
-
         log.warning("[%s] araç turu sınırı aşıldı", s.call_id)
         return self._operator(s, self.cfg.texts.error, reason="tur_siniri")
+
+    async def _llm_message(self, s: DialogSession, r: _Run) -> Any:
+        """Bir LLM turu; hata ya da zaman aşımında bu tur kural tabanlı (`llm_fallback`) ya da operatör (DialogTurn)."""
+        # Santral olayından sonra LLM yalnızca konuşur: araç verilmez (ölçüm 26.10.2026, D24/D25: "araç çağırma"
+        # istemine rağmen operatöre bağladı / aynı kişiye tekrar aktardı)
+        tools = self.tools.schemas if r.caller_turn else []
+        # akış: yalnız bu tur operatöre dönüşemeyecekse (söylenen cümle geri alınamaz); düşük güvende de akış yok:
+        # LLM "aktarıyorum" derse teyide dönüşen aktarmayla çelişmesin
+        may_stream = ((not r.caller_turn or s.state.failed_attempts + 1 < self.cfg.max_failed_attempts)
+                      and not (r.caller_turn and self._needs_confirm(s)))
+        try:
+            return await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
+        except (TimeoutError, LlmError) as e:
+            user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+            if self.cfg.llm_fallback and r.caller_turn and user and not s.state.actions and not r.found:
+                log.warning("[%s] LLM hatası (%s): bu tur kural tabanlı", s.call_id, e or type(e).__name__)
+                return self._rule_turn(s, user)
+            log.error("[%s] LLM hatası (%s): operatöre aktarılıyor", s.call_id, e or type(e).__name__)
+            return self._operator(s, self.cfg.texts.error, reason="llm_hatasi")
+
+    def _llm_text(self, s: DialogSession, content: str, r: _Run) -> DialogTurn:
+        """LLM araçsız cevap verdi. Aramadan cevap verdi ve ilerleme yoksa deneme sayılır."""
+        text = first_sentences(clean_reply(content), MAX_REPLY_SENTENCES)
+        if r.caller_turn and not r.found and not r.failed and not s.state.actions:
+            if (turn := self._count_failure(s)) is not None:
+                return turn
+            if s.state.failed_attempts == self.cfg.max_failed_attempts - 1 and "operatör" not in text:
+                text = f"{text} {self.cfg.texts.offer_operator_suffix}".strip()
+        return self._reply(s, text)
+
+    async def _tool_call(self, s: DialogSession, call: ToolCall, n_calls: int, r: _Run) -> DialogTurn | None:
+        """LLM'in bir araç çağrısı: önce kod denetimleri (teyit, operatör izni), sonra araç; sonuca göre kodla
+        cevap (bulamadım, "hangisi?", aktarma) ya da None (sonuç geçmişe yazıldı, LLM devam eder)."""
+        if r.caller_turn and call.name == "TransferCall" and (turn := self._confirm_llm_transfer(s, call)) is not None:
+            return turn
+        if r.caller_turn and call.name == "ConnectOperator" and not self._operator_requested(s):
+            # Canlı 04.11.2026: "başka birine mi, operatöre mi?" sorusuna "mesai saatleri ne" → LLM operatöre
+            # bağladı. Operatör yalnız arayan isterse ya da teklife "evet" derse (kod denetler).
+            log.warning("[%s] LLM operatöre bağlamak istedi ama arayan istemedi: reddedildi", s.call_id)
+            s.history.append(_tool_message(call, {"ok": False, "error": "OPERATOR_NOT_REQUESTED",
+                                                  "detail": "Arayan operatör istemedi; ne istediğini sor."}))
+            return None
+        out = await self.tools.execute_async(call, s.state)
+        content = dict(out.content)
+        if out.failed_search and r.caller_turn and not r.failed:
+            if (turn := self._search_failed(s, call, content, n_calls, r)) is not None:
+                return turn
+        elif call.name == "InContacts" and not out.failed_search:
+            r.found = True
+            s.state.failed_attempts = 0
+        if call.name == "InContacts" and (turn := self._search_result(s, call, content, n_calls, r)) is not None:
+            return turn
+        r.stop = r.stop or out.stop
+        s.history.append(_tool_message(call, content))
+        return None
+
+    def _search_failed(self, s: DialogSession, call: ToolCall, content: dict[str, Any], n_calls: int,
+                       r: _Run) -> DialogTurn | None:
+        """Rehber araması bir şey bulamadı: deneme sayılır; sınırda operatör, tek çağrıda "bulamadım" kodla (ADR-019),
+        sondan bir önceki denemede LLM'e operatör teklif notu."""
+        r.failed = True
+        s.state.failed_attempts += 1
+        if s.state.failed_attempts >= self.cfg.max_failed_attempts:
+            s.history.append(_tool_message(call, content))
+            return self._operator(s, self.cfg.texts.to_operator, reason="bulunamadi")
+        if self.cfg.code_replies and n_calls == 1:
+            # "bulamadım" kodla; LLM'e ikinci tur yazdırılmaz
+            s.history.append(_tool_message(call, content))
+            s.state.failed_attempts -= 1            # _not_found sayacı kendisi artırır
+            return self._not_found(s)
+        if s.state.failed_attempts == self.cfg.max_failed_attempts - 1:
+            content["note"] = self.cfg.texts.offer_operator_note
+        return None
+
+    def _search_result(self, s: DialogSession, call: ToolCall, content: dict[str, Any], n_calls: int,
+                       r: _Run) -> DialogTurn | None:
+        """InContacts sonucu kodla: birden çok → "hangisi?" (ADR-017), tek ve net → aktarma (ADR-012; düşük STT
+        güveninde teyit, sözde geçmeyen hedefte "bulamadım")."""
+        match = content.get("match")
+        if self.cfg.clarify_by_code and r.caller_turn and match == "multiple" and n_calls == 1:
+            s.history.append(_tool_message(call, content))
+            if (turn := self._clarify(s, s.state.last_results)) is not None:
+                return turn               # ikinci LLM turu beklenmez
+            s.history.pop()
+        if not (self.cfg.auto_transfer_single_high and match == "single_high"):
+            return None
+        contact = s.state.last_results[0].contact
+        if r.caller_turn and self._needs_confirm(s):
+            if (turn := self._ungrounded(s, call, contact)) is not None:
+                return turn
+            s.history.append(_tool_message(call, content))
+            return self._confirm(s, contact)
+        action = self.tools.transfer(contact.extension, s.state)
+        if action is None:
+            return None
+        content["transferred"] = True
+        s.history.append(_tool_message(call, content))
+        return self._reply(s, self._transfer_text(action.contact_id))
 
     # --- yardımcılar ---
 
@@ -1178,215 +1304,27 @@ class DialogAgent:
         return DialogTurn(text, [OperatorAction(reason=reason)], fallback=True)
 
 
-# arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
-_HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
 FUZZY_CHOICE_MIN = 70.0       # seçim cevabında soyada yakınlık (teyitle sorulur)
 FUZZY_CHOICE_MARGIN = 10.0    # ...ve öbür adaylardan bu kadar fark (yanlış seçim zaten teyitle sorulur)
-_YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
-        "baglayabilirsiniz"}
-_NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
-_NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
-# kurallı kapatma fiilleri (katlanmış): düşük güvende yalnız bunlar
-_HANGUP_FORM = re.compile(r"(kapat|sonlandir)(|in|iniz|mak|ir|irsiniz|iyorum|abilir\w*|ayim|alim|sana)"
-                          r"|vazgec(tim|tik|iyorum)|gorusuruz|hoscakal(in)?")
-_HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter", "baska bir sey yok",
-                   "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
 
 
-def _folded_words(text: str) -> list[str]:
-    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
-
-
-_GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
-                   "selamun", "aleykum", "aleykumselam", "selamunaleykum", "kolay", "gelsin", "hayirli", "isler",
-                   "nasilsiniz", "nasilsin", "efendim", "evet", "buyurun", "hosbulduk", "tesekkurler", "sagolun",
-                   "tesekkur", "ederim", "duyuyor", "musunuz", "beni", "sesim", "geliyor", "mu"}
-
-
-_HOURS_WORDS = {"acik", "aciliyor", "acilir", "aciyorsunuz", "kapaniyor", "kapanir", "kapatiyorsunuz", "kadar",
-                "kacta", "kaca", "kac", "calisiyorsunuz", "calisiyor"}
-
-
-def asks_office_hours(text: str) -> bool:
-    """Arayan mesai / çalışma saatini soruyor mu: "mesai saatleri ne", "saat kaça kadar açıksınız", "kaçta açılıyor",
-    "çalışma saatleriniz", "açık mısınız"."""
-    words = _folded_words(text)
-    joined = " ".join(words)
-    if "mesai" in joined or "calisma saat" in joined:
-        return True
-    if any(w.startswith("saat") for w in words) and set(words) & _HOURS_WORDS:
-        return True
-    return bool(re.search(r"\b(kacta|kaca kadar) (aciliyor|acilir|kapaniyor|kapanir|aciksiniz|acik)", joined)
-                or re.search(r"\bacik (misiniz|mi)\b", joined))
-
-
-def is_greeting_only(text: str) -> bool:
-    """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı."""
-    raw = _folded_words(text)
-    return bool(raw) and set(raw) <= _GREETING_WORDS and bool(set(raw) & {
-        "selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin", "aksamlar", "selamun", "aleykum",
-        "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"})
-
-
-def _vowel_mask(word: str) -> str:
-    """Ünlüleri tek işarete indirir ("yılmaz", "yüzmez" → "y?lm?z"): ünlü uyumuyla bozulan sonlar için."""
-    return re.sub(r"[aeıioöuü]", "?", word)
-
-
-_CONNECT_VERB = re.compile(r"^(bagla|baglan|aktar)")
-_DATIVE_END = re.compile(r"y?[ea]$")
-
-
-def unknown_target(text: str) -> str | None:
-    """Sözde tek bir (dolgu dışı) hedef kelime + bağlanma fiili var mı: "afiyete bağlanmak istiyorum" → "afiyete".
-    Hedefin rehberde olup olmadığına çağıran bakar. İki kelimelik hedef (ad soyad: "Selin Aydın'a") ya da kısa söz
-    ("ona") sayılmaz."""
-    raw = _folded_words(text)
-    idx = next((i for i, w in enumerate(raw) if _CONNECT_VERB.match(w)), None)
-    if not idx:
-        return None
-    before: list[str] = []
-    for w in raw[:idx]:                        # kesme işaretiyle ayrılan ek ("Hakan'a" → hakan + a) öncekine katılır
-        if before and len(w) <= 3 and _DATIVE_END.fullmatch(w):
-            before[-1] += w
-        elif w not in _FILLER:
-            before.append(w)
-    if len(before) > 1 and all(len(w) <= 2 for w in before[:-1]):
-        # harf harf bölünmüş söz: "o pt'ye", "o p t'ye" (canlı 03.11.2026, mihu "operatöre"yi böyle duydu)
-        before = ["".join(before)]
-    if len(before) != 1 or len(before[0]) < 4 or not _DATIVE_END.search(before[0]):
-        return None
-    return before[0]
-
-
-def maybe_operator(text: str) -> bool:
-    """"operatör"e yakın ama `asks_operator`'ın doğrudan aktarma eşiğine (85) varmayan söz ("aparator", 75): teyitle
-    sorulur. Canlı deneme 03.11.2026: "aparator ev bayranmak istiyorum" LLM'e gitmiş, "bulamadım" denmişti."""
-    return any(len(w) >= 6 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 70
-               for w in _folded_words(text))
-
-
-def asks_operator(text: str) -> bool:
-    """Sözde operatör isteği var mı: "operatöre bağlayın", "santral", "bir yetkiliyle"; STT'nin harf hatalarına
-    karşı "operatör"e çok benzeyen kelimeler de ("oparatöre", "operetör"). Olumsuzsa ("operatöre gerek yok",
-    "operatör istemiyorum") hayır."""
-    raw = _folded_words(text)
-    if not raw or set(raw) & _NEGATION:
-        return False
-    if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
-        return True
-    joined = f" {' '.join(raw)} "
-    if any(f" {p} " in joined for p in _OPERATOR_PHRASES):
-        return True
-    return any(len(w) >= 7 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= 85
-               for w in raw)
-
-
-def wants_hangup(text: str, strict: bool = False) -> bool:
-    """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz". `strict`
-    (STT güveni çok düşük): kök yalnız kurallı bir fiil ekiyle ("kapatın", "kapatabilirsiniz"; "kapatıya" değil)."""
-    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_FOLD)).split())
-    words = t.split()
+def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> bool:
+    """"X mı, Y mi?" cevabı i. adayı söylüyor mu: soyadı, birimi (ekli: "muhasebedeki") ya da birimini öbürlerinden
+    ayıran sözcük ("Nilüfer Kaymakamlığı mı, İnegöl Kaymakamlığı mı?" → "nilüfer")."""
+    c = choice[i].contact
+    dept_keys = [k for k in (search_key(c.department), *map(search_key, c.department_aliases)) if k]
+    last = search_key(c.last_name)
     for w in words:
-        # olumsuz: "kapatma", "kapatmayın", "sonlandırmadan" (ama "kapatmak", "sonlandırmak" olumlu)
-        if w.startswith(_HANGUP_STEMS) and not _NEGATIVE.match(w) and (not strict or _HANGUP_FORM.fullmatch(w)):
+        if last and any(similarity(v, last) >= 90 for v in query_variants(w)):
             return True
-    return any(f" {p}" in f" {t}" for p in _HANGUP_PHRASES)
-# "bir insanla görüşmek istiyorum", "gerçek biriyle": operatör isteği (diyalog seti D58, D59; "insan" tek başına İnsan
-# Kaynakları'na eşleniyordu)
-_OPERATOR_PHRASES = ("insanla", "gercek biri", "gercek biriyle", "gercek bir kisi", "gercek bir kisiyle", "canli biri",
-                     "canli biriyle", "temsilci", "temsilciyle", "musteri temsilcisi", "musteri temsilcisiyle")
-_OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
-_DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
-                "dokuz": 9}
-_TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kirk": 40, "elli": 50, "altmis": 60, "yetmis": 70, "seksen": 80,
-         "doksan": 90}
-
-
-_NUM_SOFT = {"dort": "dord"}                     # ünsüz yumuşaması: dört → dördü, dörde
-_NUM_SUFFIX = {"e", "a", "ye", "ya", "i", "u", "yi", "yu", "de", "da", "te", "ta", "den", "dan", "ten", "tan"}
-
-
-def _number_word(w: str, in_run: bool) -> str | None:
-    """Sayı sözcüğünün kökü; çekim ekli hâller de ("dörde", "dördü", "ikiye", "yüze"). "on" / "bir" ekli tek başına
-    sayı sayılmaz ("ona bağlar mısınız", "biri"); sayının içindeyse sayılır ("iki yüz ona")."""
-    if w in _DIGIT_WORDS or w in _TENS or w in ("yuz", "bin"):
-        return w
-    for base in (*_DIGIT_WORDS, *_TENS, "yuz", "bin"):
-        for stem in (base, _NUM_SOFT.get(base)):
-            if stem and w.startswith(stem) and w[len(stem):] in _NUM_SUFFIX:
-                if not in_run and base in ("on", "bir"):
-                    continue
-                return base
-    return None
-
-
-def spoken_numbers(words: list[str]) -> list[str]:
-    """Yazıyla söylenen dahili: "iki yüz on dört" → 214, "iki bir dört" → 214 (rakam rakam), çekim ekiyle de
-    ("iki yüz on dörde" → 214; canlı deneme 03.11.2026'da ek "dörde" okunmayıp 210 çıkıyordu). STT bazen yazıyla
-    yazar."""
-    out: list[str] = []
-    run: list[str] = []
-    for w in [*words, ""]:
-        if w and (base := _number_word(w, bool(run))) is not None:
-            run.append(base)
-            continue
-        if len(run) >= 2 or (len(run) == 1 and run[0] in _TENS | {"yuz": 0}):
-            if all(x in _DIGIT_WORDS for x in run):
-                out.append("".join(str(_DIGIT_WORDS[x]) for x in run))
-            else:
-                total, cur = 0, 0
-                for x in run:
-                    if x == "yuz":
-                        cur = (cur or 1) * 100
-                    elif x == "bin":
-                        total, cur = total + (cur or 1) * 1000, 0
-                    else:
-                        cur += _TENS.get(x) or _DIGIT_WORDS[x]
-                out.append(str(total + cur))
-        run = []
-    return [n for n in out if 2 <= len(n) <= 6]
-_FILLER = {"ist", "istiyor", "istiyoru", "istiyorum", "lutfen", "baglar", "baglarmis", "baglayin", "baglayabilir",
-           "gorus", "gorusmek", "gorusebilir", "konus", "konusmak", "merhaba", "selam", "iyi", "gunler", "musunuz",
-           "misiniz", "mi", "mu", "ile", "icin", "bir", "acaba", "rica", "ederim", "aktar", "aktarir", "aktarin",
-           "orada", "var", "yok", "sey", "hani", "evet", "tamam", "beni", "bana", "kim", "kimle", "lazim"}
-_ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
-             "ikinciye": 1, "ucuncu": 2, "ucuncusu": 2, "son": -1, "sonuncu": -1, "sonuncusu": -1, "sonuncuya": -1}
-_VOWELS = "aıoueiöü"
-
-
-def _last_vowel(word: str) -> str:
-    return next((ch for ch in reversed(turkish_lower(word)) if ch in _VOWELS), "e")
-
-
-def question_particle(word: str) -> str:
-    """Soru eki (ünlü uyumu): Yılmaz → mı, Demir → mi, Koç → mu, Öztürk → mü."""
-    return {"a": "mı", "ı": "mı", "o": "mu", "u": "mu", "e": "mi", "i": "mi", "ö": "mü", "ü": "mü"}[_last_vowel(word)]
-
-
-def ablative(word: str) -> str:
-    """Ayrılma hâli: Muhasebe → Muhasebeden, Satış → Satıştan, Bilgi İşlem → Bilgi İşlemden,
-    İnsan Kaynakları → İnsan Kaynaklarından."""
-    w = word.strip()
-    last = turkish_lower(w)[-1:]
-    # tamlama ("İnsan Kaynakları", "Müşteri Hizmetleri"): iyelik ekinden sonra -n- kaynaştırma → Kaynaklarından
-    buffer = "n" if " " in w and last in "ıiuü" else ""
-    hard = not buffer and last in set("fstkçşhp")
-    return w + buffer + ("t" if hard else "d") + ("a" if _last_vowel(w) in "aıou" else "e") + "n"
-
-
-def which_question(contacts: list[Any]) -> str | None:
-    """"Muhasebeden Ayşe Yılmaz mı, Satıştan Ayşe Kaya mı?" — birimler farklıysa birimle, adlar farklıysa adla.
-    Hiçbiri ayırt etmiyorsa None."""
-    names = [c.full_name for c in contacts]
-    depts = [c.department for c in contacts]
-    use_dept = all(depts) and len({search_key(d) for d in depts}) == len(depts)
-    if not use_dept and len({search_key(n) for n in names}) < len(names):
-        return None
-    parts = [f"{ablative(d) + ' ' if use_dept else ''}{n} {question_particle(n)}" for n, d in zip(names, depts,
-                                                                                                strict=True)]
-    text = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
-    return text[0].upper() + text[1:]
+        if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= 90)
+               for k in dept_keys if " " not in k):
+            return True
+    if any(" " in k and k in " ".join(words) for k in dept_keys):
+        return True
+    others = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.department).split()}
+    own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
+    return any(w.startswith(x) or similarity(strip_suffix(w), x) >= 90 for w in words for x in own)
 
 
 # LLM cevabı telefonda en çok bu kadar cümle (istem "en fazla iki kısa cümle" der ama model her zaman uymuyor:

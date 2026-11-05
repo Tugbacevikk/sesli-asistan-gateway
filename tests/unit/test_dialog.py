@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
-from sesli_asistan.gateway.core.dialog import MAX_BARGE_REPEATS, DialogAgent, DialogConfig, clean_reply, dative
+from sesli_asistan.gateway.core.dialog import MAX_BARGE_REPEATS, DialogAgent, DialogConfig, clean_reply
 from sesli_asistan.gateway.core.models import Contact
+from sesli_asistan.gateway.core.phrases import dative
 from sesli_asistan.gateway.core.ports import LlmError, LlmMessage, ToolCall
 from sesli_asistan.gateway.core.search import DirectoryIndex
 from sesli_asistan.gateway.core.tools import ToolRegistry
@@ -371,7 +372,7 @@ async def test_hizli_soru_supheli_durumda_llm_e_birakir(text):
 
 
 def test_soru_dil_bilgisi():
-    from sesli_asistan.gateway.core.dialog import ablative, question_particle, which_question
+    from sesli_asistan.gateway.core.phrases import ablative, question_particle, which_question
     words = ("Yılmaz", "Demir", "Koç", "Öztürk", "Kaya")
     assert [question_particle(w) for w in words] == ["mı", "mi", "mu", "mü", "mı"]
     assert [ablative(d) for d in ("Muhasebe", "Satış", "Bilgi İşlem", "İnsan Kaynakları", "Teknik Destek")] == [
@@ -454,7 +455,7 @@ async def test_llm_siz_mod_cok_aday():
 
 
 def test_yaziyla_sayi():
-    from sesli_asistan.gateway.core.dialog import spoken_numbers
+    from sesli_asistan.gateway.core.phrases import spoken_numbers
     assert spoken_numbers("dahili iki yuz on dort".split()) == ["214"]
     assert spoken_numbers("iki bir dort".split()) == ["214"]
     assert spoken_numbers("iki yuz otuz bire".split()) == ["231"]
@@ -1003,7 +1004,7 @@ async def test_llm_soylenen_numaradan_baska_dahiliye_aktaramaz_teyit_sorar():
 @pytest.mark.parametrize("text", ["e", "eee", "ııı", "hmm", "e.", "şey"])
 async def test_yalniz_dolgu_sesi_llme_gitmez_deneme_sayilmaz(text):
     """Canlı deneme 04.11.2026: tek başına "e" LLM'e gitti (1,8 sn)."""
-    from sesli_asistan.gateway.core.dialog import strip_fillers
+    from sesli_asistan.gateway.core.phrases import strip_fillers
 
     assert strip_fillers(text) == ""
     a = agent(ScriptedLlm(LlmMessage("Tamam.")), fast_path=True, clarify_by_code=True)
@@ -1015,7 +1016,7 @@ async def test_yalniz_dolgu_sesi_llme_gitmez_deneme_sayilmaz(text):
 
 async def test_dolgu_sesi_atilir_selam_ve_istek_taninir():
     """Canlı deneme 04.11.2026: "eee merhaba" selam sayılmayıp LLM'e gitmişti."""
-    from sesli_asistan.gateway.core.dialog import strip_fillers
+    from sesli_asistan.gateway.core.phrases import strip_fillers
 
     assert strip_fillers("eee merhaba") == "merhaba" and strip_fillers("hı hı") == "hı hı"
     a = agent(ScriptedLlm(LlmMessage("Tamam.")), fast_path=True, clarify_by_code=True)
@@ -1043,7 +1044,7 @@ async def test_dolgu_sesinde_acik_soru_yinelenir():
     ("saat on ikide ayşe hanımla görüşecektim", False), ("ayşe yılmaz", False), ("muhasebe lütfen", False),
 ])
 def test_mesai_sorusu_taninir(text, asks):
-    from sesli_asistan.gateway.core.dialog import asks_office_hours
+    from sesli_asistan.gateway.core.phrases import asks_office_hours
 
     assert asks_office_hours(text) is asks
 
@@ -1069,3 +1070,18 @@ async def test_llm_istenmeden_operatore_baglayamaz():
     llm = ScriptedLlm(tool_msg(call("ConnectOperator")))
     t = await agent(llm).new_session("y").handle_user("operatöre bağlar mısınız")
     assert [type(x).__name__ for x in t.actions] == ["OperatorAction"]
+
+
+def test_adim_zinciri_tutarli():
+    # her adım var ve eşzamansız; son adım her zaman cevap verir; sırası anlamlı kurallar (bkz. dialog.STEPS)
+    import inspect
+
+    from sesli_asistan.gateway.core.dialog import STEPS
+    assert len(set(STEPS)) == len(STEPS) and STEPS[-1] == "_step_answer"
+    for name in STEPS:
+        assert inspect.iscoroutinefunction(getattr(DialogAgent, name)), name
+    at = STEPS.index
+    assert at("_step_sound_alike") > max(at("_step_unknown_target"), at("_step_repeat_gate"))   # D68 "efsane"
+    assert at("_step_office_hours") < at("_step_confirm")          # mesai sorusu açık teyidi kapatmaz
+    assert at("_step_greeting") < at("_step_confirm")              # "alo?" teyidi kapatmaz
+    assert at("_step_hangup") < at("_step_fast_path") < at("_step_mcp") < at("_step_answer")

@@ -27,8 +27,9 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
-from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig, _folded_words  # noqa: E402
+from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
 from sesli_asistan.gateway.core.models import Candidate, Contact  # noqa: E402
+from sesli_asistan.gateway.core.phrases import _folded_words  # noqa: E402
 from sesli_asistan.gateway.core.search import DirectoryIndex  # noqa: E402
 from sesli_asistan.gateway.core.tools import ToolRegistry  # noqa: E402
 
