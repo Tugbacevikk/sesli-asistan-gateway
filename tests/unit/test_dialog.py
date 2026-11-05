@@ -713,6 +713,30 @@ async def test_llm_dusuk_guvenli_sozle_aktaramaz_teyit_sorulur(auto):
     assert [x.extension for x in t.actions] == ["214"]
 
 
+@pytest.mark.parametrize("auto", [True, False])
+async def test_llm_sozde_gecmeyen_kisiyi_teyit_ettirmez(auto):
+    # canlı 05.11.2026: rehberde olmayan "Tuğba Çevik" → STT "çokağa çeviriyle" (0,6); LLM "Kaya" diye aradı ve
+    # "Ayşe Kaya'ya mı bağlamamı istersiniz?" soruldu
+    replies = [tool_msg(call("InContacts", Name="Kaya"))]
+    if not auto:
+        replies.append(tool_msg(call("TransferCall", Extension="231")))
+    a = agent(ScriptedLlm(*replies), auto_transfer_single_high=auto)
+    s = a.new_session("c")
+    s.stt_confidence = 0.6
+    t = await s.handle_user("çokağa çeviriyle görüşmek istiyorum")
+    assert not t.actions and t.text == a.cfg.texts.not_found and s.state.confirm is None
+    assert s.state.failed_attempts == 1
+
+
+@pytest.mark.parametrize("text", ["ayşe kayayla görüşmek istiyorum", "iki yüz otuz bir", "satıştaki ayşe hanım"])
+async def test_llm_sozde_gecen_kisi_dusuk_guvende_teyit_edilir(text):
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="Ayşe Kaya"))))
+    s = a.new_session("c")
+    s.stt_confidence = 0.6
+    t = await s.handle_user(text)
+    assert t.text == "Ayşe Kaya'ya mı bağlamamı istersiniz?"
+
+
 async def test_llm_sorusuna_dusuk_guvenli_net_evet_aktarir():
     a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="ayşe yılmaz")),
                           tool_msg(call("TransferCall", Extension="214")), LlmMessage("Aktarıyorum.")),

@@ -63,6 +63,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- LLM düşük güvenli sözde geçmeyen kişiyi öneremez (canlı 05.11.2026): rehberde olmayan "Tuğba Çevik" STT'de
+  "çokağa çeviriyle" (güven 0,6) duyuldu, LLM "Kaya" diye arayıp "Ayşe Kaya'ya mı bağlamamı istersiniz?" sordurdu.
+  Hedefin adı / soyadı / unvanı / birimi / dahilisi arayanın sözünde benzer biçimde (≥ 75) geçmiyorsa teyit de
+  sorulmaz, "bulamadım" denir. Senaryo D129.
 - Ortam sesi "Sizi anlayamadım" döngüsü (canlı 04.11.2026): söze girme anlaşılmadığında (boş ya da çok düşük güvenli
   sonuç) asistan "anlayamadım" yerine yarıda kalan cümlesini yeniden söyler (üst üste en çok 2 kez, deneme hakkı
   yanmaz); güveni 0,2'nin altında 1–2 harflik sonuçlar ("b") cevaplanmaz.

@@ -229,6 +229,8 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
             "goodbye": t.goodbye}
 
 
+# LLM'in düşük güvenli sözle seçtiği hedefin adı sözde bu benzerlikte geçmeli ("çokağa" ~ "kaya" 67,5: geçmez)
+GROUNDED_MIN = 75.0
 MAX_BARGE_REPEATS = 2   # söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir
 _THINK = re.compile(r"<think>.*?</think>", re.S)
 _MARKDOWN = re.compile(r"[*_#`>|]+")
@@ -792,10 +794,36 @@ class DialogAgent:
                     None)
         if cand is None:
             return None                                # politika zaten reddedecek
+        if self._needs_confirm(s) and (turn := self._ungrounded(s, call, cand.contact)) is not None:
+            return turn
         if not self._needs_confirm(s) and not self._other_number(s, cand.contact):
             return None
         s.history.append(_tool_message(call, {"ok": False, "note": "Aktarmadan önce arayana teyit soruldu."}))
         return self._confirm(s, cand.contact)
+
+    def _ungrounded(self, s: DialogSession, call: ToolCall, contact: Any) -> DialogTurn | None:
+        """Düşük güvenli sözle LLM'in seçtiği hedef sözde hiç geçmiyorsa teyit de sorulmaz, "bulamadım". Canlı
+        05.11.2026: rehberde olmayan "Tuğba Çevik" → STT "çokağa çeviriyle" (0,6); LLM "Kaya" diye arayıp "Ayşe
+        Kaya'ya mı bağlamamı istersiniz?" sordurdu."""
+        if self._grounded(s, contact):
+            return None
+        log.info("[%s] LLM'in hedefi sözde geçmiyor (%s): bulunamadı", s.call_id, contact.extension)
+        s.history.append(_tool_message(call, {"ok": False, "note": "Arayan bu kişiyi söylemedi; bulunamadı."}))
+        s.state.last_results = ()
+        return self._not_found(s)
+
+    def _grounded(self, s: DialogSession, contact: Any) -> bool:
+        """Arayanın bu çağrıdaki sözlerinde hedefin bir izi var: ad, soyad, takma ad, unvan ya da birim sözcüğüne
+        benzeyen (≥ GROUNDED_MIN) bir sözcük ya da dahili numarası. Yoksa LLM hedefi kendisi uydurmuştur (STT sözü
+        bozduğunda arama sözcüğünü kendisi seçer)."""
+        user = " ".join(m["content"] for m in s.history if m["role"] == "user" and m.get("content"))
+        said = search_key(user).split()
+        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
+            return True
+        names = (contact.first_name, contact.last_name, *contact.aliases, contact.title, contact.department,
+                 *contact.department_aliases)
+        keys = {k for n in names for k in search_key(n).split() if len(k) >= 3}
+        return any(similarity(v, k) >= GROUNDED_MIN for w in said for v in query_variants(w) for k in keys)
 
     def _other_number(self, s: DialogSession, contact: Any) -> bool:
         """Arayanın son sözünde bir numara var ve bu kişinin dahilisi değil; kişinin adı ya da soyadı da geçmiyor."""
@@ -1020,6 +1048,8 @@ class DialogAgent:
                 if (self.cfg.auto_transfer_single_high and call.name == "InContacts"
                         and content.get("match") == "single_high"):
                     if caller_turn and self._needs_confirm(s):
+                        if (turn := self._ungrounded(s, call, s.state.last_results[0].contact)) is not None:
+                            return turn
                         s.history.append(_tool_message(call, content))
                         return self._confirm(s, s.state.last_results[0].contact)
                     action = self.tools.transfer(s.state.last_results[0].contact.extension, s.state)

@@ -595,3 +595,8 @@
   aciklama: Aktarma ulaşılamadıktan sonra mesai sorusu → kodla cevap, operatör yok
   konusma: ["ayşe yılmaz", {santral: failed}, "mesai saatleri ne acaba"]
   beklenen: {eylem: yok}
+# canlı 05.11.2026: rehberde olmayan "Tuğba Çevik" → STT "çokağa çeviriyle" (0,6) → LLM "Kaya" arayıp Ayşe Kaya'yı önerdi
+- id: D129
+  aciklama: Bozuk duyulan, rehberde olmayan ad (düşük güven) → LLM sözde geçmeyen kişiyi öneremez
+  konusma: [{arayan: "çokağa çeviriyle görüşmek istiyorum", guven: 0.6}]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["231"], yasak_metin: ["Kaya"]}
