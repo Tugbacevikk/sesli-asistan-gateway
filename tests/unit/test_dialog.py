@@ -1094,3 +1094,38 @@ def test_esikler_tasarimda_belgelenmis():
     names = [n for n in vars(thresholds) if n.isupper()]
     missing = [n for n in names if n not in doc]
     assert names and not missing, missing
+
+
+# --- sözde birden çok hedef (arkada ikinci konuşan; sesli set 05.11.2026) ---------------------------------------
+
+@pytest.mark.parametrize(("text", "question", "answer", "ext"), [
+    ("iki yüz on dört numaralı dahili Mehmet Demir'e bağlar mısınız",
+     "Muhasebeden Ayşe Yılmaz mı, Satıştan Mehmet Demir mi?", "demir", "230"),
+    ("Ayşe Yılmaz ile görüşmek istiyorum Can Öztürk'ü arıyorum",
+     "Muhasebeden Ayşe Yılmaz mı, Bilgi İşlemden Can Öztürk mü?", "yılmaz", "214"),
+    ("muhasebeye bağlar mısınız teknik destek lütfen", "Muhasebe mi, Teknik Destek mi?", "teknik destek", "300"),
+])
+async def test_sozde_birden_cok_hedef_varsa_aktarmaz_sorar(text, question, answer, ext):
+    a = clarifier()
+    s = a.new_session("c")
+    t = await s.handle_user(text)
+    assert not t.actions and t.text == question and a.llm.seen == []
+    t = await s.handle_user(answer)
+    assert [x.extension for x in t.actions] == [ext]
+
+
+@pytest.mark.parametrize("text", ["görüşmeyi sonlandırmak istiyorum insan kaynaklarıyla görüşmek istiyorum",
+                                  "operatöre bağlanmak istiyorum Elif Şahin'e bağlanmak istiyorum",
+                                  "Ayşe Yılmaz insan kaynaklarıyla görüşmek istiyorum"])
+async def test_operator_kapatma_ya_da_baska_birim_yaninda_hedef_teyitle(text):
+    a = clarifier()
+    t = await a.new_session("c").handle_user(text)
+    assert not t.actions and t.text.endswith("bağlamamı istersiniz?")
+
+
+@pytest.mark.parametrize("text", ["muhasebeden Ayşe Yılmaz", "Ayşe Yılmaz iki yüz on dört",
+                                  "ben Mehmet, Ayşe Yılmaz'ı arıyorum", "Ayşe Yılmaz ile görüşmek istiyorum"])
+async def test_kisinin_kendi_birimi_dahilisi_ya_da_kendini_tanitmasi_birden_cok_hedef_sayilmaz(text):
+    a = clarifier()
+    t = await a.new_session("c").handle_user(text)
+    assert [x.extension for x in t.actions] == ["214"]

@@ -248,7 +248,9 @@ def which_question(contacts: list[Any]) -> str | None:
     Hiçbiri ayırt etmiyorsa None."""
     names = [c.full_name for c in contacts]
     depts = [c.department for c in contacts]
-    use_dept = all(depts) and len({search_key(d) for d in depts}) == len(depts)
+    # birim hatları ("Muhasebe mi, Teknik Destek mi?") birimle değil adla sorulur
+    people = all(getattr(c, "kind", "person") == "person" for c in contacts)
+    use_dept = people and all(depts) and len({search_key(d) for d in depts}) == len(depts)
     if not use_dept and len({search_key(n) for n in names}) < len(names):
         return None
     parts = [f"{ablative(d) + ' ' if use_dept else ''}{n} {question_particle(n)}" for n, d in zip(names, depts,

@@ -338,6 +338,7 @@ async def test_serve_model_yoksa_cikis_kodu_1(monkeypatch):
 
 
 async def test_serve_sinyalle_duzgun_kapanir(monkeypatch):
+    # gerçek sinyal gönderilmez (işleyici kurulmadan gelirse test sürecini öldürür): işleyici yakalanıp çağrılır
     import signal
 
     import sesli_asistan.stt.server as srv_mod
@@ -348,16 +349,19 @@ async def test_serve_sinyalle_duzgun_kapanir(monkeypatch):
         async def stop(self, grace=None):
             stopped.append(grace)
 
-    started = asyncio.Event()
-
     async def fake_start(s, *a, **k):
-        started.set()
         return Srv(), None, 0
 
+    handlers = {}
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(loop, "add_signal_handler", lambda sig, cb: handlers.setdefault(sig, cb))
     monkeypatch.setattr(srv_mod, "start_server", fake_start)
     task = asyncio.create_task(srv_mod.serve(SttSettings(vad="energy", metrics_port=0)))
-    await started.wait()
-    await asyncio.sleep(0.05)
-    signal.raise_signal(signal.SIGTERM)
+    for _ in range(100):
+        if signal.SIGTERM in handlers:
+            break
+        await asyncio.sleep(0.01)
+    assert set(handlers) == {signal.SIGTERM, signal.SIGINT}
+    handlers[signal.SIGTERM]()
     await asyncio.wait_for(task, 2)
     assert stopped == [5]

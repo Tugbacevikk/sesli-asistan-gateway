@@ -16,6 +16,7 @@ işlevi kullanır: MCP düşerse Gateway aynısını kendisi çalıştırır (LL
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass
 from typing import Any
 
 from rapidfuzz import fuzz
@@ -209,3 +210,55 @@ def sound_alike(index: DirectoryIndex, text: str) -> list[dict[str, Any]]:
         return []
     return [{"id": scored[0][1].id, "puan": round(scored[0][0], 1)}]
 
+
+
+# --- birden çok hedef (arka planda ikinci konuşan) -----------------------------------------------------------------
+# Ölçüm 05.11.2026 (sesli set, arkada ikinci konuşan 10 dB kısık): STT iki sözü karıştırıyor ("iki yüz on dört
+# numaralı dahili Mehmet Demir'e bağlar mısınız"); hızlı yol ilk bulduğuna aktarıyordu: 80 kayıtta 18 yanlış eylem.
+
+
+@dataclass(frozen=True)
+class Mentions:
+    """Sözde geçen hedefler: kişiler (tam adla), birimler, dahililer (sahibi), aktarılamayan kişiler, operatör /
+    kapatma isteği. Kişinin kendi birimi ya da kendi dahilisi ayrı hedef sayılmaz ("muhasebeden Ayşe Yılmaz")."""
+
+    contacts: tuple[Contact, ...]       # aktarılabilir hedefler (kişi, birim hattı, dahili sahibi)
+    departments: tuple[str, ...]        # hattı olmayan, kişisi de söylenmeyen birimler
+    others: tuple[Contact, ...]         # rehberde olup aktarılamayan kişiler (yönetim vb.)
+
+    @property
+    def count(self) -> int:
+        return len(self.contacts) + len(self.departments) + len(self.others)
+
+
+def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> Mentions:
+    """`numbers`: sözde geçen sayılar (dahili olabilir; çağıran çıkarır)."""
+    words = _without_self(text)
+    if not words:
+        return Mentions((), (), ())
+    persons = [c for c in index.source_contacts() if c.kind == "person"]
+    named = [c for c in persons if _full_name_said(c, words)]
+    by_id: dict[str, Contact] = {c.id: c for c in named if c.transferable}
+    others = tuple(c for c in named if not c.transferable)
+    for n in numbers:
+        owner = next((c for c in index.contacts() if c.extension == n), None)
+        if owner is not None and not any(c.id == owner.id for c in named):
+            by_id.setdefault(owner.id, owner)
+    said_depts = _mentioned_departments(index, words)
+    covered = {c.department for c in by_id.values()} | {c.department for c in others}
+    rest: list[str] = []
+    for d in sorted(said_depts - covered):
+        line = next((c for c in index.contacts() if c.kind == "department" and c.department == d), None)
+        if line is not None:
+            by_id.setdefault(line.id, line)
+        else:
+            rest.append(d)
+    return Mentions(tuple(sorted(by_id.values(), key=lambda c: c.full_name or c.department)), tuple(rest), others)
+
+
+def _full_name_said(c: Contact, words: list[str]) -> bool:
+    first, last = search_key(c.first_name), search_key(c.last_name)
+    if not first or not last or " " in last:
+        return False
+    hit = [i for i, w in enumerate(words) if any(similarity(v, last) >= NAME_SAME for v in query_variants(w))]
+    return any(i > 0 and similarity(words[i - 1], first.split()[-1]) >= NAME_SAME for i in hit)

@@ -605,3 +605,20 @@
   aciklama: Çok düşük güvenli kapatma sözü çağrıyı kapatmaz
   konusma: [{arayan: "kapatıya geç", guven: 0.31}]
   beklenen: {eylem: yok}
+# sesli set 05.11.2026: arkada ikinci konuşan 10 dB kısık → STT iki sözü karıştırıyor, ilk bulunana aktarılıyordu
+- id: D131
+  aciklama: Karışık söz, iki kişi (dahili + ad) → aktarma yok, hangisi sorulur
+  konusma: ["iki yüz on dört numaralı dahili Mehmet Demir'e bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok}
+- id: D132
+  aciklama: Karışık söz, iki birim → aktarma yok, hangisi sorulur
+  konusma: ["muhasebeye bağlar mısınız teknik destek lütfen"]
+  beklenen: {eylem: aktarma_yok}
+- id: D133
+  aciklama: Karışık söz, kapatma + birim → kapatılmaz
+  konusma: ["görüşmeyi sonlandırmak istiyorum insan kaynaklarıyla görüşmek istiyorum"]
+  beklenen: {eylem: yok}
+- id: D134
+  aciklama: Karışık söz, iki kişi; cevapla doğru kişiye
+  konusma: ["Ayşe Yılmaz ile görüşmek istiyorum Can Öztürk'ü arıyorum", "Can Öztürk"]
+  beklenen: {eylem: transfer, dahili: "245"}

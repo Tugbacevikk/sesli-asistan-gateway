@@ -919,6 +919,46 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Sesli regresyon seti: hat, arka plan ve dil modeli (5 Kasım 2026, 11:30; mihu, Tuğba'nın dizüstü, n = 640)
+
+`tools/stt/sesli_set.py`: okuma listelerinin 40 cümlesi Piper ile (tek ses) iki hızda (0,9 / 1,1) seslendirildi,
+dört arka planla (temiz; ikinci konuşan 10 dB ve 5 dB kısık; uğultu 15 dB kısık) ve iki hatla (G.711 8 kHz / G.722
+16 kHz) kodlandı; `karsilastir.py` + `gorev_olc.py` (kural modu). Her hücre 80 kayıt. Sentetik ses: tek, temiz bir
+ses ve arka planda da aynı ses okuyor — gerçek arayanın yerini tutmaz, değişikliklerin **yönünü** gösterir.
+
+| hat | arka plan | WER | doğru | teyitle | kaçırma | yanlış teyit | YANLIŞ EYLEM |
+|---|---|---|---|---|---|---|---|
+| G.711 | temiz | %12,9 | 77 | 0 | 3 | 0 | 0 |
+| G.711 | uğultu 15 | %16,1 | 75 | 1 | 4 | 0 | 0 |
+| G.711 | konuşma 10 | %73,2 | 49 | 2 | 9 | 2 | **18** |
+| G.711 | konuşma 5 | %92,5 | 33 | 2 | 15 | 9 | **21** |
+| G.722 | temiz | %6,8 | 79 | 0 | 1 | 0 | 0 |
+| G.722 | uğultu 15 | %7,9 | 76 | 2 | 2 | 0 | 0 |
+| G.722 | konuşma 10 | %76,4 | 49 | 4 | 7 | 2 | **18** |
+| G.722 | konuşma 5 | %96,4 | 37 | 6 | 10 | 4 | **23** |
+
+Santral dil modeli (ADR-028, `--lm-olcek 0,2`) ile aynı set:
+
+| hat | arka plan | WER | doğru | YANLIŞ EYLEM | (dil modeli olmadan) |
+|---|---|---|---|---|---|
+| G.711 | temiz | %22,9 | 71 | 1 | %12,9 / 77 / 0 |
+| G.711 | konuşma 10 | %61,8 | 41 | 16 | %73,2 / 49 / 18 |
+| G.722 | temiz | %8,2 | 74 | 0 | %6,8 / 79 / 0 |
+| G.722 | konuşma 10 | %57,5 | 40 | 13 | %76,4 / 49 / 18 |
+
+- **G.722 temiz seste WER'i yarıya indiriyor** (%12,9 → %6,8; 77 → 79 doğru). Uğultu zararsız (yanlış eylem 0).
+- **Arkada ikinci konuşan asıl tehlike**: 10 dB kısık arka planda 80 kayıtta 18 yanlış eylem. STT iki sözü tek metne
+  karıştırıyor ("iki yüz on dört numaralı dahili Mehmet Demir'e bağlar mısınız") ve hızlı yol ilk bulduğu hedefe
+  aktarıyordu. **Düzeltme**: sözde birden çok hedef (kişi, birim hattı, dahili; operatör / kapatma isteği yanında bir
+  hedef) varsa aktarılmaz, operatöre bağlanmaz, kapatılmaz; "X mı, Y mi?" ya da teyit sorulur (`_step_conflict`,
+  D131–D134). Metinle benzetimde (40 cümlenin ikili birleşimleri, iki biçim) aktarma beklenen sözlerde yanlış eylem
+  122 → 72; kalan 72'nin hepsi kişi + kendi birimi ("Ayşe Yılmaz … muhasebeye"), bilerek tek hedef sayılıyor.
+  Arayanın rehberde olmayan bir şey söyleyip arkadakinin geçerli bir ad söylediği durum metinden ayırt edilemez:
+  ses seviyesi kapısı (arayanın seviyesi ölçülünce) bunun için.
+- **Dil modeli 0,2'de açılmaz**: temiz seste kötüleştiriyor (G.711 %12,9 → %22,9 WER, 77 → 71 doğru, 1 yanlış eylem),
+  yalnız karışık seste iyileştiriyor. Asıl kullanım temiz ses olduğundan bu ölçekte zararlı. Sırada: 0,05 ve 0,1
+  temiz seste; derlemin okuma cümlelerini kapsayıp kapsamadığı.
+
 ### Canlı santral, rehber → MCP → LLM (4 Kasım 2026, 11:23–11:30; mihu, MicroSIP, qwen3.5:4b)
 
 `MCP_STEP=true`, `LLM_TOOLS=mcp`, konu teyidi açık. Ayrıca aynı gün gerçek LLM'le metin ölçümü (A):

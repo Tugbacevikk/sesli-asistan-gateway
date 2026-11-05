@@ -29,6 +29,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
+from .people import mentioned_targets
 from .phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -218,6 +219,7 @@ STEPS = (
     "_step_office_hours",       # mesai sorusu: kodla cevap
     "_step_confirm",            # açık teyit sorusunun cevabı
     "_step_operator_confirm",   # açık "operatöre mi?" sorusunun cevabı
+    "_step_conflict",           # sözde birden çok hedef (arkada ikinci konuşan): sorulur
     "_step_asks_operator",      # "operatöre bağlayın"
     "_step_hangup",             # "görüşmeyi sonlandırmak istiyorum"
     "_step_choice",             # açık "hangisi?" sorusunun cevabı
@@ -439,6 +441,42 @@ class DialogAgent:
         if not set(_folded_words(u.text)) & (_NEGATION | {"bilmiyorum"}) and not self._mentions_target(u.text):
             return self._repeat_choice(s, u.choice)
         return None
+
+    async def _step_conflict(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Sözde birden çok hedef: hiçbirine aktarılmaz, operatöre bağlanmaz, kapatılmaz; sorulur ("X mı, Y mi?",
+        tek hedefte teyit). Ölçüm 05.11.2026 (sesli set, arkada ikinci konuşan 10 dB kısık): STT iki sözü
+        karıştırıyor ("iki yüz on dört numaralı dahili Mehmet Demir'e bağlar mısınız", "görüşmeyi sonlandırmak
+        istiyorum insan kaynaklarıyla"); ilk bulunana aktarılıyordu (80 kayıtta 18 yanlış eylem). Hedef: rehberdeki
+        kişi (tam adla), birim hattı, dahili; operatör / kapatma isteği yanında bir hedef de birden çok sayılır.
+        Kişinin kendi birimi ya da dahilisi ayrı hedef değildir ("muhasebeden Ayşe Yılmaz")."""
+        if not (self.cfg.fast_path and self.cfg.clarify_by_code):
+            return None
+        numbers = [*re.findall(r"\d{2,6}", u.text), *spoken_numbers(_folded_words(u.text))]
+        m = mentioned_targets(self.tools.index, u.text, numbers)
+        persons = [c for c in m.contacts if c.kind == "person"]
+        lines = [c for c in m.contacts if c.kind == "department"]
+        intent = asks_operator(u.text) or wants_hangup(u.text, strict=u.low)
+        targets = list(m.contacts)
+        if intent and not targets:
+            # hattı olmayan birim ("insan kaynaklarıyla"): tek kişisi varsa o hedeftir
+            targets = [c for d in m.departments if (c := self._department_target(search_key(d))[0]) is not None]
+        if not (len(persons) + len(m.others) >= 2 or (persons and (lines or m.departments)) or len(lines) >= 2
+                or (intent and (targets or m.departments))):
+            return None
+        log.info("[%s] sözde birden çok hedef%s: %s", s.call_id, " (operatör / kapatma isteğiyle)" if intent else "",
+                 ", ".join(c.full_name for c in (*m.contacts, *m.others)))
+        if len(targets) == 1:         # tek hedef + operatör / kapatma ya da hattı olmayan başka birim
+            return self._confirm(s, targets[0], why="sözde birden çok hedef")
+        if not targets:
+            return self._reply(s, self.cfg.texts.ask_target)
+        if len(persons) == 1 and not m.others and not intent:
+            # kişi + başka birim ("satıştan Burak Çelik"; Burak muhasebede; D29): kişi teyitle sorulur
+            return self._confirm(s, persons[0], why="kişi başka birimle söylendi")
+        s.state.truncated = False
+        if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in targets), lines=True)) is not None:
+            turn.fast = True
+            return turn
+        return self._reply(s, self.cfg.texts.ask_target)
 
     async def _step_fast_path(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """1. rehber, hızlı yol (ADR-016): tam ad, birim hattı."""
@@ -740,10 +778,11 @@ class DialogAgent:
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 
-    def _clarify(self, s: DialogSession, candidates: tuple[Candidate, ...]) -> DialogTurn | None:
+    def _clarify(self, s: DialogSession, candidates: tuple[Candidate, ...], lines: bool = False) -> DialogTurn | None:
         """2–3 kişilik adaydan "Muhasebeden Ayşe Yılmaz mı, satıştan Ayşe Kaya mı?" sorusu (LLM'siz). Adaylar
-        sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun."""
-        if not 2 <= len(candidates) <= 3 or any(c.contact.kind != "person" for c in candidates):
+        sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun. `lines`: birim hatları da aday olabilir
+        (sözde birden çok hedef: "Muhasebe mi, Teknik Destek mi?")."""
+        if not 2 <= len(candidates) <= 3 or (not lines and any(c.contact.kind != "person" for c in candidates)):
             return None
         if s.state.truncated:
             return None                       # gösterilenden çok aday var: yalnız ilk üçünü sormak yanlış olur

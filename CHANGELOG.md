@@ -66,6 +66,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Sözde birden çok hedef varsa aktarılmaz, sorulur (ölçüm 05.11.2026, sesli set: arkada ikinci konuşan 10 dB kısıkken
+  STT iki sözü karıştırıyor, hızlı yol ilk bulduğuna aktarıyordu — 80 kayıtta 18 yanlış eylem). İki kişi, iki birim
+  hattı, dahili + başka kişi → "X mı, Y mi?"; operatör / kapatma isteği yanında bir hedef → teyit. D131–D134.
+- STT sunucusu sinyal testi gerçek SIGTERM göndermiyor (ağır yükte test sürecini öldürebiliyordu).
 - `mcp_person_lookups` metriği konu adımıyla aynı: bulundu / **yok** / hata; MCP düşünce yerelde bulunan kişi "bulundu"
   sayılmaz. Ölü kod temizliği (kullanılmayan `nwords`, `stream_time`, `RTP_CLOCK`); dialog'daki yinelenen harf
   katlama ve `_skeleton` adı (people.py'dekiyle karışıyordu → `_vowel_mask`).
