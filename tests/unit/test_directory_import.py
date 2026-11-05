@@ -301,3 +301,28 @@ def test_yazilamayan_rehber_dosyasinda_kapali(tmp_path):
         assert not st["enabled"] and "yazılamıyor" in st["reason"]
         r = tc.post("/v1/admin/directory/preview", content=xlsx(ROWS), headers=OCT)
         assert r.status_code == 400 and "yazılamıyor" in r.json()["error"]["message"]
+
+
+def test_mevcut_rehbere_ekle_hicbir_kaydi_silmez(tmp_path):
+    tc, rt, path = client(tmp_path)
+    with tc:
+        before = {c.id: c for c in rt.directory.index.source_contacts()}
+        p = tc.post("/v1/admin/directory/preview?mode=merge", content=xlsx(ROWS), headers=OCT).json()
+        assert p["mode"] == "merge" and p["diff"]["removed"] == 0 and p["from_file"] == 2
+        assert p["contacts"] == len(before) + p["diff"]["added"]
+        r = tc.post("/v1/admin/directory/apply", content=json.dumps({"token": p["token"]}), headers=JSON)
+        assert r.status_code == 200 and "rehbere eklendi" in r.json()["message"]
+        after = {c.id: c for c in rt.directory.index.source_contacts()}
+        assert set(before) <= set(after)                                   # eski kayıtların hepsi duruyor
+        assert rt.directory.index.search("mehmet kaya").candidates[0].contact.extension == "231"
+        stored = json.loads(path.read_text())["contacts"]
+        assert {c["id"] for c in stored} == set(after)
+        assert tc.post("/v1/admin/directory/preview?mode=sil", content=xlsx(ROWS), headers=OCT).status_code == 400
+
+
+def test_eklemede_ayni_kayit_guncellenir_cift_olmaz(tmp_path):
+    tc, rt, _ = client(tmp_path)
+    with tc:
+        csv = "Ad;Soyad;Birim;Dahili;Unvan\nAyşe;Yılmaz;Muhasebe;214;Muhasebe Uzmanı\n".encode()
+        p = tc.post("/v1/admin/directory/preview?mode=merge", content=csv, headers=OCT).json()
+        assert p["diff"]["added"] == 0 and p["diff"]["changed"] == 1 and p["diff"]["removed"] == 0

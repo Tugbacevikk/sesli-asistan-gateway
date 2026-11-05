@@ -320,6 +320,10 @@ td input { min-width: 160px; }
             <a href="/v1/admin/directory/export" download>Mevcut rehberi indir</a></div>
           <div class="field"><label for="upFile">Dosya</label>
             <input id="upFile" type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"></div>
+          <fieldset class="small" id="upModeRow"><legend>Yükleme biçimi</legend>
+            <label><input type="radio" name="upMode" value="replace" checked> Rehberi değiştir (dosyada olmayan kayıtlar silinir)</label><br>
+            <label><input type="radio" name="upMode" value="merge"> Mevcut rehbere ekle (hiçbir kayıt silinmez; aynı kayıt güncellenir)</label>
+          </fieldset>
           <div id="upPreview" class="small" aria-live="polite"></div>
           <label class="small" id="upSkipRow" hidden><input type="checkbox" id="upSkip"> Hatalı satırları atlayarak uygula</label>
           <button class="send" type="button" id="upApply" hidden>Rehberi değiştir</button>
@@ -970,13 +974,15 @@ function renderUpload() {
   if (!admin) upState("Rehber yüklemek yönetici rolü ister.");
   else if (!st.enabled && st.reason) upState(st.reason);
 }
+const upMode = () => document.querySelector('input[name="upMode"]:checked').value;
+document.querySelectorAll('input[name="upMode"]').forEach((r) => { r.onchange = () => $("upFile").onchange(); });
 $("upFile").onchange = async () => {
   const f = $("upFile").files[0];
   upToken = null; $("upApply").hidden = true; $("upSkipRow").hidden = true; $("upPreview").innerHTML = "";
   if (!f) return;
   upState("Dosya okunuyor…");
   try {
-    const r = await fetch("/v1/admin/directory/preview", { method: "POST",
+    const r = await fetch(`/v1/admin/directory/preview?mode=${upMode()}`, { method: "POST",
       headers: { ...headers, "Content-Type": "application/octet-stream", "X-Dosya-Adi": encodeURIComponent(f.name) },
       body: await f.arrayBuffer() });
     const d = await r.json();
@@ -984,7 +990,8 @@ $("upFile").onchange = async () => {
     upToken = d.token; upErrors = d.errors; upRemoved = d.diff.removed;
     upTotal = d.diff.removed + d.diff.changed + d.diff.unchanged;
     const df = d.diff, li = (a) => a.map((x) => `<li>${esc(x.name)} · ${esc(x.department || "–")} · ${esc(x.extension)}</li>`).join("");
-    let h = `<p><b>${d.contacts}</b> kayıt alınacak (${d.rows} satır${d.skipped ? `, ${d.skipped} boş ya da tekrar satır atlandı` : ""}). Yeni: <b>${df.added}</b> · silinecek: <b>${df.removed}</b>` +
+    const lead = d.mode === "merge" ? `Dosyadan <b>${d.from_file}</b> kayıt mevcut rehbere eklenecek; rehberde <b>${d.contacts}</b> kayıt olacak` : `<b>${d.contacts}</b> kayıt alınacak`;
+    let h = `<p>${lead} (${d.rows} satır${d.skipped ? `, ${d.skipped} boş ya da tekrar satır atlandı` : ""}). Yeni: <b>${df.added}</b> · silinecek: <b>${df.removed}</b>` +
       ` · değişen: <b>${df.changed}</b> · aynı: ${df.unchanged}</p>`;
     h += `<p class="note">Tanınan sütunlar: ${Object.entries(d.columns).map(([k, v]) => esc(v)).join(", ")}</p>`;
     if (df.removed) h += `<p class="status-bad">Silinecek kayıtlar (ilk 10):</p><ul>${li(df.examples.removed)}</ul>`;
@@ -996,6 +1003,7 @@ $("upFile").onchange = async () => {
     $("upPreview").innerHTML = h;
     $("upSkipRow").hidden = !d.errors; $("upSkip").checked = false;
     $("upApply").hidden = false; $("upApply").disabled = !!d.errors;
+    $("upApply").textContent = d.mode === "merge" ? "Rehbere ekle" : "Rehberi değiştir";
     upState(d.errors ? "Hatalı satırları düzeltip yeniden yükleyin ya da atlamayı seçin." : "Önizlemeyi kontrol edip onaylayın.");
   } catch (e) { upState("Gateway'e ulaşılamadı.", "status-bad"); }
 };

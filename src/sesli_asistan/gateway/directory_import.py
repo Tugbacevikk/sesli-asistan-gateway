@@ -411,6 +411,23 @@ class _Ids:
         return cid
 
 
+def contact_record(c: Any) -> dict[str, Any]:
+    """Rehber kaydı → rehber dosyasındaki biçim (Sentra Rehber API alanları)."""
+    return {"id": c.id, "kind": c.kind, "first_name": c.first_name, "last_name": c.last_name,
+            "department": c.department, "title": c.title, "extension": c.extension, "aliases": list(c.aliases),
+            "department_aliases": list(c.department_aliases), "transferable": c.transferable,
+            "updated_at": c.updated_at, "deleted": c.deleted}
+
+
+def merge(old: Sequence[Any], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """"Mevcut rehbere ekle": eski kayıtlar kalır, dosyadakiler eklenir; aynı kayıt (aynı kimlik: dosyadaki kimlik ya
+    da aynı tür + ad + birim + dahili) dosyadakiyle güncellenir. Hiçbir kayıt silinmez."""
+    out = {c.id: contact_record(c) for c in old}
+    for rec in new:
+        out[rec["id"]] = rec
+    return list(out.values())
+
+
 def _key(kind: str, who: str, dept: str, ext: str) -> tuple[str, str, str]:
     """Kaydın kimliği için içerik anahtarı. Makam hattında birim de: aynı unvan ("Belgegeçer") birçok birimde var."""
     return kind, search_key(f"{who} {dept}" if kind == "role" else who), ext

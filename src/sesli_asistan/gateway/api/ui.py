@@ -308,7 +308,8 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
             if len(body) > MAX_FILE:
                 return _err(413, "PAYLOAD_TOO_LARGE", f"dosya en çok {MAX_FILE // (1024 * 1024)} MB")
         try:
-            out = await settings.upload.preview(bytes(body), unquote(request.headers.get("x-dosya-adi", ""))[:200])
+            out = await settings.upload.preview(bytes(body), unquote(request.headers.get("x-dosya-adi", ""))[:200],
+                                                request.query_params.get("mode", "replace"))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(out)

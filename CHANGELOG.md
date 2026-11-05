@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Rehber yüklemede "Mevcut rehbere ekle" seçeneği: dosyadaki kayıtlar eklenir, hiçbir kayıt silinmez; aynı
+  kayıt dosyadakiyle güncellenir (`/v1/admin/directory/preview?mode=merge`). Varsayılan yine "Rehberi değiştir".
 - Makam hatlı rehber (ADR-030): rehber yükleme UTF-16 dökümleri ve `access_code` / `sip_name` başlıklarını okur; adı
   olmayan makam hatları (unvan + birim) yeni kayıt türü; kısaltmalar yüklemede açılır (genel sözlük + kurumun
   `ABBREVIATIONS_PATH` dosyası, bilinmeyenler önizlemede); yalnız kod içeren satırlar ve tekrarlar atlanır;

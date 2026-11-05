@@ -297,7 +297,11 @@ class DirectoryUpload:
     def _source(self) -> list[Contact]:
         return self.rt.directory.index.source_contacts()
 
-    async def preview(self, data: bytes, filename: str = "") -> dict[str, Any]:
+    async def preview(self, data: bytes, filename: str = "", mode: str = "replace") -> dict[str, Any]:
+        """`mode`: "replace" (dosya rehberin tamamı; dosyada olmayan silinir) ya da "merge" (mevcut rehbere eklenir,
+        hiçbir kayıt silinmez; aynı kayıt dosyadakiyle güncellenir)."""
+        if mode not in ("replace", "merge"):
+            raise ValueError("yükleme biçimi replace ya da merge olmalı")
         st = self.status()
         if not st["enabled"]:
             raise ValueError(st["reason"])
@@ -308,17 +312,18 @@ class DirectoryUpload:
             raise ValueError("dosyada alınabilecek kayıt yok"
                              + (f": {res.errors[0].message} ({res.errors[0].row}. satır)" if res.errors else ""))
         dimp.keep_unchanged_timestamps(old, res.contacts)
-        d = dimp.diff(old, res.contacts)
+        contacts = dimp.merge(old, res.contacts) if mode == "merge" else res.contacts
+        d = dimp.diff(old, contacts)
         warnings = [p.as_dict() for p in res.warnings]
         # yerel katman: takma adı olan kayıt yeni rehberde yoksa takma ad etkisiz kalır; yerel kayıtla dahili çakışması
         local = self.rt.settings.local if getattr(self.rt, "settings", None) else {}
-        new_ids = {c["id"] for c in res.contacts}
+        new_ids = {c["id"] for c in contacts}
         orphan = [cid for cid in local.get("aliases", {}) if cid not in new_ids and not cid.startswith("yerel-")]
         if orphan:
             names = {c.id: c.full_name for c in old}
             warnings.append({"row": 0, "message": "takma adları olan kayıtlar yeni rehberde yok, takma adlar "
                              "etkisiz kalacak: " + ", ".join(names.get(c, c) for c in orphan[:5])})
-        new_ext = {c["extension"] for c in res.contacts}
+        new_ext = {c["extension"] for c in contacts}
         clash = [c for c in local.get("contacts", []) if c["extension"] in new_ext]
         if clash:
             warnings.append({"row": 0, "message": "arayüzden eklenen yerel kayıtların dahilisi artık rehberde de "
@@ -326,9 +331,10 @@ class DirectoryUpload:
         now = time.monotonic()
         self._pending = {k: v for k, v in self._pending.items() if v[0] > now}
         token = secrets.token_urlsafe(16)
-        summary = {"rows": res.rows, "contacts": len(res.contacts), "errors": len(res.errors), "skipped": res.skipped,
+        summary = {"rows": res.rows, "contacts": len(contacts), "errors": len(res.errors), "skipped": res.skipped,
+                   "mode": mode, "from_file": len(res.contacts),
                    "diff": {k: d[k] for k in ("added", "removed", "changed", "unchanged")}}
-        self._pending[token] = (now + self.TTL_S, res.contacts, summary)
+        self._pending[token] = (now + self.TTL_S, contacts, summary)
         if len(self._pending) > 5:            # bellekte sınırlı önizleme
             self._pending.pop(next(iter(self._pending)))
         return {"token": token, **summary, "columns": res.columns, "diff": d,
@@ -354,7 +360,8 @@ class DirectoryUpload:
                 await self.rt.directory.refresh()
                 raise ValueError("yeni rehber okunamadı; önceki rehbere dönüldü")
         d = summary["diff"]
-        msg = (f"rehber yüklendi: {summary['contacts']} kayıt (+{d['added']} −{d['removed']} ~{d['changed']}"
+        verb = "rehbere eklendi" if summary.get("mode") == "merge" else "rehber yüklendi"
+        msg = (f"{verb}: {summary['contacts']} kayıt (+{d['added']} −{d['removed']} ~{d['changed']}"
                + (f", {summary['errors']} hatalı satır atlandı)" if summary["errors"] else ")"))
         await self._audit(actor, msg)
         return {"ok": True, "message": msg, "status": self.status()}
