@@ -66,6 +66,11 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Karışık sözde (arkada ikinci konuşan) doğrudan eylem yok, ADR-029: arka plandan tek bir ad ya da birim + arayanın
+  konusu ("satış mı faturamla ilgili bir sorun var" → "Satış mı, Muhasebe mi?"), soyadın önünde başka ad ("murat
+  çelik" → Burak Çelik: teyit), aktarılamayan kişi + birim, operatör isteği + bozuk birim adı. Kural modunda yalnız adla
+  bulunan kişi teyitle (ADR-025 ile aynı). Konu listesi Gateway'de de yüklenir: MCP'ye ulaşılamazsa konu adımı yerelde.
+  `gorev_olc.py` üretimdeki akışla ölçer. Sesli setin 36 yanlış eylemli metni yeniden oynatıldığında 6 kaldı. D135–D138.
 - Sözde birden çok hedef varsa aktarılmaz, sorulur (ölçüm 05.11.2026, sesli set: arkada ikinci konuşan 10 dB kısıkken
   STT iki sözü karıştırıyor, hızlı yol ilk bulduğuna aktarıyordu — 80 kayıtta 18 yanlış eylem). İki kişi, iki birim
   hattı, dahili + başka kişi → "X mı, Y mi?"; operatör / kapatma isteği yanında bir hedef → teyit. D131–D134.

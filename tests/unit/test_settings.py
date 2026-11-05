@@ -190,7 +190,7 @@ def test_llm_kapali_saglikta_yok_ve_hazir():
         try:
             h = rt.health()
             assert "llm" not in h["components"] and h["status"] == "ok"
-            t = await rt.agent.new_session("x").handle_user("zeynep lütfen")
+            t = await rt.agent.new_session("x").handle_user("zeynep arslan lütfen")
             assert [a.extension for a in t.actions] == ["260"] and t.llm_calls == 0
         finally:
             await rt.stop()

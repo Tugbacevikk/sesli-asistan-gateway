@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from dataclasses import replace
@@ -31,6 +32,7 @@ from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
+from .core.topics import Topic, parse_topics
 
 log = logging.getLogger(__name__)
 
@@ -80,8 +82,20 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
         # ADR-022: LLM'in rehber araması (LLM_TOOLS=mcp); ADR-023: LLM'den önce konu adımı (MCP_STEP)
         remote = McpRehber(s.mcp_url)
     tools = ToolRegistry(directory.index, remote=remote, remote_timeout_s=s.mcp_timeout_s,
-                         remote_search=s.llm_tools == "mcp")
+                         remote_search=s.llm_tools == "mcp", topics=load_topics(s.mcp_topics_path.strip()))
     return DialogAgent(llm or build_llm(s), tools, cfg)
+
+
+def load_topics(path: str = "") -> list[Topic]:
+    """Konu listesi: `path` (kurumun listesi, MCP_TOPICS_PATH), boşsa ürünle gelen genel liste (gateway/konular.json).
+    Gateway ve rehber MCP sunucusu aynı listeyi okur."""
+    from importlib import resources
+
+    if path:
+        text = Path(path).read_text(encoding="utf-8")
+    else:
+        text = resources.files("sesli_asistan.gateway").joinpath("konular.json").read_text(encoding="utf-8")
+    return parse_topics(json.loads(text))
 
 
 def build_tts(s: GatewaySettings) -> CachingTts:

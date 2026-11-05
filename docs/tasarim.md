@@ -1778,6 +1778,29 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
 - **Ölçüm:** gerçek STT hatalarından 6/8 doğru aday; ad içermeyen 30 sözün hiçbirinde tetiklenmez (en yakın "fiyat
   paketi" 68,6 / fark 15). Diyalog seti 127 senaryo %99,2, kamu %100, izinsiz 0.
 
+
+### ADR-029 — Sözde birden çok hedef: aktarılmaz, sorulur (arkada ikinci konuşan)
+
+**Bağlam.** Sesli regresyon setinde (olcumler.md, 5 Kasım 2026) arkada ikinci bir konuşan 10 dB kısıkken 80 kayıtta
+17–19 yanlış eylem çıktı. STT iki konuşanın sözünü tek metne karıştırıyor ("iki yüz on dört numaralı dahili Mehmet
+Demir'e bağlar mısınız", "zeynep sipariş vermek istiyorum", "murat çelik tuğba çevik ile görüşmek istiyorum"); ses
+seviyesi ve VAD arka plan konuşmasını ayırt etmiyor (canlı ölçüm: arka plan -30 / -36 dBFS, VAD %85–97).
+
+**Karar.** Metin birden çok hedefe işaret ediyorsa hiçbir eylem (aktarma, operatör, kapatma) yapılmaz:
+1. `_step_conflict` (operatör / kapatma adımlarından önce): iki kişi (tam adla), iki birim hattı, dahili + başka
+   kişi, aktarılamayan kişi + birim, söylenen kişi / birim + başka birimin konusu (yerel konu listesi) → "X mı, Y
+   mi?"; operatör / kapatma isteği yanında bir hedef → teyit. Kişinin kendi birimi / dahilisi ayrı hedef değildir.
+   Birimin bozuk söylenişi ("teknik de", "işlemden") yalnız bu denetimde birim sayılır, aktarmada sayılmaz.
+2. Kişi çözmede (ADR-025) soyadın önünde başka bir ad ("murat çelik" → Burak Çelik) kesinliği kaldırır: teyit.
+3. Kural modu ADR-025 ile aynı: yalnız adla ("zeynep") bulunan tek kişi teyitle.
+4. Konu listesi Gateway'de de yüklenir (`composition.load_topics`, MCP sunucusuyla aynı dosya): MCP'ye ulaşılamazsa
+   konu adımı yerelde çalışır.
+
+**Sonuç.** Aynı 36 yanlış eylemli metin yeniden oynatıldığında (üretim akışı, en kötü durum: yüksek güven) 6 kaldı;
+kalanlar metinden ayırt edilemiyor (arayanın rehberde olmayan bir şey söylediği, arkadakinin geçerli bir ad
+söylediği durum; "muhasebe" sözü tamamen kaybolmuş). Bunlar için ses seviyesi kapısı gerekir (arayanın kendi
+seviyesi ölçülünce). Bedel: gerçekten iki şey söyleyen arayana bir soru fazladan sorulur.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği

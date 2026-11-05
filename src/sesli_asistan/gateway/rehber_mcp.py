@@ -20,11 +20,9 @@ Güvenlik:
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -34,7 +32,7 @@ from .core.people import resolve_person
 from .core.schedule import OfficeHours
 from .core.search import DirectoryIndex, search_key
 from .core.tools import in_contacts
-from .core.topics import Topic, TopicTable, parse_topics
+from .core.topics import Topic, TopicTable
 
 log = logging.getLogger(__name__)
 
@@ -50,14 +48,10 @@ INSTRUCTIONS = ("Kurumun telefon rehberi (yalnız okuma). Kişi, birim ya da dah
 
 
 def load_topics(path: str = "") -> list[Topic]:
-    """Konu listesi: `path` (kurumun listesi), boşsa ürünle gelen genel liste (gateway/konular.json)."""
-    from importlib import resources
+    """Konu listesi (Gateway'inkiyle aynı: `composition.load_topics`)."""
+    from .composition import load_topics as load
 
-    if path:
-        text = Path(path).read_text(encoding="utf-8")
-    else:
-        text = resources.files("sesli_asistan.gateway").joinpath("konular.json").read_text(encoding="utf-8")
-    return parse_topics(json.loads(text))
+    return load(path)
 
 
 def build_server(index: Callable[[], DirectoryIndex], office: OfficeHours | None = None,

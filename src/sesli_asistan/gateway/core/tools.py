@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -19,6 +20,7 @@ from .people import resolve_person
 from .policy import TransferPolicy
 from .ports import RemoteToolsPort, ToolCall
 from .search import DirectoryIndex, has_role_word
+from .topics import Topic, TopicTable
 
 log = logging.getLogger(__name__)
 
@@ -111,9 +113,14 @@ def in_contacts(index: DirectoryIndex, args: dict[str, Any]) -> tuple[SearchResu
 
 class ToolRegistry:
     def __init__(self, index: DirectoryIndex, policy: TransferPolicy | None = None,
-                 remote: RemoteToolsPort | None = None, remote_timeout_s: float = 1.0, remote_search: bool = True):
-        """`remote_search`: LLM'in InContacts araması MCP'de (LLM_TOOLS=mcp); False ise `remote` yalnız konu adımı."""
+                 remote: RemoteToolsPort | None = None, remote_timeout_s: float = 1.0, remote_search: bool = True,
+                 topics: Sequence[Topic] = ()):
+        """`remote_search`: LLM'in InContacts araması MCP'de (LLM_TOOLS=mcp); False ise `remote` yalnız konu adımı.
+        `topics`: MCP sunucusununkiyle aynı konu listesi; MCP'ye ulaşılamazsa konu adımı ve birden çok hedef
+        denetimi bununla yerelde çalışır."""
         self.index = index
+        self.topics = list(topics)
+        self._topic_table: tuple[int, TopicTable] | None = None
         self.policy = policy or TransferPolicy()
         self.rejections = 0          # TransferPolicy'nin reddettiği aktarmalar (metrik: güvenlik incelemesi)
         self.remote, self.remote_timeout_s = remote, remote_timeout_s
@@ -181,14 +188,14 @@ class ToolRegistry:
         """Akışın 2. adımı: MCP'ye sözdeki konu sorulur. Dönen kimlikler Gateway'in kendi rehberinde aranır
         (bulunmayan atılır: MCP sunucusu kayıt uyduramaz). MCP yoksa, zaman aşımı ya da hata → () (söz LLM'e gider)."""
         if self.remote is None:
-            return ()
+            return self.local_topic(text)
         self.topic_calls += 1
         try:
             data = await asyncio.wait_for(self.remote.find_topic(text), self.remote_timeout_s)
         except Exception as e:
             self.topic_failures += 1
-            log.warning("MCP konu araması olmadı (%s): adım atlandı", e or type(e).__name__)
-            return ()
+            log.warning("MCP konu araması olmadı (%s): yerel konu listesi", e or type(e).__name__)
+            return self.local_topic(text)
         cands = tuple(Candidate(c, 100) for a in data.get("adaylar", []) if isinstance(a, dict)
                       if (c := self.index.get(str(a.get("id", "")))) is not None)
         if cands:
@@ -196,6 +203,16 @@ class ToolRegistry:
             a0 = data["adaylar"][0]
             log.info("MCP konu: %r → %s (%s)", a0.get("eslesen"), a0.get("birim"), [c.contact.extension for c in cands])
         return cands
+
+    def local_topic(self, text: str) -> tuple[Candidate, ...]:
+        """Sözdeki konu → birim (yerel konu listesiyle, MCP'ye gitmeden); konu listesi yoksa ()."""
+        if not self.topics:
+            return ()
+        ix = self.index
+        if self._topic_table is None or self._topic_table[0] != ix.version:
+            self._topic_table = (ix.version, TopicTable(ix.contacts(), self.topics))
+        return tuple(Candidate(c, 100) for a in self._topic_table[1].lookup(text)
+                     if (c := ix.get(a["id"])) is not None)
 
     def _remote_in_contacts(self, call: ToolCall, data: dict[str, Any], state: CallToolState) -> ToolOutcome:
         """MCP sonucu → çağrı durumu. Adaylar Gateway'in KENDİ rehberinden alınır (kimlikle): MCP sunucusu bir kayıt

@@ -919,6 +919,36 @@ ikincide cümleler arası 3 sn sessizlik, kayma yok.
 - Asıl kayıp **adlar**, iki bantta da: "Ayşe Yılmaz" → "ağlayamaz", "Burak Çelik" → "bırakçayı" / "kulakçayı",
   "Selin Aydın" → "sayın aydın". Modelin (66 M) ad tanıması zayıf; ipucu düzeltmiyor.
 
+### Sesli regresyon seti, ikinci tur: birden çok hedef düzeltmesi ve düşük dil modeli ölçeği (5 Kasım 2026, 13:10; n = 320)
+
+Aynı araç, yalnız temiz ve konuşma 10; commit aef6af6 (ilk birden çok hedef kuralı).
+
+| hat | arka plan | ölçek | WER | doğru | teyitle | kaçırma | yanlış teyit | YANLIŞ EYLEM |
+|---|---|---|---|---|---|---|---|---|
+| G.711 | temiz | — | %11,4 | 79 | 1 | 0 | 0 | 0 |
+| G.711 | konuşma 10 | — | %75,0 | 39 | 4 | 12 | 6 | 19 |
+| G.722 | temiz | — | %4,6 | 80 | 0 | 0 | 0 | 0 |
+| G.722 | konuşma 10 | — | %73,9 | 38 | 2 | 17 | 6 | 17 |
+| G.711 | temiz | 0,05 | %10,4 | 79 | 1 | 0 | 0 | 0 |
+| G.711 | konuşma 10 | 0,05 | %71,1 | 36 | 3 | 17 | 4 | 20 |
+| G.722 | temiz | 0,05 | %4,3 | 80 | 0 | 0 | 0 | 0 |
+| G.722 | konuşma 10 | 0,05 | %70,4 | 42 | 1 | 11 | 6 | 20 |
+| G.711 | temiz | 0,1 | %13,9 | 78 | 1 | 1 | 0 | 0 |
+| G.722 | temiz | 0,1 | %5,4 | 79 | 0 | 1 | 0 | 0 |
+
+- İlk kural (iki tam ad, iki hat) yanlış eylemleri azaltmadı: kalan 36'nın biçimi farklı — arka plandan **tek bir
+  ad ya da birim** ("zeynep …", "muhasebeyi …", "teknik de …") + arayanın konusu ya da rehberde olmayan adı; soyadın
+  önünde başka ad ("murat çelik" → Burak Çelik). Ayrıca ölçüm aracı üretimdeki akışı değil eski kural modunu
+  ölçüyordu (MCP adımı ve konu yoktu): `gorev_olc.py` artık üretim akışıyla (rehber → kişi çözme / konu → kural).
+- ADR-029 ile aynı 36 metin yeniden oynatıldı (bulut, kural modu + MCP adımı yerelde, güven yüksek varsayıldı —
+  en kötü durum): **36 → 6 yanlış eylem**. Kalan 6: "teknik de servis kaydı …" → Teknik Destek (büyük olasılıkla
+  doğru birim, konu listesinde "servis kaydı" yok), "can öztürk senin aydın orada mı" (arayan rehberde olmayan / silinmiş
+  kişiyi istiyor) ×2, "teknik deneye bağlar mısınız" ("muhasebe" sözü kaybolmuş), "bir yetkiliyi şenden birine"
+  (birim adı tamamen bozuk) — metinden ayırt edilemez.
+- **Dil modeli 0,05**: temiz seste bozmuyor (G.722 %4,6 → %4,3, G.711 %11,4 → %10,4; doğru aynı), karışık seste
+  yanlış eylemi azaltmıyor (17–19 → 20). 0,1 temiz seste yine kötüleşiyor. Karar: dil modeli şimdilik kapalı
+  kalır; 0,05 zararsız ama ölçülebilir bir kazanç yok. Asıl kazanç G.722'de (%11,4 → %4,6).
+
 ### Sesli regresyon seti: hat, arka plan ve dil modeli (5 Kasım 2026, 11:30; mihu, Tuğba'nın dizüstü, n = 640)
 
 `tools/stt/sesli_set.py`: okuma listelerinin 40 cümlesi Piper ile (tek ses) iki hızda (0,9 / 1,1) seslendirildi,

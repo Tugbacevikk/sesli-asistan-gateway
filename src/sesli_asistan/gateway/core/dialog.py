@@ -29,7 +29,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
-from .people import mentioned_targets
+from .people import mentioned_targets, said_surely
 from .phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -458,10 +458,15 @@ class DialogAgent:
         intent = asks_operator(u.text) or wants_hangup(u.text, strict=u.low)
         targets = list(m.contacts)
         if intent and not targets:
-            # hattı olmayan birim ("insan kaynaklarıyla"): tek kişisi varsa o hedeftir
+            # hattı olmayan birim ("insan kaynaklarıyla") ya da yalnız soyad ("operate eli şahin'e"): hedef sayılır
             targets = [c for d in m.departments if (c := self._department_target(search_key(d))[0]) is not None]
-        if not (len(persons) + len(m.others) >= 2 or (persons and (lines or m.departments)) or len(lines) >= 2
-                or (intent and (targets or m.departments))):
+            targets += [c for c in m.surnames if c not in targets]
+        if not m.others and (topic := self._topic_conflict(u.text, [*persons, *lines], m.departments)):
+            # söylenen kişi / birim ile konunun birimi farklı ("satış mı faturamla ilgili bir sorun var", "ayşe
+            # yılmaz fiyat teklifi almak istiyoruz"): ikisi de sorulur
+            targets = [*persons, *lines, *(c for c in topic if c not in lines)]
+        elif not (len(persons) + len(m.others) >= 2 or (persons and (lines or m.departments)) or len(lines) >= 2
+                  or (intent and (targets or m.departments)) or (m.others and (lines or m.departments))):
             return None
         log.info("[%s] sözde birden çok hedef%s: %s", s.call_id, " (operatör / kapatma isteğiyle)" if intent else "",
                  ", ".join(c.full_name for c in (*m.contacts, *m.others)))
@@ -469,7 +474,7 @@ class DialogAgent:
             return self._confirm(s, targets[0], why="sözde birden çok hedef")
         if not targets:
             return self._reply(s, self.cfg.texts.ask_target)
-        if len(persons) == 1 and not m.others and not intent:
+        if len(persons) == 1 and not m.others and not intent and len(targets) == len(m.contacts):
             # kişi + başka birim ("satıştan Burak Çelik"; Burak muhasebede; D29): kişi teyitle sorulur
             return self._confirm(s, persons[0], why="kişi başka birimle söylendi")
         s.state.truncated = False
@@ -477,6 +482,17 @@ class DialogAgent:
             turn.fast = True
             return turn
         return self._reply(s, self.cfg.texts.ask_target)
+
+    def _topic_conflict(self, text: str, lines: list[Any], depts: tuple[str, ...]) -> list[Any]:
+        """Sözde bir kişi / birim ve başka bir birime giden konu geçiyorsa konunun hedefi (yerel konu listesiyle)."""
+        said = {c.department for c in lines} | set(depts)
+        if not said:
+            return []
+        topic = self.tools.local_topic(text)
+        if not topic or {c.contact.department for c in topic} & said:
+            return []
+        pick, _ = self._department_target(search_key(topic[0].contact.department))
+        return [pick or topic[0].contact]
 
     async def _step_fast_path(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """1. rehber, hızlı yol (ADR-016): tam ad, birim hattı."""
@@ -569,6 +585,8 @@ class DialogAgent:
             if pick is not None:
                 return self._code_transfer(s, Candidate(pick, 100))
         if len(cands) == 1 and not more:
+            if not said_surely(self.tools.index, cands[0].contact, text):
+                return self._confirm(s, cands[0].contact, why="yalnız ad ya da başka bir adla söylendi")
             return self._code_transfer(s, cands[0])
         if len(cands) > 1 or more:
             s.state.last_results = tuple(cands[:3])

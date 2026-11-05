@@ -7,7 +7,8 @@ yaptı mı (doğru kişiye / birime aktarma, operatör, kapatma, soru), yanlış
 Kelime hata oranı (WER) adlarda yanıltır: "ayşe yılmaz'a" ile "ayşe yılmaz ile" WER'de hatalı, görevde doğrudur;
 "ayşe yılmaz" yerine "ayşe kaya" ise tek kelime hatası ama yanlış kişiye aktarmadır. Bu yüzden karar bu ölçümle verilir.
 
-Diyalog kural modunda (LLM'siz, ADR-019), gerçek eşiklerle (teyit `CONFIRM_BELOW`, tekrar `REPEAT_BELOW`) çalışır;
+Diyalog üretimdeki akışla (rehber → MCP adımı: kişi çözme ve konu, burada yerel → kural modu, LLM'siz ADR-019),
+gerçek eşiklerle (teyit `CONFIRM_BELOW`, tekrar `REPEAT_BELOW`) çalışır;
 STT güveni karsilastir.py'nin JSON'undan gelir. "evet / hayır" cevapları açık bir teyit sorusuna (Ayşe Yılmaz),
 "hiçbiri" "Ayşe Kaya mı, Ayşe Yılmaz mı?" sorusuna verilmiş sayılır. Sonuç türleri:
   doğru          : beklenen iş (doğru metinle aynı sonuç)
@@ -27,6 +28,7 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
+from sesli_asistan.gateway.composition import load_topics  # noqa: E402
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
 from sesli_asistan.gateway.core.models import Candidate, Contact  # noqa: E402
 from sesli_asistan.gateway.core.phrases import _folded_words  # noqa: E402
@@ -42,12 +44,14 @@ class _NoLlm:
 
 
 class Judge:
-    def __init__(self, contacts: list[Contact], cfg: DialogConfig):
+    def __init__(self, contacts: list[Contact], cfg: DialogConfig, topics: list[Any] | None = None):
         self.contacts, self.cfg = contacts, cfg
+        self.topics = load_topics() if topics is None else topics
         self.confirm_target = next((c for c in contacts if c.full_name == "Ayşe Yılmaz"), contacts[0])
 
     def _agent(self) -> DialogAgent:
-        return DialogAgent(_NoLlm(), ToolRegistry(DirectoryIndex(self.contacts)), self.cfg)
+        # üretimdeki akış: rehber → MCP adımı (kişi çözme, konu; burada yerel, aynı işlevler) → kural
+        return DialogAgent(_NoLlm(), ToolRegistry(DirectoryIndex(self.contacts), topics=self.topics), self.cfg)
 
     @staticmethod
     def context(ref: str) -> str:
@@ -122,7 +126,7 @@ def main(argv: list[str] | None = None) -> int:
     logging.disable(logging.WARNING)
     contacts = [Contact.from_api(c) for c in json.loads(a.rehber.read_text(encoding="utf-8")).get("contacts", [])]
     cfg = DialogConfig(organization="Ölçüm", llm_enabled=False, confirm_below=a.teyit_esigi,
-                       repeat_below=a.tekrar_esigi)
+                       repeat_below=a.tekrar_esigi, mcp_step=True, topic_confirm=True)
     try:
         res = asyncio.run(run(json.loads(a.json.read_text(encoding="utf-8")), Judge(contacts, cfg), a.v))
     finally:

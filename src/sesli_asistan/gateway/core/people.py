@@ -67,7 +67,8 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     if named and len(named) <= MAX_CANDIDATES:
         # hitapla ("Zeynep Hanım", "Can Bey", "Mehmet Albay") ya da soyadla ("Öztürk Bey") söylenen tek kişi: kesin
         # (kural modu ve LLM de doğrudan aktarıyordu); yalnız ad ("Mehmet var mı"): teyit
-        sure = len(named) == 1 and (_has_honorific(text) or _last_name_said(named[0], words))
+        sure = (len(named) == 1 and (_has_honorific(text) or _last_name_said(named[0], words))
+                and not _other_given_name(index, named[0], words))       # "murat çelik" ≠ Burak Çelik: teyit
         return _out(named, "ad", sure)
     return _out([], "", False)
 
@@ -225,6 +226,7 @@ class Mentions:
     contacts: tuple[Contact, ...]       # aktarılabilir hedefler (kişi, birim hattı, dahili sahibi)
     departments: tuple[str, ...]        # hattı olmayan, kişisi de söylenmeyen birimler
     others: tuple[Contact, ...]         # rehberde olup aktarılamayan kişiler (yönetim vb.)
+    surnames: tuple[Contact, ...] = ()  # yalnız soyadı geçen kişiler (operatör / kapatma isteği yanında hedef sayılır)
 
     @property
     def count(self) -> int:
@@ -239,12 +241,13 @@ def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> M
     persons = [c for c in index.source_contacts() if c.kind == "person"]
     named = [c for c in persons if _full_name_said(c, words)]
     by_id: dict[str, Contact] = {c.id: c for c in named if c.transferable}
-    others = tuple(c for c in named if not c.transferable)
+    # aktarılamayan kişi (yönetim) adıyla ya da soyadıyla da sayılır ("hakan bey"): azdır, karışma riski düşük
+    others = tuple(c for c in persons if not c.transferable and (c in named or _name_said(c, words)))
     for n in numbers:
         owner = next((c for c in index.contacts() if c.extension == n), None)
         if owner is not None and not any(c.id == owner.id for c in named):
             by_id.setdefault(owner.id, owner)
-    said_depts = _mentioned_departments(index, words)
+    said_depts = _mentioned_departments(index, words) | _department_tails(index, words)
     covered = {c.department for c in by_id.values()} | {c.department for c in others}
     rest: list[str] = []
     for d in sorted(said_depts - covered):
@@ -253,7 +256,32 @@ def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> M
             by_id.setdefault(line.id, line)
         else:
             rest.append(d)
-    return Mentions(tuple(sorted(by_id.values(), key=lambda c: c.full_name or c.department)), tuple(rest), others)
+    surnames = tuple(c for c in persons if c.transferable and c.id not in by_id and len(search_key(c.last_name)) >= 4
+                     and _last_name_said(c, words))
+    return Mentions(tuple(sorted(by_id.values(), key=lambda c: c.full_name or c.department)), tuple(rest), others,
+                    surnames)
+
+
+def _department_tails(index: DirectoryIndex, words: list[str]) -> set[str]:
+    """Çok sözcüklü birimin bozuk ya da eksik söylenişi: yalnız ayırt edici son sözcük ("işlemden" → Bilgi İşlem,
+    "kaynaklarıyla" → İnsan Kaynakları) ya da ilk sözcük + ikincinin başı ("teknik de" → Teknik Destek; "insanla
+    görüşmek" değil). Karışık seste sözcüklerden biri düşüyor ya da bozuluyor. Yalnız birden çok hedef denetiminde:
+    aktarma bununla yapılmaz."""
+    tails: dict[str, set[str]] = {}
+    heads: dict[tuple[str, str], set[str]] = {}
+    for c in index.contacts():
+        for name in (c.department, *c.department_aliases):
+            k = search_key(name).split()
+            if len(k) >= 2 and len(k[-1]) >= 5:
+                tails.setdefault(k[-1], set()).add(c.department)
+            if len(k) >= 2 and len(k[0]) >= 5:
+                heads.setdefault((k[0], k[1][:2]), set()).add(c.department)
+    out = {d for w in words for tail, ds in tails.items() if len(ds) == 1 and _like(w, tail) for d in ds}
+    for i, w in enumerate(words[:-1]):
+        for (head, start), ds in heads.items():
+            if len(ds) == 1 and _like(w, head) and words[i + 1].startswith(start):
+                out |= ds
+    return out
 
 
 def _full_name_said(c: Contact, words: list[str]) -> bool:
@@ -262,3 +290,35 @@ def _full_name_said(c: Contact, words: list[str]) -> bool:
         return False
     hit = [i for i, w in enumerate(words) if any(similarity(v, last) >= NAME_SAME for v in query_variants(w))]
     return any(i > 0 and similarity(words[i - 1], first.split()[-1]) >= NAME_SAME for i in hit)
+
+
+def said_surely(index: DirectoryIndex, c: Contact, text: str) -> bool:
+    """Kural modunda tek bulunan kişi doğrudan aktarılabilir mi (ADR-025 kuralları, LLM'siz akış için): tam ad, ad +
+    hitap ("Zeynep Hanım") ya da soyad ("Öztürk Bey", "yılmaz") evet; yalnız ad ("zeynep") ve soyadın önünde başka bir
+    ad ("murat çelik" → Burak Çelik) hayır, teyit sorulur. Ölçüm 05.11.2026 (sesli set, arkada ikinci konuşan):
+    arka plandan gelen tek bir ad ("zeynep …", "mehmet …") ve bozuk duyulan ad doğrudan aktarılıyordu."""
+    words = _without_self(text)
+    if c.kind != "person" or _full_name_said(c, words):
+        return True
+    first = search_key(c.first_name).split()
+    if _last_name_said(c, words):
+        return not _other_given_name(index, c, words)
+    if first and any(similarity(v, first[-1]) >= NAME_SAME for w in words for v in query_variants(w)):
+        return _has_honorific(text)
+    return True                                      # unvan / birimle bulundu: kurallar zaten kesin
+
+
+def _other_given_name(index: DirectoryIndex, c: Contact, words: list[str]) -> bool:
+    """Soyadın hemen önünde kişinin adı olmayan, bağlam sözcüğü de olmayan bir sözcük var mı ("murat çelik")."""
+    last, first = search_key(c.last_name), (search_key(c.first_name).split() or [""])[-1]
+    depts = [k for x in index.contacts() for name in (x.department, *x.department_aliases)
+             for k in search_key(name).split()]
+    for i, w in enumerate(words):
+        if i == 0 or not any(similarity(v, last) >= NAME_SAME for v in query_variants(w)):
+            continue
+        prev = words[i - 1]
+        if (similarity(prev, first) >= NAME_SAME or prev in _SOUND_STOP or is_role_word(prev)
+                or any(_like(prev, k) for k in depts)):
+            continue
+        return True
+    return False

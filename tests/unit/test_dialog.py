@@ -421,7 +421,7 @@ def rules():
 
 @pytest.mark.parametrize("texts,expected", [
     (["ayşe yılmazı istiyorum"], ["214"]),
-    (["zeynep lütfen"], ["260"]),
+    (["zeynep lütfen", "evet"], [None, "260"]),                 # yalnız ad: teyitle (ADR-025)
     (["satış müdürü ile görüşmek istiyorum"], ["230"]),          # unvan
     (["muhasebe"], ["210"]),                                     # birimin genel hattı
     (["insan kaynaklarına bağlar mısınız"], ["260"]),            # tek kişilik birim
@@ -1129,3 +1129,43 @@ async def test_kisinin_kendi_birimi_dahilisi_ya_da_kendini_tanitmasi_birden_cok_
     a = clarifier()
     t = await a.new_session("c").handle_user(text)
     assert [x.extension for x in t.actions] == ["214"]
+
+
+@pytest.mark.parametrize(("text", "question"), [
+    # sesli set 05.11.2026, arkada ikinci konuşan: arka plandan gelen birim / kişi + arayanın konusu
+    ("satış mı faturamla ilgili bir sorun var", "Satış mı, Muhasebe mi?"),
+    ("ayşe yılmaz fiyat teklifi almak istiyoruz", "Ayşe Yılmaz mı, Satış mı?"),
+])
+async def test_soylenen_hedef_ile_konunun_birimi_farkliysa_sorulur(text, question):
+    from sesli_asistan.gateway.composition import load_topics
+    a = DialogAgent(ScriptedLlm(), ToolRegistry(_index(), topics=load_topics()),
+                    DialogConfig(organization="Deneme", fast_path=True, clarify_by_code=True))
+    t = await a.new_session("c").handle_user(text)
+    assert not t.actions and a.llm.seen == [] and t.text == question
+
+
+@pytest.mark.parametrize("text", [
+    "muhasebeyi hakan bey ile görüşecektim",            # aktarılamayan kişi (yönetim) + birim
+    "bir yetkiliyle işlemden birine bağlanmak istiyorum",  # operatör + bilgi işlem (ilk sözcüğü düşmüş)
+    "teknik de şifremi unuttum",                         # birim (bozuk) + başka birimin konusu
+])
+async def test_karisik_sozde_dogrudan_eylem_yok(text):
+    from sesli_asistan.gateway.composition import load_topics
+    a = DialogAgent(ScriptedLlm(), ToolRegistry(_index(), topics=load_topics()),
+                    DialogConfig(organization="Deneme", fast_path=True, clarify_by_code=True, llm_enabled=False))
+    t = await a.new_session("c").handle_user(text)
+    assert not t.actions, t.text
+
+
+@pytest.mark.parametrize(("text", "sure"), [
+    ("zeynep arslan lütfen", True), ("zeynep hanım", True), ("öztürk bey", True), ("muhasebeden yılmaz", True),
+    ("zeynep lütfen", False),          # yalnız ad: aynı adlı rehberde olmayan biri olabilir
+    ("murat çelik ile görüş", False),  # soyadın önünde başka bir ad (arka plan / bozuk duyuş)
+])
+def test_kural_modunda_kesinlik(text, sure):
+    from sesli_asistan.gateway.core.people import said_surely
+    ix = _index()
+    who = {"zeynep": "Zeynep Arslan", "öztürk": "Can Öztürk", "yılmaz": "Ayşe Yılmaz", "çelik": "Burak Çelik"}
+    name = next(v for k, v in who.items() if k in text)
+    c = next(c for c in ix.contacts() if c.full_name == name)
+    assert said_surely(ix, c, text) is sure

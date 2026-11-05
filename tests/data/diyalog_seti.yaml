@@ -622,3 +622,20 @@
   aciklama: Karışık söz, iki kişi; cevapla doğru kişiye
   konusma: ["Ayşe Yılmaz ile görüşmek istiyorum Can Öztürk'ü arıyorum", "Can Öztürk"]
   beklenen: {eylem: transfer, dahili: "245"}
+# sesli set 05.11.2026 (ikinci tur): arka plandan tek bir ad / birim + arayanın konusu ya da rehberde olmayan adı
+- id: D135
+  aciklama: Arka plandan yalnız ad + arayanın konusu → aktarma yok (teyit)
+  konusma: ["zeynep sipariş vermek istiyorum"]
+  beklenen: {eylem: aktarma_yok}
+- id: D136
+  aciklama: Soyadın önünde başka ad ("murat çelik" ≠ Burak Çelik) → aktarma yok (teyit)
+  konusma: ["murat çelik tuğba çevik ile görüşmek istiyorum"]
+  beklenen: {eylem: aktarma_yok}
+- id: D137
+  aciklama: Birim + başka birimin konusu → aktarma yok (hangisi sorulur)
+  konusma: ["satış mı faturamla ilgili bir sorun var"]
+  beklenen: {eylem: aktarma_yok}
+- id: D138
+  aciklama: Aktarılamayan kişi + birim → aktarma yok
+  konusma: ["muhasebeyi hakan bey ile görüşecektim"]
+  beklenen: {eylem: aktarma_yok}
