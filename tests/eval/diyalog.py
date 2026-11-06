@@ -94,7 +94,13 @@ async def run_scenario(agent, sc: dict[str, Any], allowed: set[str] | None = Non
     session = agent.new_session(sc["id"])
     session.greeting()
     actions, latencies, replies, llm_calls, steps = [], [], [], [], []
-    for step in sc["konusma"]:
+    convo = sc["konusma"]
+    for i, step in enumerate(convo):
+        if i and steps[-1][1] and any(a.type in ("transfer", "operator") for a in steps[-1][1]) and not (
+                isinstance(step, dict) and "santral" in step):
+            # aktarma / operatör eylemi çağrıyı santrale verdi: gerçek çağrıda arayanın sonraki sözü asistana
+            # ulaşmaz (ölçüm 06.11.2026 K19: aktarmadan sonraki "evet" LLM'e gidip operatör sayılıyordu)
+            break
         before = agent.llm.calls
         t = time.perf_counter()
         if isinstance(step, dict) and "santral" in step:

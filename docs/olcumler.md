@@ -1251,3 +1251,30 @@ kayıpsız çözümle karşılaştırma; tek kayıp, 30 konum ortalaması, kayı
   kitaplık değişip yeniden eşlenme kaybolursa test kırılır). Kurum ağında kayıp > %1 görülürse G.722 Ek IV gizleme
   ya da G.711'e dönüş değerlendirilir.
 
+## Gerçek LLM ile senaryo setleri, qwen3.5:4b (6 Kasım 2026, a640590)
+
+Windows dizüstü, RTX 3050 Ti 4 GB, Ollama, qwen3.5:4b (%50 CPU / %50 GPU, bağlam 4096); `tests/eval/diyalog.py
+--mcp-adimi`, MCP sunucusu her sette kendi rehberiyle. Ölçüm Antigravity'de.
+
+| Set / rehber | Başarı | İzinsiz | Yanlış | LLM/tur | p50 / p95 sn | Başarısız |
+|---|---|---|---|---|---|---|
+| şirket, `diyalog_seti.yaml` (140) | **%100** | 0 | 0 | 0,21 | 0,0 / 3,15 | — |
+| kamu, `diyalog_seti_kamu.yaml` (21) | %90,5 | 0 | 0 | 0,23 | 0,01 / 4,98 | K14, K19 |
+| makam, `diyalog_seti_makam.yaml` (14) | **%100** | 0 | 0 | 0,07 | 0,0 / 0,02 | — |
+
+- **K14** "valiyle görüşmek istiyorum": LLM "Ayşe Yıldız mı, Kemal Arslan mı?" (iki vali yardımcısı) sordu; beklenen
+  kurumun genel hattı (1000). Kural modu doğru sonuca yalnız "valiyle" ~ Valilik birim eşleşmesiyle varıyordu; LLM
+  açıkken o adım yoktu. Düzeltme: MCP adımında unvan + rehberde öyle kayıt yok + tek birim → birim hattı (kodla).
+- **K19** "su arızası bildireceğim", "evet": hızlı yol "su"yu Su ve Kanalizasyon İdaresi saydı, teyitsiz aktardı;
+  ölçüm aracı aktarmadan sonra "evet"i de diyaloga verdi, LLM araç sınırını aşıp operatör dedi. Asıl hata ayrıca
+  bulundu: "şu" katlanınca "su" → "şu kişiyle görüşmek istiyorum" da Su İdaresi'ne aktarılıyordu (K22). Düzeltme:
+  "su" tek başına birim sayılmaz (konu adımı teyitle sorar); ölçüm aracı aktarma / operatörden sonra durur.
+- Teyit cümlesinde "Su ve Kanalizasyon İdaresi'ye mi" → "İdaresine mi" (iyelik ekli birim adı).
+- Açılışta LLM ısıtması (rehber → MCP bağlantısı arası): model bellekteyken 15,4 sn, diskten yüklenirken 62,2 sn
+  (sabit anonsların seslendirilmesi dahil). Başarılı ısıtma artık süresiyle loglanıyor ("LLM ısıtıldı"); süre sınırı
+  60 → 120 sn (soğuk yüklemede 60 sn sınırına dayanıyordu).
+- Sonrası (kural + MCP adımı, kod düzeltmeleriyle): şirket %100, kamu %100 (23, K22–K23 eklendi), makam %100. Gerçek
+  LLM ile yeniden ölçülecek.
+- Demo rehberi: `sample_db.csv`'nin kopyasında 4 makam satırı 214 yapıldı, "Mevcut rehbere ekle" ile 3.509 kayıt
+  eklendi (silinen 0, 1 hatalı satır atlandı; toplam 3.520, aranabilir 3.506).
+

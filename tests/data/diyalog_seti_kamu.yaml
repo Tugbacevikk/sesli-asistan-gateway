@@ -74,7 +74,7 @@
   konusma: ["imar durumu için arıyorum", "evet"]
   beklenen: {eylem: transfer, dahili: "7000"}
 - id: K19
-  aciklama: Konu (en belirli) → su idaresi; teyit → evet
+  aciklama: Konu (en belirli) → su idaresi; teyit → evet ("su" tek başına birim sayılmaz, "şu" ile aynı katlanır)
   konusma: ["su arızası bildireceğim", "evet"]
   beklenen: {eylem: transfer, dahili: "7200"}
 - id: K20
@@ -85,3 +85,12 @@
   aciklama: Unvan + ad + hitap
   konusma: ["daire başkanı can bey"]
   beklenen: {eylem: transfer, dahili: "7001"}
+# ölçüm 06.11.2026: "şu" katlanınca "su" → Su ve Kanalizasyon İdaresi'ne kodla aktarılıyordu
+- id: K22
+  aciklama: '"şu kişiyle" Su İdaresi değil'
+  konusma: ["şu kişiyle görüşmek istiyorum"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["7200"]}
+- id: K23
+  aciklama: Birim adı açık söylenince Su İdaresi doğrudan
+  konusma: ["su ve kanalizasyon idaresine bağlayın"]
+  beklenen: {eylem: transfer, dahili: "7200"}

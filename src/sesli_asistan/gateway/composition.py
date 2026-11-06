@@ -36,6 +36,7 @@ from .core.tools import ToolRegistry
 from .core.topics import Topic, parse_topics
 
 log = logging.getLogger(__name__)
+_WARMUP_S = 120.0                    # LLM ısıtması en çok (model diskten yükleniyorsa ~60 sn)
 
 
 def build_llm(s: GatewaySettings) -> LlmPort:
@@ -281,12 +282,15 @@ class GatewayRuntime:
             try:
                 # gerçek çağrıyla aynı baş: sistem istemi + araçlar (Ollama önceki isteğin hesabını yeniden kullanır)
                 head = [{"role": "system", "content": self.agent.system_prompt}, {"role": "user", "content": "merhaba"}]
+                t0 = time.monotonic()
+                # süre sınırı: model diskten yüklenirken ısıtma ~60 sn sürebiliyor (ölçüm 06.11.2026, 4 GB GPU)
                 try:
-                    await asyncio.wait_for(warm(messages=head, tools=self.agent.tools.schemas), timeout=60)
+                    await asyncio.wait_for(warm(messages=head, tools=self.agent.tools.schemas), timeout=_WARMUP_S)
                 except TypeError:                   # isteğe bağlı parametreleri almayan adaptör
-                    await asyncio.wait_for(warm(), timeout=60)
+                    await asyncio.wait_for(warm(), timeout=_WARMUP_S)
+                log.info("LLM ısıtıldı: %s (%.1f sn)", self.s.llm_model, time.monotonic() - t0)
             except Exception as e:
-                log.error("LLM ısıtılamadı: %s", e)
+                log.error("LLM ısıtılamadı: %s", e or type(e).__name__)
         if self.mcp is not None:
             # bağlantı açılışta kurulur: ilk bağlantı ~1 sn sürüyor, bir çağrının ilk aramasına denk gelmesin
             log.info("rehber MCP: %s (%s)", self.s.mcp_url,

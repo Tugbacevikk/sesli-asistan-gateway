@@ -880,7 +880,25 @@ class DialogAgent:
                              [c.contact.extension for c in cands])
                     turn.fast = True
                     return turn, ()
+            if not cands and (turn := self._role_department(s, text, words)) is not None:
+                return turn, ()
         return await self._topic_step(s, text), sound
+
+    def _role_department(self, s: DialogSession, text: str, words: list[str]) -> DialogTurn | None:
+        """Unvan söylendi ama rehberde aktarılabilir böyle bir kayıt yok ("valiyle görüşmek istiyorum": Vali
+        aktarılamaz, rehberde görünmez) ve söz tek bir birimin adı ("valiyle" ~ Valilik): o birimin genel hattı
+        (kalem; ADR-025). LLM'e bırakılınca aynı birimdeki başka unvanlar soruluyordu ("Ayşe Yıldız mı, Kemal Arslan
+        mı?", ölçüm 06.11.2026 K14). Kural modu aynı sonuca birim eşleşmesiyle varıyor."""
+        if not has_role_word(text) or self._mentions_person(words):
+            return None
+        _, depts, _ = self._rule_scan(words)
+        if len(depts) != 1:
+            return None
+        pick, _ = self._department_target(next(iter(depts)))
+        if pick is None or pick.kind != "department":
+            return None
+        log.info("[%s] unvan rehberde yok, birim hattı: %s → %s", s.call_id, log_text(text), pick.extension)
+        return self._code_transfer(s, Candidate(pick, 100))
 
     async def _topic_step(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Akışın 2. adımı (ADR-023): rehber (1. adım) çözemedi; yerel MCP sunucusuna sözdeki konu sorulur

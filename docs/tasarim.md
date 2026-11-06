@@ -1754,6 +1754,8 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   ("yardımcısına") ek atmak tutarsız olduğundan sözcükler ortak başla karşılaştırılır. Seçim cevabında çok sözcüklü
   birimin ayırt edici sözcüğü tanınır ("Nilüfer mi İnegöl mü?" → "nilüfer").
 - **Aktarılamaz makam:** "valiyle görüşmek istiyorum" → Vali aday olmaz; söz kurumun genel hattına (kalem) gider.
+  LLM açıkken de kodla (MCP adımı, `_role_department`: unvan sözcüğü var, rehberde öyle bir kayıt yok, söz tek bir
+  birimin adı → o birimin genel hattı); LLM'e bırakılınca aynı birimdeki başka unvanlar soruluyordu (06.11.2026).
 - **Ölçüm (04.11.2026, kural modu):** şirket seti 123 senaryo %96,7 → **%99,2**; sentetik kamu seti
   (`tests/data/kamu_rehber.json`, `diyalog_seti_kamu.yaml`, 21 senaryo) %66,7 → **%100**; izinsiz 0.
 

@@ -154,6 +154,30 @@ async def test_mcp_uydurma_kimlik_atilir(sirket):
     assert t.actions == [] or all(a.extension != "100" for a in t.actions if hasattr(a, "extension"))
 
 
+async def test_aktarilamaz_makam_llm_acikken_de_kurum_hattina(kamu):
+    # ölçüm 06.11.2026 (qwen3.5:4b, K14): LLM'e kalınca "Ayşe Yıldız mı, Kemal Arslan mı?" (vali yardımcıları) soruldu
+    agent, llm = _agent(kamu, Remote(kamu))
+    t = await agent.new_session("x").handle_user("valiyle görüşmek istiyorum")
+    assert [a.extension for a in t.actions] == ["1000"] and llm.calls == 0
+
+
+@pytest.mark.parametrize("text", ["şu kişiyle görüşmek istiyorum", "şu an müsait misiniz"])
+async def test_su_sozcugu_su_idaresine_aktarmaz(kamu, text):
+    agent, _ = _agent(kamu, Remote(kamu))
+    t = await agent.new_session("x").handle_user(text)
+    assert all(getattr(a, "extension", "") != "7200" for a in t.actions)
+
+
+async def test_birim_adinin_iyelikli_hali_teyitte_dogru_ekle(kamu):
+    class Topic(Remote):
+        async def find_topic(self, text):
+            return {"adaylar": [{"id": next(c.id for c in kamu.contacts() if c.extension == "7200")}]}
+
+    agent, _ = _agent(kamu, Topic(kamu))
+    t = await agent.new_session("x").handle_user("su arızası bildireceğim")
+    assert t.text == "Su ve Kanalizasyon İdaresine mi bağlamamı istersiniz?" and not t.actions
+
+
 # --- ses benzerliği (ADR-026): STT'nin bozduğu adlar, yalnız teyitle --------------------------------------------
 
 from sesli_asistan.gateway.core.people import sound_alike  # noqa: E402

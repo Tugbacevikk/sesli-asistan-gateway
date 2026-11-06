@@ -40,8 +40,10 @@ _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
 _STOP = _TITLES | _HONORIFICS | _RANKS | _GENERIC
 
 # Çok sözcüklü birim adlarında geçen, tek başına birim anlamına gelmeyen sık sözcükler (katlanmış): "bilgi almak",
-# "insan" (İnsan Kaynakları), "genel" (Genel Müdürlük), "mali" (Mali İşler)
-_WEAK_DEPT_WORDS = {"bilgi", "insan", "genel", "mali", "ozel", "musteri", "is", "hizmet", "hizmetler", "kurumsal"}
+# "insan" (İnsan Kaynakları), "genel" (Genel Müdürlük), "mali" (Mali İşler). "su": katlanınca "şu" ile aynı ("şu kişiyle
+# görüşmek istiyorum" → Su ve Kanalizasyon İdaresi'ne aktarılıyordu, 06.11.2026); "is" de "iş" ile aynı.
+_WEAK_DEPT_WORDS = {"bilgi", "insan", "genel", "mali", "ozel", "musteri", "is", "hizmet", "hizmetler", "kurumsal",
+                    "su"}
 
 # Görev/unvan sözcükleri: birim alanında geçerse sorgu bir kişiyi (unvanıyla) arıyordur: "satış müdürü"
 ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "sorumlu", "sorumlusu",

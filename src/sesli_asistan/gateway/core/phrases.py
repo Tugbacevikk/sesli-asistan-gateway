@@ -58,9 +58,14 @@ def common_dative(phrase: str) -> str:
 
 
 def contact_dative(c: Any) -> str:
-    """Kaydın söylenen adı yönelme ekiyle: kişi ve birim özel ad ("Ayşe Yılmaz'a", "Muhasebe'ye"), makam cins isim."""
+    """Kaydın söylenen adı yönelme ekiyle: kişi ve birim özel ad ("Ayşe Yılmaz'a", "Muhasebe'ye"), makam cins isim.
+    İyelik ekiyle biten çok sözcüklü birim adı tamlamadır: -n- ile ("Su ve Kanalizasyon İdaresine", "İnsan
+    Kaynaklarına"; "İdaresi'ye" yanlış okunuyordu, 06.11.2026)."""
     name = c.full_name if c.kind != "department" else c.department
-    return common_dative(name) if c.kind == "role" else dative(name)
+    if c.kind == "role" or (c.kind == "department" and " " in name.strip()
+                            and turkish_lower(name.strip())[-1:] in ("ı", "i", "u", "ü")):
+        return common_dative(name)
+    return dative(name)
 
 
 def asks_general_help(text: str) -> bool:

@@ -78,6 +78,11 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Gerçek LLM ölçümünün (06.11.2026, qwen3.5:4b, kamu %90,5) bulguları: aktarılamaz makam ("valiyle") LLM açıkken de
+  kodla kurumun genel hattına gider (LLM vali yardımcılarını soruyordu); "şu" katlanınca "su" olduğundan "şu kişiyle
+  görüşmek istiyorum" Su ve Kanalizasyon İdaresi'ne aktarılıyordu ("su" tek başına birim sayılmaz); iyelik ekli birim
+  adına doğru ek ("İdaresine mi", "İnsan Kaynaklarına mı"; "İdaresi'ye" deniyordu). Ölçüm aracı aktarma / operatör
+  eyleminden sonra konuşmayı sürdürmez (gerçek çağrıda sonraki söz asistana ulaşmaz).
 - Mesai dışında (`AFTER_HOURS_MODE=assistant`) akışlı cevap kapalı: LLM'in "Sizi operatöre bağlıyorum" cümlesi
   seslendirildikten sonra operatör eylemi "operatörümüz yok"a çevriliyordu; arayan ikisini birden duyuyordu.
 - Kimlik doğrulamasız santral API'si artık açılmaz: `API_KEY` boşken Gateway ağa açık adreste (`GATEWAY_API_HOST`
