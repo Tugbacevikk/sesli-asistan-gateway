@@ -19,6 +19,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from sesli_asistan.gateway.core.manager import CallError, CallManager, NewCall
 
@@ -68,6 +69,60 @@ def _error(status: int, code: str, message: str, call_id: str | None = None) -> 
     return JSONResponse({"error": {"code": code, "message": message, "call_id": call_id}}, status_code=status)
 
 
+def _body_limit(path: str) -> int:
+    return MAX_UPLOAD if path == "/v1/admin/directory/preview" else MAX_BODY
+
+
+class BodyLimit:
+    """Gövde boyutu sınırı (ASGI, en dışta). `Content-Length` büyükse gövde hiç okunmadan 413; başlık yoksa ya da
+    yanlışsa (chunked aktarım) **okunan** baytlar sayılır ve sınır aşılınca okuma kesilir, 413 döner.
+    Ayar / rehber / çağrı gövdeleri küçüktür: büyük gövde belleği doldurmasın."""
+
+    def __init__(self, app: ASGIApp):
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit = _body_limit(scope["path"])
+        declared = dict(scope.get("headers") or []).get(b"content-length")
+        try:
+            too_big = declared is not None and int(declared) > limit
+        except ValueError:
+            too_big = True
+        if too_big:
+            await _error(413, "PAYLOAD_TOO_LARGE", f"gövde en çok {limit // 1024} KB")(scope, receive, send)
+            return
+        seen = 0
+        started = replied = False
+
+        async def counted() -> Message:
+            nonlocal seen, replied
+            msg = await receive()
+            if msg["type"] == "http.request":
+                seen += len(msg.get("body", b""))
+                if seen > limit:
+                    # Okuma kesilir: uygulamaya bağlantı kopmuş gibi görünür (gövdenin kalanı okunmaz); 413 buradan
+                    # gider, uygulamanın sonraki cevabı atılır. Hata fırlatmak ara katmanın (BaseHTTPMiddleware)
+                    # görev grubunda sarılıp FastAPI'de 400'e dönüşüyordu.
+                    if not started and not replied:
+                        replied = True
+                        await _error(413, "PAYLOAD_TOO_LARGE", f"gövde en çok {limit // 1024} KB")(
+                            scope, receive, send)
+                    return {"type": "http.disconnect"}
+            return msg
+
+        async def tracked(msg: Message) -> None:
+            nonlocal started
+            if replied:
+                return                              # 413 gönderildi: uygulamanın cevabı atılır
+            started = started or msg["type"] == "http.response.start"
+            await send(msg)
+
+        await self.app(scope, counted, tracked)
+
+
 def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_key: str = "",
                allowed_ips: set[str] | None = None, lifespan=None, web_session=None,
                ui_allowed_ips: set[str] | None = None, metrics_registry=None, history=None,
@@ -81,13 +136,6 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
     @app.middleware("http")
     async def guard(request: Request, call_next):
         path = request.url.path
-        try:
-            size = int(request.headers.get("content-length") or 0)
-        except ValueError:
-            size = MAX_BODY + 1
-        limit = MAX_UPLOAD if path == "/v1/admin/directory/preview" else MAX_BODY
-        if size > limit:             # ayar / rehber / çağrı gövdeleri küçüktür: büyük gövde belleği doldurmasın
-            return _error(413, "PAYLOAD_TOO_LARGE", f"gövde en çok {limit // 1024} KB")
         if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
         host = request.client.host if request.client else ""
@@ -174,4 +222,5 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         h = health()
         return JSONResponse(h, status_code=200 if h.get("status") == "ok" else 503)
 
+    app.add_middleware(BodyLimit)            # en dışta: kimlik denetiminden önce, her yolda
     return app

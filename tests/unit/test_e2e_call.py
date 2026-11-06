@@ -215,6 +215,37 @@ async def test_buyuk_govde_reddedilir(gateway):
     assert r.status_code == 413 and r.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
 
 
+async def _chunks(n_kb: int):
+    yield b'{"call_id": "c-big", "caller": "'
+    for _ in range(n_kb):
+        yield b"1" * 1024
+    yield b'"}'
+
+
+async def test_content_length_olmadan_buyuk_govde_okunurken_kesilir(gateway):
+    """Chunked aktarım (Content-Length yok): sınır okunan bayttan uygulanır, gövdenin tamamı belleğe alınmaz."""
+    rt, api, _, _ = await gateway("x")
+    read = 0
+    sent_kb = 5 * 1024                       # 5 MB gönderilmek isteniyor; sınır 512 KB
+
+    async def counting():
+        nonlocal read
+        async for c in _chunks(sent_kb):
+            read += len(c)
+            yield c
+
+    r = await api.post("/v1/calls", content=counting(), headers={"Content-Type": "application/json"})
+    assert "content-length" not in {k.lower() for k in r.request.headers}
+    assert r.status_code == 413 and r.json()["error"]["code"] == "PAYLOAD_TOO_LARGE"
+    assert read < 1024 * 1024 and rt.manager.active == 0   # gövdenin kalanı okunmadı
+
+
+async def test_content_length_olmadan_kucuk_govde_kabul_edilir(gateway):
+    _, api, _, _ = await gateway("x")
+    r = await api.post("/v1/calls", content=_chunks(1), headers={"Content-Type": "application/json"})
+    assert r.status_code != 413
+
+
 async def test_rtp_hedefi_sonradan_bildirilebilir(gateway):
     rt, api, _, _ = await gateway("x")
     r = await api.post("/v1/calls", json={"call_id": "c-r", "caller": "1", "called": "2", "codec": "pcma"})

@@ -78,6 +78,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- HTTP gövde sınırı (512 KB, rehber dosyası 5 MB) yalnız `Content-Length` başlığına bakıyordu: başlıksız (chunked)
+  istekte gövde sınırsız okunuyordu (5 MB'lık chunked `POST /v1/calls` kabul ediliyordu). Sınır artık en dıştaki ASGI
+  katmanında **okunan** bayttan uygulanır; aşılınca okuma kesilir, 413 `PAYLOAD_TOO_LARGE` döner.
 - Birim belli, kişi belli değil (ADR-031): "muhasebe naşa hanım" (rehberde olmayan ad) birim hattına aktarılmaz,
   hattı olmayan birimde ("personel başkanlığı") "bulamadım" denmez; ikisinde de "Muhasebeden kiminle görüşmek
   istersiniz?" sorulur ve cevap o birimin içinden seçilir (`ASK_PERSON_IN_DEPARTMENT_TEXT`). Tek düşük güvenli aday
