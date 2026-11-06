@@ -1858,7 +1858,17 @@ rehber "Bilgi İşlem"i %100 eşledi → kod tek kesin sonucu aktardı; üstelik
    cevaplanmaz. Arayanın seviyesi bilinmiyorken yalnız -45 dBFS altı elenir. Asistan sustuktan sonra arayan her
    seviyede dinlenir. `BARGE_IN_LEVEL_MARGIN_DB` 0: kapalı (CallConfig).
 
-**Sonuç.** Senaryo D139–D140; şirket %99,3 (D14), kamu ve makam %100. Kapı ölçülen 7–9 dB farkın içinde 6 dB payla
+6. Birim belli, kişi belli değil (`_step_department_who`, hızlı yoldan önce): (a) birim + rehberde olmayan ad + hitap
+   ("muhasebe naşa hanım"; birim hattına aktarılıyordu) ya da (b) yalnız birim söylendi ama birimin genel hattı yok
+   ve birden çok kişi / makam var ("personel başkanlığı"; "bulamadım" deniyordu) → "Muhasebeden kiminle görüşmek
+   istersiniz?" (`ASK_PERSON_IN_DEPARTMENT_TEXT`, `{birimden}`). Cevap o birimin kişileri arasından seçilir; seçimde
+   çıkmazsa birimle birlikte aranır ("ayşe hanım" → "muhasebe ayşe hanım"). Birden çok aday seçilirse unvanının
+   (birim sözcükleri dışında) her sözcüğü cevapta geçen tek aday alınır ("daire başkanı" → Personel Daire Başkanı,
+   "… Daire Başkanlığı Özlük Şube Müdürü" değil). (a) deneme sayılır: aynı bilinmeyen ad yinelenirse operatör.
+7. Tek düşük güvenli aday (`single_low`) LLM'in aramasından gelince kodla teyit edilir (sözde geçiyorsa; D14);
+   kural modunda tam uyan yoksa tek kişinin adına en az `NEAR_NAME_MIN` (80) benzeyen söz teyitle sorulur.
+
+**Sonuç.** Senaryo D139–D142, M13–M14; şirket, kamu ve makam %100 (MCP adımıyla). Kapı ölçülen 7–9 dB farkın içinde 6 dB payla
 çalışır; payı daralan ortamlarda (çok yüksek arka plan) etkisi azalır, ama yanlış eylemi önleyen kurallar (ADR-029)
 ondan bağımsızdır.
 
@@ -2135,6 +2145,7 @@ Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalo
 | NAME_SAME | 92 | sözcük adın / soyadın kendisi (ekli, tek harf hatalı) | senaryo seti; "demir" ~ "deniz" 80 karışır |
 | CHOICE_WORD | 90 | "X mı, Y mi?" cevabında soyad / birim | ADR-017 |
 | FUZZY_CHOICE_MIN / FUZZY_CHOICE_MARGIN | 70 / 10 | cevap adayı tam söylemiyorsa en yakın soyad, teyitle | canlı 03.11.2026 |
+| NEAR_NAME_MIN | 80 | kural modunda tek kişiye yakın ad teyitle ("ahmet" → Mehmet 80; "veli" → Elif 77 sorulmaz) | D14, D16 |
 | FIRST_NAME_LIKE | 80 | seçim cevabında adların kendisi (aynı adlı adaylar) soyad sayılmaz | canlı 03.11.2026 |
 | YES_LIKE | 75 | "evet"e benzeyen kısa cevap ("evt") | canlı 03.11.2026 |
 | OPERATOR_LIKE / OPERATOR_MAYBE | 85 / 70 | "operatör"ün bozulmaları: istek / teyit sorulur | canlı 03.11.2026 |

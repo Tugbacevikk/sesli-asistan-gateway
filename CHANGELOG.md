@@ -78,6 +78,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Birim belli, kişi belli değil (ADR-031): "muhasebe naşa hanım" (rehberde olmayan ad) birim hattına aktarılmaz,
+  hattı olmayan birimde ("personel başkanlığı") "bulamadım" denmez; ikisinde de "Muhasebeden kiminle görüşmek
+  istersiniz?" sorulur ve cevap o birimin içinden seçilir (`ASK_PERSON_IN_DEPARTMENT_TEXT`). Tek düşük güvenli aday
+  ("ahmet bey" → Mehmet Demir) aktarılmadan teyitle sorulur (D14).
 - Canlı prova düzeltmeleri (ADR-031): hedefsiz genel istek ("bilgi almak istiyorum") LLM'e gitmeden konu sorulur;
   çok sözcüklü birimin yalnız sık sözcüğüyle ("bilgi" → Bilgi İşlem) eşleşme kesin sayılmaz; aynı çağrıda ulaşılamayan
   dahiliye arayan yeniden istemedikçe aktarılmaz; LLM sistem istemi ve araçlarla ısıtılır.

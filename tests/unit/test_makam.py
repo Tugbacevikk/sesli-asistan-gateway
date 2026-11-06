@@ -193,3 +193,19 @@ def test_buyuk_rehber_hizli():
     for x in ("asayiş şube müdürü", "lojistik uzmanı", "hukuk kısım amiri", "falanca filanca"):
         say(a, x)
     assert (time.perf_counter() - t0) / 4 < 1.5
+
+
+# --- birim belli, kişi değil -----------------------------------------------------------------------------------
+
+def test_hatti_olmayan_birimde_kiminle_sorulur_ve_cevap_birimin_icinden_secilir():
+    a = agent()
+    s = a.new_session("m")
+    t = asyncio.run(s.handle_user("personel başkanlığı"))
+    assert t.text == "Personel Başkanlığından kiminle görüşmek istersiniz?" and not t.actions
+    t = asyncio.run(s.handle_user("daire başkanı"))         # şube müdürlerinin unvanında da "daire başkanlığı" var
+    assert [x.extension for x in t.actions] == ["21010"]
+
+
+def test_hatti_olmayan_birimde_sube_muduru_secilir():
+    t = say(agent(), "personel başkanlığı", "özlük şube müdürü")
+    assert [x.extension for x in t.actions] == ["21013"]

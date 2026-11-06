@@ -49,3 +49,12 @@
   aciklama: Bütçe şube müdürü
   konusma: ["bütçe şube müdürü"]
   beklenen: {eylem: transfer, dahili: "21070"}
+# canlı prova 06.11.2026: hattı olmayan birim ("personel başkanlığı") → "bulamadım" deniyordu
+- id: M13
+  aciklama: 'Hattı olmayan birim → "Personel Başkanlığından kiminle?" sorulur, aktarma yok'
+  konusma: ["personel başkanlığı"]
+  beklenen: {eylem: aktarma_yok}
+- id: M14
+  aciklama: O soruya unvan → o birimdeki makam (şube müdürleri değil)
+  konusma: ["personel başkanlığı", "daire başkanı"]
+  beklenen: {eylem: transfer, dahili: "21010"}

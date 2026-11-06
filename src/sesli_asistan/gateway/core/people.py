@@ -76,6 +76,16 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     return _out([], "", False)
 
 
+def department_said(index: DirectoryIndex, text: str) -> str | None:
+    """Sözde tam olarak geçen tek birim ("muhasebe", "personel başkanlığından"); yoksa ya da birden çoksa None."""
+    depts = _mentioned_departments(index, _without_self(text))
+    return next(iter(depts)) if len(depts) == 1 else None
+
+
+def has_honorific(text: str) -> bool:
+    return _has_honorific(text)
+
+
 def _has_honorific(text: str) -> bool:
     """Hitap ya da rütbe, ekli biçimleriyle ("beyi", "hanımla", "albayı")."""
     return any(w.startswith(h) and len(w) - len(h) <= 3 for w in fold_words(text) for h in _HONORIFIC_WORDS)

@@ -1223,3 +1223,58 @@ async def test_ulasilamayan_dahili_aranan_yeniden_soylerse_aktarilir():
     await s.handle_transfer_result("busy")
     t = await s.handle_user("can öztürk'ü tekrar dener misiniz")
     assert [x.extension for x in t.actions] == ["245"]
+
+
+# --- birim + rehberde olmayan ad ("muhasebe naşa hanım") ---------------------------------------------------------
+
+def _rule_agent():
+    return DialogAgent(ScriptedLlm(), ToolRegistry(_index()), DialogConfig(organization="Deneme", llm_enabled=False))
+
+
+def _says(a, *texts):
+    s = a.new_session("b")
+    return [asyncio.run(s.handle_user(x)) for x in texts]
+
+
+def test_birim_ve_bilinmeyen_ad_birim_hattina_aktarmaz_kiminle_sorar():
+    t, = _says(_rule_agent(), "muhasebe naşa hanım")
+    assert t.text == "Muhasebeden kiminle görüşmek istersiniz?" and not t.actions
+
+
+def test_birim_sorusunun_cevabi_birimin_kisisi():
+    *_, t = _says(_rule_agent(), "muhasebe naşa hanım", "ayşe hanım")
+    assert [x.contact_id for x in t.actions] == [
+        next(c.id for c in _index().contacts() if c.full_name == "Ayşe Yılmaz")]
+
+
+def test_bilinen_ad_ve_birim_dogrudan_aktarilir():
+    t, = _says(_rule_agent(), "muhasebe ayşe hanım")
+    assert "Ayşe Yılmaz" in t.text
+
+
+def test_yalniz_birim_hattina_aktarilir():
+    t, = _says(_rule_agent(), "muhasebe")
+    assert t.text == "Sizi Muhasebe birimine aktarıyorum."
+
+
+def test_bilinmeyen_ad_tekrarlanirsa_operator():
+    *_, t = _says(_rule_agent(), "muhasebe naşa hanım", "naşa hanım", "naşa hanım")
+    assert "operatör" in t.text
+
+
+# --- tek düşük güvenli aday teyitle (D14) ------------------------------------------------------------------------
+
+def test_kural_modunda_ada_yakin_soz_teyitle_sorulur():
+    t, = _says(_rule_agent(), "ahmet bey ile görüşecektim")
+    assert not t.actions and "Mehmet Demir" in t.text and t.text.endswith("?")
+
+
+def test_kural_modunda_uzak_ad_sorulmaz():
+    t, = _says(_rule_agent(), "veli bey ile görüşecektim")
+    assert not t.actions and "Elif" not in t.text
+
+
+async def test_llm_in_tek_dusuk_guvenli_sonucu_kodla_teyit_edilir():
+    a = agent(ScriptedLlm(tool_msg(call("InContacts", Name="Ahmet"))), clarify_by_code=True)
+    t = await a.new_session("c").handle_user("ahmet bey ile görüşecektim")
+    assert not t.actions and "Mehmet Demir" in t.text and t.text.endswith("?") and len(a.llm.seen) == 1

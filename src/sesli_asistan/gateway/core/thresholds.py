@@ -29,6 +29,10 @@ YES_LIKE = 75.0
 OPERATOR_LIKE = 85.0
 OPERATOR_MAYBE = 70.0
 
+# Kural modunda tam uyan yokken tek kişinin adına yakın söz teyitle sorulur ("ahmet bey" → Mehmet Demir 80, D14);
+# "veli" → Elif 77 sorulmaz (D16).
+NEAR_NAME_MIN = 80.0
+
 # --- LLM hedefinin sözde geçmesi (canlı 05.11.2026) ---------------------------------------------------------------
 # Düşük güvenli sözle LLM'in seçtiği kişinin adı / soyadı / unvanı / birimi sözde en az bu benzerlikte geçmeli; yoksa
 # teyit de sorulmaz, "bulamadım". "çokağa" ~ "kaya" 67,5 (geçmez), "kayayla" ~ "kaya" 100.

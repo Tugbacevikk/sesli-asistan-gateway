@@ -18,7 +18,8 @@ TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_o
                "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
                "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm",
                "confirm_operator", "no_input_question", "greeting_reply", "declined", "office_hours",
-               "office_hours_unknown", "ask_target", "which_department", "indistinct", "ask_topic")
+               "office_hours_unknown", "ask_target", "which_department", "indistinct", "ask_topic",
+               "ask_person_in_department")
 _NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
@@ -26,13 +27,15 @@ def check_texts(t: DialogTexts) -> None:
     """Yer tutucu denetimi (ayar dosyası ve ayar ekranı aynı kuralı kullanır). Hatalıysa ValueError."""
     checks = [("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department,
                                                    ("{birim}",)), ("OFFICE_HOURS_TEXT", t.office_hours, ("{saatler}",)),
-              ("WHICH_DEPARTMENT_TEXT", t.which_department, ("{unvan}",))]
+              ("WHICH_DEPARTMENT_TEXT", t.which_department, ("{unvan}",)),
+              ("ASK_PERSON_IN_DEPARTMENT_TEXT", t.ask_person_in_department, ("{birimden}",))]
     checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
     if "{mi}" in "".join(getattr(t, f) for f in _NAMED if f != "confirm"):
         raise ValueError("{mi} (soru eki) yalnız CONFIRM_TEXT'te kullanılabilir")
     for name, text, needs in checks:
         try:
-            text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B", mi="mı", saatler="S", unvan="U")
+            text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B", mi="mı", saatler="S", unvan="U",
+                        birimden="Bden")
         except (KeyError, IndexError, ValueError) as e:
             raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
                              "{ad} {ad_e} {birim}, teyitte {mi})") from None
@@ -40,7 +43,8 @@ def check_texts(t: DialogTexts) -> None:
             shown = ["{ad} ya da {ad_e}" if n == "{ad" else n for n in needs]
             raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")
     for f in TEXT_FIELDS:
-        if (f not in ("greeting", "transferring_department", "office_hours", "which_department", *_NAMED)
+        if (f not in ("greeting", "transferring_department", "office_hours", "which_department",
+                      "ask_person_in_department", *_NAMED)
                 and "{" in getattr(t, f)):
             raise ValueError(f"{f.upper()}_TEXT yer tutucu almaz: {getattr(t, f)!r}")
 
@@ -168,6 +172,7 @@ class GatewaySettings(BaseSettings):
     which_department_text: str = ""           # aynı unvanlı çok hat: "Hangi birimdeki {unvan}?" (ADR-030)
     indistinct_text: str = ""                 # aynı unvan, aynı birim: ayırt edilemedi → operatör
     ask_topic_text: str = ""                  # hedefsiz genel istek ("bilgi almak istiyorum") cevabı
+    ask_person_in_department_text: str = ""   # birim belli, kişi değil: "{birimden} kiminle görüşmek istersiniz?"
     no_input_question_text: str = ""          # soru açıkken arayan susunca, sorudan önce ("Sizi duyamadım.")
     greeting_reply_text: str = ""             # arayan yalnız selam verince ("Merhaba, kiminle görüşmek istersiniz?")
 

@@ -29,7 +29,15 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
-from .people import fuzzy_departments, mentioned_targets, resolve_person, said_surely, same_title
+from .people import (
+    department_said,
+    fuzzy_departments,
+    has_honorific,
+    mentioned_targets,
+    resolve_person,
+    said_surely,
+    same_title,
+)
 from .phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -39,6 +47,7 @@ from .phrases import (
     _YES,
     _folded_words,
     _vowel_mask,
+    ablative,
     asks_general_help,
     asks_office_hours,
     asks_operator,
@@ -66,6 +75,7 @@ from .thresholds import (
     MAX_BARGE_REPEATS,
     MAX_REPLY_SENTENCES,
     NAME_SAME,
+    NEAR_NAME_MIN,
     YES_LIKE,
 )
 from .tools import CallToolState, ToolRegistry
@@ -146,6 +156,7 @@ class DialogTexts:
     ask_topic: str = ("Hangi konuda bilgi almak istersiniz? Görüşmek istediğiniz kişiyi ya da birimi de "
                       "söyleyebilirsiniz.")
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
+    ask_person_in_department: str = "{birimden} kiminle görüşmek istersiniz?"   # birim belli, kişi değil
     indistinct: str = "Bu unvanda birden fazla hat var. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -230,6 +241,7 @@ STEPS = (
     "_step_asks_operator",      # "operatöre bağlayın"
     "_step_hangup",             # "görüşmeyi sonlandırmak istiyorum"
     "_step_choice",             # açık "hangisi?" sorusunun cevabı
+    "_step_department_who",     # birim + bilinmeyen ad ya da hattı olmayan birim: "Muhasebeden kiminle?"
     "_step_fast_path",          # 1. rehber: tam ad, birim
     "_step_fast_clarify",       # 1. rehber: "hangisi?" sorusu
     "_step_fast_extension",     # 1. rehber: dahili numara
@@ -458,6 +470,12 @@ class DialogAgent:
             return None
         if (turn := self._resolve_choice(s, u.text, u.choice)) is not None:
             return turn
+        depts = {c.contact.department for c in u.choice}
+        if (s.state.choice_question and len(depts) == 1 and (dept := depts.pop())
+                and department_said(self.tools.index, u.text) is None):
+            # "Muhasebeden kiminle?" → "ayşe hanım": cevap o birimdeki kişi olarak aranır ("muhasebe ayşe hanım")
+            u.text = f"{dept} {u.text}"
+            return None
         if not set(_folded_words(u.text)) & (_NEGATION | {"bilmiyorum"}) and not self._mentions_target(u.text):
             return self._repeat_choice(s, u.choice)
         return None
@@ -519,6 +537,35 @@ class DialogAgent:
             return []
         pick, _ = self._department_target(search_key(topic[0].contact.department))
         return [pick or topic[0].contact]
+
+    async def _step_department_who(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Birim belli, kişi belli değil: "Muhasebeden kiminle görüşmek istersiniz?" ve cevap o birimin kişileri
+        arasından seçilir. İki durum: (1) birim + rehberde olmayan ad + hitap ("muhasebe naşa hanım": birim hattına
+        bağlanıyordu; arayan bir kişi istiyor), (2) yalnız birim söylendi ama birimin genel hattı yok ve birden çok
+        kişi / makam var ("personel başkanlığı": "bulamadım" deniyordu)."""
+        if not (self.cfg.fast_path and self.cfg.clarify_by_code):
+            return None
+        ix = self.tools.index
+        dept = department_said(ix, u.text)
+        if dept is None:
+            return None
+        key = search_key(dept)
+        members = [c for c in ix.contacts() if c.kind != "department" and search_key(c.department) == key]
+        has_line = any(c.kind == "department" and search_key(c.department) == key for c in ix.contacts())
+        nobody = not resolve_person(ix, u.text)["adaylar"] and not self._mentions_person(search_key(u.text).split())
+        unknown_person = nobody and has_honorific(u.text)
+        only_department = nobody and not has_line and len(members) >= 2 and not has_role_word(u.text)
+        if not members or not (unknown_person or only_department):
+            return None
+        if unknown_person and (turn := self._count_failure(s)) is not None:
+            return turn                               # aynı bilinmeyen ad tekrar tekrar: sonunda operatör
+        q = self.cfg.texts.ask_person_in_department.format(birimden=ablative(dept))
+        log.info("[%s] birim belli, kişi değil (%s): %s", s.call_id, dept,
+                 "bilinmeyen ad" if unknown_person else "hattı yok")
+        s.state.choice, s.state.choice_question = tuple(Candidate(c, 100) for c in members), q
+        turn = self._reply(s, q)
+        turn.fast = True
+        return turn
 
     async def _step_fast_path(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """1. rehber, hızlı yol (ADR-016): tam ad, birim hattı."""
@@ -683,8 +730,27 @@ class DialogAgent:
                 return turn
             s.state.choice = ()
             return self._reply(s, self.cfg.texts.too_many)
+        if (near := self._near_name(text)) is not None:
+            # rehberde tam uyan yok ama tek bir kişinin adına yakın ("ahmet bey" → Mehmet Demir, D14): teyitle
+            return self._confirm(s, near, why="benzer ad")
         s.state.misses.append(text)
         return self._not_found(s)
+
+    def _near_name(self, text: str) -> Any:
+        """Sözün 1–2 sözcüklük ad pencerelerinden yalnız bir kişiye düşük skorla (single_low) uyan; yoksa None.
+        Birim, unvan ve dolgu sözcükleri pencereye girmez."""
+        words = [w for w in search_key(text).split() if len(w) >= 3 and strip_suffix(w) not in _FILLER
+                 and not has_role_word(w) and not self._mentions_department([w])]
+        found: dict[str, Any] = {}
+        for n in (2, 1):
+            for i in range(len(words) - n + 1):
+                res = self.tools.index.search(name=" ".join(words[i:i + n]))
+                if (res.match == Match.SINGLE_LOW and res.candidates[0].contact.kind == "person"
+                        and res.candidates[0].score >= NEAR_NAME_MIN):
+                    found.setdefault(res.candidates[0].contact.id, res.candidates[0].contact)
+            if found:
+                break
+        return next(iter(found.values())) if len(found) == 1 else None
 
     def _rule_scan(self, words: list[str]) -> tuple[dict[str, Candidate], set[str], bool]:
         """Sözün 3, 2, 1 sözcüklük pencereleri rehberde: (kişiler, söylenen birimler, gösterilenden çok aday var mı)."""
@@ -961,6 +1027,8 @@ class DialogAgent:
                 picked.add(idx % len(choice))
         if not picked:
             return self._fuzzy_choice(s, text, words, choice)
+        if len(picked) > 1 and (exact := _exact_title(choice, picked, words)) is not None:
+            picked = {exact}                           # "daire başkanı" → Personel Daire Başkanı, şube müdürleri değil
         if len(picked) != 1:
             if len(choice) > 3 or s.state.choice_question:
                 # "Hangi birimdeki müfettiş?" → "teftiş kurulundan": söylenen birimdekilerle yeniden (ADR-030)
@@ -1403,6 +1471,18 @@ class DialogAgent:
             if (turn := self._clarify(s, s.state.last_results)) is not None:
                 return turn               # ikinci LLM turu beklenmez
             s.history.pop()
+        if (self.cfg.clarify_by_code and r.caller_turn and match == "single_low" and n_calls == 1
+                and len(s.state.last_results) == 1):
+            # tek, kesin olmayan aday ("ahmet bey" → Mehmet Demir): teyit sorusunu kod kurar (LLM'in cümlesi bozuk
+            # çıkıyordu); aday arayanın sözünde hiç geçmiyorsa teyit de yok, "bulamadım"
+            near = s.state.last_results[0].contact
+            if (turn := self._unreachable_again(s, near, call, content)) is not None:
+                return turn
+            if not self._grounded(s, near, last_only=True):
+                s.history.append(_tool_message(call, {**content, "note": "Arayan bu kişiyi söylemedi."}))
+                return self._not_found(s)
+            s.history.append(_tool_message(call, content))
+            return self._confirm(s, near, why="benzer ad (single_low)")
         if not (self.cfg.auto_transfer_single_high and match == "single_high"):
             return None
         contact = s.state.last_results[0].contact
@@ -1548,6 +1628,19 @@ def _spoken_title(text: str) -> str:
     folded = [_folded_words(w)[0] if _folded_words(w) else "" for w in words]
     i = next((j for j in reversed(range(len(words))) if folded[j] and is_role_word(folded[j])), None)
     return "" if i is None else " ".join(words[max(0, i - 2):i + 1])
+
+
+def _exact_title(choice: tuple[Candidate, ...], picked: set[int], words: list[str]) -> int | None:
+    """Seçilen adaylardan unvanının (birim sözcükleri dışında) her sözcüğü cevapta geçen tek aday; yoksa None.
+    "Personel Başkanlığından kiminle?" → "daire başkanı": Personel Daire Başkanı (şube müdürlerinin unvanında
+    "atama şube müdürü" de var)."""
+    def said(x: str) -> bool:
+        return any(similarity(v, w) >= CHOICE_WORD for w in words for v in query_variants(x))
+
+    exact = [i for i in sorted(picked)
+             if all(said(x) or x in set(search_key(choice[i].contact.department).split())
+                    for x in search_key(choice[i].contact.full_name).split())]
+    return exact[0] if len(exact) == 1 else None
 
 
 def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> bool:

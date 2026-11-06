@@ -648,3 +648,12 @@
   aciklama: Ulaşılamayan kişiye, arayan yeniden istemedikçe yeniden aktarma yok
   konusma: ["can bey ile görüşmek istiyorum", {santral: failed}, "bilgi almak istiyorum"]
   beklenen: {eylem: yok}
+# canlı prova 06.11.2026: "muhasebe naşa hanım" → Muhasebe birim hattına aktarılmıştı (arayan bir kişi istiyordu)
+- id: D141
+  aciklama: 'Birim + rehberde olmayan ad + hitap → birim hattına aktarılmaz, "Muhasebeden kiminle?" sorulur'
+  konusma: ["muhasebe naşa hanım"]
+  beklenen: {eylem: aktarma_yok}
+- id: D142
+  aciklama: '"Muhasebeden kiminle?" sorusuna yalnız ad + hitap → o birimdeki kişi'
+  konusma: ["muhasebe naşa hanım", "ayşe hanım"]
+  beklenen: {eylem: transfer, dahili: "214"}
