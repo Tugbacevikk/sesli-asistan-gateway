@@ -377,7 +377,9 @@ class CallSession:
         self.dialog.stt_confidence = conf
         self.state = CallState.THINKING
         t0 = self.clock()
-        if getattr(self.dialog.agent.cfg, "stream_replies", False):
+        # Mesai dışında akış yok: operatör eylemi diyalog bitince "operatörümüz yok"a çevrilir (`_route`); LLM'in
+        # önceden seslendirilen "Sizi operatöre bağlıyorum" cümlesi geri alınamazdı (çelişkili seslendirme).
+        if getattr(self.dialog.agent.cfg, "stream_replies", False) and self.office == OPEN:
             # ADR-018: LLM cevabının ilk cümlesi hazır olunca konuşmaya başla, kalanı geldikçe
             q: asyncio.Queue[str] = asyncio.Queue()
             self.dialog.sink = q.put_nowait

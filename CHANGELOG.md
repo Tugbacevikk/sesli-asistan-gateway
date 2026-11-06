@@ -78,6 +78,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Mesai dışında (`AFTER_HOURS_MODE=assistant`) akışlı cevap kapalı: LLM'in "Sizi operatöre bağlıyorum" cümlesi
+  seslendirildikten sonra operatör eylemi "operatörümüz yok"a çevriliyordu; arayan ikisini birden duyuyordu.
 - Kimlik doğrulamasız santral API'si artık açılmaz: `API_KEY` boşken Gateway ağa açık adreste (`GATEWAY_API_HOST`
   geri döngü değilse) başlamaz, hata verir (çıkış kodu 2). `GATEWAY_API_HOST` varsayılanı `127.0.0.1` (sunucu şablonu
   `gateway.env` yine `0.0.0.0`; `install.sh` anahtarı üretir). Deneme için açık izin: `ALLOW_INSECURE_API=true`.

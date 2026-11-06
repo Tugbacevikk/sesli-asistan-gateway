@@ -1122,7 +1122,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `NO_INPUT_S` / `NO_INPUT_MAX` | 8 / 2 | Sessiz arayan (5.1.2) |
 | `FAST_PATH` | true | ADR-016: net tam ad / birim hattında LLM beklenmez |
 | `CLARIFY_BY_CODE` | true | ADR-017: birden çok adayda soru ve cevaptan seçim LLM'siz |
-| `STREAM_REPLIES` | true | ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir |
+| `STREAM_REPLIES` | true | ADR-018: LLM cevabının ilk cümlesi hazır olunca seslendirilir (mesai dışında kapalı) |
 | `CODE_REPLIES` | true | ADR-019: bulunamadı ve aktarma sonucu cümleleri kodla |
 | `LLM_ENABLED` | true | ADR-019: false → LLM'siz, kural tabanlı diyalog (Ollama gerekmez) |
 | `LLM_FALLBACK` | true | ADR-020: LLM düşerse çağrı reddedilmez, tur kural tabanlı sürer |

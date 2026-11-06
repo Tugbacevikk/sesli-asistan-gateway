@@ -722,3 +722,31 @@ async def test_guven_yuvarlanmadan_karar_verilir():
         assert c.session.dialog.stt_confidence == 0.4953
         assert next(d for k, d in seen if k == "heard")["confidence"] == 0.5          # arayüze iki basamak
         assert c.session.stats.turns[-1].reply == c.session.dialog.agent.cfg.texts.not_understood
+
+
+async def test_mesai_disinda_akis_yok_operator_cumlesi_soylenmez():
+    # AFTER_HOURS_MODE=assistant: LLM "Sizi operatöre bağlıyorum" + ConnectOperator; mesai dışında operatör eylemi
+    # "operatörümüz yok"a çevrilir. Akışla ilk cümle önceden söyleniyordu (arayan ikisini birden duyuyordu).
+    class Rec(Tts):
+        def __init__(self):
+            self.texts = []
+
+        async def synthesize(self, text):
+            self.texts.append(text)
+            return await super().synthesize(text)
+
+    class Both(StreamLlm):
+        async def chat(self, messages, tools):
+            return LlmMessage("Sizi operatöre bağlıyorum.", [ToolCall("c1", "ConnectOperator", {})])
+
+    llm = Both((["Sizi operatöre bağlıyorum. "], [ToolCall("c1", "ConnectOperator", {})]), gap=0.05)
+    c = stream_call(llm, office="mesai_disi", after_hours_mode="assistant", thinking_sound=False)
+    tts = Rec()
+    c.session.speaker.tts = tts
+    async with c:
+        n0 = len(tts.texts)
+        c.say("operatörle görüşmek istiyorum")
+        await c.until(lambda: c.session.stats.turns, timeout=3)
+    said = " ".join(tts.texts[n0:]).lower()
+    assert "operatöre bağlıyorum" not in said and "operatörümüz" in said
+    assert llm.seen == []                                  # mesai dışında akışlı çağrı yapılmadı
