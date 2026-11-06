@@ -1225,3 +1225,29 @@ Rehber araçları MCP sunucusu (`rehber_sunucu.py`, mcp 2.3, stdio) + Ollama ist
 - Serbest cevaplar belirsiz / bozuk olabiliyor ("Bağlantı kuruluyor.", "yapabiliryim") → telefonda kodla cümle.
 - Karar önerisi: çağrı yolu değişmez; MCP, rehberi başka yapay zekâ uygulamalarına açan salt okunur uç olarak
   ayrıca düşünülebilir. Rapor: Claude Docs "Yerel LLM ile MCP Araç Kullanımı".
+
+## G.722 paket kaybı: çözücü durumu (6 Kasım 2026, sentetik)
+
+Soru (kod incelemesi): RTP paketi kaybolunca `receiver._emit` sessizlik koyuyor ama G.722 çözücüsünün (ADPCM, durumlu)
+durumu ilerlemiyor; sonraki paketler eski durumla çözülüyor. Doğru: kodlayıcı kayıp paketi kodlarken durumunu
+ilerletti, çözücü ilerletmedi. Ölçüm: 4 sn sentetik sesli (perde kayan, hece zarflı) sinyal, G722 kitaplığı (pip),
+kayıpsız çözümle karşılaştırma; tek kayıp, 30 konum ortalaması, kayıptan sonraki kare SNR'ı (dB):
+
+| Kayıpta | 1. kare | 2. | 3. | 5. | 10. | 20. |
+|---|---|---|---|---|---|---|
+| şimdiki: sessizlik, durum ilerlemez | 4 | 11 | 15 | 22 | 40 | 135 |
+| çözücüyü sıfırla | 1 | 4 | 9 | 16 | 37 | 140 |
+| önceki paketi çözüp at (durumu ilerlet), sessizlik | 4 | 10 | 14 | 23 | 38 | 129 |
+| önceki paketi çözüp çal (tekrar) | 4 | 10 | 14 | 23 | 38 | 129 |
+| sıfır baytlarla ilerlet | çok kötü (%1 kayıpta tüm sinyal 7 dB) | | | | | |
+
+- Hata gerçek ama **kısa**: kayıptan sonra ~3 kare (60 ms) belirgin bozulma, ~10 karede (200 ms) iz kalmıyor; ADPCM
+  kendiliğinden yeniden eşleniyor. Kayıp paketin kendisi (20 ms sessizlik) bundan daha büyük kayıp.
+- Önerilen "durumu ilerletme" basit biçimde (önceki paketle) ölçülebilir fark yapmıyor; sıfırlamak ve sıfır baytlar
+  kötüleştiriyor. Gerçek gizleme G.722 Ek III / IV (ITU-T) gerektirir; pip'te hazır uygulaması yok.
+- Canlı çağrılarda RTP kaybı ölçüldü: 0 (yukarıda, "RTP (Gateway): üç çağrıda kayıp 0"). Kayıp `stats.kayip` ile
+  çağrı sonunda loglanıyor.
+- Karar: değişiklik yok; davranış koda not ve teste bağlandı (`test_kayip_paketten_sonra_cozucu_kendiliginden_yeniden_eslenir`:
+  kitaplık değişip yeniden eşlenme kaybolursa test kırılır). Kurum ağında kayıp > %1 görülürse G.722 Ek IV gizleme
+  ya da G.711'e dönüş değerlendirilir.
+

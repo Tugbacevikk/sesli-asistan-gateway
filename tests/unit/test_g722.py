@@ -94,3 +94,25 @@ def test_yonetici_ve_api_g722_kabul_eder():
 
     assert "g722" in CODECS
     assert CreateCall.model_fields["codec"].annotation.__args__ == ("pcma", "pcmu", "g722")
+
+
+def test_kayip_paketten_sonra_cozucu_kendiliginden_yeniden_eslenir():
+    """Kayıpta çözücü durumu ilerlemez (receiver `_emit`); ADPCM birkaç karede kayıpsız çözümle örtüşmeli. Kitaplık
+    değişip bu özellik kaybolursa (kalıcı bozulma) gizleme gerekir: olcumler.md "G.722 paket kaybı"."""
+    t = np.arange(16000 * 2) / 16000
+    x = (6000 * np.sin(2 * np.pi * 180 * t) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * t))
+         + 2000 * np.sin(2 * np.pi * 2300 * t)).astype(np.int16)
+    enc = g722.Encoder()
+    pk = [enc.encode(x[i:i + 320]) for i in range(0, len(x), 320)]
+    ref, lossy = g722.Decoder(), g722.Decoder()
+    out_ref = [np.frombuffer(ref.decode(p), np.int16).astype(float) for p in pk]
+    lost = 30
+    out = [np.frombuffer(lossy.decode(p), np.int16).astype(float) if i != lost else np.zeros(320)
+           for i, p in enumerate(pk)]
+
+    def snr(i):
+        e = out_ref[i] - out[i]
+        return 10 * np.log10(np.sum(out_ref[i] ** 2) / max(np.sum(e ** 2), 1e-9))
+
+    assert snr(lost + 1) < 30                     # hemen sonrası bozuk (durum eşleşmiyor)
+    assert all(snr(i) > 30 for i in range(lost + 10, lost + 20))

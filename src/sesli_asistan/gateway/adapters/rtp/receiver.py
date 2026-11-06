@@ -149,6 +149,9 @@ class RtpReceiver(asyncio.DatagramProtocol):
 
     def _emit(self, p: RtpPacket | None) -> None:
         if p is None:
+            # G.722 çözücüsünün durumu kayıpta ilerletilmez: sonraki ~3 kare (60 ms) bozuk çözülür, ADPCM kendiliğinden
+            # yeniden eşlenir (~10 karede tam). Durumu önceki paketle ilerletmek ölçümde fark etmedi, sıfırlamak
+            # kötüleştirdi (olcumler.md "G.722 paket kaybı", 06.11.2026); gerçek gizleme G.722 Ek III/IV ister.
             self.stats.kayip += 1
             payload = self._silence
         else:
