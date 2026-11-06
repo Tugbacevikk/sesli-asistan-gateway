@@ -109,7 +109,11 @@ def in_contacts(index: DirectoryIndex, args: dict[str, Any]) -> tuple[SearchResu
     if res.truncated:
         # yalnız ilk `limit` aday gösterildi: LLM bunlar arasında seçtirmesin, ayırt edici bilgi istesin
         content["more"] = res.total - len(res.candidates)
-        content["note"] = "Bu ada uyan daha çok kişi var; arayandan soyadı ya da birimi iste."
+        if res.candidates and all(c.contact.kind == "role" for c in res.candidates):
+            content["note"] = ("Bu aramaya uyan birden çok birim/görev hattı var (kayıtlarda kişi soyadı yoktur, "
+                               "asla soyadı sorma); arayandan hangi birim, şube veya görevliyle görüşmek istediğini iste.")
+        else:
+            content["note"] = "Bu ada uyan daha çok kişi var; arayandan soyadı ya da birimi iste."
     return res, content, " / ".join(x for x in (name, dept, ext) if x)
 
 

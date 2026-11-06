@@ -55,14 +55,16 @@ ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "
               "muavin", "muavini",
               # makam hatlarında (ADR-030): "hukuk müşavirliğinden avukat", "bilgi işlem mühendisi"
               "avukat", "avukati", "musavir", "musaviri", "muhendis", "muhendisi", "teknisyen", "teknisyeni",
-              "memur", "memuru", "danisman", "danismani", "astsubay", "astsubayi"}
+              "memur", "memuru", "danisman", "danismani", "astsubay", "astsubayi", "subay", "subayi",
+              "basmufettis", "basmufettisi", "denetci", "denetcisi", "muhasip", "muhasibi",
+              "istatistikci", "istatistikcisi"}
 
 
 # Unvan kökleri: sözcük bununla başlıyorsa (ekli biçimler: "komutanıyla", "yardımcısına") unvandır; ardından -lık /
 # -lüğü gelirse kurum adıdır ("Komutanlığı", "Müdürlüğüne": birim, kişi değil). Kısa kökler yalnız tam / tek ekle.
 _ROLE_STEMS = ("mudur", "uzman", "sorumlu", "yonetici", "direktor", "asistan", "sekreter", "komutan", "kaymakam",
-               "baskan", "savci", "hakim", "rektor", "dekan", "mufettis", "yardimci", "koordinator", "temsilci",
-               "mudire", "muavin")
+               "baskan", "savci", "hakim", "rektor", "dekan", "mufettis", "basmufettis", "denetci", "yardimci",
+               "koordinator", "temsilci", "mudire", "muavin", "astsubay", "subay", "muhasip", "istatistikci")
 _INSTITUTION = ("lig", "lug", "lik", "luk")
 
 
@@ -73,7 +75,7 @@ def is_role_word(word: str) -> bool:
 
 
 def has_role_word(text: str) -> bool:
-    return any(is_role_word(w) for w in search_key(text).split())
+    return any(is_role_word(w) for w in fold_words(text))
 
 _ONES = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
 _TENS = ["", "on", "yirmi", "otuz", "kırk", "elli", "altmış", "yetmiş", "seksen", "doksan"]

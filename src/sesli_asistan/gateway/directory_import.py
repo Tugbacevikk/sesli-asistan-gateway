@@ -318,7 +318,8 @@ def looks_like_person(text: str) -> bool:
     """"Ahmet Yılmaz", "Ayşe Nur Kaya": 2–4 sözcük, her biri büyük harfle başlayan harflerden; nokta, rakam, unvan /
     birim sözcüğü yok ("Salon Sorumlusu", "Nöbetçi Amiri" kişi değil)."""
     words = text.split()
-    if not 2 <= len(words) <= 4 or any(not w.isalpha() or not w[0].isupper() for w in words):
+    if not 2 <= len(words) <= 4 or any(not w.isalpha() or not w[0].isupper() or (len(w) >= 2 and w.isupper())
+                                       for w in words):
         return False
     return not has_role_word(text) and not set(fold(text).split()) & _NOT_NAMES
 
@@ -327,7 +328,12 @@ def looks_like_person(text: str) -> bool:
 _NOT_NAMES = {"salon", "sorumlusu", "sorumlu", "nobetci", "kulubesi", "kulube", "konut", "haberci", "kapi", "santral",
               "danisma", "resepsiyon", "guvenlik", "asansor", "toplanti", "salonu", "odasi", "oda", "kantin",
               "yemekhane", "revir", "arsiv", "depo", "atolye", "garaj", "bakanliklar", "giyinme", "sekreterlik",
-              "kalem", "kalemi", "belgegecer", "faks", "fax", "makam", "bekleme", "operator", "nizamiye"}
+              "kalem", "kalemi", "belgegecer", "faks", "fax", "makam", "bekleme", "operator", "nizamiye",
+              "anittepe", "bestepe", "komutanligi", "baskanligi", "mudurlugu", "daire", "kurulu", "merkezi",
+              "ariza", "berber", "kuafor", "terzi", "marangoz", "bahcivan", "cayci", "ocagi", "pastane",
+              "kafeterya", "mutfak", "kiler", "camasirci", "temizlikci", "kaloriferci", "elektrikci", "tesisatci",
+              "dosemeci", "jeneratorcu", "kaynakci", "boyaci", "tersim", "kutuphane", "banka", "sigorta",
+              "itfaiye", "silahlik", "kres", "dershane", "rezervasyon", "sevk", "kita", "gensek", "mehmetcik"}
 _FAX = re.compile(r"\b(belgegecer|faks|fax)\b")
 
 

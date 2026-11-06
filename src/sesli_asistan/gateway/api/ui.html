@@ -894,11 +894,17 @@ async function loadDirectory() {
   }
 }
 
+const foldTr = (s) => (s || "").toLocaleLowerCase("tr").replace(/[çğıöşüâîû]/g,
+  (ch) => ({ "ç": "c", "ğ": "g", "ı": "i", "ö": "o", "ş": "s", "ü": "u", "â": "a", "î": "i", "û": "u" }[ch] || ch));
+
 function renderDirectory() {
   if (!directory) return;
-  const q = $("dirFilter").value.trim().toLocaleLowerCase("tr");
-  const rows = directory.contacts.filter((c) => !q ||
-    [c.name, c.department, c.extension, c.title, ...c.aliases].join(" ").toLocaleLowerCase("tr").includes(q));
+  const qWords = foldTr($("dirFilter").value).trim().split(/\s+/).filter(Boolean);
+  const rows = directory.contacts.filter((c) => {
+    if (!qWords.length) return true;
+    const hay = foldTr([c.name, c.department, c.extension, c.title, ...c.aliases].join(" "));
+    return qWords.every((w) => hay.includes(w));
+  });
   const depts = [...new Set(directory.contacts.map((c) => c.department).filter(Boolean))].sort((a, b) => a.localeCompare(b, "tr"));
   $("deptList").innerHTML = depts.map((d) => `<option value="${esc(d)}">`).join("");
   $("dirCount").textContent = `${rows.length} / ${directory.contacts.length} kayıt`;

@@ -113,14 +113,16 @@ class WsMedia:
             yield f
 
     async def play(self, pcm8k: np.ndarray) -> int:
+        if not len(pcm8k):
+            return 0
         loop = asyncio.get_running_loop()
         t0, n = loop.time(), 0
+        self.out.put(pcm8k.astype("<i2").tobytes())
         try:
-            for i in range(0, len(pcm8k), FRAME):
+            for _ in range(0, len(pcm8k), FRAME):
                 delay = t0 + n * FRAME / 8000 - PLAY_LEAD_S - loop.time()
                 if delay > 0:
                     await asyncio.sleep(delay)
-                self.out.put(pcm8k[i:i + FRAME].astype("<i2").tobytes())
                 n += 1
             return n
         except asyncio.CancelledError:

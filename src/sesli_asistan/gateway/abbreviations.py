@@ -27,8 +27,9 @@ def _key(abbr: str) -> str:
 
 
 class Abbreviations:
-    def __init__(self, table: dict[str, str] | None = None):
+    def __init__(self, table: dict[str, str] | None = None, words: dict[str, str] | None = None):
         self.table = {_key(k): v.strip() for k, v in (table or {}).items() if k.strip() and v.strip()}
+        self.words = {_key(k): v.strip() for k, v in (words or {}).items() if k.strip() and v.strip()}
 
     def __len__(self) -> int:
         return len(self.table)
@@ -36,16 +37,18 @@ class Abbreviations:
     def expand(self, text: str, unknown: Counter[str] | None = None) -> str:
         """Kısaltmaları açar; sözlükte olmayanlar `unknown`a sayılır ve metinde kalır. Bitişik kısaltmalarda önce
         en uzun bileşik anahtar ("Bşk.Yrd." → "Başkan Yardımcısı"; tek tek "Başkanı Yardımcısı" olurdu)."""
-        if "." not in text:
-            return text
-        out: list[str] = []
-        pos = 0
-        for run in self._runs(text):
-            out.append(text[pos:run[0].start()])
-            out.append(f" {self._expand_run([m.group(1) for m in run], unknown)} ")
-            pos = run[-1].end()
-        out.append(text[pos:])
-        return " ".join("".join(out).split())
+        if "." in text:
+            out: list[str] = []
+            pos = 0
+            for run in self._runs(text):
+                out.append(text[pos:run[0].start()])
+                out.append(f" {self._expand_run([m.group(1) for m in run], unknown)} ")
+                pos = run[-1].end()
+            out.append(text[pos:])
+            text = " ".join("".join(out).split())
+        if self.words and text:
+            text = " ".join(self.words.get(_key(w), w) for w in text.split())
+        return text
 
     @staticmethod
     def _runs(text: str) -> list[list[re.Match[str]]]:
@@ -75,10 +78,17 @@ class Abbreviations:
         return " ".join(words)
 
 
-def load_abbreviations(path: str = "") -> Abbreviations:
+def load_abbreviations(path: str = "", extra: bool = False) -> Abbreviations:
     """Ürünün genel listesi + kurumun dosyası (`path`, boşsa yalnız genel liste)."""
-    base = json.loads(resources.files("sesli_asistan.gateway").joinpath("kisaltmalar.json")
-                      .read_text(encoding="utf-8"))["kisaltmalar"]
+    raw = json.loads(resources.files("sesli_asistan.gateway").joinpath("kisaltmalar.json")
+                     .read_text(encoding="utf-8"))
+    base = dict(raw["kisaltmalar"])
+    words: dict[str, str] = {}
+    if extra:
+        base.update(raw.get("ek_kisaltmalar", {}))
+        words.update(raw.get("sozcuk_kisaltmalari", {}))
     if path:
-        base = {**base, **json.loads(Path(path).read_text(encoding="utf-8")).get("kisaltmalar", {})}
-    return Abbreviations(base)
+        ext = json.loads(Path(path).read_text(encoding="utf-8"))
+        base = {**base, **ext.get("kisaltmalar", {}), **ext.get("ek_kisaltmalar", {})}
+        words = {**words, **ext.get("sozcuk_kisaltmalari", {})}
+    return Abbreviations(base, words)

@@ -34,9 +34,11 @@ from .people import (
     fuzzy_departments,
     has_honorific,
     mentioned_targets,
+    narrow_candidates,
     resolve_person,
     said_surely,
     same_title,
+    same_unit,
 )
 from .phrases import (
     _FAST_BLOCK,
@@ -95,7 +97,7 @@ Kurallar:
   alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
-  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor (makam ve görev hatlarında kişi soyadı yoktur, asla soyadı sorma; hangi birim, şube veya görevli olduğunu sor); arayan seçince TransferCall ile aktar,
   none → nazikçe adı ya da birimi tekrar söylemesini iste.
 - "Aktarıyorum" ya da "bağlıyorum" demeden önce mutlaka TransferCall aracını çağır.
 - ConnectOperator aracını yalnızca arayan açıkça operatör isterse ya da operatör teklifini kabul ederse kullan.
@@ -593,28 +595,74 @@ class DialogAgent:
     async def _step_same_title(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Sözdeki unvana birden çok hat uyuyor ve "X mı, Y mi?" ile sorulamıyor (3'ten çok ya da aynı adlı): birim
         sorulur ("Hangi birimdeki müfettiş?"), cevapla süzülür. Hepsi aynı birimde aynı unvansa ayırt edilemez:
-        operatör (ADR-030; makam hatlarında ad yok, "Teftiş Kurulu Müfettişi" onlarca hat olabilir)."""
+        operatör (ADR-030; makam hatlarında ad yok, "Teftiş Kurulu Müfettişi" onlarca hat olabilir). Ayrıca arayan
+        önce çok hatlı bir başkanlık / şube söylediyse o birimin adayları tutulur; önceki turlarda söylenen birim /
+        şube bilgisiyle de daraltılır."""
         if not self.cfg.clarify_by_code:
             return None
+        raw_w = search_key(u.text).split()
+        words = [w for i, w in enumerate(raw_w)
+                 if not (w in ("ama", "nasil") and i + 1 < len(raw_w) and raw_w[i + 1].startswith(("stepe", "tepe")))]
+        if _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+            return None
         cands = [c for c in same_title(self.tools.index, u.text) if c.transferable]
+        from_unit = False
+        if not cands and not has_role_word(u.text) and not self._mentions_person(words):
+            cands = same_unit(self.tools.index, u.text)
+            from_unit = bool(cands)
+        if len(cands) >= 2 and (prior := self._prior_user_text(s)):
+            if narrowed := narrow_candidates(cands, prior):
+                cands = narrowed
+                if len(cands) == 1:
+                    log.info("[%s] önceki turlarla daraltıldı: %s → %s", s.call_id, log_text(u.text),
+                             cands[0].extension)
+                    return self._code_transfer(s, Candidate(cands[0], 100))
+        if len(cands) == 1 and from_unit:
+            log.info("[%s] birimden tek makam: %s → %s", s.call_id, log_text(u.text), cands[0].extension)
+            return self._code_transfer(s, Candidate(cands[0], 100))
         if len(cands) < 2:
             return None
         return self._narrow(s, tuple(Candidate(c, 100) for c in cands), u.text)
 
+    def _prior_user_text(self, s: DialogSession) -> str:
+        """Bu çağrıda son aktarma / eylemden sonraki önceki arayan sözleri (çok turlu daraltma için)."""
+        parts: list[str] = []
+        for m in reversed(s.history[:-1]):
+            role, content = m.get("role"), m.get("content") or ""
+            if role == "tool" and '"transferred": true' in content:
+                break
+            if role == "user" and content.startswith("[Santral]"):
+                break
+            if role == "user" and content:
+                parts.insert(0, content)
+        return " ".join(parts)
+
     def _narrow(self, s: DialogSession, cands: tuple[Candidate, ...], text: str = "") -> DialogTurn | None:
-        """Birden çok aday: 2–3 ve ayırt edilebiliyorsa "X mı, Y mi?"; birimleri farklıysa "Hangi birimdeki …?";
-        aynı unvan ve aynı birimse operatör. None: normal akış."""
+        """Birden çok aday: 2–3 ve ayırt edilebiliyorsa "X mı, Y mi?"; birimleri ya da alt birimleri/unvanları
+        farklıysa daraltma sorusu; aynı unvan ve aynı birimse operatör. None: normal akış."""
         if len(cands) <= 3 and which_question([c.contact for c in cands]) is not None:
-            if text:
+            if text and all(c.contact.kind == "person" for c in cands):
                 return None                          # sorulabilir: kişi çözme / hızlı yol soracak
             s.state.truncated = False
             return self._clarify(s, cands, lines=True)
         depts = {search_key(c.contact.department) for c in cands}
-        if len(depts) >= 2:
-            unvan = _common_title(cands) or _spoken_title(text)
-            q = (self.cfg.texts.which_department.format(unvan=unvan) if unvan
-                 else s.state.choice_question or self.cfg.texts.too_many)
-            log.info("[%s] aynı unvanlı %d hat (%s): birim soruluyor", s.call_id, len(cands), unvan)
+        titles = {search_key(c.contact.title) for c in cands}
+        if len(depts) >= 2 or len(titles) >= 2:
+            ct, st = _common_title(cands), _spoken_title(text, cands)
+            unvan = st if len(st.split()) > len(ct.split()) and ct and st.endswith(ct.split()[-1]) else (ct or st)
+            unit = _common_unit(cands)
+            if len(depts) >= 2:
+                label = unvan or unit
+                q = (self.cfg.texts.which_department.format(unvan=label) if label
+                     else s.state.choice_question or self.cfg.texts.too_many)
+            elif unvan:
+                q = (f"{unit} bünyesinde hangi şubedeki {unvan}?" if unit
+                     else self.cfg.texts.which_department.format(unvan=unvan))
+            else:
+                sub = any(w in _folded_words(unit) for w in ("sube", "subesi", "buro", "kisim"))
+                q = (f"{unit} bünyesinde hangi görevli veya unvanla görüşmek istersiniz?" if sub
+                     else f"{unit} bünyesinde hangi şube veya görevliyle görüşmek istersiniz?")
+            log.info("[%s] aynı unvanlı %d hat (%s): birim soruluyor", s.call_id, len(cands), unvan or unit)
             s.state.choice, s.state.choice_question = cands, q
             turn = self._reply(s, q)
             turn.fast = True
@@ -864,7 +912,9 @@ class DialogAgent:
         önce kişi çözme (unvan → o makamdaki kişi; birim + ad → o birimdeki kişi: aktar; ad + hitap → tek kişi: teyit,
         birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın).
         İkinci değer ses benzerliğiyle aday: çağıran onu LLM'den hemen önce teyitle kullanır."""
-        words = search_key(text).split()
+        raw_w = search_key(text).split()
+        words = [w for i, w in enumerate(raw_w)
+                 if not (w in ("ama", "nasil") and i + 1 < len(raw_w) and raw_w[i + 1].startswith(("stepe", "tepe")))]
         sound: tuple[Candidate, ...] = ()
         if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
             cands, sure, sound = await self.tools.resolve_person(text)
@@ -1037,7 +1087,32 @@ class DialogAgent:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
-        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+        raw_list = _folded_words(text)
+        raw_clean = {w for i, w in enumerate(raw_list)
+                     if not (w in ("ama", "nasil") and i + 1 < len(raw_list) and raw_list[i + 1].startswith(("stepe", "tepe")))}
+        if not raw_clean or _FAST_BLOCK & raw_clean or any(strip_suffix(w) in _FAST_BLOCK for w in raw_clean):
+            return None
+        if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
+            choice_ids = {c.contact.id for c in choice}
+            if words and (fast := self._fast_matches(text, words)) and not (set(fast) & choice_ids):
+                return None
+            if narrowed := narrow_candidates([c.contact for c in choice], text):
+                if len(narrowed) == 1:
+                    cand = Candidate(narrowed[0], 100)
+                    s.state.last_results = (cand,)
+                    action = self.tools.transfer(cand.contact.extension, s.state)
+                    if action is None:
+                        return None
+                    s.state.failed_attempts = 0
+                    log.info("[%s] seçim (daraltma): %s → %s", s.call_id, log_text(text), cand.contact.extension)
+                    turn = self._reply(s, self._transfer_text(action.contact_id))
+                    turn.fast = True
+                    return turn
+                if {c.id for c in narrowed} == choice_ids:
+                    if (op := self._count_failure(s)) is not None:
+                        return op
+                return self._narrow(s, tuple(Candidate(c, 100) for c in narrowed), text)
+        if not words:
             return None
         picked = {i for i in range(len(choice)) if _choice_said(choice, i, words)}
         for word, idx in _ORDINALS.items():
@@ -1486,8 +1561,12 @@ class DialogAgent:
         match = content.get("match")
         if self.cfg.clarify_by_code and r.caller_turn and match == "multiple" and n_calls == 1:
             s.history.append(_tool_message(call, content))
-            if (turn := self._clarify(s, s.state.last_results)) is not None:
+            all_roles = bool(s.state.last_results) and all(c.contact.kind == "role" for c in s.state.last_results)
+            if (turn := self._clarify(s, s.state.last_results, lines=all_roles)) is not None:
                 return turn               # ikinci LLM turu beklenmez
+            if all_roles:
+                user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+                return self._narrow(s, s.state.last_results, user)
             s.history.pop()
         if (self.cfg.clarify_by_code and r.caller_turn and match == "single_low" and n_calls == 1
                 and len(s.state.last_results) == 1):
@@ -1640,12 +1719,37 @@ def _common_title(cands: tuple[Candidate, ...]) -> str:
     return " ".join(common) if common and len(titles) == len(cands) else ""
 
 
-def _spoken_title(text: str) -> str:
+def _common_unit(cands: tuple[Candidate, ...]) -> str:
+    """Adayların unvanlarındaki ortak baş sözcük(ler) ("Asayiş Başkanlığı Plan Koordinasyon Şube …" → "Asayiş
+    Başkanlığı Plan Koordinasyon Şube"); yoksa ortak birim adı."""
+    titles = [c.contact.title.split() for c in cands if c.contact.title]
+    common: list[str] = []
+    for words in zip(*titles, strict=False):
+        if len({turkish_lower(w) for w in words}) != 1:
+            break
+        common.append(words[0])
+    if common and len(titles) == len(cands):
+        return " ".join(common)
+    depts = {c.contact.department for c in cands if c.contact.department}
+    return next(iter(depts)) if len(depts) == 1 else ""
+
+
+def _spoken_title(text: str, cands: tuple[Candidate, ...] = ()) -> str:
     """Arayanın söylediği unvan (son unvan sözcüğü ve önündeki en çok iki sözcük): "özel kalem müdürü"."""
     words = [w.strip(".,;:!?'’") for w in turkish_lower(text).split()]
     folded = [_folded_words(w)[0] if _folded_words(w) else "" for w in words]
     i = next((j for j in reversed(range(len(words))) if folded[j] and is_role_word(folded[j])), None)
-    return "" if i is None else " ".join(words[max(0, i - 2):i + 1])
+    if i is None:
+        return ""
+    vocab = {w for c in cands for w in _folded_words(c.contact.title)} if cands else set()
+    picked = [words[i]]
+    for j in (i - 1, i - 2):
+        if j >= 0 and folded[j] and (not vocab or any(w.startswith(folded[j][:4]) or folded[j].startswith(w[:4])
+                                                      for w in vocab if len(w) >= 3 and len(folded[j]) >= 3)):
+            picked.insert(0, words[j])
+        else:
+            break
+    return " ".join(picked)
 
 
 def _exact_title(choice: tuple[Candidate, ...], picked: set[int], words: list[str]) -> int | None:

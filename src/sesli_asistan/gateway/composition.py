@@ -136,7 +136,7 @@ class GatewayRuntime:
 
         self.live = LiveFeed(keep_texts=s.call_history_texts)    # İzleme: süren çağrıların canlı akışı
         self.directory = build_directory(s)
-        self.abbreviations = load_abbreviations(s.abbreviations_path.strip())   # rehber yüklemede (ADR-030)
+        self.abbreviations = load_abbreviations(s.abbreviations_path.strip(), extra=True)   # rehber yüklemede (ADR-030)
         from .core.resilience import BreakerLlm, BreakerStt, CircuitBreaker
 
         self.breakers = {n: CircuitBreaker(n, s.breaker_failures, s.breaker_reset_s) for n in ("llm", "tts", "stt")}
