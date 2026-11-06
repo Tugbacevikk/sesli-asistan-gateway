@@ -1206,8 +1206,10 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `RTP_IDLE_TIMEOUT_S` | 20 | |
 | `MAX_CALL_DURATION_S` | 600 | |
 | `TRANSFER_RESULT_TIMEOUT_S` | 30 | |
-| `GATEWAY_API_HOST` / `RTP_HOST` | 0.0.0.0 | Dinlenen adres (iç ağ arayüzü verilebilir) |
-| `API_KEY` | (secrets.env) | Santralin Gateway'e gönderdiği Bearer anahtar; boşsa uyarı, kimlik doğrulama yok |
+| `GATEWAY_API_HOST` | 127.0.0.1 (`gateway.env`: 0.0.0.0) | REST dinleme adresi; geri döngü dışındaysa `API_KEY` zorunlu (boşsa servis açılmaz) |
+| `RTP_HOST` | 0.0.0.0 | RTP dinleme adresi (iç ağ arayüzü verilebilir) |
+| `ALLOW_INSECURE_API` | false | true: ağa açık adreste `API_KEY`'siz açılır (yalnız deneme; açılışta uyarı) |
+| `API_KEY` | (secrets.env) | Santralin Gateway'e gönderdiği Bearer anahtar; zorunlu (yukarıya bakın), install.sh üretir |
 | `PBX_API_KEY` | (secrets.env) | Gateway'in santrale gönderdiği Bearer anahtar |
 | `PBX_TIMEOUT_S` | 3 | Santral eylem isteği (3 deneme) |
 | `BARGE_IN` | true | Söze girince seslendirme durur |

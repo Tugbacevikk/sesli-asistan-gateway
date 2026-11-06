@@ -78,6 +78,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Kimlik doğrulamasız santral API'si artık açılmaz: `API_KEY` boşken Gateway ağa açık adreste (`GATEWAY_API_HOST`
+  geri döngü değilse) başlamaz, hata verir (çıkış kodu 2). `GATEWAY_API_HOST` varsayılanı `127.0.0.1` (sunucu şablonu
+  `gateway.env` yine `0.0.0.0`; `install.sh` anahtarı üretir). Deneme için açık izin: `ALLOW_INSECURE_API=true`.
+  **Yükseltme notu:** elle kurulmuş, `API_KEY`'i boş ve ağa açık Gateway yükseltmeden sonra açılmaz.
 - HTTP gövde sınırı (512 KB, rehber dosyası 5 MB) yalnız `Content-Length` başlığına bakıyordu: başlıksız (chunked)
   istekte gövde sınırsız okunuyordu (5 MB'lık chunked `POST /v1/calls` kabul ediliyordu). Sınır artık en dıştaki ASGI
   katmanında **okunan** bayttan uygulanır; aşılınca okuma kesilir, 413 `PAYLOAD_TOO_LARGE` döner.

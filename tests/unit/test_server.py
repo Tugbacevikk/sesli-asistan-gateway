@@ -2,6 +2,7 @@
 from pathlib import Path
 
 import numpy as np
+import pytest
 from fastapi.testclient import TestClient
 
 from sesli_asistan.gateway.composition import GatewayRuntime
@@ -55,6 +56,7 @@ def test_acilis_guvenlik_uyarilarini_loglar_ve_uvicornu_ayarlarla_baslatir(monke
     monkeypatch.setattr(srv, "build_app", lambda s: "app")
     monkeypatch.setattr(srv.uvicorn, "run", lambda app, **kw: seen.update(app=app, **kw))
     monkeypatch.setenv("GATEWAY_API_HOST", "0.0.0.0")
+    monkeypatch.setenv("ALLOW_INSECURE_API", "true")
     monkeypatch.setenv("FORWARDED_ALLOW_IPS", "127.0.0.1")
     monkeypatch.setenv("LOCAL_SETTINGS_FILE", str(tmp_path / "yerel.json"))
     with caplog.at_level(logging.INFO):
@@ -62,3 +64,33 @@ def test_acilis_guvenlik_uyarilarini_loglar_ve_uvicornu_ayarlarla_baslatir(monke
     assert seen["app"] == "app" and seen["host"] == "0.0.0.0" and seen["proxy_headers"] is True
     assert seen["forwarded_allow_ips"] == "127.0.0.1"
     assert any("GÜVENLİK" in r.message for r in caplog.records)          # deneme ayarları: anahtar yok
+
+
+@pytest.mark.parametrize(("env", "opens"), [
+    ({"GATEWAY_API_HOST": "0.0.0.0"}, False),                              # ağa açık, anahtarsız: açılmaz
+    ({"GATEWAY_API_HOST": "10.0.0.2", "PBX_ALLOWED_IPS": "10.0.0.5"}, False),  # IP listesi tek başına yetmez
+    ({"GATEWAY_API_HOST": "0.0.0.0", "API_KEY": "k" * 32}, True),
+    ({"GATEWAY_API_HOST": "127.0.0.1"}, True),                             # yalnız bu sunucu: deneme
+    ({"GATEWAY_API_HOST": "::1"}, True),
+    ({"GATEWAY_API_HOST": "0.0.0.0", "ALLOW_INSECURE_API": "true"}, True),  # açık izin: deneme
+])
+def test_agda_anahtarsiz_santral_api_si_acilmaz(monkeypatch, tmp_path, caplog, env, opens):
+    import sesli_asistan.gateway.server as srv
+
+    seen = {}
+    monkeypatch.setattr(srv, "setup_logging", lambda name: None)
+    monkeypatch.setattr(srv, "build_app", lambda s: "app")
+    monkeypatch.setattr(srv.uvicorn, "run", lambda app, **kw: seen.update(app=app))
+    monkeypatch.setenv("LOCAL_SETTINGS_FILE", str(tmp_path / "yerel.json"))
+    for k in ("API_KEY", "PBX_ALLOWED_IPS", "ALLOW_INSECURE_API"):
+        monkeypatch.delenv(k, raising=False)
+    for k, v in env.items():
+        monkeypatch.setenv(k, v)
+    if opens:
+        srv.main()
+        assert seen["app"] == "app"
+    else:
+        with pytest.raises(SystemExit) as e:
+            srv.main()
+        assert e.value.code == 2 and not seen
+        assert any("API_KEY boş" in r.message and r.levelname == "ERROR" for r in caplog.records)

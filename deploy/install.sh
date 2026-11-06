@@ -402,8 +402,11 @@ fi
 # (bash ile "source" edilmez: systemd biçiminde tırnaksız boşluklu değerler olabilir)
 if has gateway; then
     (cd "$VERI" && env -i PATH="$PATH" "$HEDEF/venv/gateway/bin/python" -c "
+import sys
 from sesli_asistan.gateway.config import GatewaySettings as S
-S(_env_file=('$AYAR/gateway.env', '$AYAR/secrets.env'))") \
+from sesli_asistan.gateway.server import security_errors
+e = security_errors(S(_env_file=('$AYAR/gateway.env', '$AYAR/secrets.env')))
+sys.exit('\\n'.join(e) if e else 0)") \
         || dur "gateway.env geçersiz (yukarıdaki hata); düzeltip yeniden çalıştırın"
 fi
 

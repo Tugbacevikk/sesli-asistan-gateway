@@ -112,9 +112,13 @@ class GatewaySettings(BaseSettings):
     tts_cache_dir: str | None = None           # üretimde: /var/cache/sesli-asistan/tts (boş: yalnızca bellek)
 
     # Santral REST + RTP (tasarim.md 6.1, 6.2, 13)
-    gateway_api_host: str = "0.0.0.0"
+    # varsayılan yalnız bu sunucu (deneme); santral başka makinedeyse 0.0.0.0 / iç ağ adresi + API_KEY (gateway.env)
+    gateway_api_host: str = "127.0.0.1"
     gateway_api_port: int = Field(8000, gt=0, lt=65536)
-    api_key: SecretStr = SecretStr("")        # santralin Gateway'e gönderdiği Bearer anahtar; boş: kimlik doğrulama yok
+    api_key: SecretStr = SecretStr("")        # santralin Gateway'e gönderdiği Bearer anahtar (secrets.env, zorunlu)
+    # API_KEY boşken servis yalnız geri döngü adresinde (GATEWAY_API_HOST=127.0.0.1) açılır; ağa açık adreste
+    # kimlik doğrulamasız çalışmak için bu açıkça true yapılmalı (yalnız geliştirme / deneme)
+    allow_insecure_api: bool = False
     rtp_host: str = "0.0.0.0"
     rtp_port_min: int = Field(10000, gt=0, lt=65536)
     rtp_port_max: int = Field(10999, gt=0, lt=65536)
