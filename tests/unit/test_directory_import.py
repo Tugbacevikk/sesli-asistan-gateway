@@ -2,6 +2,7 @@
 import io
 import json
 import shutil
+import sys
 import zipfile
 from contextlib import asynccontextmanager
 
@@ -81,6 +82,7 @@ def test_csv_utf8_bom_ve_turkce_windows_ayrac():
     assert read_table(b"ad\tsoyad\tdahili\nA\tB\t12\n")[1] == ["A", "B", "12"]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows'ta 5 MB'lık parametre ortam değişkeni sınırını aşıyor")
 @pytest.mark.parametrize("data,msg", [
     (b"", "boş"),
     (b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\0" * 100, ".xls"),

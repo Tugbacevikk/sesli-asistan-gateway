@@ -897,7 +897,7 @@ class DialogAgent:
         # yalnız kişisiz makam hattı: kişi adıyla bulunan "Vali Yardımcısı Kemal Bey" bu kurala girmez
         if contact.kind != "role" or not any(w.startswith("yardimci") for w in _folded_words(contact.title)):
             return None
-        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        text = _last_user(s)
         if any(w.startswith("yardimci") for w in _folded_words(text)):
             return None
         log.info("[%s] istenen makam değil yardımcısı bulundu (%s): birim hattına", s.call_id, contact.title)
@@ -909,7 +909,7 @@ class DialogAgent:
     def _fax_guard(self, s: DialogSession, contact: Any) -> DialogTurn | None:
         """Belgegeçer / faks hattı istendi ("emniyet faks hattı"): o hat aktarılamaz (rehberde görünmez) ve söz birimin
         genel hattına sessizce aktarılıyordu (demo seti D18). Cümle söylenir, birim hattı teyitle sorulur."""
-        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        text = _last_user(s)
         if not any(w.startswith(("faks", "fax", "belgegecer", "belge gecer")) for w in _folded_words(text)):
             return None
         if any(w.startswith(("faks", "fax", "belgegecer")) for w in _folded_words(contact.title)):
@@ -1144,7 +1144,7 @@ class DialogAgent:
     def _titled_inside(self, s: DialogSession, cands: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
         """Sözde unvan varken: birim hatlarını at (unvanlı hat varsa) ya da adaylar yalnız birim hatlarıysa o
         birimlerin içinde unvanı uyan hatlara geç. Değişiklik yoksa adaylar aynen döner."""
-        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        text = _last_user(s)
         if not text or not has_role_word(text):
             return cands
         lines = [c for c in cands if c.contact.kind != "department"]
@@ -1333,7 +1333,7 @@ class DialogAgent:
         "doğru mu?"ya net "evet" teyit sayılır)."""
         if not self._unsure(s):
             return False
-        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        user = _last_user(s)
         return not set(_folded_words(user)) & _YES
 
     def _confirm_llm_transfer(self, s: DialogSession, call: ToolCall) -> DialogTurn | None:
@@ -1382,7 +1382,7 @@ class DialogAgent:
 
     def _other_number(self, s: DialogSession, contact: Any) -> bool:
         """Arayanın son sözünde bir numara var ve bu kişinin dahilisi değil; kişinin adı ya da soyadı da geçmiyor."""
-        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        user = _last_user(s)
         numbers = {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}
         if not numbers or contact.extension in numbers:
             return False
@@ -1522,7 +1522,7 @@ class DialogAgent:
         """Arayan son sözünde bu kaydı **kendisiyle** yeniden istedi: kişide adı / soyadı / takma adı / unvanı, birim
         hattında birimin adı, ya da dahili numarası. Birim sözcüğü kişiyi yeniden istemek sayılmaz ("biraz bilgi
         lazım" ≠ Bilgi İşlem'deki Can Öztürk)."""
-        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        user = _last_user(s)
         if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
             return True
         names = ((contact.department, *contact.department_aliases) if contact.kind == "department"
@@ -1537,7 +1537,7 @@ class DialogAgent:
         ad ya da bozuk birim adı ("teknik şifremi unuttum") konuyu ezip yanlış yere aktarıyordu (ADR-029)."""
         if not self.cfg.clarify_by_code:
             return None
-        user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+        user = _last_user(s)
         topic = self.tools.local_topic(user)
         if not topic or contact.department in {c.contact.department for c in topic}:
             return None
@@ -1635,7 +1635,7 @@ class DialogAgent:
         try:
             return await asyncio.wait_for(self._chat(s, tools, may_stream), timeout=self.cfg.llm_timeout_s)
         except (TimeoutError, LlmError) as e:
-            user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+            user = _last_user(s)
             if self.cfg.llm_fallback and r.caller_turn and user and not s.state.actions and not r.found:
                 log.warning("[%s] LLM hatası (%s): bu tur kural tabanlı", s.call_id, e or type(e).__name__)
                 return self._rule_turn(s, user)
@@ -1728,7 +1728,7 @@ class DialogAgent:
             if (turn := self._clarify(s, s.state.last_results, lines=all_roles)) is not None:
                 return turn               # ikinci LLM turu beklenmez
             if all_roles:
-                user = next((m["content"] for m in reversed(s.history) if m["role"] == "user"), "")
+                user = _last_user(s)
                 return self._narrow(s, s.state.last_results, user)
             s.history.pop()
         if (self.cfg.clarify_by_code and r.caller_turn and match == "single_low" and n_calls == 1
@@ -1880,6 +1880,11 @@ def _common_title(cands: tuple[Candidate, ...]) -> str:
             break
         common.insert(0, words[0])
     return " ".join(common) if common and len(titles) == len(cands) else ""
+
+
+def _last_user(s: DialogSession) -> str:
+    """Geçmişteki son arayan sözü (bu turun sözü; santral olayı notları da "user" rolündedir)."""
+    return next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
 
 
 def _ancestor_line(c: Any, others: Iterable[Any]) -> bool:

@@ -1,6 +1,8 @@
+import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 
 from sesli_asistan.libs.text.normalizer import TrNormalizer, turkish_lower
 from sesli_asistan.stt.engine import WhisperEngine, WhisperParams, resolve_device
@@ -233,6 +235,7 @@ def test_cuda_yoksa_auto_cpu_secer(tmp_path, monkeypatch):
     assert fake.calls[0][:2] == ("cpu", "int8")
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Linux'a özgü (yol ayracı)")
 def test_cuda_kutuphaneleri_linuxta_onceden_yuklenir(tmp_path, monkeypatch):
     import ctypes
     import importlib.util
