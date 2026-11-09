@@ -225,6 +225,7 @@ class GatewayRuntime:
     def _call_config(self) -> CallConfig:
         return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
                           transfer_result_timeout_s=self.s.transfer_result_timeout_s, barge_in=self.s.barge_in,
+                          background_margin_db=self.s.background_margin_db,
                           no_input_s=self.s.no_input_s, no_input_max=self.s.no_input_max,
                           thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s,
                           after_hours_mode=self.after_hours_mode)

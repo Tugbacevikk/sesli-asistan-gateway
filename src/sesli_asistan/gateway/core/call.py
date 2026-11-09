@@ -44,6 +44,7 @@ from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
 from .schedule import HOLIDAY, OPEN
 from .speech import Speaker, keyboard_sound
 from .thresholds import (
+    BACKGROUND_SPEECH_MARGIN_DB,
     BARGE_IN_FLOOR_DB,
     BARGE_IN_LEVEL_MARGIN_DB,
     LEVEL_LEARN_CONF,
@@ -75,6 +76,7 @@ class CallConfig:
     transfer_result_timeout_s: float = 30.0
     barge_in: bool = True
     barge_in_level_margin_db: float = BARGE_IN_LEVEL_MARGIN_DB   # ses seviyesi kapısı (core/level.py); 0: kapalı
+    background_margin_db: float = BACKGROUND_SPEECH_MARGIN_DB   # arka plan konuşması kapısı; 0: kapalı
     min_noise_ms: int = MIN_NOISE_MS   # bundan kısa "anlaşılamadı" (boş) sesler gürültü sayılır, cevaplanmaz
     # Gürültü kırıntısı: güveni bunun altında ve en çok `noise_max_letters` harf ("b"): cevaplanmaz, deneme sayılmaz
     # (canlı 04.11.2026: ortam sesi "b" (0,05) → "anlayamadım"). 0: kapalı
@@ -107,6 +109,7 @@ class CallStats:
     turns: list[TurnRecord] = field(default_factory=list)
     barge_ins: int = 0
     barge_ins_ignored: int = 0          # ses seviyesi kapısının saymadığı söze girmeler (arka plan sesi)
+    background_ignored: int = 0         # arayanın seviyesinin çok altında kaldığı için cevaplanmayan sözler
     tts_failures: int = 0
     no_inputs: int = 0
     outcome: str = ""                  # transferred | operator | closed | hangup | error
@@ -261,7 +264,7 @@ class CallSession:
     async def _pump(self) -> None:
         assert self._stream is not None
         async for frame in self.media.frames():
-            if self.cfg.barge_in_level_margin_db > 0:
+            if self.cfg.barge_in_level_margin_db > 0 or self.cfg.background_margin_db > 0:
                 self.level.add(self.clock(), frame_db(frame, self.codec))
             await self._stream.send(frame)
 
@@ -334,6 +337,14 @@ class CallSession:
                 # kapının saymadığı söze girmenin metni (arka plan): cevaplanmaz, deneme sayılmaz
                 self._ignore_next = False
                 log.info("[%s] arka plan sesinin sonucu yok sayıldı", self.call_id)
+                return
+            if (k == "final" and self._speech_at is not None
+                    and self.level.is_background(self._speech_at, ev.at, self.cfg.background_margin_db)):
+                # odadaki başka biri: arayanın kendi seviyesinin çok altında (ofiste deneme 09.11.2026)
+                log.info("[%s] arka plan konuşması yok sayıldı (%.1f dBFS, arayan %.1f dBFS): %s", self.call_id,
+                         self.level.utterance_db(self._speech_at, ev.at) or -120, self.level.caller_db or -120,
+                         ev.data.get("text", "")[:60])
+                self.stats.background_ignored += 1
                 return
             if (k == "final" and self._speech_at is not None
                     and (ev.data.get("confidence") or 0) >= LEVEL_LEARN_CONF):

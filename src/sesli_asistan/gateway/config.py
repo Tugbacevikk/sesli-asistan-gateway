@@ -131,6 +131,8 @@ class GatewaySettings(BaseSettings):
     max_call_duration_s: float = Field(600, gt=0)
     transfer_result_timeout_s: float = Field(30, gt=0)
     barge_in: bool = True
+    # arka plan konuşması: arayanın öğrenilmiş seviyesinin bu kadar dB altındaki söz cevaplanmaz; 0: kapalı
+    background_margin_db: float = Field(8.0, ge=0, le=30)
     breaker_failures: int = Field(3, ge=1)     # devre kesici: art arda kaç hatada açılır (tasarim.md 9.2)
     breaker_reset_s: float = Field(30, gt=0)   # açık kalma süresi; sonra bir deneme çağrısı
     no_input_s: float = Field(8.0, gt=0)      # dinlemede sessizlik → "Sizi duyamıyorum"

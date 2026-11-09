@@ -51,3 +51,16 @@ def test_sessiz_kareler_pencereye_girmez_ve_kapi_kapatilabilir():
     assert g.allows_barge_in(t)
     off = LevelGate(margin_db=0)
     assert off.allows_barge_in(feed(off, 0.0, -60, 0.4))
+
+
+def test_arka_plan_konusmasi_tum_soz_icin():
+    # ofiste deneme (09.11.2026): yandaki konuşma söz olarak geliyordu; arayanın seviyesinin 8 dB altı atılır
+    g = LevelGate(margin_db=6)
+    assert not g.is_background(0.0, 1.0, 8)                  # arayanın seviyesi bilinmiyor: hiçbir söz atılmaz
+    t = feed(g, 0.0, -30, 1.5)
+    g.learn(0.0, t)
+    t2 = feed(g, t, -42, 1.0)                                  # yandaki masa
+    assert g.is_background(t, t2, 8)
+    t3 = feed(g, t2, -34, 1.0)                                 # arayan biraz kısık konuşuyor: atılmaz
+    assert not g.is_background(t2, t3, 8)
+    assert not g.is_background(t, t2, 0)                       # 0: kapalı

@@ -62,6 +62,17 @@ class LevelGate:
         recent = [db for t, db in self._frames if t >= at - _WINDOW_S and db > _VOICED_DB]
         return float(np.median(recent)) if recent else None
 
+    def utterance_db(self, start: float, end: float) -> float | None:
+        """Bir sözün seviyesi: o aralıktaki sesli karelerin ortancası."""
+        voiced = [db for t, db in self._frames if start <= t <= end and db > _VOICED_DB]
+        return float(np.median(voiced)) if voiced else None
+
+    def is_background(self, start: float, end: float, margin_db: float) -> bool:
+        """Söz, arayanın kendi seviyesinin `margin_db` altında mı (odadaki başka biri, uzaktan konuşma)? Arayanın
+        seviyesi bilinmiyorsa ya da sözün ses bilgisi yoksa False: emin olunmadan hiçbir söz atılmaz."""
+        ref, level = self.caller_db, self.utterance_db(start, end)
+        return margin_db > 0 and ref is not None and level is not None and level < ref - margin_db
+
     def allows_barge_in(self, at: float) -> bool:
         if self.margin_db <= 0:
             return True

@@ -60,6 +60,9 @@ NOISE_MAX_LETTERS = 2
 BARGE_IN_LEVEL_MARGIN_DB = 6.0
 BARGE_IN_FLOOR_DB = -45.0
 LEVEL_LEARN_CONF = 0.5
+# Arka plan konuşması (09.11.2026, ofiste deneme): arayanın öğrenilmiş seviyesinin bu kadar dB altındaki söz
+# cevaplanmaz, deneme sayılmaz. Arayanın seviyesi henüz bilinmiyorken (ilk anlaşılan sözden önce) çalışmaz. 0: kapalı.
+BACKGROUND_SPEECH_MARGIN_DB = 8.0
 # Söze girme anlaşılmadığında yarıda kalan cümle üst üste en çok bu kadar yinelenir (sonra olağan "anlayamadım").
 MAX_BARGE_REPEATS = 2
 
