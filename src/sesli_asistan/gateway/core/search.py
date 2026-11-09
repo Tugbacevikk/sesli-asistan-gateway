@@ -21,11 +21,11 @@ from typing import Any
 import numpy as np
 from rapidfuzz import fuzz, process
 
-from sesli_asistan.libs.text.normalizer import strip_punct, turkish_lower
+from sesli_asistan.libs.text.normalizer import TR_FOLD, strip_punct, turkish_lower
 
 from .models import Candidate, Contact, Match, SearchResult
 
-_FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
+_FOLD = TR_FOLD                     # geriye uyum: libs.text.normalizer.TR_FOLD
 
 # Unvanlar ve hitaplar: eşleşmede ad değildir, atılır (Ek C madde 3–4)
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",

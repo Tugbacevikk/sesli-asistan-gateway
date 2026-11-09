@@ -196,12 +196,42 @@ def _forbidden(request: Request) -> JSONResponse | None:
 def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
              health: Callable[[], dict[str, Any]], api_key: str = "", allowed_ips: set[str] | None = None,
              history: Any = None, settings: Any = None, access: UiAccess | None = None, live: Any = None) -> None:
+    """Arayüz: sayfa, ayar ve rehber yönetimi, izleme ve deneme çağrısı uç noktaları."""
     access = access or UiAccess(api_key, None, allowed_ips)
     if history is None:
         from sesli_asistan.gateway.adapters.history.sqlite import MemoryCallHistory
 
         history = MemoryCallHistory(manager)
+    _mount_page(app)
+    _mount_settings(app, health, settings)
+    _mount_directory(app, settings)
+    _mount_monitoring(app, manager, history, access, live)
+    _mount_try_call(app, manager, web_session, access)
 
+
+def _precheck(request: Request, settings: Any, content_type: str | None = None,
+              admin: bool = True) -> JSONResponse | None:
+    """Yönetim uç noktalarının ortak denetimi: ayar ekranı var mı, yönetici mi, içerik türü doğru mu (başka sitenin
+    form gönderimi (CSRF) ön kontrolsüz içerik türüyle gelir ve reddedilir). None: devam."""
+    if settings is None:
+        return _err(404, "NOT_FOUND", "ayar ekranı yok")
+    if admin and (denied := _forbidden(request)) is not None:
+        return denied
+    if content_type and request.headers.get("content-type", "").split(";")[0].strip() != content_type:
+        return _err(415, "UNSUPPORTED_MEDIA_TYPE", f"içerik {content_type} olmalı")
+    return None
+
+
+async def _json_body(request: Request) -> Any:
+    return json.loads(await request.body() or b"{}")
+
+
+def _csv(data: bytes, name: str) -> Response:
+    return Response(data, media_type="text/csv; charset=utf-8",
+                    headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
+
+
+def _mount_page(app: FastAPI) -> None:
     @app.get("/ui", response_class=HTMLResponse, include_in_schema=False)
     async def page(request: Request) -> Response:
         key = request.query_params.get("anahtar")
@@ -215,73 +245,57 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
         return HTMLResponse(html, headers={"Cache-Control": "no-store", "X-Frame-Options": "DENY",
                                            "Referrer-Policy": "no-referrer"})
 
+
+def _mount_settings(app: FastAPI, health: Callable[[], dict[str, Any]], settings: Any) -> None:
     @app.get("/v1/admin/health", include_in_schema=False)
     async def admin_health() -> JSONResponse:
         return JSONResponse(health())
 
     @app.get("/v1/admin/settings", include_in_schema=False)
     async def admin_settings(request: Request) -> JSONResponse:
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+        if (bad := _precheck(request, settings, admin=False)) is not None:
+            return bad
         return JSONResponse(settings.view(request.state.principal))
 
     @app.put("/v1/admin/settings", include_in_schema=False)
     async def admin_settings_save(request: Request) -> JSONResponse:
-        def err(status: int, code: str, msg: str) -> JSONResponse:
-            return JSONResponse({"error": {"code": code, "message": msg, "call_id": None}}, status_code=status)
-
-        if settings is None:
-            return err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
-        # yalnız JSON: başka bir sitenin form gönderimi (CSRF) tarayıcı ön kontrolüne takılır
-        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
-            return err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        if (bad := _precheck(request, settings, "application/json")) is not None:
+            return bad
         try:
-            data = json.loads(await request.body() or b"{}")
-            view = await settings.update(data, actor=_actor(request))
+            view = await settings.update(await _json_body(request), actor=_actor(request))
         except ValueError as e:
-            return err(400, "BAD_REQUEST", str(e))
+            return _err(400, "BAD_REQUEST", str(e))
         log.info("ayarlar arayüzden kaydedildi (%s)", request.client.host if request.client else "?")
         return JSONResponse(view)
 
     @app.post("/v1/admin/contacts", include_in_schema=False)
     async def admin_contact_add(request: Request) -> JSONResponse:
         """Rehbere yerel kayıt (kaynak rehber değişmez; tasarim.md 13.1)."""
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
-        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
-            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        if (bad := _precheck(request, settings, "application/json")) is not None:
+            return bad
         try:
-            view = await settings.add_contact(json.loads(await request.body() or b"{}"), actor=_actor(request))
+            view = await settings.add_contact(await _json_body(request), actor=_actor(request))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view, status_code=201)
 
     @app.delete("/v1/admin/contacts/{contact_id}", include_in_schema=False)
     async def admin_contact_remove(contact_id: str, request: Request) -> JSONResponse:
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
+        if (bad := _precheck(request, settings)) is not None:
+            return bad
         try:
             view = await settings.remove_contact(contact_id, actor=_actor(request))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(view)
 
-    # --- rehber yükleme (tasarim.md 13.2) ------------------------------------------------------------------
 
-    def _csv(data: bytes, name: str) -> Response:
-        return Response(data, media_type="text/csv; charset=utf-8",
-                        headers={"Content-Disposition": f'attachment; filename="{name}"', "Cache-Control": "no-store"})
-
+def _mount_directory(app: FastAPI, settings: Any) -> None:
+    """Rehber yükleme (tasarim.md 13.2)."""
     @app.get("/v1/admin/directory/export", include_in_schema=False)
-    async def directory_export() -> Response:
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
+    async def directory_export(request: Request) -> Response:
+        if (bad := _precheck(request, settings, admin=False)) is not None:
+            return bad
         return _csv(settings.upload.export(), "rehber.csv")
 
     @app.get("/v1/admin/directory/template", include_in_schema=False)
@@ -297,13 +311,8 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
 
         from sesli_asistan.gateway.directory_import import MAX_FILE
 
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
-        # basit (ön kontrolsüz) içerik türleri reddedilir: başka sitenin form gönderimi (CSRF) dosya yükleyemesin
-        if request.headers.get("content-type", "").split(";")[0].strip() != "application/octet-stream":
-            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/octet-stream olmalı")
+        if (bad := _precheck(request, settings, "application/octet-stream")) is not None:
+            return bad
         body = bytearray()
         async for chunk in request.stream():
             body += chunk
@@ -318,14 +327,10 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
 
     @app.post("/v1/admin/directory/apply", include_in_schema=False)
     async def directory_apply(request: Request) -> JSONResponse:
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
-        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
-            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        if (bad := _precheck(request, settings, "application/json")) is not None:
+            return bad
         try:
-            data = json.loads(await request.body() or b"{}")
+            data = await _json_body(request)
             out = await settings.upload.apply(str(data.get("token", "")), bool(data.get("skip_errors")),
                                               _actor(request))
         except ValueError as e:
@@ -334,18 +339,17 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
 
     @app.post("/v1/admin/directory/revert", include_in_schema=False)
     async def directory_revert(request: Request) -> JSONResponse:
-        if settings is None:
-            return _err(404, "NOT_FOUND", "ayar ekranı yok")
-        if (denied := _forbidden(request)) is not None:
-            return denied
-        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
-            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        if (bad := _precheck(request, settings, "application/json")) is not None:
+            return bad
         try:
             out = await settings.upload.revert(_actor(request))
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
         return JSONResponse(out)
 
+
+def _mount_monitoring(app: FastAPI, manager: CallManager, history: Any, access: UiAccess, live: Any) -> None:
+    """İzleme: değişiklik geçmişi, çağrılar ve canlı olaylar."""
     @app.get("/v1/admin/changes", include_in_schema=False)
     async def admin_changes() -> JSONResponse:
         """Ayar ve rehber değişiklik geçmişi (kim, ne zaman, nereden, ne)."""
@@ -400,6 +404,9 @@ def mount_ui(app: FastAPI, manager: CallManager, web_session: WebSessionFactory,
             with contextlib.suppress(Exception):
                 await websocket.close()
 
+
+def _mount_try_call(app: FastAPI, manager: CallManager, web_session: WebSessionFactory, access: UiAccess) -> None:
+    """Tarayıcıdan deneme çağrısı (ADR-014): santral çağrısıyla aynı oturum, ses WebSocket'ten."""
     @app.websocket("/v1/ui/ws")
     async def ws(websocket: WebSocket) -> None:
         host = websocket.client.host if websocket.client else ""

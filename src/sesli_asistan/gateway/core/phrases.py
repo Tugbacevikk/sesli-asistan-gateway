@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
 from .search import _FOLD, search_key, similarity, strip_suffix
 from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
@@ -104,7 +104,7 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
 
 
 def _folded_words(text: str) -> list[str]:
-    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
+    return fold_tr_words(text)
 
 
 _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",

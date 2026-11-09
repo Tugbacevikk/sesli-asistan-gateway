@@ -17,15 +17,13 @@ from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
 
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
 from .core.corrections import SttCorrections
 
-_FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
-
 
 def _fold_words(text: str) -> list[str]:
-    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
+    return fold_tr_words(text)
 
 # kısaltma: harfler + nokta, ardından isteğe bağlı nokta sonrası ek ("Bşk.lığı", "Md.lüğü", "K.lığı")
 _TOKEN = re.compile(r"(?<![\wçğıöşüÇĞİÖŞÜâ])([A-Za-zÇĞİÖŞÜçğıöşüâÂ]+\.(?:l[ıiuü]ğ[ıiuü]|[ıiuü]|l[ıiuü]k)?)")

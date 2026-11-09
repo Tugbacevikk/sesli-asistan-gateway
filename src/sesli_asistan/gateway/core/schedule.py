@@ -16,7 +16,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta
 
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import fold_tr
 
 OPEN, AFTER_HOURS, HOLIDAY = "acik", "mesai_disi", "tatil"
 
@@ -28,11 +28,8 @@ _DAY_TO = ("pazartesiye", "salıya", "çarşambaya", "perşembeye", "cumaya", "c
 _TIME = re.compile(r"^(\d{1,2})[:.](\d{2})$")
 
 
-_FOLD = str.maketrans("çğıöşü", "cgiosu")
-
-
 def _day(word: str) -> int:
-    key = turkish_lower(word.strip()).translate(_FOLD).replace(" ", "").rstrip(".")
+    key = fold_tr(word.strip()).replace(" ", "").rstrip(".")
     if key not in _DAYS:
         raise ValueError(f"bilinmeyen gün: {word.strip()!r} (pzt sal car per cum cmt paz)")
     return _DAYS[key]
