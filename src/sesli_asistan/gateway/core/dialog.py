@@ -505,6 +505,9 @@ class DialogAgent:
         Kişinin kendi birimi ya da dahilisi ayrı hedef değildir ("muhasebeden Ayşe Yılmaz")."""
         if not (self.cfg.fast_path and self.cfg.clarify_by_code):
             return None
+        if s.state.choice and units.narrow([c.contact for c in s.state.choice], u.text,
+                                           units.unit_names(self.tools.index.contacts())):
+            return None                 # açık birim sorusunun cevabı ("emniyet"): seçimde süzülür (ADR-032)
         numbers = [*re.findall(r"\d{2,6}", u.text), *spoken_numbers(_folded_words(u.text))]
         m = mentioned_targets(self.tools.index, u.text, numbers)
         persons = [c for c in m.contacts if c.kind == "person"]
