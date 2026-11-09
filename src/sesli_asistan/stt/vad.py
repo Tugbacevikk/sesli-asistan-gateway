@@ -35,8 +35,6 @@ class SpeechDetector(Protocol):
 
     def __call__(self, frame: np.ndarray) -> bool: ...
 
-    def reset(self) -> None: ...
-
 
 class EnergyDetector:
     """Uyarlanabilir gürültü tabanlı basit enerji algılayıcı (model gerektirmez; yedek ve testler)."""
@@ -52,9 +50,6 @@ class EnergyDetector:
         if not speech:
             self.noise = 0.95 * self.noise + 0.05 * rms
         return speech
-
-    def reset(self) -> None:
-        self.noise = self.floor
 
 
 class SileroFrameDetector:
@@ -76,8 +71,7 @@ class SileroFrameDetector:
         mc.silero_vad.window_size = FRAME_SAMPLES
         mc.sample_rate = SAMPLE_RATE
         mc.num_threads = 1
-        self._make = lambda: sherpa_onnx.VoiceActivityDetector(mc, buffer_size_in_seconds=30)
-        self.vad = self._make()
+        self.vad = sherpa_onnx.VoiceActivityDetector(mc, buffer_size_in_seconds=30)
 
     def __call__(self, frame: np.ndarray) -> bool:
         self.vad.accept_waveform(np.ascontiguousarray(frame, dtype=np.float32))
@@ -85,9 +79,6 @@ class SileroFrameDetector:
         while not self.vad.empty():  # biten parçalar tutulmaz (bellek büyümesin)
             self.vad.pop()
         return speech
-
-    def reset(self) -> None:
-        self.vad = self._make()
 
 
 def make_detector(kind: str, model: str, threshold: float = 0.5) -> SpeechDetector:

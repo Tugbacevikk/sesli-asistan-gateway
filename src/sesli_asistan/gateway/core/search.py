@@ -25,8 +25,6 @@ from sesli_asistan.libs.text.normalizer import TR_FOLD, strip_punct, turkish_low
 
 from .models import Candidate, Contact, Match, SearchResult
 
-_FOLD = TR_FOLD                     # geriye uyum: libs.text.normalizer.TR_FOLD
-
 # Unvanlar ve hitaplar: eşleşmede ad değildir, atılır (Ek C madde 3–4)
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",
            "op", "operator", "muh", "muhendis", "ogr", "gor", "sayin"}
@@ -129,7 +127,7 @@ def search_key(text: str) -> str:
     t = unicodedata.normalize("NFC", text or "")
     t = re.sub(r"['’]\w*", "", t)                       # kesmeden sonraki ek: "Ayşe'yi" → "Ayşe"
     t = _DIGITS.sub(lambda m: f" {number_to_words(int(m.group()))} ", t)
-    t = strip_punct(turkish_lower(t)).translate(_FOLD)
+    t = strip_punct(turkish_lower(t)).translate(TR_FOLD)
     return " ".join(w for w in t.split() if w not in _STOP and strip_suffix(w) not in _STOP)
 
 
@@ -137,14 +135,14 @@ def fold_words(text: str) -> list[str]:
     """Küçük harf, Türkçe harfler katlanmış sözcükler; ekler ve hitaplar **atılmaz** (konu sözcükleri için)."""
     t = unicodedata.normalize("NFC", text or "")
     t = re.sub(r"['’]\w*", "", t)
-    return strip_punct(turkish_lower(t)).translate(_FOLD).split()
+    return strip_punct(turkish_lower(t)).translate(TR_FOLD).split()
 
 
 def alias_key(text: str) -> str:
     """Takma ad için anahtar: unvan / hitap **atılmaz** ("Ayşe Abla" ↔ "Ayşe Hanım" ayrı), ekler atılır."""
     t = unicodedata.normalize("NFC", text or "")
     t = re.sub(r"['’]\w*", "", t)
-    t = strip_punct(turkish_lower(t)).translate(_FOLD)
+    t = strip_punct(turkish_lower(t)).translate(TR_FOLD)
     return " ".join(strip_suffix(w) for w in t.split())
 
 
@@ -191,11 +189,6 @@ class DirectoryIndex:
         self.extra_aliases: dict[str, tuple[str, ...]] = {}   # ayar ekranından: kayıt kimliği → ek takma adlar
         self.local_contacts: list[Contact] = []               # ayar ekranından eklenen kayıtlar (kaynakta yok)
         self.rebuild(contacts)
-
-    def set_extra_aliases(self, aliases: dict[str, Iterable[str]]) -> None:
-        """Rehber kaynağında olmayan, yerelde eklenen takma adlar ("Ferhat Bey" → Ferhat Yıldırım). Rehber her
-        güncellendiğinde yeniden uygulanır."""
-        self.set_overlay(aliases, self.local_contacts)
 
     def set_overlay(self, aliases: dict[str, Iterable[str]], local_contacts: Iterable[Contact]) -> None:
         """Yerel katman (ayar ekranı): takma adlar ve yerel kayıtlar. Kaynak rehber her güncellendiğinde yeniden
@@ -398,7 +391,7 @@ class _KeyTable:
             for ix in np.flatnonzero(bound >= min_score - 1):
                 per_key[ix] = max(similarity(q, self.keys[ix]) for q in queries)
             if subset:
-                # birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE (_best ile aynı kural)
+                # birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE (test_search._best ile aynı kural)
                 qsets = [set(q.split()) for q in queries]
                 for i, w in enumerate(self.words):
                     if per_key[i] < SUBSET_SCORE and any(w <= qt for qt in qsets):
@@ -449,19 +442,3 @@ def _extends_word(q: str, k: str) -> bool:
 
 
 SUBSET_SCORE = 95
-
-
-def _best(queries: list[str], keys: list[str], subset: bool = False) -> int:
-    """subset=True (yalnızca birim alanı): birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE.
-    "arıza kaydı" → "arıza" birimi; "muhasebe işleri" → "muhasebe". Ad alanında kapalıdır: "aysel yılmaz"
-    sorgusu yalnızca soyadı tutan herkesle eşleşmesin."""
-    if not keys:
-        return 0
-    best = max(similarity(q, k) for q in queries for k in keys)
-    if subset and best < SUBSET_SCORE:
-        for q in queries:
-            qt = set(q.split())
-            if any(set(k.split()) <= qt for k in keys):
-                best = SUBSET_SCORE
-                break
-    return round(best)

@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from sesli_asistan.gateway.core.models import Contact, Match
-from sesli_asistan.gateway.core.search import DirectoryIndex, number_to_words, search_key
+from sesli_asistan.gateway.core.search import SUBSET_SCORE, DirectoryIndex, number_to_words, search_key, similarity
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -132,20 +132,37 @@ def test_uzamis_ad_aktarilmadan_sorulur(index, name):
 def test_takma_adin_tam_hali_hitabiyla_tek_kisiyi_bulur(index):
     # "Ayşe Abla" arama anahtarında "ayse"ye iner; tam söylenince yalnızca takma adın sahibi (27.10.2026 deneme)
     idx = DirectoryIndex(index.contacts())
-    idx.set_extra_aliases({"c-101": ["Ayşe Abla"]})
+    idx.set_overlay({"c-101": ["Ayşe Abla"]}, [])
     r = idx.search("Ayşe abla")
     assert r.match == Match.SINGLE_HIGH and r.candidates[0].contact.extension == "214"
     assert idx.search("ayşe ablaya").candidates[0].contact.extension == "214"       # ek
     assert idx.search("ayşe abla lütfen").match == Match.SINGLE_HIGH                # cümle içinde
     assert idx.search("Ayşe").match == Match.MULTIPLE                              # hitapsız: yine iki Ayşe
     assert idx.search("Ayşe hanım").match == Match.MULTIPLE
-    idx.set_extra_aliases({"c-101": ["Ayşe Abla"], "c-102": ["ayşe abla"]})          # iki kişide aynı takma ad
+    idx.set_overlay({"c-101": ["Ayşe Abla"], "c-102": ["ayşe abla"]}, [])          # iki kişide aynı takma ad
     assert idx.search("Ayşe abla").match == Match.MULTIPLE
+
+
+def _best(queries: list[str], keys: list[str], subset: bool = False) -> int:
+    """Eski kayıt-kayıt puanlama (yalnız doğruluk referansı; üründe toplu puanlama var).
+    subset=True (yalnızca birim alanı): birim adının bütün kelimeleri sorguda geçiyorsa SUBSET_SCORE.
+    "arıza kaydı" → "arıza" birimi; "muhasebe işleri" → "muhasebe". Ad alanında kapalıdır: "aysel yılmaz"
+    sorgusu yalnızca soyadı tutan herkesle eşleşmesin."""
+    if not keys:
+        return 0
+    best = max(similarity(q, k) for q in queries for k in keys)
+    if subset and best < SUBSET_SCORE:
+        for q in queries:
+            qt = set(q.split())
+            if any(set(k.split()) <= qt for k in keys):
+                best = SUBSET_SCORE
+                break
+    return round(best)
 
 
 def _reference_scores(idx, name, dept):
     """Eski kayıt-kayıt puanlama (hızlandırmanın doğruluk referansı)."""
-    from sesli_asistan.gateway.core.search import _best, query_variants
+    from sesli_asistan.gateway.core.search import query_variants
     qn, qd = search_key(name), search_key(dept)
     vn, vd = query_variants(qn), query_variants(qd)
     out = {}
@@ -185,7 +202,7 @@ def test_toplu_puanlama_eski_yontemle_ayni():
 def test_arama_onbellegi_rehber_degisince_temizlenir(index):
     idx = DirectoryIndex(index.contacts())
     assert idx.search("ferhat yıldırım").match == Match.NONE
-    idx.set_extra_aliases({"c-101": ["Ferhat Yıldırım"]})
+    idx.set_overlay({"c-101": ["Ferhat Yıldırım"]}, [])
     assert idx.search("ferhat yıldırım").match == Match.SINGLE_HIGH
 
 

@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from sesli_asistan.gateway.core.dialog import MAX_BARGE_REPEATS, DialogAgent, DialogConfig, clean_reply
+from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig, clean_reply
 from sesli_asistan.gateway.core.models import Contact
 from sesli_asistan.gateway.core.phrases import dative
 from sesli_asistan.gateway.core.ports import LlmError, LlmMessage, ToolCall
 from sesli_asistan.gateway.core.search import DirectoryIndex
+from sesli_asistan.gateway.core.thresholds import MAX_BARGE_REPEATS
 from sesli_asistan.gateway.core.tools import ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -328,7 +329,7 @@ async def test_hizli_yol_gecmisi_llm_icin_tutarli():
 async def test_hizli_yol_takma_adin_tam_haliyle():
     # Ayar ekranında eklenen "Ayşe Abla": hitabıyla söylenince iki Ayşe arasında sorulmaz (27.10.2026 deneme)
     a = agent(ScriptedLlm(LlmMessage("Kiminle görüşmek istersiniz?")), fast_path=True)
-    a.tools.index.set_extra_aliases({"c-101": ["Ayşe Abla"]})
+    a.tools.index.set_overlay({"c-101": ["Ayşe Abla"]}, [])
     turn = await a.new_session("h").handle_user("ayşe abla lütfen")
     assert turn.fast and [x.extension for x in turn.actions] == ["214"]
     assert not (await a.new_session("h2").handle_user("ayşe abla değil")).fast        # olumsuzluk: LLM

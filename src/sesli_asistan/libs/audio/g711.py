@@ -38,11 +38,6 @@ _TABLES = {"pcmu": ULAW_INT16, "pcma": ALAW_INT16}
 _TABLES_F32 = {k: (v / 32768.0).astype(np.float32) for k, v in _TABLES.items()}
 
 
-def decode_int16(payload: bytes, codec: str) -> np.ndarray:
-    """G.711 baytları → int16 PCM."""
-    return _table(_TABLES, codec)[np.frombuffer(payload, dtype=np.uint8)]
-
-
 def decode(payload: bytes, codec: str) -> np.ndarray:
     """G.711 baytları → float32 PCM (-1..1). STT hattının giriş biçimi."""
     return _table(_TABLES_F32, codec)[np.frombuffer(payload, dtype=np.uint8)]

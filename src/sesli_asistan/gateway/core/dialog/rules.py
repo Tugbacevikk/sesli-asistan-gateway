@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import TR_FOLD, turkish_lower
 
 from ..models import Candidate, DialogTurn, Match, SearchResult
 from ..people import (
@@ -24,7 +24,6 @@ from ..phrases import (
 )
 from ..ports import ToolCall
 from ..search import (
-    _FOLD,
     hard_stem,
     has_role_word,
     query_variants,
@@ -311,7 +310,7 @@ class RulesMixin:
 
     def _mentions_target(self: DialogAgent, text: str) -> bool:
         """Sözde aranacak biri / bir birim / operatör / dahili numara var mı ("vazgeçtim, Mehmet Kaya'ya bağla")."""
-        raw = turkish_lower(text).translate(_FOLD).split()
+        raw = turkish_lower(text).translate(TR_FOLD).split()
         if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS or any(ch.isdigit() for ch in text):
             return True
         words = search_key(text).split()
