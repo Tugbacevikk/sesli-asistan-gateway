@@ -103,3 +103,11 @@ def test_kurum_cevabi_kurumun_birim_hattina_gitmez(contacts):
 def test_demo_tek_tur(contacts, text, ext):
     t = say(agent(contacts), text)[0]
     assert [a.extension for a in t.actions] == [ext], t.text
+
+
+def test_belgegecer_istenince_birim_hatti_teyitle_sorulur(contacts):
+    # D18: faks hattı aktarılamaz; birimin santraline sessizce aktarılmaz, sorulur ve "evet" ile aktarılır
+    a = agent(contacts)
+    t1, t2 = say(a, "emniyet faks hattı", "evet")
+    assert not t1.actions and t1.text.startswith("Belgegeçer hattına sesli arama aktarılamıyor.")
+    assert [x.extension for x in t2.actions] == ["40000"]

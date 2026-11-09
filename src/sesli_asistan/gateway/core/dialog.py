@@ -173,6 +173,8 @@ class DialogTexts:
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
     ask_person_in_department: str = "{birimden} kiminle görüşmek istersiniz?"   # birim belli, kişi değil
     indistinct: str = "Bu unvanda birden fazla hat var. Sizi operatöre bağlıyorum, lütfen hatta kalın."
+    # belgegeçer / faks hattına sesli arama aktarılmaz; ardından birimin genel hattı için teyit (confirm) sorulur
+    fax_line: str = "Belgegeçer hattına sesli arama aktarılamıyor."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
@@ -865,6 +867,8 @@ class DialogAgent:
     def _code_transfer(self, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
         if not confirmed and (turn := self._deputy_guard(s, cand.contact)) is not None:
             return turn
+        if not confirmed and (turn := self._fax_guard(s, cand.contact)) is not None:
+            return turn
         if not confirmed and (turn := self._unreachable_again(s, cand.contact)) is not None:
             return turn
         if not confirmed and (turn := self._topic_clash(s, cand.contact)) is not None:
@@ -896,6 +900,21 @@ class DialogAgent:
         if pick is not None:
             return self._code_transfer(s, Candidate(pick, 100))
         return self._confirm(s, contact, why="yardımcı hattı")
+
+    def _fax_guard(self, s: DialogSession, contact: Any) -> DialogTurn | None:
+        """Belgegeçer / faks hattı istendi ("emniyet faks hattı"): o hat aktarılamaz (rehberde görünmez) ve söz birimin
+        genel hattına sessizce aktarılıyordu (demo seti D18). Cümle söylenir, birim hattı teyitle sorulur."""
+        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        if not any(w.startswith(("faks", "fax", "belgegecer", "belge gecer")) for w in _folded_words(text)):
+            return None
+        if any(w.startswith(("faks", "fax", "belgegecer")) for w in _folded_words(contact.title)):
+            return None                 # aktarılabilir bir faks hattı varsa (kurum öyle tanımladıysa) ona gidilir
+        log.info("[%s] belgegeçer hattı istendi: %s teyit ediliyor", s.call_id, contact.full_name)
+        turn = self._confirm(s, contact, why="belgegeçer hattı")
+        turn.text = f"{self.cfg.texts.fax_line} {turn.text}"
+        if s.history and s.history[-1].get("role") == "assistant":
+            s.history[-1]["content"] = turn.text
+        return turn
 
     def _unit_line(self, contact: Any) -> Any:
         """Kaydın en yakın üst birim hattı (birim yolu varsa yoldan, yoksa aynı birim adından)."""
@@ -1531,6 +1550,8 @@ class DialogAgent:
 
     def _fast_transfer(self, s: DialogSession, text: str, contact: Any, kind: str) -> DialogTurn | None:
         if (turn := self._deputy_guard(s, contact)) is not None:
+            return turn
+        if (turn := self._fax_guard(s, contact)) is not None:
             return turn
         if (turn := self._unreachable_again(s, contact)) is not None:
             return turn
