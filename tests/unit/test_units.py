@@ -92,3 +92,19 @@ def test_kurum_cevabi_kurumun_birim_hattina_gitmez(contacts):
     turns = say(agent(contacts), "asayiş şube müdürü ile görüşecektim", "jandarma")
     assert turns[0].text == "Jandarma mı, Emniyet mi?"
     assert [a.extension for a in turns[1].actions] == ["30101"]
+
+
+def test_tani_gecici(contacts):
+    a = agent(contacts)
+    s = a.new_session("t")
+    t1 = asyncio.run(s.handle_user("asayiş şube müdürü ile görüşecektim"))
+    ch = s.state.choice
+    names = units.unit_names(a.tools.index.contacts())
+    info = {
+        "t1": t1.text, "choice": [(c.contact.extension, c.contact.unit_path) for c in ch],
+        "index_unit_path_sayisi": sum(1 for c in a.tools.index.contacts() if c.unit_path),
+        "narrow": [c.extension for c in units.narrow([c.contact for c in ch], "jandarma", names)],
+    }
+    t2 = asyncio.run(s.handle_user("jandarma"))
+    info["t2"] = (t2.text, [x.extension for x in t2.actions])
+    raise AssertionError(info)
