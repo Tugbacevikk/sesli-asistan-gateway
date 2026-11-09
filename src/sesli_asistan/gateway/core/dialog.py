@@ -957,6 +957,11 @@ class DialogAgent:
         arayan kişiyi istiyor, konu yalnız gerekçe ("faturam için Ayşe Hanım'ı arıyorum")."""
         if self._mentions_person(search_key(text).split()):
             return None
+        words = set(_folded_words(text))
+        has_intent = bool(words & {'icin', 'ilgili', 'sorun', 'problem', 'hakkinda', 'konusunda', 'ariza', 'sikayet',
+                                   'bagla', 'baglar', 'baglayin', 'gorusmek', 'aktar', 'yardim', 'istiyorum', 'bilgi'})
+        if not has_intent:
+            return None
         cands = await self.tools.find_topic(text)
         if len(cands) == 1:
             log.info("[%s] konu (MCP): %s → %s", s.call_id, log_text(text), cands[0].contact.extension)
@@ -1012,6 +1017,12 @@ class DialogAgent:
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
         operatöre aktarılır."""
+        if len(s.state.misses) <= s.state.failed_attempts:
+            user_words = [m.get("content") for m in reversed(s.history) if m.get("role") == "user"]
+            if user_words and user_words[0]:
+                last_text = user_words[0].strip()
+                if last_text:
+                    s.state.misses.append(last_text)
         if (turn := self._count_failure(s)) is not None:
             return turn
         last = s.state.failed_attempts == self.cfg.max_failed_attempts - 1

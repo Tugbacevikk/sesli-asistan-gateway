@@ -252,6 +252,13 @@ class DirectoryIndex:
         if (hit := self._cache.get((qn, qd))) is not None:
             return hit
         res = self._search(qn, qd)
+        if res.match == Match.NONE and qn and qd:
+            # LLM lokasyonu/unvanı birim sanıp ayırdıysa (ör. Name='Çarkı Nizamiye', Department='Beştepe')
+            # ve birim alanı boş veya uyuşmuyorsa, birleşik serbest arama yap
+            combined = f'{qn} {qd}'.strip()
+            fallback = self._search(combined, '')
+            if fallback.match != Match.NONE:
+                res = fallback
         if len(self._cache) >= 4096:
             self._cache.clear()
         self._cache[(qn, qd)] = res

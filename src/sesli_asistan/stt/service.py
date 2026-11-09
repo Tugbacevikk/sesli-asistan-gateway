@@ -34,6 +34,7 @@ from sesli_asistan.libs.audio import g711
 from sesli_asistan.libs.audio.resample import StreamUpsampler
 from sesli_asistan.libs.obs import log_text
 
+from .denoiser import GentleAudioFilter
 from .engine import SttResult
 from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utterance
 
@@ -145,6 +146,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     hints: dict | None = None, call_id: str = "?") -> None:
         seg = Segmenter(self.detector_factory(), self.seg_cfg)
         up = StreamUpsampler(rate, STT_RATE) if rate != STT_RATE else None
+        filter_audio = GentleAudioFilter(STT_RATE)
         # teşhis: çağrının bütün sesi (VAD'in kaçırdığı konuşma da görülsün; tools/stt/vad_incele.py)
         stream: list[np.ndarray] | None = [] if self.debug_dir else None
         stream_n = 0
@@ -161,6 +163,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                      else g711.decode(msg.audio, codec))
                 if up is not None:
                     x = up.process(x)
+                x = filter_audio.process(x)
                 if stream is not None and stream_n < MAX_STREAM_DUMP_S * STT_RATE:
                     stream.append(x)
                     stream_n += len(x)

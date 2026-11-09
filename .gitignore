@@ -52,3 +52,10 @@ ses_ornekleri/
 sonuc_tts.json
 okuma/
 okuma_h/
+
+# yerel olcum, sonuc ve deneme yedekleri
+*.onceki
+okuma*_sonuc.json
+mcp_*.json
+olcum_kayit/
+yedek_deneme/

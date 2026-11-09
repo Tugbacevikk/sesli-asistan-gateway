@@ -593,7 +593,7 @@ async function startCall(text = false, firstMessage = "") {
   if (!text) {
     try {
       micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: true, channelCount: 1 } });
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     } catch (e) {
       $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı). Yazarak deneyebilirsiniz.";
       $("callBtn").disabled = false;

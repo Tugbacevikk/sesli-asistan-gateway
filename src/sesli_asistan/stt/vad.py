@@ -107,7 +107,7 @@ def make_detector(kind: str, model: str, threshold: float = 0.5) -> SpeechDetect
 class SegmenterConfig:
     end_silence_ms: int = 700          # bu kadar sessizlik → cümle bitti
     max_utterance_sec: float = 12.0    # durmadan konuşulursa zorla böl
-    pre_roll_ms: int = 350             # konuşma başlamadan önceki sesi de al (ilk hece kesilmesin)
+    pre_roll_ms: int = 500             # konuşma başlamadan önceki sesi de al (ilk hece kesilmesin)
     start_frames: int = 3              # konuşma başladı demek için ardışık konuşma çerçevesi (~96 ms)
     # toplam sesli süre bundan azsa (öksürük, tık) at. 0,15: canlı deneme 03.11.2026'da sorunun hemen ardından denen
     # "evet" (0,7 sn ses, Silero en çok 0,57) 0,3 sınırında atılmış, asistan 8 sn sonra "duyamıyorum" demişti
