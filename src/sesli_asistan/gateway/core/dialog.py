@@ -1064,7 +1064,13 @@ class DialogAgent:
         return self._reply(s, q)
 
     def _ask_units(self, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
-        """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?"."""
+        """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?".
+        Sözde unvan varsa ("asayiş şube müdürü") birim hatları değil o birimlerin içindeki unvanlı hatlar sorulur:
+        "müdürü" ~ "Müdürlüğü" benzerliğiyle Asayiş Şube Müdürlüklerinin birim hatları aday olabiliyor."""
+        if all(c.contact.unit_path for c in cands):
+            cands = self._titled_inside(s, cands)
+            if len(cands) == 1:
+                return self._code_transfer(s, cands[0])
         contacts = [c.contact for c in cands]
         level = units.split_level(contacts)
         if level is None:
@@ -1075,6 +1081,20 @@ class DialogAgent:
         turn = self._reply(s, q)
         turn.fast = True
         return turn
+
+    def _titled_inside(self, s: DialogSession, cands: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
+        """Sözde unvan varken: birim hatlarını at (unvanlı hat varsa) ya da adaylar yalnız birim hatlarıysa o
+        birimlerin içinde unvanı uyan hatlara geç. Değişiklik yoksa adaylar aynen döner."""
+        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        if not text or not has_role_word(text):
+            return cands
+        lines = [c for c in cands if c.contact.kind != "department"]
+        if lines:
+            return tuple(lines) if len(lines) < len(cands) else cands
+        paths = [c.contact.unit_path for c in cands]
+        inside = [c for c in same_title(self.tools.index, text)
+                  if c.transferable and c.unit_path and any(c.unit_path[:len(p)] == p for p in paths)]
+        return tuple(Candidate(c, 100) for c in inside) or cands
 
     def _resolve_units(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:
         """Birim yolu sorusunun cevabı: adaylar cevaptaki birim adıyla süzülür (o seviyenin ya da daha aşağısının adı:
