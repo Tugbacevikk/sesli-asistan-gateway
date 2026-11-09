@@ -100,6 +100,8 @@ class DemoRehberUretici:
         self.contacts: list[dict[str, Any]] = []
         self.used_extensions: set[str] = set()
         self.used_ids: set[str] = set()
+        # birim adı → o birimin eş anlamlıları (birim hattından); birimdeki diğer hatlar bunları kullanır
+        self._birim_alias: dict[str, list[str]] = {}
 
     def _kayit_ekle(
         self,
@@ -125,6 +127,18 @@ class DemoRehberUretici:
 
         self.used_ids.add(cid)
         self.used_extensions.add(extension)
+
+        # Eş anlamlılar birime aittir: birimdeki her hat birim hattının eş anlamlılarını taşır. Bir hatta kurumun
+        # genel adı ("Emniyet") yazılırsa "emniyete bağlar mısınız" o hatta da uyar, birim hattı belirsizleşir.
+        if kind == "department":
+            if department in self._birim_alias:
+                kind = "role"               # birimin ikinci hattı (danışma, yemekhane): birim hattı tek olmalı
+            else:
+                self._birim_alias[department] = list(department_aliases)
+        if kind != "department" and department in self._birim_alias:
+            department_aliases = self._birim_alias[department]
+        # "operatör" / "santral" asistanda operatör isteğidir; bir hattın takma adı olamaz
+        aliases = [a for a in aliases if a.casefold() not in ("operatör", "santral")]
 
         kayit = {
             "id": cid,

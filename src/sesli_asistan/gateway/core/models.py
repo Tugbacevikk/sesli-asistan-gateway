@@ -22,6 +22,10 @@ class Contact:
     updated_at: str = ""
     deleted: bool = False
     kind: str = "person"          # "person" | "department" (birimin genel hattı) | "role" (makam hattı, ADR-030)
+    # Birim yapısı (ADR-032, isteğe bağlı): kurumdan en alt birime sıralı birim adları ve hattın türü. Doluysa
+    # birden çok aday seviye seviye daraltılır ("Jandarma mı, Emniyet mi?" → "Hangi büro?").
+    unit_path: tuple[str, ...] = ()
+    category: str = ""            # kurum | makam | şube | büro | kalem | destek | kişi
 
     @property
     def full_name(self) -> str:
@@ -38,6 +42,8 @@ class Contact:
             aliases=tuple(d.get("aliases") or ()), department_aliases=tuple(d.get("department_aliases") or ()),
             updated_at=d.get("updated_at", ""), deleted=bool(d.get("deleted", False)),
             kind=d.get("kind") or "person",
+            unit_path=tuple(str(x) for x in (d.get("birim_yolu") or d.get("unit_path") or ()) if str(x).strip()),
+            category=str(d.get("kategori") or d.get("category") or ""),
         )
 
 

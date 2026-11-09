@@ -28,6 +28,7 @@ from typing import Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
+from . import units
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
 from .people import (
     department_said,
@@ -481,6 +482,8 @@ class DialogAgent:
         u.choice, s.state.choice = s.state.choice, ()
         if not (u.choice and self.cfg.clarify_by_code):
             return None
+        if (turn := self._resolve_units(s, u.text, u.choice)) is not None:
+            return turn
         if (turn := self._resolve_choice(s, u.text, u.choice)) is not None:
             return turn
         depts = {c.contact.department for c in u.choice}
@@ -649,6 +652,8 @@ class DialogAgent:
     def _narrow(self, s: DialogSession, cands: tuple[Candidate, ...], text: str = "") -> DialogTurn | None:
         """Birden çok aday: 2–3 ve ayırt edilebiliyorsa "X mı, Y mi?"; birimleri ya da alt birimleri/unvanları
         farklıysa daraltma sorusu; aynı unvan ve aynı birimse operatör. None: normal akış."""
+        if (turn := self._ask_units(s, cands)) is not None:
+            return turn
         if len(cands) <= 3 and which_question([c.contact for c in cands]) is not None:
             if text and all(c.contact.kind == "person" for c in cands):
                 return None                          # sorulabilir: kişi çözme / hızlı yol soracak
@@ -1046,6 +1051,8 @@ class DialogAgent:
         """2–3 kişilik adaydan "Muhasebeden Ayşe Yılmaz mı, satıştan Ayşe Kaya mı?" sorusu (LLM'siz). Adaylar
         sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun. `lines`: birim hatları da aday olabilir
         (sözde birden çok hedef: "Muhasebe mi, Teknik Destek mi?")."""
+        if not s.state.truncated and (turn := self._ask_units(s, candidates)) is not None:
+            return turn
         if not 2 <= len(candidates) <= 3 or (not lines and any(c.contact.kind != "person" for c in candidates)):
             return None
         if s.state.truncated:
@@ -1055,6 +1062,34 @@ class DialogAgent:
             return None
         s.state.choice, s.state.choice_question = candidates, ""
         return self._reply(s, q)
+
+    def _ask_units(self, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?"."""
+        contacts = [c.contact for c in cands]
+        level = units.split_level(contacts)
+        if level is None:
+            return None
+        q = units.question(units.groups(contacts, level), units.unit_names(self.tools.index.contacts()))
+        s.state.choice, s.state.choice_question, s.state.truncated = cands, q, False
+        log.info("[%s] birim yolu %d. seviye soruluyor (%d aday): %s", s.call_id, level + 1, len(cands), q)
+        turn = self._reply(s, q)
+        turn.fast = True
+        return turn
+
+    def _resolve_units(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Birim yolu sorusunun cevabı: adaylar cevaptaki birim adıyla süzülür (o seviyenin ya da daha aşağısının adı:
+        "emniyet", "cinayet"). Tek aday → aktar; birden çok → sıradaki seviye; süzülemezse None (eski akış)."""
+        contacts = [c.contact for c in choice]
+        kept = units.narrow(contacts, text, units.unit_names(self.tools.index.contacts()))
+        if not kept:
+            return None
+        log.info("[%s] birim yoluyla daraltıldı: %s → %s", s.call_id, log_text(text), [c.extension for c in kept])
+        if len(kept) == 1:
+            return self._code_transfer(s, Candidate(kept[0], 100))
+        rest = tuple(Candidate(c, 100) for c in kept)
+        if (turn := self._ask_units(s, rest)) is not None:
+            return turn
+        return self._narrow(s, rest) or self._clarify(s, rest, lines=True)
 
     def _fast_clarify(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Sözde yalnızca birden çok kişiye uyan bir ad var ("ayşe hanım"): LLM beklemeden sorulur. Sözde bir birim,

@@ -419,10 +419,15 @@ class _Ids:
 
 def contact_record(c: Any) -> dict[str, Any]:
     """Rehber kaydı → rehber dosyasındaki biçim (Sentra Rehber API alanları)."""
-    return {"id": c.id, "kind": c.kind, "first_name": c.first_name, "last_name": c.last_name,
-            "department": c.department, "title": c.title, "extension": c.extension, "aliases": list(c.aliases),
-            "department_aliases": list(c.department_aliases), "transferable": c.transferable,
-            "updated_at": c.updated_at, "deleted": c.deleted}
+    rec = {"id": c.id, "kind": c.kind, "first_name": c.first_name, "last_name": c.last_name,
+           "department": c.department, "title": c.title, "extension": c.extension, "aliases": list(c.aliases),
+           "department_aliases": list(c.department_aliases), "transferable": c.transferable,
+           "updated_at": c.updated_at, "deleted": c.deleted}
+    if getattr(c, "unit_path", ()):                       # birim yapısı (ADR-032) yalnız doluysa yazılır
+        rec["birim_yolu"] = list(c.unit_path)
+    if getattr(c, "category", ""):
+        rec["kategori"] = c.category
+    return rec
 
 
 def merge(old: Sequence[Any], new: list[dict[str, Any]]) -> list[dict[str, Any]]:
