@@ -63,8 +63,8 @@ async def test_gozlemci_olaylari_ve_alanlari():
     kinds = [k for k, _ in seen]
     # arayüze giden her tür canlı izlemede tanınır (yalnız klavye sesi bilgisi süzülür)
     assert set(kinds) - {"thinking_sound"} <= KINDS
-    # sıra: duyulan → cevap → eylem → tur özeti; en sonda bitiş
-    order = [kinds.index(k) for k in ("heard", "reply", "action", "turn")]
+    # sıra: duyulan → cevap → tur özeti → santral eylemi (cümle bitince); en sonda bitiş
+    order = [kinds.index(k) for k in ("heard", "reply", "turn", "action")]
     assert order == sorted(order) and kinds[-1] == "ended"
     first = {k: d for k, d in reversed(seen)}             # her türün ilk olayı
     assert first["heard"]["text"] == "muhasebeden ayşe hanım" and "confidence" in first["heard"]
