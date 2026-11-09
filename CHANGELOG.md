@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Birim yapılı rehber (ADR-032): kayıtlarda isteğe bağlı `birim_yolu` ve `kategori`; birden çok aday seviye seviye
+  sorulur ("Jandarma mı, Emniyet mi?" → "Asayiş Şube mi, Trafik Şube mi, Narkotik mi?"), cevap alt birimin adı da
+  olabilir ("cinayet"). Sorulan birime verilen cevap artık kurumun santraline aktarılmaz. Demo rehberi
+  `data/demo_rehber.json` ve 30 senaryoluk demo seti; üretici betikte eş anlamlılar birime ait.
 - Çok turlu makam daraltma (9c552ab): aynı unvanlı ya da aynı birimdeki çok hatta önceki turlarda söylenen birim /
   şube / unvan sözcükleriyle süzülür ("asayiş başkanlığı" → "plan koordinasyon şube" → "idari işlemler astsubayı");
   alt / cihaz hatları ("… Müdürü Shp.") asıl makamın yanında aday sayılmaz. Makam kısaltmaları sözlüğü genişledi,

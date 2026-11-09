@@ -28,6 +28,7 @@ from typing import Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
+from . import units
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
 from .people import (
     department_said,
@@ -481,6 +482,8 @@ class DialogAgent:
         u.choice, s.state.choice = s.state.choice, ()
         if not (u.choice and self.cfg.clarify_by_code):
             return None
+        if (turn := self._resolve_units(s, u.text, u.choice)) is not None:
+            return turn
         if (turn := self._resolve_choice(s, u.text, u.choice)) is not None:
             return turn
         depts = {c.contact.department for c in u.choice}
@@ -502,6 +505,9 @@ class DialogAgent:
         Kişinin kendi birimi ya da dahilisi ayrı hedef değildir ("muhasebeden Ayşe Yılmaz")."""
         if not (self.cfg.fast_path and self.cfg.clarify_by_code):
             return None
+        if s.state.choice and units.narrow([c.contact for c in s.state.choice], u.text,
+                                           units.unit_names(self.tools.index.contacts())):
+            return None                 # açık birim sorusunun cevabı ("emniyet"): seçimde süzülür (ADR-032)
         numbers = [*re.findall(r"\d{2,6}", u.text), *spoken_numbers(_folded_words(u.text))]
         m = mentioned_targets(self.tools.index, u.text, numbers)
         persons = [c for c in m.contacts if c.kind == "person"]
@@ -649,6 +655,8 @@ class DialogAgent:
     def _narrow(self, s: DialogSession, cands: tuple[Candidate, ...], text: str = "") -> DialogTurn | None:
         """Birden çok aday: 2–3 ve ayırt edilebiliyorsa "X mı, Y mi?"; birimleri ya da alt birimleri/unvanları
         farklıysa daraltma sorusu; aynı unvan ve aynı birimse operatör. None: normal akış."""
+        if (turn := self._ask_units(s, cands)) is not None:
+            return turn
         if len(cands) <= 3 and which_question([c.contact for c in cands]) is not None:
             if text and all(c.contact.kind == "person" for c in cands):
                 return None                          # sorulabilir: kişi çözme / hızlı yol soracak
@@ -1046,6 +1054,8 @@ class DialogAgent:
         """2–3 kişilik adaydan "Muhasebeden Ayşe Yılmaz mı, satıştan Ayşe Kaya mı?" sorusu (LLM'siz). Adaylar
         sorudan ayırt edilemiyorsa (aynı ad, aynı birim) None: LLM sorsun. `lines`: birim hatları da aday olabilir
         (sözde birden çok hedef: "Muhasebe mi, Teknik Destek mi?")."""
+        if not s.state.truncated and (turn := self._ask_units(s, candidates)) is not None:
+            return turn
         if not 2 <= len(candidates) <= 3 or (not lines and any(c.contact.kind != "person" for c in candidates)):
             return None
         if s.state.truncated:
@@ -1055,6 +1065,54 @@ class DialogAgent:
             return None
         s.state.choice, s.state.choice_question = candidates, ""
         return self._reply(s, q)
+
+    def _ask_units(self, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?".
+        Sözde unvan varsa ("asayiş şube müdürü") birim hatları değil o birimlerin içindeki unvanlı hatlar sorulur:
+        "müdürü" ~ "Müdürlüğü" benzerliğiyle Asayiş Şube Müdürlüklerinin birim hatları aday olabiliyor."""
+        if all(c.contact.unit_path for c in cands):
+            cands = self._titled_inside(s, cands)
+        # tek aday kalırsa burada aktarılmaz: çağıran kendi akışına devam eder (_code_transfer → _topic_clash →
+        # _clarify → buraya dönen bir döngü olmasın)
+        contacts = [c.contact for c in cands]
+        level = units.split_level(contacts)
+        if level is None:
+            return None
+        q = units.question(units.groups(contacts, level), units.unit_names(self.tools.index.contacts()))
+        s.state.choice, s.state.choice_question, s.state.truncated = cands, q, False
+        log.info("[%s] birim yolu %d. seviye soruluyor (%d aday): %s", s.call_id, level + 1, len(cands), q)
+        turn = self._reply(s, q)
+        turn.fast = True
+        return turn
+
+    def _titled_inside(self, s: DialogSession, cands: tuple[Candidate, ...]) -> tuple[Candidate, ...]:
+        """Sözde unvan varken: birim hatlarını at (unvanlı hat varsa) ya da adaylar yalnız birim hatlarıysa o
+        birimlerin içinde unvanı uyan hatlara geç. Değişiklik yoksa adaylar aynen döner."""
+        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        if not text or not has_role_word(text):
+            return cands
+        lines = [c for c in cands if c.contact.kind != "department"]
+        if lines:
+            return tuple(lines) if len(lines) < len(cands) else cands
+        paths = [c.contact.unit_path for c in cands]
+        inside = [c for c in same_title(self.tools.index, text)
+                  if c.transferable and c.unit_path and any(c.unit_path[:len(p)] == p for p in paths)]
+        return tuple(Candidate(c, 100) for c in inside) or cands
+
+    def _resolve_units(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Birim yolu sorusunun cevabı: adaylar cevaptaki birim adıyla süzülür (o seviyenin ya da daha aşağısının adı:
+        "emniyet", "cinayet"). Tek aday → aktar; birden çok → sıradaki seviye; süzülemezse None (eski akış)."""
+        contacts = [c.contact for c in choice]
+        kept = units.narrow(contacts, text, units.unit_names(self.tools.index.contacts()))
+        if not kept:
+            return None
+        log.info("[%s] birim yoluyla daraltıldı: %s → %s", s.call_id, log_text(text), [c.extension for c in kept])
+        if len(kept) == 1:
+            return self._code_transfer(s, Candidate(kept[0], 100))
+        rest = tuple(Candidate(c, 100) for c in kept)
+        if (turn := self._ask_units(s, rest)) is not None:
+            return turn
+        return self._narrow(s, rest) or self._clarify(s, rest, lines=True)
 
     def _fast_clarify(self, s: DialogSession, text: str) -> DialogTurn | None:
         """Sözde yalnızca birden çok kişiye uyan bir ad var ("ayşe hanım"): LLM beklemeden sorulur. Sözde bir birim,

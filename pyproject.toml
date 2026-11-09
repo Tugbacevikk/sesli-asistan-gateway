@@ -79,6 +79,8 @@ where = ["src"]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
 asyncio_mode = "auto"
+# takılan test 2 dk sonra yığın dökümüyle görünür (CI'da sessizce asılı kalmasın)
+faulthandler_timeout = 120
 markers = ["models: modeller indirilmiş olmalı (models/ klasörü)"]
 
 [tool.ruff]

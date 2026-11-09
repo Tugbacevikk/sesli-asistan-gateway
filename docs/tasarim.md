@@ -759,6 +759,10 @@ Authorization: Bearer <salt okunur servis anahtarı>
 `kind` (isteğe bağlı, varsayılan `person`): `department` ise kayıt bir birimin genel hattıdır (ad/soyad boş).
 Arayan yalnızca birim söylerse (ad yok) ve birimin genel hattı varsa o önerilir; yoksa birimdeki kişiler seçenek olarak sunulur.
 
+`birim_yolu` ve `kategori` (isteğe bağlı, ADR-032): kurumdan en alt birime sıralı birim adları
+(`["Yeşilova İl Emniyet Müdürlüğü", "Asayiş Şube Müdürlüğü", "Cinayet Bürosu"]`) ve hattın türü (`kurum`, `makam`,
+`şube`, `büro`, `kalem`, `destek`, `kişi`). Doluysa birden çok aday birim yoluyla seviye seviye sorulur.
+
 Sözleşme kuralları:
 - Silinen kayıtlar yumuşak silme ile `deleted: true` olarak döner.
 - Gateway bir sonraki istekte önceki yanıttaki `server_time` değerini `updated_since` olarak kullanır.
@@ -1877,6 +1881,24 @@ rehber "Bilgi İşlem"i %100 eşledi → kod tek kesin sonucu aktardı; üstelik
 **Sonuç.** Senaryo D139–D142, M13–M14; şirket, kamu ve makam %100 (MCP adımıyla). Kapı ölçülen 7–9 dB farkın içinde 6 dB payla
 çalışır; payı daralan ortamlarda (çok yüksek arka plan) etkisi azalır, ama yanlış eylemi önleyen kurallar (ADR-029)
 ondan bağımsızdır.
+
+### ADR-032 — Birim yapılı rehber: birim yolu ve kategori, seviye seviye daraltma
+
+- **Bağlam:** Makam hatlı rehberde (ADR-030) kurum, şube ve büro tek bir birim adı metnine gömülü ("İl Emniyet Asayiş
+  Şube Müdürlüğü"). Aynı unvanlı çok hatta asistan hangi parçanın kurum, hangisinin şube olduğunu sözcük tahminiyle
+  çıkarıyordu; kuruma özel STT düzeltmeleri ve "bakanlığı ≈ başkanlığı" gibi genel kurallar gerekti. Sorulan birime
+  verilen cevap ("jandarma") kurumun santraline aktarılıyordu (sentetik ve demo setleri, 09.11.2026).
+- **Karar:** Rehber kaydına iki isteğe bağlı alan: `birim_yolu` (kurumdan en alt birime sıralı birim adları) ve
+  `kategori` (kurum, makam, şube, büro, kalem, destek, kişi). Birden çok aday birim yolu taşıyorsa yollarının ilk
+  ayrıldığı seviye sorulur ("Jandarma mı, Emniyet mi?"; 3'ten çok seçenekte "Hangi birim? A, B, C ya da D."). Cevap
+  o seviyenin ya da daha alt bir birimin adı olabilir ("cinayet"); ayırt edici sözcükler adayların kendi birim
+  adlarından çıkar (`core/units.py`), sözcük listesi ya da kurum kuralı yoktur. Birimin söylenen adı birim hattının
+  eş anlamlılarından resmî adın içindeki en kısa ad ("Yeşilova İl Jandarma Komutanlığı" → "Jandarma"). Eş anlamlılar
+  birime aittir: birimdeki hatlar kendi birim hattının eş anlamlılarını taşır, kurumun genel adını değil.
+- **Sonuç / sınırlar:** Alanlar yoksa davranış değişmez (eski rehberler). Aynı birimde farklı unvanlı hatlar
+  (birim yolu aynı) eski unvan daraltmasıyla sorulur. Sentra Rehber API sözleşmesine (6.6) isteğe bağlı alan olarak
+  eklenir; Sentra ekibine bildirilmeli. Dosyayla yüklemede otomatik bölme (santral dökümündeki birim adından birim
+  yolu çıkarma) sonraki adım. Demo rehberi: `data/demo_rehber.json` (`tools/rehber/demo_rehber.py`).
 
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
