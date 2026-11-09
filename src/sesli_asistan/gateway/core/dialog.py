@@ -67,7 +67,16 @@ from .phrases import (
 )
 from .ports import LlmError, LlmPort, ToolCall
 from .resilience import supports_stream
-from .search import _FOLD, has_role_word, is_role_word, query_variants, search_key, similarity, strip_suffix
+from .search import (
+    _FOLD,
+    hard_stem,
+    has_role_word,
+    is_role_word,
+    query_variants,
+    search_key,
+    similarity,
+    strip_suffix,
+)
 from .speech import ABBREVIATIONS, split_sentences
 from .thresholds import (
     CHOICE_WORD,
@@ -1085,8 +1094,11 @@ class DialogAgent:
         """Sözde bir birim adı geçiyor mu; `only` verilirse yalnız o kaydın birimi (ve eş anlamlıları)."""
         keys = (self.tools.index.department_keys if only is None else
                 {k for k in (search_key(only.department), *map(search_key, only.department_aliases)) if k})
-        text = " ".join(strip_suffix(w) for w in words)
-        return any(f" {strip_suffix(k)} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
+        def norm(ws: list[str]) -> str:                 # "valiliğe" ~ "Valilik" ~ "Yeşilova Valiliği" (k / ğ)
+            return " ".join(hard_stem(strip_suffix(w)) for w in ws)
+
+        text = norm(words)
+        return any(f" {norm(k.split())} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
                    for k in keys)
 
     def _resolve_choice(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:

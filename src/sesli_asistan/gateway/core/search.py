@@ -144,10 +144,22 @@ def alias_key(text: str) -> str:
     return " ".join(strip_suffix(w) for w in t.split())
 
 
+def hard_stem(word: str) -> str:
+    """Ek atılmış sözcüğün sonundaki yumuşamış ünsüzü sertleştirir: "valilig" (valiliğe) → "valilik",
+    "kaymakamlig" → "kaymakamlik". Karşılaştırmanın iki yanına da uygulanır; sözcük gerçekten g ile bitiyorsa
+    ("psikolog") iki yan da aynı biçime döner."""
+    return word[:-1] + "k" if word.endswith("g") else word
+
+
 def query_variants(key: str) -> list[str]:
-    """Arama anahtarı + ekleri atılmış biçimi (farklıysa)."""
+    """Arama anahtarı + ekleri atılmış biçimi + sonu sertleşmiş biçimi (farklı olanlar)."""
+    out = [key]
     stripped = " ".join(strip_suffix(w) for w in key.split())
-    return [key] if stripped == key else [key, stripped]
+    hard = " ".join(hard_stem(w) for w in stripped.split())
+    for v in (stripped, hard):
+        if v not in out:
+            out.append(v)
+    return out
 
 
 HOTWORD_CHARS = 400

@@ -1,6 +1,14 @@
 {
   "_aciklama": "Rehber kısaltmalarının genel açılımı (ADR-030). Kurumun kendi kısaltmaları ABBREVIATIONS_PATH dosyasına aynı biçimde yazılır; aynı anahtar kurumunkini kullanır. Anlamından emin olunmayan kısaltma buraya yazılmaz: yanlış açılım arayanı yanlış hatta götürür.",
   "kisaltmalar": {
+    "Av.": "Avukat",
+    "Bit.": "Bitkisel",
+    "Çağ.": "Çağrı",
+    "Hast.": "Hastane",
+    "Mer.": "Merkezi",
+    "Nf.": "Nüfus",
+    "Orm.": "Orman",
+    "Plan.": "Planlama",
     "A.": "Amiri",
     "A.liği": "Amirliği",
     "Abn.": "Abone",

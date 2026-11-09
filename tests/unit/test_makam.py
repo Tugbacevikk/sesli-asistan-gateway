@@ -231,3 +231,18 @@ def test_cok_turlu_birim_sube_unvan_daraltma():
     assert [x.extension for x in t1.actions] == ["22122"]
     t2 = say(a, "idari işlemler astsubayı", "taş bakanlığı plan koordinasyon şubedeki")
     assert [x.extension for x in t2.actions] == ["22122"]
+
+
+@pytest.mark.parametrize("text", ["valiliğe bağlar mısınız", "valiliğine bağlar mısınız"])
+def test_yumusamis_birim_adi_operator_teyidine_dusmez(text):
+    # sentetik set S02: "valiliğe" (k → ğ) birim sayılmıyor, "afiyete" gibi bilinmeyen hedef → operatör teyidi
+    cs = [Contact.from_api({"id": "v", "kind": "department", "first_name": "", "last_name": "",
+                            "department": "Yeşilova Valiliği", "department_aliases": ["Valilik"],
+                            "title": "Birim hattı", "extension": "20000"}),
+          Contact.from_api({"id": "p", "first_name": "Ali", "last_name": "Kaya", "department": "Yeşilova Valiliği",
+                            "title": "Uzman", "extension": "20010"})]
+    a = DialogAgent(NoLlm(), ToolRegistry(DirectoryIndex(cs), topics=load_topics()),
+                    DialogConfig(organization="D", llm_enabled=False, mcp_step=True))
+    assert a._mentions_department(["valilige"]) and a._mentions_department(["valiligine"])
+    t = say(a, text)
+    assert [x.extension for x in t.actions] == ["20000"]

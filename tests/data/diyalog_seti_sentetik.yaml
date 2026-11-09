@@ -84,7 +84,7 @@
 - id: S16
   aciklama: Emniyet Belgegeçer hattı (aktarılamaz)
   konusma: ["emniyet belgegeçer faks"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40099"]}
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40009"]}      # rehberde 40009 (40099 yok)
 
 # --- 3. VALİ YARDIMCILARI VE ÖZEL KALEM (KİŞİ / MAKAMLAR) ---
 - id: S17
@@ -93,8 +93,8 @@
   beklenen: {eylem: transfer, dahili: "20002"}
 
 - id: S18
-  aciklama: Vali Yardımcısı (hitapla)
-  konusma: ["kemal bey"]
+  aciklama: Vali Yardımcısı (unvan + ad + hitap; rehberde 4 Kemal var, yalnız "kemal bey" belirsiz)
+  konusma: ["vali yardımcısı kemal bey"]
   beklenen: {eylem: transfer, dahili: "20002"}
 
 - id: S19
@@ -135,7 +135,7 @@
 
 - id: S26
   aciklama: Şube müdürü çok birimde → birim sorulur, cevapla süzülür
-  konusma: ["şube müdürü ile görüşecektim", "asayiş"]
+  konusma: ["şube müdürü ile görüşecektim", "jandarma asayiş"]      # "asayiş" iki birimde: jandarma ve emniyet
   beklenen: {eylem: transfer, dahili: "30100"}
 
 - id: S27
@@ -166,7 +166,7 @@
 - id: S32
   aciklama: Narkotik Büro Amiri
   konusma: ["narkotik büro amiri lütfen"]
-  beklenen: {eylem: transfer, dahili: "40310"}
+  beklenen: {eylem: transfer, dahili: "40350"}      # rehberde Narkotik Büro Amiri 40350
 
 # --- 5. ALT / CİHAZ HATLARI VE ASIL MAKAM (SHP., MBL., DİNLENME) ---
 - id: S33
@@ -224,8 +224,8 @@
 
 # --- 9. KİŞİ ADI GİBİ GÖRÜNEN HATLAR, DESTEK VE SİLİNMİŞ KAYITLAR ---
 - id: S43
-  aciklama: Nöbetçi Amiri (kişi adı gibi görünen unvan hattı)
-  konusma: ["nöbetçi amiri ile görüşmek istiyorum"]
+  aciklama: Nöbetçi Amiri (kişi adı gibi görünen unvan hattı; iki birimde var → birim sorulur)
+  konusma: ["nöbetçi amiri ile görüşmek istiyorum", "jandarma"]
   beklenen: {eylem: transfer, dahili: "30080"}
 
 - id: S44
