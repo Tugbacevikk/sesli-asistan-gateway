@@ -420,7 +420,7 @@ class DialogAgent:
     async def _step_greeting(self, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """"selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
         (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)."""
-        if not is_greeting_only(u.text):
+        if not (is_greeting_only(u.text) or (is_greeting_only(u.text, noise=1) and not self._mentions_target(u.text))):
             return None
         u.reopen(s)
         log.info("[%s] yalnız selam: %s", s.call_id, log_text(u.text))

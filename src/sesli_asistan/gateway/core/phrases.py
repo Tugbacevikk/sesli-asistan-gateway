@@ -130,12 +130,21 @@ def asks_office_hours(text: str) -> bool:
                 or re.search(r"\bacik (misiniz|mi)\b", joined))
 
 
-def is_greeting_only(text: str) -> bool:
-    """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı."""
+_GREETING_CORE = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin", "aksamlar", "selamun", "aleykum",
+                  "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"}
+
+
+def is_greeting_only(text: str, noise: int = 0) -> bool:
+    """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı.
+    Sonu kesilmiş selam ("merhab") selam sayılır. `noise`: tanınmayan en çok kaç sözcüğe izin verilir (STT kırıntısı:
+    "bakalımızı merhaba iyi günler", canlı 09.11.2026); çağıran sözün rehberde bir hedef içermediğini ayrıca bakar."""
     raw = _folded_words(text)
-    return bool(raw) and set(raw) <= _GREETING_WORDS and bool(set(raw) & {
-        "selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin", "aksamlar", "selamun", "aleykum",
-        "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"})
+
+    def known(w: str) -> bool:
+        return w in _GREETING_WORDS or (len(w) >= 4 and any(g.startswith(w) for g in _GREETING_CORE))
+
+    core = any(w in _GREETING_CORE or (len(w) >= 5 and any(g.startswith(w) for g in _GREETING_CORE)) for w in raw)
+    return bool(raw) and core and sum(not known(w) for w in raw) <= noise
 
 
 def _vowel_mask(word: str) -> str:

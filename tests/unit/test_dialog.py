@@ -940,7 +940,8 @@ async def test_kural_modunda_birim_kisaltmasi():
 # --- yalnız selam (canlı 03.11.2026: "selam" → "bulamadım", deneme sayılıyordu) ------------------------------------
 
 @pytest.mark.parametrize("text", ["selam", "merhaba", "iyi günler", "selamün aleyküm", "günaydın", "alo",
-                                  "kolay gelsin", "alo duyuyor musunuz", "merhaba nasılsınız"])
+                                  "kolay gelsin", "alo duyuyor musunuz", "merhaba nasılsınız",
+                                  "bakalımızı merhaba iyi günler merhab"])     # canlı 09.11.2026: kırıntı + kesik selam
 @pytest.mark.parametrize("llm", [True, False])
 async def test_yalniz_selam_kimi_aradigini_sorar_deneme_saymaz(text, llm):
     a = agent(ScriptedLlm(), fast_path=True, llm_enabled=llm)
@@ -948,6 +949,13 @@ async def test_yalniz_selam_kimi_aradigini_sorar_deneme_saymaz(text, llm):
     t = await s.handle_user(text)
     assert t.text == a.cfg.texts.greeting_reply and not t.actions and a.llm.seen == []
     assert s.state.failed_attempts == 0
+
+
+async def test_selam_ve_hedef_selam_sayilmaz():
+    # tanınmayan tek sözcük kırıntı sayılır ama rehberde bir hedefse istek: "merhaba ayşe yılmaz" aranır
+    a = agent(ScriptedLlm(), fast_path=True, llm_enabled=False)
+    t = await a.new_session("g").handle_user("merhaba ayşe yılmaz")
+    assert t.text != a.cfg.texts.greeting_reply
 
 
 async def test_selam_acik_soruyu_yineler_ve_istekle_birlikte_aktarir():
