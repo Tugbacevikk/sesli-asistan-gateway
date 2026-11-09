@@ -202,36 +202,38 @@ class ChoiceMixin:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
-        raw_clean = set(_folded_words(text))
-        if not raw_clean or _FAST_BLOCK & raw_clean or any(strip_suffix(w) in _FAST_BLOCK for w in raw_clean):
+        if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
             return None
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
-            choice_ids = {c.contact.id for c in choice}
-            narrowed = narrow_candidates([c.contact for c in choice], text)
-            # Cevap sorulan adaylardan birini süzüyorsa o seçilir; ancak süzmüyorsa ve rehberde başka bir hedefse
-            # yeni istek sayılır. Sıra tersken "Hangi birimdeki nöbetçi amiri?" → "jandarma" kurumun santraline
-            # aktarılıyordu (sentetik set S26, S43; CI'da kural modu 09.11.2026).
-            if (not narrowed and words and (fast := self._fast_matches(text, words))
-                    and not (set(fast) & choice_ids)):
-                return None
-            if narrowed:
-                if len(narrowed) == 1:
-                    cand = Candidate(narrowed[0], 100)
-                    s.state.last_results = (cand,)
-                    action = self.tools.transfer(cand.contact.extension, s.state)
-                    if action is None:
-                        return None
-                    s.state.failed_attempts = 0
-                    log.info("[%s] seçim (daraltma): %s → %s", s.call_id, log_text(text), cand.contact.extension)
-                    turn = self._reply(s, self._transfer_text(action.contact_id))
-                    turn.fast = True
-                    return turn
-                if {c.id for c in narrowed} == choice_ids:
-                    if (op := self._count_failure(s)) is not None:
-                        return op
-                return self._narrow(s, tuple(Candidate(c, 100) for c in narrowed), text)
+            decided, turn = self._choice_by_unit(s, text, words, choice)
+            if decided:
+                return turn
         if not words:
             return None
+        return self._choice_by_words(s, text, words, choice)
+
+    def _choice_by_unit(self: DialogAgent, s: DialogSession, text: str, words: list[str],
+                        choice: tuple[Candidate, ...]) -> tuple[bool, DialogTurn | None]:
+        """Makam hatları: cevaptaki birim / şube / unvan sözcükleri adayları süzer. (True, tur): karar verildi (tur
+        None ise LLM / yeni istek); (False, None): süzülmedi, sözcüklerle seçime geçilir."""
+        choice_ids = {c.contact.id for c in choice}
+        narrowed = narrow_candidates([c.contact for c in choice], text)
+        # Cevap sorulan adaylardan birini süzüyorsa o seçilir; ancak süzmüyorsa ve rehberde başka bir hedefse
+        # yeni istek sayılır. Sıra tersken "Hangi birimdeki nöbetçi amiri?" → "jandarma" kurumun santraline
+        # aktarılıyordu (sentetik set S26, S43; CI'da kural modu 09.11.2026).
+        if not narrowed:
+            fast = self._fast_matches(text, words) if words else {}
+            return (True, None) if fast and not (set(fast) & choice_ids) else (False, None)
+        if len(narrowed) == 1:
+            cand = Candidate(narrowed[0], 100)
+            return True, self._choice_transfer(s, cand, (cand,), text, "seçim (daraltma)")
+        if {c.id for c in narrowed} == choice_ids and (op := self._count_failure(s)) is not None:
+            return True, op
+        return True, self._narrow(s, tuple(Candidate(c, 100) for c in narrowed), text)
+
+    def _choice_by_words(self: DialogAgent, s: DialogSession, text: str, words: list[str],
+                         choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Ad, soyad, birim ya da sıra sözcüğüyle ("ikincisi") tek aday."""
         picked = {i for i in range(len(choice)) if _choice_said(choice, i, words)}
         for word, idx in _ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):
@@ -245,13 +247,16 @@ class ChoiceMixin:
                 # "Hangi birimdeki müfettiş?" → "teftiş kurulundan": söylenen birimdekilerle yeniden (ADR-030)
                 return self._narrow(s, tuple(choice[i] for i in sorted(picked)))
             return None
-        cand = choice[picked.pop()]
-        s.state.last_results = choice
+        return self._choice_transfer(s, choice[picked.pop()], choice, text, "seçim")
+
+    def _choice_transfer(self: DialogAgent, s: DialogSession, cand: Candidate, results: tuple[Candidate, ...],
+                         text: str, how: str) -> DialogTurn | None:
+        s.state.last_results = results
         action = self.tools.transfer(cand.contact.extension, s.state)
         if action is None:
             return None
         s.state.failed_attempts = 0
-        log.info("[%s] seçim: %s → %s", s.call_id, log_text(text), cand.contact.extension)
+        log.info("[%s] %s: %s → %s", s.call_id, how, log_text(text), cand.contact.extension)
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn

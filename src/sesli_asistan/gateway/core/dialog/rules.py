@@ -56,19 +56,32 @@ class RulesMixin:
         2–3 kişi → soru, bulunamazsa tekrar sor (deneme sayacı; sonunda operatör)."""
         if asks_operator(text):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
+        if (turn := self._rule_number(s, text) or self._rule_title(s, text)) is not None:
+            return turn
+        return self._rule_people(s, text)
+
+    def _rule_number(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
+        """Sözde rehberdeki bir dahili ("214", "iki yüz on dört") → aktar."""
         for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(_folded_words(text))]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 return self._code_transfer(s, r.candidates[0])
-        if not self.cfg.mcp_step:
-            # MCP adımı kapalıyken de unvan kuralları (ADR-025 / ADR-030: "özlük şube müdürü" → makam hattı)
-            res = resolve_person(self.tools.index, text)
-            titled = [c for a in res["adaylar"] if a.get("neden") == "unvan"
-                      if (c := self.tools.index.get(a["id"])) is not None]
-            if len(titled) == 1 and res["kesin"]:
-                return self._code_transfer(s, Candidate(titled[0], 100))
-            if 2 <= len(titled) <= 3 and (turn := self._clarify(s, tuple(Candidate(c, 100) for c in titled),
-                                                               lines=True)) is not None:
-                return turn
+        return None
+
+    def _rule_title(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
+        """MCP adımı kapalıyken de unvan kuralları (ADR-025 / ADR-030: "özlük şube müdürü" → makam hattı)."""
+        if self.cfg.mcp_step:
+            return None
+        res = resolve_person(self.tools.index, text)
+        titled = [c for a in res["adaylar"] if a.get("neden") == "unvan"
+                  if (c := self.tools.index.get(a["id"])) is not None]
+        if len(titled) == 1 and res["kesin"]:
+            return self._code_transfer(s, Candidate(titled[0], 100))
+        if 2 <= len(titled) <= 3:
+            return self._clarify(s, tuple(Candidate(c, 100) for c in titled), lines=True)
+        return None
+
+    def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
+        """Sözdeki kişi / birim: tek aday → aktar (yalnız adla söylendiyse teyit), çok aday → soru, yoksa bulamadım."""
         people, depts, more = self._rule_scan(search_key(text).split())
         if people and depts:
             narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
