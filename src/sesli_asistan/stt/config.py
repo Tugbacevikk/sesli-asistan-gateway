@@ -51,6 +51,10 @@ class SttSettings(BaseSettings):
     endpoint_silence_ms: int = Field(700, ge=100)
     speech_started_ms: int = Field(300, ge=0)   # bu kadar sesli konuşmadan sonra SPEECH_STARTED (barge-in)
     min_voiced_s: float = Field(0.15, gt=0, le=1)   # bundan kısa sesli süre cümle sayılmaz (öksürük, tık); vad.py
+    # konuşma başlamadan önceki sesten cümleye katılan pay (ilk hece kesilmesin); 09.11.2026'da 350 → 500
+    pre_roll_ms: int = Field(500, ge=0, le=2000)
+    # alçak frekans uğultusu süzgeci (stt/denoiser.py); 0: kapalı. Etkisi henüz ölçülmedi (olcumler.md 09.11.2026)
+    highpass_hz: float = Field(100.0, ge=0, le=300)
     metrics_port: int = Field(9101, ge=0)   # Prometheus (yalnız 127.0.0.1); 0: kapalı
     debug_dir: str = ""    # teşhis: cümle sesleri + sonuçları + çağrının bütün sesi (ses kaydı! üretimde boş bırakın)
     max_utterance_s: float = Field(12.0, gt=1)

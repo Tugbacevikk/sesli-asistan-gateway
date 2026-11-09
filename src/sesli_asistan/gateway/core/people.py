@@ -369,12 +369,14 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
     if not has_role:
         dept_only = [c for c in top
                      if all(any(_word_matches(w, d) for d in fold_words(c.department))
-                            for w in words if any(_word_matches(w, x) for x in fold_words(f"{c.department} {c.title}")))]
+                            for w in words
+                            if any(_word_matches(w, x) for x in fold_words(f"{c.department} {c.title}")))]
         if dept_only:
             return dept_only
         rem_u = []
         for c in top:
-            dept_w = set(fold_words(c.department)) | {"baskanligi", "bakanligi", "komutanligi", "mudurlugu", "sube", "subesi"}
+            dept_w = set(fold_words(c.department)) | {"baskanligi", "bakanligi", "komutanligi", "mudurlugu", "sube",
+                                                      "subesi"}
             u_dist = {x for x in _unit_prefix_words(c) - common - dept_w if len(x) >= 3}
             unm = sum(1 for x in u_dist if not any(_word_matches(w, x) for w in words))
             mat = sum(1 for x in u_dist if any(_word_matches(w, x) for w in words))
@@ -426,7 +428,10 @@ def same_unit(index: DirectoryIndex, text: str) -> list[Contact]:
 # eşleşmeye girmeyen sık sözcükler (katlanmış): istek fiilleri, soru ekleri
 _SOUND_STOP = {"istiyorum", "istiyordum", "ariyorum", "aliyorum", "gorusmek", "gorusecektim", "musunuz", "misiniz",
                "misin", "musun", "ile", "bir", "lutfen", "baglar", "baglayin", "baglayabilir", "var", "mi", "mu",
-               "icin", "beraber", "verir", "acaba", "rica", "ederim", "orada", "burada", "kim", "kimle", "kiminle", "istiyor", "istiyoruz", "isterim", "isteriz", "istemistim", "ariyor", "gorusebilir", "konusmak", "konusacaktim", "baglanmak", "baglanabilir", "ulasmak", "ulasabilir", "miyim", "muyum", "miyiz", "muyuz", "aktar", "aktarin", "aktarabilir", "merhaba", "iyi", "gunler", "selam", "alo"}
+               "icin", "beraber", "verir", "acaba", "rica", "ederim", "orada", "burada", "kim", "kimle", "kiminle",
+               "istiyor", "istiyoruz", "isterim", "isteriz", "istemistim", "ariyor", "gorusebilir", "konusmak",
+               "konusacaktim", "baglanmak", "baglanabilir", "ulasmak", "ulasabilir", "miyim", "muyum", "miyiz", "muyuz",
+               "aktar", "aktarin", "aktarabilir", "merhaba", "iyi", "gunler", "selam", "alo"}
 
 
 def _skeleton(text: str) -> str:

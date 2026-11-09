@@ -83,8 +83,9 @@ class Engine(Protocol):
 class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
     def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
                  segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0,
-                 debug_dir: str | None = None, use_hotwords: bool = False):
+                 debug_dir: str | None = None, use_hotwords: bool = False, highpass_hz: float = 100.0):
         self.engine, self.detector_factory = engine, detector_factory
+        self.highpass_hz = highpass_hz          # 0: süzgeç yok (stt/denoiser.py)
         # STT_HOTWORDS=false: Gateway'in ad ipuçları motora verilmez (okuma ölçümü 03.11.2026: bozuk seste ipucu
         # duyulmayan rehber adlarını yazdırıyordu — "evet" → "yılmaz burak çelik"; tools/stt/gorev_olc.py)
         self.use_hotwords = use_hotwords
@@ -146,7 +147,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                     hints: dict | None = None, call_id: str = "?") -> None:
         seg = Segmenter(self.detector_factory(), self.seg_cfg)
         up = StreamUpsampler(rate, STT_RATE) if rate != STT_RATE else None
-        filter_audio = GentleAudioFilter(STT_RATE)
+        hp = GentleAudioFilter(STT_RATE, self.highpass_hz) if self.highpass_hz > 0 else None
         # teşhis: çağrının bütün sesi (VAD'in kaçırdığı konuşma da görülsün; tools/stt/vad_incele.py)
         stream: list[np.ndarray] | None = [] if self.debug_dir else None
         stream_n = 0
@@ -163,10 +164,11 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                      else g711.decode(msg.audio, codec))
                 if up is not None:
                     x = up.process(x)
-                x = filter_audio.process(x)
                 if stream is not None and stream_n < MAX_STREAM_DUMP_S * STT_RATE:
-                    stream.append(x)
+                    stream.append(x)                    # teşhis kaydı süzgeçten önce: hattan gelen ham ses
                     stream_n += len(x)
+                if hp is not None:
+                    x = hp.process(x)
                 for e in seg.feed(x):
                     if isinstance(e, SpeechStarted):
                         out.put_nowait(stt_pb2.SttEvent(type=stt_pb2.SttEvent.SPEECH_STARTED,

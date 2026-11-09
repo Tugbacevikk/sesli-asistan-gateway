@@ -19,14 +19,17 @@ def _silence(sec):
     return np.zeros(int(sec * SR), np.float32)
 
 
+PRE = SegmenterConfig().pre_roll_ms / 1000   # ön pay: konuşmanın başlangıcı bu kadar önce sayılır
+
+
 # --- VAD / cümle bölücü ---
 
 def test_konusma_baslangici_ve_cumle_sonu():
     seg = Segmenter(EnergyDetector())
-    ev = seg.feed(np.concatenate([_silence(0.5), _tone(1.0), _silence(1.0)]))
-    assert isinstance(ev[0], SpeechStarted) and 0.1 <= ev[0].start <= 0.5  # 350 ms ön pay dahil
+    ev = seg.feed(np.concatenate([_silence(1.0), _tone(1.0), _silence(1.0)]))
+    assert isinstance(ev[0], SpeechStarted) and 1.0 - PRE - 0.1 <= ev[0].start <= 1.0  # ön pay dahil
     assert isinstance(ev[1], Utterance)
-    assert 0.9 <= ev[1].end - ev[1].start <= 1.6  # konuşma + ön pay + kuyruk payı
+    assert 0.9 <= ev[1].end - ev[1].start <= 1.0 + PRE + 0.3  # konuşma + ön pay + kuyruk payı
 
 
 def test_cok_kisa_ses_atilir_ve_asistani_susturmaz():
@@ -46,11 +49,11 @@ def test_kisa_cevap_cumle_olur_ama_asistani_susturmaz():
 
 def test_konusma_baslangici_esikten_sonra_bildirilir():
     seg = Segmenter(EnergyDetector())
-    ev = seg.feed(np.concatenate([_silence(0.5), _tone(0.25)]))
+    ev = seg.feed(np.concatenate([_silence(1.0), _tone(0.25)]))
     assert ev == []                                           # 250 ms: henüz söze girme sayılmaz
     ev = seg.feed(_tone(0.1))
     assert len(ev) == 1 and isinstance(ev[0], SpeechStarted)  # 300 ms'yi geçti
-    assert 0.1 <= ev[0].start <= 0.5                          # başlangıç zamanı yine konuşmanın başı
+    assert 1.0 - PRE - 0.1 <= ev[0].start <= 1.0              # başlangıç zamanı yine konuşmanın başı (ön pay dahil)
     ev = seg.feed(_silence(1.0))
     assert len(ev) == 1 and isinstance(ev[0], Utterance)      # susturan her ses bir cümle sonucu da üretir
 

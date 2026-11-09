@@ -1180,6 +1180,8 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `STT_ENDPOINT_SILENCE_MS` | 700 | Cümle sonu sessizliği |
 | `STT_MIN_VOICED_S` | 0.15 | Bundan kısa sesli süre cümle sayılmaz (tık). 0,3 iken sorunun hemen ardından denen kısa "evet" atılıyordu (olcumler.md, 03.11.2026); söze girme eşiği (`STT_SPEECH_STARTED_MS`, 300) ayrı |
 | `STT_SPEECH_STARTED_MS` | 300 | Söze girme (SPEECH_STARTED) için gereken sesli konuşma |
+| `STT_PRE_ROLL_MS` | 500 | Konuşma başlamadan önceki sesten cümleye katılan pay (ilk hece kesilmesin); 09.11.2026'da 350'den artırıldı |
+| `STT_HIGHPASS_HZ` | 100 | Alçak frekans uğultusu süzgeci (`stt/denoiser.py`; klima, şebeke, rüzgâr); 0: kapalı. Teşhis kaydı süzgeçten önceki sesi tutar. Etkisi ölçülecek |
 | `STT_DEBUG_DIR` | (boş) | Teşhis: her cümlenin motora giden sesi + sonucu ve çağrının bütün sesi (`<çağrı>_akis.wav`, en çok 10 dk; `tools/stt/vad_incele.py`) bu klasöre yazılır. **Ses kaydıdır**, üretimde boş kalır (10.4) |
 | `STT_MAX_UTTERANCE_S` | 12 | En uzun cümle |
 | (dil) | tr | Sabit; ayar değil (ADR-006) |
@@ -2040,7 +2042,8 @@ Kurallar:
   alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
-  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar
+  (makam ve görev hatlarında kişi soyadı yoktur, soyadı sorma; hangi birim, şube ya da görevli olduğunu sor),
   none → nazikçe adı ya da birimi tekrar söylemesini iste.
 - "Aktarıyorum" ya da "bağlıyorum" demeden önce mutlaka TransferCall aracını çağır.
 - ConnectOperator aracını yalnızca arayan açıkça operatör isterse ya da operatör teklifini kabul ederse kullan.

@@ -46,6 +46,7 @@ from .phrases import (
     _NEGATION,
     _OPERATOR_WORDS,
     _ORDINALS,
+    _TOPIC_INTENT,
     _YES,
     _folded_words,
     _vowel_mask,
@@ -97,7 +98,8 @@ Kurallar:
   alanına rakamlarla yaz.
 - Araç sonucundaki "match" alanına göre davran:
   single_low → doğru kişi olup olmadığını sor; arayan onaylarsa TransferCall ile aktar,
-  multiple → seçenekleri adıyla say ve hangisi olduğunu sor (makam ve görev hatlarında kişi soyadı yoktur, asla soyadı sorma; hangi birim, şube veya görevli olduğunu sor); arayan seçince TransferCall ile aktar,
+  multiple → seçenekleri adıyla say ve hangisi olduğunu sor; arayan seçince TransferCall ile aktar
+  (makam ve görev hatlarında kişi soyadı yoktur, soyadı sorma; hangi birim, şube ya da görevli olduğunu sor),
   none → nazikçe adı ya da birimi tekrar söylemesini iste.
 - "Aktarıyorum" ya da "bağlıyorum" demeden önce mutlaka TransferCall aracını çağır.
 - ConnectOperator aracını yalnızca arayan açıkça operatör isterse ya da operatör teklifini kabul ederse kullan.
@@ -600,9 +602,7 @@ class DialogAgent:
         şube bilgisiyle de daraltılır."""
         if not self.cfg.clarify_by_code:
             return None
-        raw_w = search_key(u.text).split()
-        words = [w for i, w in enumerate(raw_w)
-                 if not (w in ("ama", "nasil") and i + 1 < len(raw_w) and raw_w[i + 1].startswith(("stepe", "tepe")))]
+        words = _unglued(search_key(u.text).split())
         if _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
             return None
         cands = [c for c in same_title(self.tools.index, u.text) if c.transferable]
@@ -912,9 +912,7 @@ class DialogAgent:
         önce kişi çözme (unvan → o makamdaki kişi; birim + ad → o birimdeki kişi: aktar; ad + hitap → tek kişi: teyit,
         birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın).
         İkinci değer ses benzerliğiyle aday: çağıran onu LLM'den hemen önce teyitle kullanır."""
-        raw_w = search_key(text).split()
-        words = [w for i, w in enumerate(raw_w)
-                 if not (w in ("ama", "nasil") and i + 1 < len(raw_w) and raw_w[i + 1].startswith(("stepe", "tepe")))]
+        words = _unglued(search_key(text).split())
         sound: tuple[Candidate, ...] = ()
         if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
             cands, sure, sound = await self.tools.resolve_person(text)
@@ -957,10 +955,7 @@ class DialogAgent:
         arayan kişiyi istiyor, konu yalnız gerekçe ("faturam için Ayşe Hanım'ı arıyorum")."""
         if self._mentions_person(search_key(text).split()):
             return None
-        words = set(_folded_words(text))
-        has_intent = bool(words & {'icin', 'ilgili', 'sorun', 'problem', 'hakkinda', 'konusunda', 'ariza', 'sikayet',
-                                   'bagla', 'baglar', 'baglayin', 'gorusmek', 'aktar', 'yardim', 'istiyorum', 'bilgi'})
-        if not has_intent:
+        if not self._topic_intent(text):
             return None
         cands = await self.tools.find_topic(text)
         if len(cands) == 1:
@@ -979,6 +974,18 @@ class DialogAgent:
                 turn.fast = True
                 return turn
         return None
+
+    def _topic_intent(self, text: str) -> bool:
+        """Konu adımına girilecek söz mü: tek sözcüklü bir kırıntı (arka plan sesi, yarım söz) konu sayılmaz; birden çok
+        sözcük, bir niyet kökü ("arızam", "görüşebilir", "istiyorum") ya da bir birim adı ("ik") varsa girilir. Kökler
+        ön ekle eşlenir: eşlemede ek atılmazsa "arızam var" / "ik ile görüşebilir miyim" (D06) konu adımını
+        atlıyordu."""
+        words = _folded_words(text)
+        if len(words) >= 2:
+            return True
+        if not words:
+            return False
+        return words[0].startswith(_TOPIC_INTENT) or self._mentions_department(search_key(text).split())
 
     def _confirm_operator(self, s: DialogSession, text: str) -> DialogTurn:
         """Tek, rehberde karşılığı olmayan bir hedefe bağlanmak istendi ("afiyete bağlanmak istiyorum"):
@@ -1017,18 +1024,24 @@ class DialogAgent:
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
         operatöre aktarılır."""
-        if len(s.state.misses) <= s.state.failed_attempts:
-            user_words = [m.get("content") for m in reversed(s.history) if m.get("role") == "user"]
-            if user_words and user_words[0]:
-                last_text = user_words[0].strip()
-                if last_text:
-                    s.state.misses.append(last_text)
+        self._note_miss(s)
         if (turn := self._count_failure(s)) is not None:
             return turn
         last = s.state.failed_attempts == self.cfg.max_failed_attempts - 1
         turn = self._reply(s, self.cfg.texts.not_found_again if last else self.cfg.texts.not_found)
         turn.fallback = True
         return turn
+
+    @staticmethod
+    def _note_miss(s: DialogSession) -> None:
+        """İzleme'deki "bulunamayan aramalar" için arayanın son sözü (rehbere takma ad eklemek için). Aynı söz iki kez
+        yazılmaz; santral olayları ve yalnız evet / hayır / "hiçbiri" gibi cevaplar arama sayılmaz."""
+        heard = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "").strip()
+        if not heard or heard.startswith("[Santral]") or (s.state.misses and s.state.misses[-1] == heard):
+            return
+        if set(_folded_words(heard)) <= _YES | _NEGATION | _FILLER | {"yanlis", "hicbiri", "hicbirisi"}:
+            return
+        s.state.misses.append(heard)
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 
@@ -1098,9 +1111,7 @@ class DialogAgent:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
-        raw_list = _folded_words(text)
-        raw_clean = {w for i, w in enumerate(raw_list)
-                     if not (w in ("ama", "nasil") and i + 1 < len(raw_list) and raw_list[i + 1].startswith(("stepe", "tepe")))}
+        raw_clean = set(_unglued(_folded_words(text)))
         if not raw_clean or _FAST_BLOCK & raw_clean or any(strip_suffix(w) in _FAST_BLOCK for w in raw_clean):
             return None
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
@@ -1728,6 +1739,13 @@ def _common_title(cands: tuple[Candidate, ...]) -> str:
             break
         common.insert(0, words[0])
     return " ".join(common) if common and len(titles) == len(cands) else ""
+
+
+def _unglued(words: list[str]) -> list[str]:
+    """STT'nin yer adını bölerek ürettiği bağlaç kırıntısını atar ("ama tepe", "nasıl stepe" → Anıttepe): "ama" /
+    "nasıl" olumsuzluk / soru sözcüğü sayılıp kişi çözmeyi ve hızlı yolu kapatmasın (9c552ab)."""
+    return [w for i, w in enumerate(words)
+            if not (w in ("ama", "nasil") and i + 1 < len(words) and words[i + 1].startswith(("stepe", "tepe")))]
 
 
 def _common_unit(cands: tuple[Candidate, ...]) -> str:

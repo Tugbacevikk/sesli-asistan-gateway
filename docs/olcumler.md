@@ -1278,3 +1278,26 @@ Windows dizüstü, RTX 3050 Ti 4 GB, Ollama, qwen3.5:4b (%50 CPU / %50 GPU, bağ
 - Demo rehberi: `sample_db.csv`'nin kopyasında 4 makam satırı 214 yapıldı, "Mevcut rehbere ekle" ile 3.509 kayıt
   eklendi (silinen 0, 1 hatalı satır atlandı; toplam 3.520, aranabilir 3.506).
 
+
+## Diyalog setleri ve birim testleri, 9c552ab + yerel değişiklikler (9 Kasım 2026, yön gösterir)
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarı, Windows). **Doğrulama:** yok; sonuçlar Antigravity'nin raporundan.
+
+| | |
+|---|---|
+| Commit | `dd52707` (`wip/yerel-degisiklikler`: 9c552ab + niyet şartı, ön pay 500 ms, alçak frekans süzgeci, birleşik arama) |
+| Mod | kural (LLM'siz); kamu seti ayrıca MCP adımıyla |
+| Birim testleri | 12 başarısız, 909 geçti, 7 atlandı, 2 hata |
+
+| set | sonuç | önceki | başarısız |
+|---|---|---|---|
+| şirket (140) | %99,3 | %99,3 (D14) | D06 |
+| kamu (23), yerel | %82,6 | %100 | K01, K06, K14, K21 |
+| kamu (23), MCP | %78,3 | %100 | K01, K02, K03, K06, K15 — **geçersiz**: MCP sunucusu kamu rehberiyle değil ana rehberle açıktı |
+| makam (14) | %92,9 | %100 | M09 |
+
+- D06 ve "su arızası bildireceğim" teyidi niyet şartından (eksiz eşleme) → düzeltildi (bu commit).
+- Ön pay 500 ms'ye çıkınca konuşma başlangıcı zaman damgası ~150 ms erken: test sınırları ön paya bağlandı.
+- K01, K06, K14, K21 ve M09 niyet şartıyla açıklanamıyor: kişi çözme / unvan kapsamı değişiklikleri (9c552ab)
+  şüpheli; commit commit karşılaştırma yapılacak.
+- Windows'a özgü başarısızlıklar (yol ayracı, UTF-8 varsayılanı) CI'da (Ubuntu) görülmez.

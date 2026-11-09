@@ -194,6 +194,7 @@ def test_buyuk_rehber_hizli():
         say(a, x)
     assert (time.perf_counter() - t0) / 4 < 1.5
 
+
 # --- birim belli, kişi değil -----------------------------------------------------------------------------------
 
 def test_hatti_olmayan_birimde_kiminle_sorulur_ve_cevap_birimin_icinden_secilir():
@@ -210,16 +211,23 @@ def test_hatti_olmayan_birimde_sube_muduru_secilir():
     assert [x.extension for x in t.actions] == ["21013"]
 
 
+def _makam(cid, dept, title, ext):
+    return Contact.from_api({"id": cid, "kind": "role", "first_name": "", "last_name": "", "department": dept,
+                             "title": title, "extension": ext})
+
+
 def test_cok_turlu_birim_sube_unvan_daraltma():
     cs = [
-        Contact.from_api({'id': 'a1', 'kind': 'role', 'first_name': '', 'last_name': '', 'department': 'Asayiş Başkanlığı', 'title': 'Asayiş Başkanlığı Plan Koordinasyon Şube Müdürü', 'extension': '22120'}),
-        Contact.from_api({'id': 'a2', 'kind': 'role', 'first_name': '', 'last_name': '', 'department': 'Asayiş Başkanlığı', 'title': 'Asayiş Başkanlığı Plan Koordinasyon Şube İdari İşlemler Astsubayı', 'extension': '22122'}),
-        Contact.from_api({'id': 'a3', 'kind': 'role', 'first_name': '', 'last_name': '', 'department': 'Asayiş Başkanlığı', 'title': 'Asayiş Başkanlığı Önleyici Hizmetler Şube İdari İşlemler Astsubayı', 'extension': '22230'}),
-        Contact.from_api({'id': 'p1', 'kind': 'role', 'first_name': '', 'last_name': '', 'department': 'Personel Başkanlığı', 'title': 'Personel Başkanlığı Plan Yönetim Şube İdari İşlemler Astsubayı', 'extension': '21122'}),
+        _makam("a1", "Asayiş Başkanlığı", "Asayiş Başkanlığı Plan Koordinasyon Şube Müdürü", "22120"),
+        _makam("a2", "Asayiş Başkanlığı", "Asayiş Başkanlığı Plan Koordinasyon Şube İdari İşlemler Astsubayı", "22122"),
+        _makam("a3", "Asayiş Başkanlığı", "Asayiş Başkanlığı Önleyici Hizmetler Şube İdari İşlemler Astsubayı",
+               "22230"),
+        _makam("p1", "Personel Başkanlığı", "Personel Başkanlığı Plan Yönetim Şube İdari İşlemler Astsubayı", "21122"),
     ]
     a = DialogAgent(NoLlm(), ToolRegistry(DirectoryIndex(cs), topics=load_topics()),
-                    DialogConfig(organization='D', llm_enabled=False, mcp_step=True))
-    t1 = say(a, 'asayiş bakanlığı ile görüşmek istiyor', 'masaj bakanlığı plan koordinasyon şube', 'idari işlemler astsubayı')
-    assert [x.extension for x in t1.actions] == ['22122']
-    t2 = say(a, 'idari işlemler astsubayı', 'taş bakanlığı plan koordinasyon şubedeki')
-    assert [x.extension for x in t2.actions] == ['22122']
+                    DialogConfig(organization="D", llm_enabled=False, mcp_step=True))
+    t1 = say(a, "asayiş bakanlığı ile görüşmek istiyor", "masaj bakanlığı plan koordinasyon şube",
+             "idari işlemler astsubayı")
+    assert [x.extension for x in t1.actions] == ["22122"]
+    t2 = say(a, "idari işlemler astsubayı", "taş bakanlığı plan koordinasyon şubedeki")
+    assert [x.extension for x in t2.actions] == ["22122"]

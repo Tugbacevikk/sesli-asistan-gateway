@@ -253,11 +253,11 @@ class DirectoryIndex:
             return hit
         res = self._search(qn, qd)
         if res.match == Match.NONE and qn and qd:
-            # LLM lokasyonu/unvanı birim sanıp ayırdıysa (ör. Name='Çarkı Nizamiye', Department='Beştepe')
-            # ve birim alanı boş veya uyuşmuyorsa, birleşik serbest arama yap
-            combined = f'{qn} {qd}'.strip()
-            fallback = self._search(combined, '')
-            if fallback.match != Match.NONE:
+            # LLM bir yer adını ya da unvanın bir parçasını birim sanıp ayırdıysa (Name='Nizamiye', Department='Kampüs')
+            # ad ile birim birlikte aranır. Yalnız tek sonuç alınır (düşük güvenliyse diyalog teyit eder): birleşik
+            # sözden çıkan çok aday gevşek eşleşmedir, seçenek olarak sunulmaz.
+            fallback = self._search(f"{qn} {qd}", "")
+            if fallback.match in (Match.SINGLE_HIGH, Match.SINGLE_LOW):
                 res = fallback
         if len(self._cache) >= 4096:
             self._cache.clear()

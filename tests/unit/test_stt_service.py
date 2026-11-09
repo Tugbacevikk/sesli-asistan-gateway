@@ -14,6 +14,7 @@ from sesli_asistan.libs.audio import g711
 from sesli_asistan.stt.config import SttSettings
 from sesli_asistan.stt.engine import SttResult
 from sesli_asistan.stt.server import start_server
+from sesli_asistan.stt.vad import SegmenterConfig
 
 RATE = 8000
 
@@ -68,12 +69,13 @@ async def run_stream(target, audio, hotwords=None, codec="pcma", call_id="c-1"):
 async def test_konusma_baslangici_ve_final(server):
     eng = FakeEngine()
     target = await server(eng)
-    evs = await run_stream(target, frames((0.5, False), (1.0, True), (1.0, False)), hotwords=["Ayşe Yılmaz"])
+    evs = await run_stream(target, frames((1.0, False), (1.0, True), (1.0, False)), hotwords=["Ayşe Yılmaz"])
     assert [e.type for e in evs] == ["speech_started", "final"]
     assert evs[1].text == "muhasebeden ayşe hanım" and evs[1].confidence == pytest.approx(0.9)
-    assert 100 <= evs[0].start_ms <= 500 and evs[1].end_ms > evs[1].start_ms
+    pre = SegmenterConfig().pre_roll_ms
+    assert 900 - pre <= evs[0].start_ms <= 1000 and evs[1].end_ms > evs[1].start_ms   # ön pay dahil
     n, hw = eng.calls[0]
-    assert hw == ["Ayşe Yılmaz"] and 15000 < n < 30000   # ~1–1,6 sn @16 kHz (8→16 kHz çevrildi)
+    assert hw == ["Ayşe Yılmaz"] and 15000 < n < 30000   # ~1–1,7 sn @16 kHz (8→16 kHz çevrildi)
 
 
 async def test_akis_sonunda_yarim_cumle_de_cozulur(server):

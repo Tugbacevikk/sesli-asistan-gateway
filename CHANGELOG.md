@@ -15,6 +15,15 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Çok turlu makam daraltma (9c552ab): aynı unvanlı ya da aynı birimdeki çok hatta önceki turlarda söylenen birim /
+  şube / unvan sözcükleriyle süzülür ("asayiş başkanlığı" → "plan koordinasyon şube" → "idari işlemler astsubayı");
+  alt / cihaz hatları ("… Müdürü Shp.") asıl makamın yanında aday sayılmaz. Makam kısaltmaları sözlüğü genişledi,
+  sözcük kısaltmaları (`sozcuk_kisaltmalari`: "Asb." → "Astsubayı") ve ek kısaltmalar rehber yüklemede açılır.
+  LLM'e makam hatlarında soyadı sormaması söylenir. Arayüzde rehber süzgeci Türkçe karaktersiz ve çok sözcüklü.
+- STT'de alçak frekans süzgeci (`stt/denoiser.py`, `STT_HIGHPASS_HZ`, varsayılan 100 Hz; 0: kapalı): klima, şebeke,
+  rüzgâr uğultusu. Teşhis kaydı süzgeçten önceki sesi tutar. Etkisi henüz ölçülmedi.
+- Rehber aramasında ad + birim birlikte arama: LLM bir yer adını ya da unvan parçasını birim sanıp ayırınca ve
+  ayrı arama sonuçsuz kalınca ikisi birlikte aranır; yalnız tek sonuç alınır (düşük güvenliyse teyit).
 - Söze girmede ses seviyesi kapısı (ADR-031, `core/level.py`): arayanın kendi seviyesinin 6 dB altındaki arka plan sesi
   asistanın sözünü kesmez (canlı ölçüm: arayan -29 / -31, video -37 / -38 dBFS).
 - Rehber yüklemede "Mevcut rehbere ekle" seçeneği: dosyadaki kayıtlar eklenir, hiçbir kayıt silinmez; aynı
@@ -78,6 +87,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Konu adımına giriş (09.11.2026 eklenen niyet şartı): niyet sözcükleri eksiz eşlendiği için "arızam var", "su arızası
+  bildireceğim" ve "ik ile görüşebilir miyim" (D06) konu adımını atlıyordu. Artık yalnız tek sözcüklü, niyet kökü
+  ya da birim adı içermeyen kırıntı atlanır; kökler ön ekle eşlenir.
+- Bulunamayan aramalar listesine aynı söz iki kez, santral olayları ya da yalnız "evet / hayır / hiçbiri" yazılmaz.
 - Gerçek LLM ölçümünün (06.11.2026, qwen3.5:4b, kamu %90,5) bulguları: aktarılamaz makam ("valiyle") LLM açıkken de
   kodla kurumun genel hattına gider (LLM vali yardımcılarını soruyordu); "şu" katlanınca "su" olduğundan "şu kişiyle
   görüşmek istiyorum" Su ve Kanalizasyon İdaresi'ne aktarılıyordu ("su" tek başına birim sayılmaz); iyelik ekli birim
@@ -174,6 +187,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- STT cümle ön payı 350 → 500 ms (`STT_PRE_ROLL_MS`, artık ayardan): ilk hece kesilmesin. Testler ön paya göre.
+- Tarayıcı denemesinde tarayıcının gürültü bastırması açık: deneme sesi telefon hattından biraz daha farklı.
 - G.722 santral ekibince onaylandı (05.11.2026): önerilen yapılandırma `codec: "g722"` (ADR-027).
 - Diyalog akışı adım zincirine bölündü (`dialog.STEPS`): en karmaşık işlev 63'ten 24'e indi, adımların sırası tek
   listede ve sıra kuralları testte. Söz kalıpları ve Türkçe ekler `core/phrases.py`'de. Eşikler tek yerde:

@@ -169,6 +169,22 @@ async def test_hedefsiz_genel_istek_kodla_sorulur(index):
     assert t.actions == [] and llm.calls == 0 and t.text == agent.cfg.texts.ask_topic
 
 
+@pytest.mark.parametrize("text", ["arızam var", "arızam"])
+async def test_ekli_ya_da_kisa_konu_sozu_konu_adimina_girer(index, text):
+    # niyet sözcükleri eksiz eşlenince "arızam var" konu adımını atlıyordu
+    remote = Remote(TopicTable(index.contacts(), GENEL))
+    agent, _ = _agent(index, remote)
+    await agent.new_session("x").handle_user(text)
+    assert remote.asked == [text]
+
+
+async def test_tek_sozcuk_kirinti_konu_adimina_girmez(index):
+    remote = Remote(TopicTable(index.contacts(), GENEL))
+    agent, _ = _agent(index, remote)
+    await agent.new_session("x").handle_user("arizona")
+    assert remote.asked == []
+
+
 async def test_mcp_yoksa_llm_ve_hata_sayilir(index):
     agent, llm = _agent(index, Remote(fail=True))
     await agent.new_session("x").handle_user("faturamla ilgili bir sorun var")

@@ -92,6 +92,9 @@ _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hosca
 _YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
         "baglayabilirsiniz"}
 _NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
+# tek sözcüklü sözde konu adımına girmek için niyet kökleri (katlanmış, ön ekle eşlenir: "arizam", "gorusebilir")
+_TOPIC_INTENT = ("icin", "ilgili", "sorun", "problem", "hakkinda", "konu", "ariza", "sikayet", "bagla", "gorus",
+                 "aktar", "yardim", "iste", "isti", "bilgi", "fatura", "odeme", "sifre", "siparis", "basvuru")
 _NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
 # kurallı kapatma fiilleri (katlanmış): düşük güvende yalnız bunlar
 _HANGUP_FORM = re.compile(r"(kapat|sonlandir)(|in|iniz|mak|ir|irsiniz|iyorum|abilir\w*|ayim|alim|sana)"

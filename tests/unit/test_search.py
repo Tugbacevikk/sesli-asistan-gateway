@@ -194,3 +194,22 @@ def test_kisa_adlar_alakasiz_kelimelerle_eslesmez(index):
     assert index.search("anıl").match == Match.NONE
     assert index.search("anıllar").match == Match.NONE
     assert index.search("anıl bayır").match == Match.NONE
+
+
+@pytest.mark.parametrize("fallback, expected", [(Match.SINGLE_LOW, Match.SINGLE_LOW), (Match.MULTIPLE, Match.NONE)])
+def test_ad_ve_birim_birlikte_aranir_yalniz_tek_sonuc_alinir(monkeypatch, fallback, expected):
+    # LLM yer adını birim sanıp ayırınca ad + birim birlikte aranır; birleşik sözden çok aday gevşek eşleşmedir
+    from sesli_asistan.gateway.core.models import Candidate, SearchResult
+
+    idx = DirectoryIndex([Contact("1", "", "", "Güvenlik", "300", kind="role", title="Nizamiye Amiri")])
+    seen = []
+
+    def fake(qn, qd):
+        seen.append((qn, qd))
+        if qd:
+            return SearchResult((), Match.NONE)
+        return SearchResult((Candidate(idx.get("1"), 70),), fallback)
+
+    monkeypatch.setattr(idx, "_search", fake)
+    assert idx.search("nizamiye", "kampus").match == expected
+    assert seen == [("nizamiye", "kampus"), ("nizamiye kampus", "")]
