@@ -1,0 +1,244 @@
+# Sentetik kamu kurumu senaryoları (Yeşilova Valiliği ve bağlı birimleri).
+# Rehber: data/sentetik_kurum_rehber.json
+# Çalıştırma:
+#   python tests/eval/diyalog.py --kural --set tests/data/diyalog_seti_sentetik.yaml --rehber data/sentetik_kurum_rehber.json
+#   python tests/eval/diyalog.py --mcp-adimi --set tests/data/diyalog_seti_sentetik.yaml --rehber data/sentetik_kurum_rehber.json
+
+# --- 1. İL ADI VE KURUM BİRİM HATLARI (GENEL HIKMETLER) ---
+- id: S01
+  aciklama: İl adı + Valilik (birim hattı)
+  konusma: ["yeşilova valiliği"]
+  beklenen: {eylem: transfer, dahili: "20000"}
+
+- id: S02
+  aciklama: Eş anlamlı ile Valilik birim hattı
+  konusma: ["valiliğe bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "20000"}
+
+- id: S03
+  aciklama: İl Jandarma Komutanlığı (tam ad birim hattı)
+  konusma: ["yeşilova il jandarma komutanlığı"]
+  beklenen: {eylem: transfer, dahili: "30000"}
+
+- id: S04
+  aciklama: Eş anlamlı ile Jandarma birim hattı
+  konusma: ["jandarmaya bağlayın"]
+  beklenen: {eylem: transfer, dahili: "30000"}
+
+- id: S05
+  aciklama: İl Emniyet Müdürlüğü (tam ad birim hattı)
+  konusma: ["yeşilova il emniyet müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "40000"}
+
+- id: S06
+  aciklama: Eş anlamlı ile Emniyet birim hattı
+  konusma: ["emniyete bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "40000"}
+
+- id: S07
+  aciklama: Polis eş anlamlısı ile Emniyet birim hattı
+  konusma: ["polis merkezine bağlayın"]
+  beklenen: {eylem: transfer, dahili: "40000"}
+
+- id: S08
+  aciklama: İl Milli Eğitim Müdürlüğü birim hattı
+  konusma: ["yeşilova il milli eğitim müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "60000"}
+
+- id: S09
+  aciklama: Eş anlamlı ile Milli Eğitim (Meb) birim hattı
+  konusma: ["milli eğitim müdürlüğü lütfen"]
+  beklenen: {eylem: transfer, dahili: "60000"}
+
+- id: S10
+  aciklama: İl Sağlık Müdürlüğü birim hattı
+  konusma: ["il sağlık müdürlüğüne bağlayın"]
+  beklenen: {eylem: transfer, dahili: "62000"}
+
+- id: S11
+  aciklama: İl Tarım ve Orman Müdürlüğü birim hattı
+  konusma: ["il tarım ve orman müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "64000"}
+
+- id: S12
+  aciklama: Aile ve Sosyal Hizmetler İl Müdürlüğü birim hattı
+  konusma: ["aile ve sosyal hizmetler il müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "66000"}
+
+# --- 2. AKSTARILAMAZ KAYITLAR (VALİ, BELGEGEÇER) ---
+- id: S13
+  aciklama: Vali aktarılamaz, birim hattına (kalem) yönlendirilir
+  konusma: ["valiyle görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "20000"}
+
+- id: S14
+  aciklama: Valilik Belgegeçer hattı (aktarılamaz)
+  konusma: ["valilik belgegeçer hattına bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["20099"]}
+
+- id: S15
+  aciklama: Jandarma Belgegeçer hattı (aktarılamaz)
+  konusma: ["jandarma belgegeçer numarası"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["30009"]}
+
+- id: S16
+  aciklama: Emniyet Belgegeçer hattı (aktarılamaz)
+  konusma: ["emniyet belgegeçer faks"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40099"]}
+
+# --- 3. VALİ YARDIMCILARI VE ÖZEL KALEM (KİŞİ / MAKAMLAR) ---
+- id: S17
+  aciklama: Vali Yardımcısı (kişi adıyla)
+  konusma: ["kemal yılmaz ile görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "20002"}
+
+- id: S18
+  aciklama: Vali Yardımcısı (hitapla)
+  konusma: ["kemal bey"]
+  beklenen: {eylem: transfer, dahili: "20002"}
+
+- id: S19
+  aciklama: Vali Yardımcısı Fatma Kaya
+  konusma: ["vali yardımcısı fatma kaya"]
+  beklenen: {eylem: transfer, dahili: "20003"}
+
+- id: S20
+  aciklama: Özel Kalem Müdürü
+  konusma: ["özel kalem müdürü ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "20010"}
+
+# --- 4. AYNI UNVAN ÇOK BİRİMDE (ŞUBE MÜDÜRÜ, İDARİ İŞLEMLER ASB., BÜRO AMİRİ) ---
+- id: S21
+  aciklama: İdari işlemler astsubayı çok birimde → birim sorulur, cevapla süzülür
+  konusma: ["idari işlemler astsubayı", "asayiş"]
+  beklenen: {eylem: transfer, dahili: "30110"}
+
+- id: S22
+  aciklama: İdari işlemler astsubayı doğrudan birimle
+  konusma: ["lojistik idari işlemler astsubayını bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "30310"}
+
+- id: S23
+  aciklama: İdari işlemler astsubayı (Harekat şube)
+  konusma: ["harekat şubedeki idari işlemler astsubayı"]
+  beklenen: {eylem: transfer, dahili: "30410"}
+
+- id: S24
+  aciklama: İdari işlemler astsubayı (Personel şube)
+  konusma: ["personel idari işlemler astsubayı lütfen"]
+  beklenen: {eylem: transfer, dahili: "30210"}
+
+- id: S25
+  aciklama: İdari işlemler astsubayı (KOM şube)
+  konusma: ["kaçakçılık şube idari işlemler astsubayı"]
+  beklenen: {eylem: transfer, dahili: "30510"}
+
+- id: S26
+  aciklama: Şube müdürü çok birimde → birim sorulur, cevapla süzülür
+  konusma: ["şube müdürü ile görüşecektim", "asayiş"]
+  beklenen: {eylem: transfer, dahili: "30100"}
+
+- id: S27
+  aciklama: Şube müdürü (doğrudan birimle, Jandarma Harekat)
+  konusma: ["jandarma harekat şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "30400"}
+
+- id: S28
+  aciklama: Büro amiri çok birimde → birim sorulur, cevapla süzülür
+  konusma: ["büro amiri", "cinayet"]
+  beklenen: {eylem: transfer, dahili: "40110"}
+
+- id: S29
+  aciklama: Büro amiri doğrudan birimle (Hırsızlık)
+  konusma: ["hırsızlık büro amirliği"]
+  beklenen: {eylem: transfer, dahili: "40120"}
+
+- id: S30
+  aciklama: Büro amiri doğrudan birimle (Ahlak)
+  konusma: ["ahlak büro amirini bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "40130"}
+
+- id: S31
+  aciklama: Trafik Tescil Büro Amiri
+  konusma: ["trafik tescil büro amiri"]
+  beklenen: {eylem: transfer, dahili: "40210"}
+
+- id: S32
+  aciklama: Narkotik Büro Amiri
+  konusma: ["narkotik büro amiri lütfen"]
+  beklenen: {eylem: transfer, dahili: "40310"}
+
+# --- 5. ALT / CİHAZ HATLARI VE ASIL MAKAM (SHP., MBL., DİNLENME) ---
+- id: S33
+  aciklama: Valilik Hukuk İşleri Şube Müdürü (alt hatlar elenir, asıl hat seçilir)
+  konusma: ["valilik hukuk işleri şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "20020", yasak_dahili: ["20021", "20022", "20023"]}
+
+- id: S34
+  aciklama: Jandarma Asayiş Şube Müdürü (alt hatlar Shp./Mbl. elenir)
+  konusma: ["jandarma asayiş şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "30100", yasak_dahili: ["30101", "30102", "30103"]}
+
+# --- 6. AYNI BİRİMDE AYNI UNVANLI İKİ HAT (AYIRT EDİLEMEZ → OPERATÖR) ---
+- id: S35
+  aciklama: Aynı birimde iki unvan hattı (Valilik Hukuk İşleri avukatı) → operatör
+  konusma: ["valilik hukuk işleri avukatı"]
+  beklenen: {eylem: operator}
+
+# --- 7. İLÇE KAYMAKAMLIKLARI ---
+- id: S36
+  aciklama: İlçe Kaymakamı (ilçe + unvan)
+  konusma: ["akçakaya kaymakamı"]
+  beklenen: {eylem: transfer, dahili: "50001"}
+
+- id: S37
+  aciklama: İlçe Kaymakamı (kişi adıyla)
+  konusma: ["mehmet demir"]
+  beklenen: {eylem: transfer, dahili: "50001"}
+
+- id: S38
+  aciklama: Dereköy Kaymakamı
+  konusma: ["dereköy kaymakamıyla görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "51001"}
+
+- id: S39
+  aciklama: Taşlıca Kaymakamı
+  konusma: ["taşlıca kaymakamı lütfen"]
+  beklenen: {eylem: transfer, dahili: "52001"}
+
+- id: S40
+  aciklama: Ilıcapınar Kaymakamı
+  konusma: ["ılıcapınar kaymakamı"]
+  beklenen: {eylem: transfer, dahili: "53001"}
+
+# --- 8. AYNI AD SOYAD ÇAKIŞMASI (CAN YURT: JANDARMA vs MİLLİ EĞİTİM) ---
+- id: S41
+  aciklama: Aynı ad soyad iki farklı kurumda → birim sorulur, Jandarma seçilir
+  konusma: ["can yurt ile görüşmek istiyorum", "jandarma"]
+  beklenen: {eylem: transfer, dahili: "30150"}
+
+- id: S42
+  aciklama: Aynı ad soyad iki farklı kurumda → birim sorulur, Milli Eğitim seçilir
+  konusma: ["can yurt", "milli eğitim"]
+  beklenen: {eylem: transfer, dahili: "60050"}
+
+# --- 9. KİŞİ ADI GİBİ GÖRÜNEN HATLAR, DESTEK VE SİLİNMİŞ KAYITLAR ---
+- id: S43
+  aciklama: Nöbetçi Amiri (kişi adı gibi görünen unvan hattı)
+  konusma: ["nöbetçi amiri ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "30080"}
+
+- id: S44
+  aciklama: Salon Sorumlusu (kişi adı gibi görünen unvan hattı)
+  konusma: ["salon sorumlusu lütfen"]
+  beklenen: {eylem: transfer, dahili: "70007"}
+
+- id: S45
+  aciklama: Silinmiş kayıt arandığında bulunamaz
+  konusma: ["burak çelik ile görüşecektim"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["80001"]}
+
+- id: S46
+  aciklama: Rehberde olmayan birim arandığında bulunamaz
+  konusma: ["denizcilik şube müdürlüğünü bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok}
