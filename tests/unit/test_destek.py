@@ -7,6 +7,8 @@ import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "tools" / "kurulum"))
 import destek  # noqa: E402
@@ -58,6 +60,7 @@ class _Saglik(BaseHTTPRequestHandler):
         pass
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows'ta sembolik bağ yönetici izni ister")
 def test_paket_icerigi_ve_gizlilik(tmp_path):
     ayar, veri, onek = kurulum(tmp_path)
     srv = HTTPServer(("127.0.0.1", 0), _Saglik)

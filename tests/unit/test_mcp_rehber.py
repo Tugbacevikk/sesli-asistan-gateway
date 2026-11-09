@@ -5,6 +5,7 @@ Bağlantı bellek içi (MCP SDK'nın sunucu nesnesiyle istemcisi); HTTP yolu ayn
 import asyncio
 import contextlib
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -113,6 +114,7 @@ async def test_sunucuya_ulasilamazsa_istemci_hizla_hata_verir():
     await r.aclose()
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Windows'ta kapalı porta bağlanma ~1 sn bekliyor")
 async def test_sunucu_dusunce_arama_beklemeden_yerele_doner(index):
     async with _http(build_server(lambda: index)) as url:
         r = McpRehber(url, reconnect_s=0.05)
