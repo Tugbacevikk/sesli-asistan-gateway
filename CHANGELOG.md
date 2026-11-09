@@ -191,6 +191,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- `core/dialog.py` (2.000 satır) konu konu modüllere bölündü (`core/dialog/`, ADR-034); davranış aynı.
 - Kuruma özgü STT düzeltmeleri ve yer adları ürün kodundan çıktı (ADR-033): kurum dosyasında (ABBREVIATIONS_PATH)
   `stt_duzeltmeleri` ve `ad_olmayan_sozcukler`. "bakanlığı ≈ başkanlığı" genel eşitliği kaldırıldı.
 - LLM rehberde bulunanı anmadan kendi sorusunu sorarsa deneme sayılır (sayaç her turda sıfırlanıp operatör teklifine

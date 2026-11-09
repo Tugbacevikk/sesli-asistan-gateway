@@ -134,3 +134,11 @@ ignore_missing_imports = true
 warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+# Diyalog karışım sınıfları (ADR-034): yöntemlerde `self: DialogAgent`; mypy gövdeleri DialogAgent olarak denetler
+# ama "self tipi sınıfın üst tipi değil" (misc) der. Yalnız bu kod bu modüllerde kapalı.
+module = ["sesli_asistan.gateway.core.dialog.steps", "sesli_asistan.gateway.core.dialog.choice",
+          "sesli_asistan.gateway.core.dialog.rules", "sesli_asistan.gateway.core.dialog.transfer",
+          "sesli_asistan.gateway.core.dialog.llm"]
+disable_error_code = ["misc"]
