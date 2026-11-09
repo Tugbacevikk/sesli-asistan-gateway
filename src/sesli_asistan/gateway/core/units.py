@@ -103,5 +103,8 @@ def narrow(cands: Sequence[Contact], text: str, names: dict[tuple[str, ...], set
     def like(t: str, w: str) -> bool:
         return t == w or (len(w) >= 4 and t.startswith(w)) or (len(t) >= 4 and w.startswith(t))
 
-    kept = [c for c, ws in zip(cands, per, strict=True) if any(like(t, w) for t in said for w in ws & distinct)]
+    # en çok ayırt edici sözcüğü tutanlar: "cinayet bürosu" → Cinayet Bürosu ("bürosu" üç büroda da var)
+    hits = [sum(any(like(t, w) for t in said) for w in ws & distinct) for ws in per]
+    best = max(hits, default=0)
+    kept = [c for c, h in zip(cands, hits, strict=True) if best and h == best]
     return kept if 0 < len(kept) < len(cands) else []
