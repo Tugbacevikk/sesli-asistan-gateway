@@ -303,71 +303,87 @@ class CallSession:
     # --- olaylar ------------------------------------------------------------------------------------------
 
     async def _handle(self, ev: _Event) -> None:
+        """Olay → işleyicisi. Arayan sözü olayları önce dinleme zamanlayıcılarını sıfırlar."""
         k = ev.kind
         if k in ("speech_started", "final", "not_recognized"):
             self._caller_talking = k == "speech_started"
             self._listen_since = ev.at
             self._silences = 0
         if k == "speech_started":
-            self._speech_at = ev.at
-            # konuşma başlamadan önce algılanmış ses (asistan düşünürken) bu konuşmayı kesmez
-            if (self._speaking() and self.cfg.barge_in and ev.at >= self._speech_began
-                    and self.state in (CallState.SPEAKING, CallState.GREETING) and not self._closing()):
-                if not self.level.allows_barge_in(ev.at):
-                    # arka plan sesi (odadaki video, ikinci konuşan): arayanın kendi seviyesinin çok altında
-                    log.info("[%s] söze girme sayılmadı: ses seviyesi düşük (%.1f dBFS, arayan %s)", self.call_id,
-                             self.level.recent_db(ev.at) or -120,
-                             f"{self.level.caller_db:.1f} dBFS" if self.level.caller_db is not None else "bilinmiyor")
-                    self.stats.barge_ins_ignored += 1
-                    self._ignore_next = True
-                    return
-                log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
-                self.stats.barge_ins += 1
-                self._emit("barge_in")
-                self._stop_speech()
-                self._barged = True             # bu sözün başı asistanın sesiyle karıştı (anlaşılamazsa sayılmaz)
+            self._on_speech_started(ev)
         elif k in ("final", "not_recognized"):
-            if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
-                return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
-            if k == "final" and self._noise_fragment(ev.data):
-                log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
-                         ev.data.get("confidence") or 0)
-                return
-            if self._ignore_next:
-                # kapının saymadığı söze girmenin metni (arka plan): cevaplanmaz, deneme sayılmaz
-                self._ignore_next = False
-                log.info("[%s] arka plan sesinin sonucu yok sayıldı", self.call_id)
-                return
-            if (k == "final" and self._speech_at is not None
-                    and self.level.is_background(self._speech_at, ev.at, self.cfg.background_margin_db)):
-                # odadaki başka biri: arayanın kendi seviyesinin çok altında (ofiste deneme 09.11.2026)
-                log.info("[%s] arka plan konuşması yok sayıldı (%.1f dBFS, arayan %.1f dBFS): %s", self.call_id,
-                         self.level.utterance_db(self._speech_at, ev.at) or -120, self.level.caller_db or -120,
-                         ev.data.get("text", "")[:60])
-                self.stats.background_ignored += 1
-                return
-            if (k == "final" and self._speech_at is not None
-                    and (ev.data.get("confidence") or 0) >= LEVEL_LEARN_CONF):
-                self.level.learn(self._speech_at, ev.at)         # anlaşılan söz: arayanın kendi sesi
-            if self.state in (CallState.GREETING, CallState.LISTENING, CallState.THINKING, CallState.SPEAKING):
-                self._inputs.append(ev)
+            self._on_heard(ev, k)
         elif k == "speech_done":
             await self._speech_done(**ev.data)
         elif k == "transfer_result":
             await self._transfer_result(ev.data["status"])
         elif k == "dtmf":
-            if ev.data["digit"] == self.cfg.dtmf_operator_digit and self.state not in (
-                    CallState.HANDED_OFF, CallState.TRANSFERRING) and not self._closing():
-                log.info("[%s] DTMF %s: operatöre", self.call_id, ev.data["digit"])
-                if self._speaking():
-                    self._stop_speech()
-                self._start_speech(self._operator_turn("dtmf"), heard_at=None, heard="[DTMF]")
+            self._on_dtmf(ev)
         elif k == "stt_error":
-            log.error("[%s] STT akışı koptu (%s): operatöre", self.call_id, ev.data["error"])
-            if self.state not in (CallState.HANDED_OFF, CallState.TRANSFERRING):
-                await self._emergency_operator("stt_koptu")
+            await self._on_stt_error(ev)
         elif k == "tick":
             await self._tick(ev.at)
+
+    def _on_speech_started(self, ev: _Event) -> None:
+        """Arayan konuşmaya başladı: asistan konuşuyorsa söze girme (ses seviyesi kapısından geçerse)."""
+        self._speech_at = ev.at
+        # konuşma başlamadan önce algılanmış ses (asistan düşünürken) bu konuşmayı kesmez
+        if (self._speaking() and self.cfg.barge_in and ev.at >= self._speech_began
+                and self.state in (CallState.SPEAKING, CallState.GREETING) and not self._closing()):
+            if not self.level.allows_barge_in(ev.at):
+                # arka plan sesi (odadaki video, ikinci konuşan): arayanın kendi seviyesinin çok altında
+                log.info("[%s] söze girme sayılmadı: ses seviyesi düşük (%.1f dBFS, arayan %s)", self.call_id,
+                         self.level.recent_db(ev.at) or -120,
+                         f"{self.level.caller_db:.1f} dBFS" if self.level.caller_db is not None else "bilinmiyor")
+                self.stats.barge_ins_ignored += 1
+                self._ignore_next = True
+                return
+            log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
+            self.stats.barge_ins += 1
+            self._emit("barge_in")
+            self._stop_speech()
+            self._barged = True             # bu sözün başı asistanın sesiyle karıştı (anlaşılamazsa sayılmaz)
+
+    def _on_heard(self, ev: _Event, k: str) -> None:
+        """STT sonucu (metin ya da anlaşılamadı): gürültü, arka plan ve kapının saymadığı sözler elenir; kalan söz
+        sıradaki tura girer."""
+        if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
+            return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
+        if k == "final" and self._noise_fragment(ev.data):
+            log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
+                     ev.data.get("confidence") or 0)
+            return
+        if self._ignore_next:
+            # kapının saymadığı söze girmenin metni (arka plan): cevaplanmaz, deneme sayılmaz
+            self._ignore_next = False
+            log.info("[%s] arka plan sesinin sonucu yok sayıldı", self.call_id)
+            return
+        if (k == "final" and self._speech_at is not None
+                and self.level.is_background(self._speech_at, ev.at, self.cfg.background_margin_db)):
+            # odadaki başka biri: arayanın kendi seviyesinin çok altında (ofiste deneme 09.11.2026)
+            log.info("[%s] arka plan konuşması yok sayıldı (%.1f dBFS, arayan %.1f dBFS): %s", self.call_id,
+                     self.level.utterance_db(self._speech_at, ev.at) or -120, self.level.caller_db or -120,
+                     ev.data.get("text", "")[:60])
+            self.stats.background_ignored += 1
+            return
+        if (k == "final" and self._speech_at is not None
+                and (ev.data.get("confidence") or 0) >= LEVEL_LEARN_CONF):
+            self.level.learn(self._speech_at, ev.at)         # anlaşılan söz: arayanın kendi sesi
+        if self.state in (CallState.GREETING, CallState.LISTENING, CallState.THINKING, CallState.SPEAKING):
+            self._inputs.append(ev)
+
+    def _on_dtmf(self, ev: _Event) -> None:
+        if ev.data["digit"] == self.cfg.dtmf_operator_digit and self.state not in (
+                CallState.HANDED_OFF, CallState.TRANSFERRING) and not self._closing():
+            log.info("[%s] DTMF %s: operatöre", self.call_id, ev.data["digit"])
+            if self._speaking():
+                self._stop_speech()
+            self._start_speech(self._operator_turn("dtmf"), heard_at=None, heard="[DTMF]")
+
+    async def _on_stt_error(self, ev: _Event) -> None:
+        log.error("[%s] STT akışı koptu (%s): operatöre", self.call_id, ev.data["error"])
+        if self.state not in (CallState.HANDED_OFF, CallState.TRANSFERRING):
+            await self._emergency_operator("stt_koptu")
 
     def _noise_fragment(self, data: dict) -> bool:
         conf = data.get("confidence")
