@@ -23,7 +23,11 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | 4 | gRPC STT servisi (okuyucu/çözücü ayrı, sağlık protokolü, akış sınırı) + Gateway istemcisi | ✅ (GPU: WER %10, ad 12/12, konuşma sonu → metin ~1,1 sn; sentetik set, olcumler.md) |
 | 5 | Santral entegrasyonu: REST kontrol API'si, çağrı oturumu (durum makinesi, barge-in, aktarma akışı, zaman aşımları), RTP medya, santral simülatörü | ✅ (simülatörde; gerçek santral test ortamı bekliyor) |
 | — | Arayüz: tarayıcıdan deneme çağrısı + izleme (ADR-014) | ✅ |
-| 6–10 | Dayanıklılık, performans, kurulum, rehber API, kabul | ⏳ |
+| 6 | Dayanıklılık: devre kesici, LLM / MCP / STT düşüşünde kural tabanlı tur, izole hata → operatör | ✅ |
+| 7 | Kurulum ve işletim: `install.sh`, paket, yedek / geri yükleme, destek paketi, Prometheus / Grafana izleme | ✅ (konteynerde; GPU sunucuda kabul bekliyor) |
+| 8 | Rehber: dosyayla yükleme (kısaltma açma, önizleme / geri alma), yerel MCP rehber sunucusu, makam hatları, birim yapılı rehber (ADR-030, ADR-032) | ✅ (Sentra rehber API'si bekliyor) |
+| 9 | Performans | ⏳ gerçek santral ve GPU sunucuda ölçülecek |
+| 10 | Kabul: gerçek santral, gerçek rehber, telefon hattından test seti | ⏳ |
 
 ### Taşınan modüller
 

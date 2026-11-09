@@ -64,7 +64,11 @@ ROLE_WORDS = {"mudur", "muduru", "mudurunu", "uzman", "uzmani", "sef", "sefi", "
 # -lüğü gelirse kurum adıdır ("Komutanlığı", "Müdürlüğüne": birim, kişi değil). Kısa kökler yalnız tam / tek ekle.
 _ROLE_STEMS = ("mudur", "uzman", "sorumlu", "yonetici", "direktor", "asistan", "sekreter", "komutan", "kaymakam",
                "baskan", "savci", "hakim", "rektor", "dekan", "mufettis", "basmufettis", "denetci", "yardimci",
-               "koordinator", "temsilci", "mudire", "muavin", "astsubay", "subay", "muhasip", "istatistikci")
+               "koordinator", "temsilci", "mudire", "muavin", "astsubay", "subay", "muhasip", "istatistikci",
+               # canlı 09.11.2026: "kontrol işletmeni" kişi adı gibi aranıyordu. Kök ön ekle eşlenir ("işletmeniyle");
+               # kurum eki atılır ("mühendislik", "danışmanlık"). Soyadı olabilecek kökler (katip, bekçi) yok.
+               "isletmen", "sofor", "teknisyen", "tekniker", "muhendis", "avukat", "musavir", "memur", "danisman",
+               "gorevli", "kontrolor", "analist", "veznedar", "hemsire", "doktor", "tabip", "ogretmen")
 _INSTITUTION = ("lig", "lug", "lik", "luk")
 
 

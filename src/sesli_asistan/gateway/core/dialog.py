@@ -29,6 +29,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from . import units
+from .corrections import SttCorrections
 from .models import Action, Candidate, DialogTurn, HangupAction, Match, OperatorAction, SearchResult, TransferAction
 from .people import (
     department_said,
@@ -203,6 +204,7 @@ class DialogConfig:
     mcp_step: bool = False                   # ADR-023: rehber → MCP (konu) → LLM; LLM'den önce MCP'ye konu sorulur
     topic_confirm: bool = True               # ADR-023: konudan bulunan birime aktarmadan önce teyit
     office_hours: str = ""                   # mesai saatlerinin okunuşu (OfficeHours.describe); boş: tanımlı değil
+    stt_corrections: SttCorrections | None = None   # ADR-033: kurumun STT düzeltmeleri (kurum dosyası)
     prompt_template: str = ""                # ADR-024: sistem istemi şablonu ({kurum}); boş: SYSTEM_PROMPT
     prompt_departments: int = 0              # ADR-024: isteme kurumun birim listesi (en çok bu kadar); 0: yok
     few_shot: bool = False                   # ADR-024: isteme örnek konuşmalar (FEW_SHOT)
@@ -246,6 +248,7 @@ class _Run:
     found: bool = False     # bu sözde rehberde biri bulundu
     failed: bool = False    # bu sözde arama bir şey bulamadı (deneme bir kez sayılır)
     stop: bool = False      # araç bu turu bitirdi (operatör)
+    prev_failed: int = 0    # bulununca sıfırlanan deneme sayacının önceki değeri (LLM sonucu kullanmazsa geri gelir)
 
 
 STEPS = (
@@ -381,6 +384,8 @@ class DialogAgent:
     async def _handle_user(self, s: DialogSession, text: str) -> DialogTurn:
         """Arayanın bir sözü: hazırlık, sonra adımlar sırayla (`STEPS`); ilk cevap veren adım turu bitirir."""
         text = _BRACKETS.sub(" ", text or "").strip()  # arayan "[Santral]" taklidi yapamasın
+        if self.cfg.stt_corrections:                     # kurumun STT düzeltmeleri (ADR-033)
+            text = self.cfg.stt_corrections.apply(text)
         only_fillers = bool(text) and not (text := strip_fillers(text))
         c = s.stt_confidence
         u = _Utterance(text=text, lenient=s.after_barge_in, confirm=s.state.confirm,
@@ -623,7 +628,7 @@ class DialogAgent:
         şube bilgisiyle de daraltılır."""
         if not self.cfg.clarify_by_code:
             return None
-        words = _unglued(search_key(u.text).split())
+        words = search_key(u.text).split()
         if _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
             return None
         cands = [c for c in same_title(self.tools.index, u.text) if c.transferable]
@@ -980,7 +985,7 @@ class DialogAgent:
         önce kişi çözme (unvan → o makamdaki kişi; birim + ad → o birimdeki kişi: aktar; ad + hitap → tek kişi: teyit,
         birden çok: "hangisi?"), sonra konu. Olumsuzluk / soru sözcüğü varsa kişi çözme yapılmaz (LLM yorumlasın).
         İkinci değer ses benzerliğiyle aday: çağıran onu LLM'den hemen önce teyitle kullanır."""
-        words = _unglued(search_key(text).split())
+        words = search_key(text).split()
         sound: tuple[Candidate, ...] = ()
         if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
             cands, sure, sound = await self.tools.resolve_person(text)
@@ -1222,7 +1227,7 @@ class DialogAgent:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
-        raw_clean = set(_unglued(_folded_words(text)))
+        raw_clean = set(_folded_words(text))
         if not raw_clean or _FAST_BLOCK & raw_clean or any(strip_suffix(w) in _FAST_BLOCK for w in raw_clean):
             return None
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
@@ -1640,6 +1645,13 @@ class DialogAgent:
     def _llm_text(self, s: DialogSession, content: str, r: _Run) -> DialogTurn:
         """LLM araçsız cevap verdi. Aramadan cevap verdi ve ilerleme yoksa deneme sayılır."""
         text = first_sentences(clean_reply(content), MAX_REPLY_SENTENCES)
+        if r.caller_turn and r.found and not s.state.actions and not self._names_result(s, text):
+            # Rehber bir şey buldu ama LLM sonucu kullanmadan kendi sorusunu sordu ("Başka bir isim mi veya birim mi
+            # arıyorsunuz?", canlı 09.11.2026): bulunmuş sayılmaz. Yoksa sayaç her turda sıfırlanır, arayan
+            # operatör teklifine hiç ulaşmaz.
+            log.info("[%s] LLM bulunanı kullanmadı: deneme sayılıyor", s.call_id)
+            s.state.failed_attempts = r.prev_failed
+            r.found = False
         if r.caller_turn and not r.found and not r.failed and not s.state.actions:
             if (turn := self._count_failure(s)) is not None:
                 return turn
@@ -1665,6 +1677,8 @@ class DialogAgent:
             if (turn := self._search_failed(s, call, content, n_calls, r)) is not None:
                 return turn
         elif call.name == "InContacts" and not out.failed_search:
+            if not r.found:
+                r.prev_failed = s.state.failed_attempts
             r.found = True
             s.state.failed_attempts = 0
         if call.name == "InContacts" and (turn := self._search_result(s, call, content, n_calls, r)) is not None:
@@ -1672,6 +1686,18 @@ class DialogAgent:
         r.stop = r.stop or out.stop
         s.history.append(_tool_message(call, content))
         return None
+
+    @staticmethod
+    def _names_result(s: DialogSession, text: str) -> bool:
+        """LLM'in cevabı bulunan adaylardan birini anıyor mu (adı, soyadı, unvanı ya da biriminden bir sözcük)?"""
+        said = {w for w in search_key(text).split() if len(w) >= 3}
+        for c in s.state.last_results:
+            k = c.contact
+            words = search_key(f"{k.first_name} {k.last_name} {k.title} {k.department}").split()
+            if any(w in said or (len(w) >= 4 and any(x.startswith(w[:4]) and x[:5] == w[:5] for x in said))
+                   for w in words if len(w) >= 3):
+                return True
+        return False
 
     def _search_failed(self, s: DialogSession, call: ToolCall, content: dict[str, Any], n_calls: int,
                        r: _Run) -> DialogTurn | None:
@@ -1861,13 +1887,6 @@ def _ancestor_line(c: Any, others: Iterable[Any]) -> bool:
     p = getattr(c, "unit_path", ())
     return c.kind == "department" and bool(p) and any(
         o is not c and len(o.unit_path) > len(p) and o.unit_path[:len(p)] == p for o in others)
-
-
-def _unglued(words: list[str]) -> list[str]:
-    """STT'nin yer adını bölerek ürettiği bağlaç kırıntısını atar ("ama tepe", "nasıl stepe" → Anıttepe): "ama" /
-    "nasıl" olumsuzluk / soru sözcüğü sayılıp kişi çözmeyi ve hızlı yolu kapatmasın (9c552ab)."""
-    return [w for i, w in enumerate(words)
-            if not (w in ("ama", "nasil") and i + 1 < len(words) and words[i + 1].startswith(("stepe", "tepe")))]
 
 
 def _common_unit(cands: tuple[Candidate, ...]) -> str:

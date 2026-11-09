@@ -119,37 +119,11 @@ def _mentioned_departments(index: DirectoryIndex, words: list[str]) -> set[str]:
             if any(all(_like(words[i + j], k[j]) for j in range(len(k))) for i in range(len(words) - len(k) + 1))}
 
 
-def _normalize_unit_words(words: list[str]) -> list[str]:
-    """STT'nin birim adlarında sık yaptığı bozmalar: 'masaj/taş bakanlığı' → 'asayiş başkanlığı',
-    'alt/ama/nasıl tepe' → 'anıttepe', 'yandarma' → 'jandarma'."""
-    out: list[str] = []
-    i = 0
-    while i < len(words):
-        w = words[i]
-        nxt = words[i + 1] if i + 1 < len(words) else ""
-        if w in ("masaj", "tas") and nxt.startswith(("bakanl", "baskan")):
-            out.append("asayis")
-            i += 1
-        elif w in ("alt", "ama", "nasil", "anit", "ana", "ali") and nxt.startswith(("tepe", "stepe")):
-            out.append("anittepe")
-            i += 2
-        elif w.startswith("stepe"):
-            out.append("anittepe")
-            i += 1
-        elif w.startswith("yandarma"):
-            out.append("jandarma" + w[8:])
-            i += 1
-        else:
-            out.append(w)
-            i += 1
-    return out
-
-
 def _title_words(text: str) -> list[str]:
     """Unvan araması için sözcükler: katlanmış, unvan ve rütbe sözcükleri **atılmaz** ("avukat", "uzmanı",
     "astsubayı" makam hattında asıl sözcüktür; ad aramasında hitap gibi atılırlar); kendini tanıtma ve istek sözleri
     atılır."""
-    raw = _normalize_unit_words(fold_words(text))
+    raw = fold_words(text)
     drop = {raw[i + 1] for i, w in enumerate(raw[:-1]) if w in _SELF}
     return [w for w in raw if w not in drop and w not in _SELF and w not in _SOUND_STOP]
 
@@ -198,8 +172,6 @@ def _person_keys(index: DirectoryIndex) -> list[tuple[Contact, str, str]]:
 
 def _bucket(word: str) -> str:
     """`_like` ancak ilk 4 harfi aynı (ya da 4'ten kısa ve tıpatıp aynı) sözcükler arasında doğru olabilir."""
-    if word.startswith("bakanl"):
-        return "bask"
     return word[:4] if len(word) >= 4 else f"={word}"
 
 
@@ -246,7 +218,7 @@ def _words(text: str) -> set[str]:
 def _like(a: str, b: str) -> bool:
     """Aynı sözcüğün ekli biçimleri: biri ötekinin başı ("komutanıyla" ~ "komutanı", "kaymakamı" ~ "kaymakamlığı").
     Türkçe ek atmak yerine ortak baş: katmanlı eklerde ("yardımcısına") ek atıcı kökü tutarlı bulamıyor."""
-    if a == b or {a[:6], b[:6]} == {"bakanl", "baskan"}:
+    if a == b:
         return True
     n = next((i for i, (x, y) in enumerate(zip(a, b, strict=False)) if x != y), min(len(a), len(b)))
     return n >= 4 and n >= min(len(a), len(b)) - 1

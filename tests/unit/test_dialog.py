@@ -141,6 +141,18 @@ async def test_bos_stt_uc_kez_operator_llm_cagrilmaz():
     assert llm.seen == []
 
 
+async def test_bulunani_kullanmayan_llm_cevabi_deneme_sayilir():
+    # canlı 09.11.2026: rehber buldu, LLM adayları anmadan kendi sorusunu sordu; sayaç sıfırlanıp operatör teklifine
+    # hiç ulaşılmıyordu
+    llm = ScriptedLlm(tool_msg(call("InContacts", Name="ali veli")), LlmMessage("Bulamadım."),
+                      tool_msg(call("InContacts", Name="can")),
+                      LlmMessage("Başka bir isim mi veya birim mi arıyorsunuz?"))
+    s = agent(llm, auto_transfer_single_high=False).new_session("t6b")   # sonuç LLM'e dönsün (kod aktarmasın)
+    await s.handle_user("ali veli")
+    await s.handle_user("can bey")
+    assert s.state.failed_attempts == 2
+
+
 async def test_bulununca_sayac_sifirlanir():
     llm = ScriptedLlm(tool_msg(call("InContacts", Name="ali veli")), LlmMessage("Bulamadım."),
                       tool_msg(call("InContacts", Name="can")), LlmMessage("Can Öztürk mü?"))

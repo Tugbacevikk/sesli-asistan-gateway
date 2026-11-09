@@ -10,6 +10,7 @@ import pytest
 
 from sesli_asistan.gateway.abbreviations import Abbreviations, load_abbreviations
 from sesli_asistan.gateway.composition import load_topics
+from sesli_asistan.gateway.core.corrections import SttCorrections
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig
 from sesli_asistan.gateway.core.models import Contact
 from sesli_asistan.gateway.core.phrases import common_dative
@@ -224,8 +225,11 @@ def test_cok_turlu_birim_sube_unvan_daraltma():
                "22230"),
         _makam("p1", "Personel Başkanlığı", "Personel Başkanlığı Plan Yönetim Şube İdari İşlemler Astsubayı", "21122"),
     ]
+    # STT bozmaları kurumun dosyasından (ADR-033): ürün kodunda kuruma özgü düzeltme yok
+    fix = SttCorrections({"masaj bakanlığı": "asayiş başkanlığı", "taş bakanlığı": "asayiş başkanlığı",
+                          "asayiş bakanlığı": "asayiş başkanlığı"})
     a = DialogAgent(NoLlm(), ToolRegistry(DirectoryIndex(cs), topics=load_topics()),
-                    DialogConfig(organization="D", llm_enabled=False, mcp_step=True))
+                    DialogConfig(organization="D", llm_enabled=False, mcp_step=True, stt_corrections=fix))
     t1 = say(a, "asayiş bakanlığı ile görüşmek istiyor", "masaj bakanlığı plan koordinasyon şube",
              "idari işlemler astsubayı")
     assert [x.extension for x in t1.actions] == ["22122"]
