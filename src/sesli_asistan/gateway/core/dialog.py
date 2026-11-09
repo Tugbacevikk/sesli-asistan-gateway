@@ -21,7 +21,7 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -77,6 +77,7 @@ from .search import (
     search_key,
     similarity,
     strip_suffix,
+    word_stems,
 )
 from .speech import ABBREVIATIONS, split_sentences
 from .thresholds import (
@@ -514,6 +515,9 @@ class DialogAgent:
         lines = [c for c in m.contacts if c.kind == "department"]
         intent = asks_operator(u.text) or wants_hangup(u.text, strict=u.low)
         targets = list(m.contacts)
+        inner = [c for c in m.contacts if not _ancestor_line(c, m.contacts)]
+        if len(inner) < len(m.contacts) and len(inner) <= 1 and not m.others and not intent:
+            return None                 # üst birim + içindeki hat ("valilik hukuk müşaviri"): tek hedef (ADR-032)
         if intent and not targets:
             # hattı olmayan birim ("insan kaynaklarıyla") ya da yalnız soyad ("operate eli şahin'e"): hedef sayılır
             targets = [c for d in m.departments if (c := self._department_target(search_key(d))[0]) is not None]
@@ -859,6 +863,8 @@ class DialogAgent:
                             else Match.MULTIPLE if s.state.last_results else Match.NONE)
 
     def _code_transfer(self, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
+        if not confirmed and (turn := self._deputy_guard(s, cand.contact)) is not None:
+            return turn
         if not confirmed and (turn := self._unreachable_again(s, cand.contact)) is not None:
             return turn
         if not confirmed and (turn := self._topic_clash(s, cand.contact)) is not None:
@@ -874,6 +880,32 @@ class DialogAgent:
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
+
+    def _deputy_guard(self, s: DialogSession, contact: Any) -> DialogTurn | None:
+        """Arayan asıl makamı istedi, bulunan hat yardımcısı: "il jandarma komutanına" → Komutan (aktarılamaz,
+        rehberde görünmez) yerine "Komutan Yardımcısı"na aktarılıyordu (demo seti D16). Kurumun birim hattına
+        (ADR-025) gidilir; o da yoksa teyit sorulur."""
+        # yalnız kişisiz makam hattı: kişi adıyla bulunan "Vali Yardımcısı Kemal Bey" bu kurala girmez
+        if contact.kind != "role" or not any(w.startswith("yardimci") for w in _folded_words(contact.title)):
+            return None
+        text = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        if any(w.startswith("yardimci") for w in _folded_words(text)):
+            return None
+        log.info("[%s] istenen makam değil yardımcısı bulundu (%s): birim hattına", s.call_id, contact.title)
+        pick = self._unit_line(contact)
+        if pick is not None:
+            return self._code_transfer(s, Candidate(pick, 100))
+        return self._confirm(s, contact, why="yardımcı hattı")
+
+    def _unit_line(self, contact: Any) -> Any:
+        """Kaydın en yakın üst birim hattı (birim yolu varsa yoldan, yoksa aynı birim adından)."""
+        lines = [c for c in self.tools.index.contacts() if c.kind == "department" and c.transferable]
+        path = contact.unit_path
+        for n in range(len(path), 0, -1):
+            for c in lines:
+                if c.unit_path == path[:n]:
+                    return c
+        return next((c for c in lines if c.department == contact.department), None)
 
     def _unsure(self, s: DialogSession) -> bool:
         c = s.stt_confidence
@@ -1152,12 +1184,14 @@ class DialogAgent:
         """Sözde bir birim adı geçiyor mu; `only` verilirse yalnız o kaydın birimi (ve eş anlamlıları)."""
         keys = (self.tools.index.department_keys if only is None else
                 {k for k in (search_key(only.department), *map(search_key, only.department_aliases)) if k})
-        def norm(ws: list[str]) -> str:                 # "valiliğe" ~ "Valilik" ~ "Yeşilova Valiliği" (k / ğ)
-            return " ".join(hard_stem(strip_suffix(w)) for w in ws)
+        said = [word_stems(w) for w in words]            # "valiliğe" ~ "Valilik" (k / ğ), "emniyete" ~ "Emniyet"
 
-        text = norm(words)
-        return any(f" {norm(k.split())} " in f" {text} " or any(w.startswith(k) for w in words if len(k) >= 4)
-                   for k in keys)
+        def inside(key: str) -> bool:
+            kw = [hard_stem(strip_suffix(w)) for w in key.split()]
+            return bool(kw) and any(all(i + j < len(said) and k in said[i + j] for j, k in enumerate(kw))
+                                    for i in range(len(said)))
+
+        return any(inside(k) or any(w.startswith(k) for w in words if len(k) >= 4) for k in keys)
 
     def _resolve_choice(self, s: DialogSession, text: str, choice: tuple[Candidate, ...]) -> DialogTurn | None:
         """Sorulan adaylardan birini cevaptan seçer: birim ("muhasebedeki"), soyad ("Yılmaz"), tam ad ya da sıra
@@ -1496,6 +1530,8 @@ class DialogAgent:
         return turn
 
     def _fast_transfer(self, s: DialogSession, text: str, contact: Any, kind: str) -> DialogTurn | None:
+        if (turn := self._deputy_guard(s, contact)) is not None:
+            return turn
         if (turn := self._unreachable_again(s, contact)) is not None:
             return turn
         if (turn := self._topic_clash(s, contact)) is not None:
@@ -1797,6 +1833,13 @@ def _common_title(cands: tuple[Candidate, ...]) -> str:
             break
         common.insert(0, words[0])
     return " ".join(common) if common and len(titles) == len(cands) else ""
+
+
+def _ancestor_line(c: Any, others: Iterable[Any]) -> bool:
+    """Birim hattı, başka bir adayın birim yolunun üst birimi mi ("Valilik" ⊃ "Valilik / Hukuk İşleri")."""
+    p = getattr(c, "unit_path", ())
+    return c.kind == "department" and bool(p) and any(
+        o is not c and len(o.unit_path) > len(p) and o.unit_path[:len(p)] == p for o in others)
 
 
 def _unglued(words: list[str]) -> list[str]:

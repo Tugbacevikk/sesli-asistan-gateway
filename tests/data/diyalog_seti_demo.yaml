@@ -82,9 +82,9 @@
   beklenen: {eylem: aktarma_yok, yasak_dahili: ["20001"]}
 
 - id: D16
-  aciklama: "Aktarılamaz makam hattı: Jandarma Komutanı doğrudan bağlanamaz"
+  aciklama: "Aktarılamaz makam hattı: Jandarma Komutanı doğrudan bağlanamaz; kurumun birim hattına (ADR-025), Komutan Yardımcısına değil"
   konusma: ["il jandarma komutanına bağlar mısınız"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["30001"]}
+  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
 
 - id: D17
   aciklama: "Aktarılamaz destek hattı: Valilik faks/belgegeçer"
@@ -102,9 +102,9 @@
   beklenen: {eylem: aktarma_yok}
 
 - id: D20
-  aciklama: "Silinmiş kayıt (deleted=true): Eski trafik memuru Zafer Bey bulunamaz"
+  aciklama: "Silinmiş kayıt (deleted=true): Zafer Bey bulunamaz, söylenen birimin (Trafik Şube) hattına aktarılır"
   konusma: ["trafikten zafer geçmiş ile görüşecektim"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40099"]}
+  beklenen: {eylem: transfer, dahili: "40200", yasak_dahili: ["40099"]}
 
 # --- 4. ÇOK TURLU DARALTMA SENARYOLARI (SEVİYE SEVİYE) ---
 - id: D21

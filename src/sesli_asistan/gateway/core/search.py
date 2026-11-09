@@ -151,12 +151,22 @@ def hard_stem(word: str) -> str:
     return word[:-1] + "k" if word.endswith("g") else word
 
 
+def word_stems(word: str) -> set[str]:
+    """Sözcüğün olası gövdeleri: ek atılmış ve sonu sertleşmiş biçim + yalnız son ünlüsü atılmış biçim. "emniyete":
+    ek listesi "te"yi atıp "emniye" bırakır; asıl gövde "emniyet" (yönelme eki yalnız "e")."""
+    out = {word, hard_stem(strip_suffix(word))}
+    if len(word) >= 6 and word[-1] in "aeiou":
+        out.add(hard_stem(word[:-1]))
+    return out
+
+
 def query_variants(key: str) -> list[str]:
-    """Arama anahtarı + ekleri atılmış biçimi + sonu sertleşmiş biçimi (farklı olanlar)."""
+    """Arama anahtarı + ekleri atılmış biçimi + sonu sertleşmiş biçimi + son ünlüsü atılmış biçimi (farklı olanlar)."""
     out = [key]
     stripped = " ".join(strip_suffix(w) for w in key.split())
     hard = " ".join(hard_stem(w) for w in stripped.split())
-    for v in (stripped, hard):
+    vowel = " ".join(hard_stem(w[:-1]) if len(w) >= 6 and w[-1] in "aeiou" else w for w in key.split())
+    for v in (stripped, hard, vowel):
         if v not in out:
             out.append(v)
     return out
