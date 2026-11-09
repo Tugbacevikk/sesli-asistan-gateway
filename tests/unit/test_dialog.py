@@ -147,7 +147,7 @@ async def test_bulunani_kullanmayan_llm_cevabi_deneme_sayilir():
     llm = ScriptedLlm(tool_msg(call("InContacts", Name="ali veli")), LlmMessage("Bulamadım."),
                       tool_msg(call("InContacts", Name="can")),
                       LlmMessage("Başka bir isim mi veya birim mi arıyorsunuz?"))
-    s = agent(llm).new_session("t6b")
+    s = agent(llm, auto_transfer_single_high=False).new_session("t6b")   # sonuç LLM'e dönsün (kod aktarmasın)
     await s.handle_user("ali veli")
     await s.handle_user("can bey")
     assert s.state.failed_attempts == 2
