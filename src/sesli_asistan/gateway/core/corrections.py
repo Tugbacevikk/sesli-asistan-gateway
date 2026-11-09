@@ -1,15 +1,11 @@
 """Kurumun STT düzeltmeleri (ADR-033)."""
 from __future__ import annotations
 
-import re
-
-from sesli_asistan.libs.text.normalizer import turkish_lower
-
-_FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
+from sesli_asistan.libs.text.normalizer import fold_tr_words
 
 
 def _fold_words(text: str) -> list[str]:
-    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
+    return fold_tr_words(text)
 
 
 class SttCorrections:

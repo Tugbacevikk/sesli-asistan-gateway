@@ -28,6 +28,21 @@ def turkish_lower(text: str) -> str:
     return text.replace("I", "ı").replace("İ", "i").lower().replace("i\u0307", "i")
 
 
+# Türkçe harfleri ASCII'ye katlama (karşılaştırma için; konuşmada / ekranda değil): rehber, sözcük listeleri ve
+# STT çıktısı aynı biçime iner ("Şükrü" ~ "sukru"). Tek tablo: önceden beş modülde ayrı ayrı (09.11.2026).
+TR_FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
+
+
+def fold_tr(text: str) -> str:
+    """Türkçe küçük harf + katlama ("İŞLEM" → "islem")."""
+    return turkish_lower(text).translate(TR_FOLD)
+
+
+def fold_tr_words(text: str) -> list[str]:
+    """Katlanmış sözcükler; noktalama boşluk olur, ekler atılmaz ("Ayşe'nin." → ["ayse", "nin"])."""
+    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(TR_FOLD).split()
+
+
 def strip_punct(text: str) -> str:
     return _PUNCT.sub(lambda m: " " if m.group(1) else m.group(0).replace("’", "'"), text)
 

@@ -5,7 +5,7 @@ Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması
 """
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import fields, replace
 from typing import Literal
 
 from pydantic import Field, SecretStr, model_validator
@@ -14,12 +14,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .core.dialog import DialogTexts
 from .core.schedule import OfficeHours
 
-TEXT_FIELDS = ("greeting", "not_understood", "offer_operator", "no_input", "to_operator", "error", "transferring",
-               "transferring_department", "closed", "holiday", "no_operator", "not_found", "not_found_again",
-               "too_many", "busy", "no_answer", "transfer_failed", "goodbye", "confirm",
-               "confirm_operator", "no_input_question", "greeting_reply", "declined", "office_hours",
-               "office_hours_unknown", "ask_target", "which_department", "indistinct", "ask_topic",
-               "ask_person_in_department", "fax_line")
+# Ayardan değiştirilebilen cümleler: DialogTexts'in alanları (iç notlar hariç). Yeni bir cümle DialogTexts'e eklenir;
+# burada `<ad>_text` ayar alanı ve settings_service.TEXT_LABELS'ta etiketi gerekir (test_metin_alanlari denetler).
+_INTERNAL_TEXTS = {"offer_operator_suffix", "offer_operator_note"}        # LLM'e not / cümle eki: ayarda yok
+TEXT_FIELDS = tuple(f.name for f in fields(DialogTexts) if f.name not in _INTERNAL_TEXTS)
 _NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
 
 
