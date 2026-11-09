@@ -13,10 +13,19 @@ from __future__ import annotations
 import json
 import re
 from collections import Counter
+from collections.abc import Iterable
 from importlib import resources
 from pathlib import Path
 
 from sesli_asistan.libs.text.normalizer import turkish_lower
+
+from .core.corrections import SttCorrections
+
+_FOLD = str.maketrans("çğıöşüâîû", "cgiosuaiu")
+
+
+def _fold_words(text: str) -> list[str]:
+    return re.sub(r"[^\w\s]", " ", turkish_lower(text)).translate(_FOLD).split()
 
 # kısaltma: harfler + nokta, ardından isteğe bağlı nokta sonrası ek ("Bşk.lığı", "Md.lüğü", "K.lığı")
 _TOKEN = re.compile(r"(?<![\wçğıöşüÇĞİÖŞÜâ])([A-Za-zÇĞİÖŞÜçğıöşüâÂ]+\.(?:l[ıiuü]ğ[ıiuü]|[ıiuü]|l[ıiuü]k)?)")
@@ -27,9 +36,12 @@ def _key(abbr: str) -> str:
 
 
 class Abbreviations:
-    def __init__(self, table: dict[str, str] | None = None, words: dict[str, str] | None = None):
+    def __init__(self, table: dict[str, str] | None = None, words: dict[str, str] | None = None,
+                 not_names: Iterable[str] = ()):
         self.table = {_key(k): v.strip() for k, v in (table or {}).items() if k.strip() and v.strip()}
         self.words = {_key(k): v.strip() for k, v in (words or {}).items() if k.strip() and v.strip()}
+        # kurumun hat adlarında geçen, kişi adı olmayan yer / birim sözcükleri ("ad_olmayan_sozcukler", katlanmış)
+        self.not_names = frozenset(w for n in not_names for w in _fold_words(n))
 
     def __len__(self) -> int:
         return len(self.table)
@@ -87,8 +99,17 @@ def load_abbreviations(path: str = "", extra: bool = False) -> Abbreviations:
     if extra:
         base.update(raw.get("ek_kisaltmalar", {}))
         words.update(raw.get("sozcuk_kisaltmalari", {}))
+    not_names: list[str] = []
     if path:
         ext = json.loads(Path(path).read_text(encoding="utf-8"))
         base = {**base, **ext.get("kisaltmalar", {}), **ext.get("ek_kisaltmalar", {})}
         words = {**words, **ext.get("sozcuk_kisaltmalari", {})}
-    return Abbreviations(base, words)
+        not_names = list(ext.get("ad_olmayan_sozcukler", []))
+    return Abbreviations(base, words, not_names)
+
+
+def load_stt_corrections(path: str = "") -> SttCorrections:
+    """Kurum dosyasındaki `stt_duzeltmeleri` (yoksa boş)."""
+    if not path:
+        return SttCorrections()
+    return SttCorrections(json.loads(Path(path).read_text(encoding="utf-8")).get("stt_duzeltmeleri", {}))

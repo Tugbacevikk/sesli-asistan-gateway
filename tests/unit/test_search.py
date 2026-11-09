@@ -213,3 +213,12 @@ def test_ad_ve_birim_birlikte_aranir_yalniz_tek_sonuc_alinir(monkeypatch, fallba
     monkeypatch.setattr(idx, "_search", fake)
     assert idx.search("nizamiye", "kampus").match == expected
     assert seen == [("nizamiye", "kampus"), ("nizamiye kampus", "")]
+
+
+@pytest.mark.parametrize("word, role", [("isletmeni", True), ("isletmeniyle", True), ("soforu", True),
+                                        ("gorevlisi", True), ("isletme", False), ("muhendislik", False),
+                                        ("danismanligi", False)])
+def test_unvan_kokleri(word, role):
+    # canlı 09.11.2026: "kontrol işletmeni" kişi adı gibi aranıyordu
+    from sesli_asistan.gateway.core.search import is_role_word
+    assert is_role_word(word) is role

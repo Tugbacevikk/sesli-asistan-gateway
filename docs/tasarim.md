@@ -1903,6 +1903,19 @@ ondan bağımsızdır.
   eklenir; Sentra ekibine bildirilmeli. Dosyayla yüklemede otomatik bölme (santral dökümündeki birim adından birim
   yolu çıkarma) sonraki adım. Demo rehberi: `data/demo_rehber.json` (`tools/rehber/demo_rehber.py`).
 
+### ADR-033 — Kuruma özgü STT düzeltmeleri ve ad olmayan sözcükler kurum dosyasında
+
+- **Bağlam:** Gerçek bir kurumun rehberiyle yapılan denemelerde STT'nin o kuruma özgü adları bozduğu biçimler
+  ("masaj / taş bakanlığı" → "asayiş başkanlığı", "ama / nasıl tepe" → bir semt adı) ve "bakanlığı ≈ başkanlığı"
+  eşitliği ürün koduna yazılmıştı. Ürün farklı kurumlara dağıtılıyor: başka kurumda "Bakanlığı" gerçek bir birimdir;
+  kod herkese açık depoda kurumun yer adlarını da taşıyordu.
+- **Karar:** Ürün kodunda kuruma özgü düzeltme ve yer adı yoktur. Kurumun dosyası (ABBREVIATIONS_PATH, kısaltma
+  sözlüğüyle aynı dosya) iki isteğe bağlı anahtar alır: `stt_duzeltmeleri` (`{"bozuk söz": "doğrusu"}`; arayanın
+  sözüne diyalogdan önce uygulanır, son sözcüğün eki korunur: "masaj bakanlığına" → "asayiş başkanlığına") ve
+  `ad_olmayan_sozcukler` (rehber yüklemede kişi adı sanılmayacak yer / birim sözcükleri). Kurumun dosyası depoya
+  konmaz (`data/yerel/`).
+- **Sonuç:** Kurum dosyası olmadan bu bozmalar düzeltilmez; kurulumda kurumun denemelerinden çıkan listeyle doldurulur.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği

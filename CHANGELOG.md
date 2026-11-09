@@ -191,6 +191,11 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Kuruma özgü STT düzeltmeleri ve yer adları ürün kodundan çıktı (ADR-033): kurum dosyasında (ABBREVIATIONS_PATH)
+  `stt_duzeltmeleri` ve `ad_olmayan_sozcukler`. "bakanlığı ≈ başkanlığı" genel eşitliği kaldırıldı.
+- LLM rehberde bulunanı anmadan kendi sorusunu sorarsa deneme sayılır (sayaç her turda sıfırlanıp operatör teklifine
+  ulaşılamıyordu, canlı 09.11.2026). Yeni unvan kökleri: işletmen, şoför, teknisyen, görevli, kontrolör …
+- README durum tablosu güncellendi.
 - STT cümle ön payı 350 → 500 ms (`STT_PRE_ROLL_MS`, artık ayardan): ilk hece kesilmesin. Testler ön paya göre.
 - Tarayıcı denemesinde tarayıcının gürültü bastırması açık: deneme sesi telefon hattından biraz daha farklı.
 - G.722 santral ekibince onaylandı (05.11.2026): önerilen yapılandırma `codec: "g722"` (ADR-027).

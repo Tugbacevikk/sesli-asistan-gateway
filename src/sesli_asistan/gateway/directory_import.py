@@ -243,7 +243,7 @@ def parse(rows: list[list[str]], existing: Sequence[Any] = (), abbreviations: Ab
         if not any(get(k) for k in ("first_name", "last_name", "full_name", "name_or_title", "title", "department")):
             res.skipped += 1                  # yalnız kod ("*70509", "72695"): kime ait olduğu yok
             continue
-        read = _read_row(n, get)
+        read = _read_row(n, get, abbr.not_names)
         if isinstance(read, Problem):
             res.errors.append(read)
             continue
@@ -298,13 +298,13 @@ def _getter(row: list[str], cols: dict[str, int], abbr: Abbreviations, unknown: 
     return get
 
 
-def _names(get: Callable[[str], str]) -> tuple[str, str, str]:
+def _names(get: Callable[[str], str], not_names: frozenset[str] = frozenset()) -> tuple[str, str, str]:
     """Ad, soyad, unvan. Yalnız "Ad Soyad" sütunu varsa son sözcük soyad. Hat adı sütunu (kişi adı ya da makam):
     kişi adına benziyorsa ad + soyad, değilse unvan (makam hattı)."""
     first, last, title = get("first_name"), get("last_name"), get("title")
     full = get("full_name")
     if not (first or last or full) and (hat := get("name_or_title")):
-        if looks_like_person(hat):
+        if looks_like_person(hat, not_names):
             full = hat
         elif not title:
             title = hat
@@ -314,14 +314,14 @@ def _names(get: Callable[[str], str]) -> tuple[str, str, str]:
     return first, last, title
 
 
-def looks_like_person(text: str) -> bool:
+def looks_like_person(text: str, not_names: frozenset[str] = frozenset()) -> bool:
     """"Ahmet Yılmaz", "Ayşe Nur Kaya": 2–4 sözcük, her biri büyük harfle başlayan harflerden; nokta, rakam, unvan /
     birim sözcüğü yok ("Salon Sorumlusu", "Nöbetçi Amiri" kişi değil)."""
     words = text.split()
     if not 2 <= len(words) <= 4 or any(not w.isalpha() or not w[0].isupper() or (len(w) >= 2 and w.isupper())
                                        for w in words):
         return False
-    return not has_role_word(text) and not set(fold(text).split()) & _NOT_NAMES
+    return not has_role_word(text) and not set(fold(text).split()) & (_NOT_NAMES | not_names)
 
 
 # hat adlarında geçen, kişi adı olmayan sözcükler (katlanmış): "Salon Sorumlusu", "Nöbetçi Kulübesi"
@@ -329,11 +329,11 @@ _NOT_NAMES = {"salon", "sorumlusu", "sorumlu", "nobetci", "kulubesi", "kulube", 
               "danisma", "resepsiyon", "guvenlik", "asansor", "toplanti", "salonu", "odasi", "oda", "kantin",
               "yemekhane", "revir", "arsiv", "depo", "atolye", "garaj", "bakanliklar", "giyinme", "sekreterlik",
               "kalem", "kalemi", "belgegecer", "faks", "fax", "makam", "bekleme", "operator", "nizamiye",
-              "anittepe", "bestepe", "komutanligi", "baskanligi", "mudurlugu", "daire", "kurulu", "merkezi",
+              "komutanligi", "baskanligi", "mudurlugu", "daire", "kurulu", "merkezi",
               "ariza", "berber", "kuafor", "terzi", "marangoz", "bahcivan", "cayci", "ocagi", "pastane",
               "kafeterya", "mutfak", "kiler", "camasirci", "temizlikci", "kaloriferci", "elektrikci", "tesisatci",
-              "dosemeci", "jeneratorcu", "kaynakci", "boyaci", "tersim", "kutuphane", "banka", "sigorta",
-              "itfaiye", "silahlik", "kres", "dershane", "rezervasyon", "sevk", "kita", "gensek", "mehmetcik"}
+              "dosemeci", "jeneratorcu", "kaynakci", "boyaci", "kutuphane", "banka", "sigorta",
+              "itfaiye", "silahlik", "kres", "dershane", "rezervasyon", "sevk", "kita"}
 _FAX = re.compile(r"\b(belgegecer|faks|fax)\b")
 
 
@@ -348,9 +348,10 @@ def _kind(raw: str, has_name: bool, has_title: bool) -> str | None:
     return None
 
 
-def _read_row(n: int, get: Callable[[str], str]) -> Problem | tuple[dict[str, Any], str, Problem | None]:
+def _read_row(n: int, get: Callable[[str], str],
+              not_names: frozenset[str] = frozenset()) -> Problem | tuple[dict[str, Any], str, Problem | None]:
     """Bir satır → (kayıt (kimliksiz), görünen ad, uyarı) ya da hata."""
-    first, last, title = _names(get)
+    first, last, title = _names(get, not_names)
     dept = get("department")
     ext = re.sub(r"[\s\-./]", "", get("extension"))
     kind = _kind(get("kind"), bool(first or last), bool(title))

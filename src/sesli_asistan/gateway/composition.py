@@ -14,7 +14,7 @@ import httpx
 
 from sesli_asistan import __version__
 
-from .abbreviations import load_abbreviations
+from .abbreviations import load_abbreviations, load_stt_corrections
 from .adapters.directory.json_dir import JsonDirectory
 from .adapters.llm.ollama import OllamaChat
 from .adapters.llm.openai_compat import OpenAiCompatChat
@@ -76,7 +76,8 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        code_replies=s.code_replies, llm_enabled=s.llm_enabled, llm_fallback=s.llm_fallback,
                        mcp_step=s.mcp_step, topic_confirm=s.topic_confirm, office_hours=s.office().describe(),
                        prompt_template=load_prompt(s.llm_prompt_path),
-                       prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot)
+                       prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot,
+                       stt_corrections=load_stt_corrections(s.abbreviations_path.strip()))
     remote = None
     if s.llm_tools == "mcp" or s.mcp_step:
         from .adapters.mcp.rehber import McpRehber
