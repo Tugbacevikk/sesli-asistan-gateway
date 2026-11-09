@@ -1232,9 +1232,14 @@ class DialogAgent:
             return None
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
             choice_ids = {c.contact.id for c in choice}
-            if words and (fast := self._fast_matches(text, words)) and not (set(fast) & choice_ids):
+            narrowed = narrow_candidates([c.contact for c in choice], text)
+            # Cevap sorulan adaylardan birini süzüyorsa o seçilir; ancak süzmüyorsa ve rehberde başka bir hedefse
+            # yeni istek sayılır. Sıra tersken "Hangi birimdeki nöbetçi amiri?" → "jandarma" kurumun santraline
+            # aktarılıyordu (sentetik set S26, S43; CI'da kural modu 09.11.2026).
+            if (not narrowed and words and (fast := self._fast_matches(text, words))
+                    and not (set(fast) & choice_ids)):
                 return None
-            if narrowed := narrow_candidates([c.contact for c in choice], text):
+            if narrowed:
                 if len(narrowed) == 1:
                     cand = Candidate(narrowed[0], 100)
                     s.state.last_results = (cand,)
