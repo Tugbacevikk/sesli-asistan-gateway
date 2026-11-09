@@ -96,7 +96,8 @@ def narrow(cands: Sequence[Contact], text: str, names: dict[tuple[str, ...], set
             for n in names.get(c.unit_path[:i], {c.unit_path[i - 1]}):
                 ws |= _words(n)
         per.append(ws)
-    distinct = set.union(*per) - set.intersection(*per)
+    every = set(per[0]).intersection(*per[1:])
+    distinct = set(per[0]).union(*per[1:]) - every
     said = _words(text)
 
     def like(t: str, w: str) -> bool:
