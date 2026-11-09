@@ -1868,6 +1868,8 @@ rehber "Bilgi İşlem"i %100 eşledi → kod tek kesin sonucu aktardı; üstelik
    karelerinin ortancası bunun 6 dB altındaysa söze girme sayılmaz, asistan konuşmasını sürdürür ve o sesin metni
    cevaplanmaz. Arayanın seviyesi bilinmiyorken yalnız -45 dBFS altı elenir. Asistan sustuktan sonra arayan her
    seviyede dinlenir. `BARGE_IN_LEVEL_MARGIN_DB` 0: kapalı (CallConfig).
+   09.11.2026: aynı öğrenilmiş seviye tüm sözler için de kullanılır; arayanın seviyesinin 8 dB altındaki söz (ofiste
+   yan masadaki konuşma) cevaplanmaz, deneme sayılmaz (`BACKGROUND_MARGIN_DB`, 0: kapalı).
 
 6. Birim belli, kişi belli değil (`_step_department_who`, hızlı yoldan önce): (a) birim + rehberde olmayan ad + hitap
    ("muhasebe naşa hanım"; birim hattına aktarılıyordu) ya da (b) yalnız birim söylendi ama birimin genel hattı yok
@@ -2185,6 +2187,7 @@ Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalo
 | MIN_NOISE_MS | 600 | kısa boş sonuç gürültü | canlı 02.11.2026 |
 | NOISE_BELOW / NOISE_MAX_LETTERS | 0,2 / 2 | gürültü kırıntısı ("b") cevaplanmaz | canlı 04.11.2026 |
 | BARGE_IN_LEVEL_MARGIN_DB | 6 dB | söze girme anı arayanın kendi seviyesinin bu kadar altındaysa sayılmaz | canlı 05.11.2026 (arayan -29 / -31, video -37 / -38 dBFS) |
+| BACKGROUND_SPEECH_MARGIN_DB | 8 dB | anlaşılan bir söz arayanın kendi seviyesinin bu kadar altındaysa cevaplanmaz, deneme sayılmaz (arka plan konuşması; ayar `BACKGROUND_MARGIN_DB`, 0: kapalı; arayanın seviyesi bilinmiyorken çalışmaz) | ofiste deneme 09.11.2026; söze girme kapısından 2 dB geniş: tüm söz atıldığı için daha temkinli |
 | BARGE_IN_FLOOR_DB | -45 dBFS | arayanın seviyesi henüz bilinmiyorken söze girme alt sınırı | aynı ölçüm |
 | LEVEL_LEARN_CONF | 0,5 | arayanın seviyesi bu güvenin üstündeki sözlerinden öğrenilir | tekrar eşiğiyle aynı |
 | MAX_BARGE_REPEATS | 2 | söze girme anlaşılmazsa cümle yinelemesi | canlı 05.11.2026 |
