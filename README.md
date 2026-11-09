@@ -25,7 +25,7 @@ Bir çağrının yolu, baştan sona (`src/sesli_asistan/`):
    - `choice.py`: birden çok aday → "hangisi?" (birim yoluyla seviye seviye) ve cevaptan seçim
    - `transfer.py`: aktarmadan önceki denetimler (teyit, aktarılamaz makam, belgegeçer), operatör, deneme sayacı
    - `llm.py`: kurallar çözemezse LLM döngüsü (araçlar: `core/tools.py`)
-4. **Rehber:** `core/search.py` (bulanık arama, Türkçe ekler), `core/people.py` (unvan / birim / ad kuralları),
+4. **Rehber:** `core/search.py` (bulanık arama, Türkçe ekler), `core/people/` (ad, birim, unvan kuralları; `resolve_person`),
    `core/units.py` (birim yolu), `core/directory.py` (önbellek, yenileme). Kaynaklar: `adapters/directory/`;
    dosyayla yükleme `directory_import.py` + `abbreviations.py` (kısaltma açma).
 5. **Aktarma güvenliği:** `core/policy.py` (yalnız rehberde aktarılabilir dahili) ← `core/tools.py` (TransferCall).
