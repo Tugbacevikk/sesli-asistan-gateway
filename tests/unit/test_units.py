@@ -93,3 +93,21 @@ def test_kurum_cevabi_kurumun_birim_hattina_gitmez(contacts):
     assert turns[0].text == "Jandarma mı, Emniyet mi?"
     assert [a.extension for a in turns[1].actions] == ["30101"]
 
+
+
+@pytest.mark.parametrize("text, ext", [
+    ("emniyete bağlar mısınız", "40000"),               # D06: "emniyete" → "emniye" değil "emniyet"
+    ("valilik hukuk müşaviri", "20021"),                # D14: üst birim + içindeki hat tek hedef
+    ("il jandarma komutanına bağlar mısınız", "30000"),  # D16: Komutan aktarılamaz → birim hattı, yardımcısı değil
+])
+def test_demo_tek_tur(contacts, text, ext):
+    t = say(agent(contacts), text)[0]
+    assert [a.extension for a in t.actions] == [ext], t.text
+
+
+def test_belgegecer_istenince_birim_hatti_teyitle_sorulur(contacts):
+    # D18: faks hattı aktarılamaz; birimin santraline sessizce aktarılmaz, sorulur ve "evet" ile aktarılır
+    a = agent(contacts)
+    t1, t2 = say(a, "emniyet faks hattı", "evet")
+    assert not t1.actions and t1.text.startswith("Belgegeçer hattına sesli arama aktarılamıyor.")
+    assert [x.extension for x in t2.actions] == ["40000"]
