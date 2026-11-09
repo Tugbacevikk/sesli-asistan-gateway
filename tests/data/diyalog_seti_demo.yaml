@@ -1,0 +1,158 @@
+# Demo Kurum Senaryoları (Yeşilova Valiliği, Kaymakamlıklar ve İl Müdürlükleri).
+# Rehber: data/demo_rehber.json
+# Çalıştırma:
+#   python tests/eval/diyalog.py --kural --set tests/data/diyalog_seti_demo.yaml --rehber data/demo_rehber.json
+
+# --- 1. TEK TURDA KESİN AKTARMA: BİRİM HATLARI VE YÖNELME EKLERİ ---
+- id: D01
+  aciklama: "Tek turda kesin aktarma: Valilik birim hattı (tam ad)"
+  konusma: ["yeşilova valiliği"]
+  beklenen: {eylem: transfer, dahili: "20000"}
+
+- id: D02
+  aciklama: "Tek turda kesin aktarma: Yönelme ekli Valilik birim hattı"
+  konusma: ["valiliğe bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "20000"}
+
+- id: D03
+  aciklama: "Tek turda kesin aktarma: İl Jandarma Komutanlığı birim hattı"
+  konusma: ["yeşilova il jandarma komutanlığı"]
+  beklenen: {eylem: transfer, dahili: "30000"}
+
+- id: D04
+  aciklama: "Tek turda kesin aktarma: Jandarma birim hattı (eş anlamlı)"
+  konusma: ["jandarmaya bağlayın"]
+  beklenen: {eylem: transfer, dahili: "30000"}
+
+- id: D05
+  aciklama: "Tek turda kesin aktarma: İl Emniyet Müdürlüğü birim hattı"
+  konusma: ["yeşilova il emniyet müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "40000"}
+
+- id: D06
+  aciklama: "Tek turda kesin aktarma: Emniyete yönelme ekli birim aktarması"
+  konusma: ["emniyete bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "40000"}
+
+- id: D07
+  aciklama: "Tek turda kesin aktarma: Kaymakamlığa yönelme ekli birim hattı"
+  konusma: ["akçakaya kaymakamlığına bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "51000"}
+
+- id: D08
+  aciklama: "Tek turda kesin aktarma: Dereköy Kaymakamlığı birim hattı"
+  konusma: ["dereköy kaymakamlığı"]
+  beklenen: {eylem: transfer, dahili: "52000"}
+
+- id: D09
+  aciklama: "Tek turda kesin aktarma: Milli Eğitim Müdürlüğü birim hattı"
+  konusma: ["yeşilova il milli eğitim müdürlüğü"]
+  beklenen: {eylem: transfer, dahili: "60000"}
+
+# --- 2. TEK TURDA KİŞİLİ MAKAM VE TEKİL KİŞİLER ---
+- id: D10
+  aciklama: "Tek turda kesin aktarma: Kişili makam unvanla arama (Akçakaya Kaymakamı)"
+  konusma: ["akçakaya kaymakamı ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "51001"}
+
+- id: D11
+  aciklama: "Tek turda kesin aktarma: Kişili makam ad-soyad ile arama (Serkan Doğan)"
+  konusma: ["serkan doğan ile görüşebilir miyim"]
+  beklenen: {eylem: transfer, dahili: "51001"}
+
+- id: D12
+  aciklama: "Tek turda kesin aktarma: Kişili makam ad-soyad ile arama (Okan Yıldırım)"
+  konusma: ["okan yıldırım"]
+  beklenen: {eylem: transfer, dahili: "52001"}
+
+- id: D13
+  aciklama: "Tek turda kesin aktarma: Özel Kalem Müdürü (unvan + ad)"
+  konusma: ["özel kalem müdürü mehmet demir"]
+  beklenen: {eylem: transfer, dahili: "20011"}
+
+- id: D14
+  aciklama: "Tek turda kesin aktarma: Valilik Hukuk Müşaviri tekil makam hattı"
+  konusma: ["valilik hukuk müşaviri"]
+  beklenen: {eylem: transfer, dahili: "20021"}
+
+# --- 3. AKTARILAMAZ HATLAR VE REHBERDE OLMAYANLAR ---
+- id: D15
+  aciklama: "Aktarılamaz makam hattı: Vali doğrudan bağlanamaz"
+  konusma: ["vali bey ile görüşmek istiyorum"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["20001"]}
+
+- id: D16
+  aciklama: "Aktarılamaz makam hattı: Jandarma Komutanı doğrudan bağlanamaz"
+  konusma: ["il jandarma komutanına bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["30001"]}
+
+- id: D17
+  aciklama: "Aktarılamaz destek hattı: Valilik faks/belgegeçer"
+  konusma: ["valilik faks numarasına bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["20009"]}
+
+- id: D18
+  aciklama: "Aktarılamaz destek hattı: Emniyet faks/belgegeçer"
+  konusma: ["emniyet faks hattı"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40009"]}
+
+- id: D19
+  aciklama: "Rehberde olmayan birim: Tapu Müdürlüğü (aktarma yapılmamalı)"
+  konusma: ["tapu müdürlüğüne bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok}
+
+- id: D20
+  aciklama: "Silinmiş kayıt (deleted=true): Eski trafik memuru Zafer Bey bulunamaz"
+  konusma: ["trafikten zafer geçmiş ile görüşecektim"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40099"]}
+
+# --- 4. ÇOK TURLU DARALTMA SENARYOLARI (SEVİYE SEVİYE) ---
+- id: D21
+  aciklama: "Çok turlu daraltma (kurum seçimi): Asayiş Şube Müdürü Jandarma ve Emniyet'te var → Jandarma seçilir"
+  konusma: ["asayiş şube müdürü ile görüşecektim", "jandarma"]
+  beklenen: {eylem: transfer, dahili: "30101"}
+
+- id: D22
+  aciklama: "Çok turlu daraltma (kurum seçimi): Asayiş Şube Müdürü Jandarma ve Emniyet'te var → Emniyet seçilir"
+  konusma: ["asayiş şube müdürüne bağlar mısınız", "emniyet"]
+  beklenen: {eylem: transfer, dahili: "40101"}
+
+- id: D23
+  aciklama: "Çok turlu daraltma (kurum seçimi): Nöbetçi amiri birden çok kurumda var → Jandarma seçilir"
+  konusma: ["nöbetçi amirliği lütfen", "jandarma"]
+  beklenen: {eylem: transfer, dahili: "30080"}
+
+- id: D24
+  aciklama: "Çok turlu daraltma (kurum seçimi): Nöbetçi amiri birden çok kurumda var → Emniyet seçilir"
+  konusma: ["nöbetçi amiri ile görüşmek istiyorum", "emniyet"]
+  beklenen: {eylem: transfer, dahili: "40080"}
+
+- id: D25
+  aciklama: "Çok turlu daraltma (kurum seçimi): Nöbetçi amiri birden çok kurumda var → Valilik seçilir"
+  konusma: ["nöbetçi amiri", "valilik"]
+  beklenen: {eylem: transfer, dahili: "20044"}
+
+- id: D26
+  aciklama: "Çok turlu daraltma (kurum ve büro seçimi): Büro amiri genel sorulur → Emniyet Cinayet Büro Amiri seçilir"
+  konusma: ["büro amiri ile görüşecektim", "emniyet", "cinayet"]
+  beklenen: {eylem: transfer, dahili: "40111"}
+
+- id: D27
+  aciklama: "Çok turlu daraltma (büro seçimi): Emniyet asayiş altındaki hırsızlık büro amiri seçilir"
+  konusma: ["hırsızlık büro amiri lütfen"]
+  beklenen: {eylem: transfer, dahili: "40121"}
+
+- id: D28
+  aciklama: "Çok turlu daraltma (kurum seçimi): Mehmet Kaya iki kurumda var → Milli Eğitim belirtilir"
+  konusma: ["mehmet kaya ile görüşecektim", "milli eğitim"]
+  beklenen: {eylem: transfer, dahili: "60102"}
+
+- id: D29
+  aciklama: "Çok turlu daraltma (kurum seçimi): Mehmet Kaya iki kurumda var → Emniyet belirtilir"
+  konusma: ["mehmet kaya", "emniyet"]
+  beklenen: {eylem: transfer, dahili: "40112"}
+
+- id: D30
+  aciklama: "Çok turlu daraltma (birim seçimi): Ayşe hanım 3 farklı yerde var → Trafik şubesi seçilir"
+  konusma: ["ayşe hanım ile görüşecektim", "trafik"]
+  beklenen: {eylem: transfer, dahili: "40212"}

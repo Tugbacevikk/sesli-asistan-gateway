@@ -1,0 +1,3330 @@
+{
+  "_aciklama": "Sentetik kurum rehberi (demo seti, birim_yolu ve kategori alanlı).",
+  "contacts": [
+    {
+      "id": "v-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova Valiliği",
+      "department_aliases": [
+        "Valilik",
+        "Yeşilova Valilik",
+        "Valilik Makamı"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "20000",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-vali",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova Valiliği",
+      "department_aliases": [
+        "Valilik"
+      ],
+      "title": "Vali",
+      "aliases": [
+        "Yeşilova Valisi",
+        "Vali Bey"
+      ],
+      "extension": "20001",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova Valiliği"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-vali-yrd-1",
+      "kind": "person",
+      "first_name": "Kemal",
+      "last_name": "Yılmaz",
+      "department": "Yeşilova Valiliği",
+      "department_aliases": [
+        "Valilik"
+      ],
+      "title": "Vali Yardımcısı",
+      "aliases": [
+        "Vali Yardımcısı Kemal Bey",
+        "Vali Yardımcısı Kemal Yılmaz"
+      ],
+      "extension": "20002",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-vali-yrd-2",
+      "kind": "person",
+      "first_name": "Zeynep",
+      "last_name": "Kaya",
+      "department": "Yeşilova Valiliği",
+      "department_aliases": [
+        "Valilik"
+      ],
+      "title": "Vali Yardımcısı",
+      "aliases": [
+        "Vali Yardımcısı Zeynep Hanım",
+        "Vali Yardımcısı Zeynep Kaya"
+      ],
+      "extension": "20003",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-kalem-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Özel Kalem Müdürlüğü",
+      "department_aliases": [
+        "Özel Kalem",
+        "Valilik Özel Kalem"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "20010",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Özel Kalem Müdürlüğü"
+      ],
+      "kategori": "kalem",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-kalem-mudur",
+      "kind": "person",
+      "first_name": "Mehmet",
+      "last_name": "Demir",
+      "department": "Valilik Özel Kalem Müdürlüğü",
+      "department_aliases": [
+        "Özel Kalem"
+      ],
+      "title": "Özel Kalem Müdürü",
+      "aliases": [
+        "Özel Kalem Mehmet Bey",
+        "Özel Kalem Müdürü Mehmet Demir"
+      ],
+      "extension": "20011",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Özel Kalem Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-kalem-gorevli-1",
+      "kind": "person",
+      "first_name": "Fatma",
+      "last_name": "Çelik",
+      "department": "Valilik Özel Kalem Müdürlüğü",
+      "department_aliases": [
+        "Özel Kalem"
+      ],
+      "title": "Sekreter",
+      "aliases": [
+        "Fatma Hanım",
+        "Özel Kalem Fatma Hanım"
+      ],
+      "extension": "20012",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Özel Kalem Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-kalem-gorevli-2",
+      "kind": "person",
+      "first_name": "Can",
+      "last_name": "Arslan",
+      "department": "Valilik Özel Kalem Müdürlüğü",
+      "department_aliases": [
+        "Özel Kalem"
+      ],
+      "title": "Protokol Görevlisi",
+      "aliases": [
+        "Can Bey",
+        "Protokol Can Bey"
+      ],
+      "extension": "20013",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Özel Kalem Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-hukuk-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk İşleri",
+        "Valilik Hukuk",
+        "Hukuk Müşavirliği"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "20020",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-hukuk-musavir",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk İşleri",
+        "Valilik Hukuk"
+      ],
+      "title": "Hukuk Müşaviri",
+      "aliases": [
+        "Valilik Hukuk Müşaviri"
+      ],
+      "extension": "20021",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-hukuk-avukat-1",
+      "kind": "person",
+      "first_name": "Ali",
+      "last_name": "Şahin",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk İşleri"
+      ],
+      "title": "Avukat",
+      "aliases": [
+        "Avukat Ali Bey",
+        "Avukat Ali Şahin"
+      ],
+      "extension": "20022",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-hukuk-avukat-2",
+      "kind": "person",
+      "first_name": "Ebru",
+      "last_name": "Koç",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk İşleri"
+      ],
+      "title": "Avukat",
+      "aliases": [
+        "Avukat Ebru Hanım",
+        "Avukat Ebru Koç"
+      ],
+      "extension": "20023",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-ik-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları",
+        "Valilik Personel",
+        "Özlük İşleri"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "20030",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-ik-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları"
+      ],
+      "title": "Şube Müdürü",
+      "aliases": [
+        "Valilik İnsan Kaynakları Şube Müdürü",
+        "Valilik İK Müdürü"
+      ],
+      "extension": "20031",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-ik-uzman-1",
+      "kind": "person",
+      "first_name": "Hasan",
+      "last_name": "Aydın",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları"
+      ],
+      "title": "Özlük Uzmanı",
+      "aliases": [
+        "Hasan Bey",
+        "Özlük Hasan Bey"
+      ],
+      "extension": "20032",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-ik-uzman-2",
+      "kind": "person",
+      "first_name": "Ayşe",
+      "last_name": "Öztürk",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları"
+      ],
+      "title": "Personel Şefi",
+      "aliases": [
+        "Ayşe Hanım",
+        "Şef Ayşe Hanım"
+      ],
+      "extension": "20033",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-ik-memur-1",
+      "kind": "person",
+      "first_name": "Onur",
+      "last_name": "Güneş",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Onur Bey"
+      ],
+      "extension": "20034",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-destek-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek",
+        "İdari İşler"
+      ],
+      "title": "Destek Hizmetleri",
+      "aliases": [
+        "Santral",
+        "Valilik Santral",
+        "Operatör"
+      ],
+      "extension": "20040",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-danisma",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek"
+      ],
+      "title": "Danışma",
+      "aliases": [
+        "Valilik Danışma",
+        "Giriş Danışma"
+      ],
+      "extension": "20041",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-yemekhane",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek"
+      ],
+      "title": "Yemekhane",
+      "aliases": [
+        "Valilik Yemekhane",
+        "Yemekhane Sorumlusu"
+      ],
+      "extension": "20042",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-bilgi-islem",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek"
+      ],
+      "title": "Bilgi İşlem",
+      "aliases": [
+        "Valilik Bilgi İşlem",
+        "Sistem Odası",
+        "Valilik IT"
+      ],
+      "extension": "20043",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-nobetci-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek"
+      ],
+      "title": "Nöbetçi Amiri",
+      "aliases": [
+        "Valilik Nöbetçi Amiri"
+      ],
+      "extension": "20044",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "v-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Valilik Destek Hizmetleri",
+      "department_aliases": [
+        "Valilik Destek",
+        "Valilik"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Valilik Faks",
+        "Valilik Belgegeçer",
+        "Faks Hattı"
+      ],
+      "extension": "20009",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Destek Hizmetleri"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova İl Jandarma Komutanlığı",
+      "department_aliases": [
+        "Jandarma",
+        "İl Jandarma Komutanlığı",
+        "İl Jandarma"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "30000",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-komutan",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Komutanlığı Makamı",
+      "department_aliases": [
+        "İl Jandarma"
+      ],
+      "title": "İl Jandarma Komutanı",
+      "aliases": [
+        "Jandarma Komutanı",
+        "Alay Komutanı",
+        "Komutan"
+      ],
+      "extension": "30001",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-komutan-yrd",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Komutanlığı Makamı",
+      "department_aliases": [
+        "İl Jandarma"
+      ],
+      "title": "Komutan Yardımcısı",
+      "aliases": [
+        "Jandarma Komutan Yardımcısı",
+        "Alay Komutan Yardımcısı"
+      ],
+      "extension": "30002",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-destek-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Destek",
+        "Destek Hizmetleri"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "30070",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-nobetci-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "İl Jandarma",
+        "Jandarma Destek"
+      ],
+      "title": "Nöbetçi Amiri",
+      "aliases": [
+        "Jandarma Nöbetçi Amiri",
+        "Nöbetçi Subayı"
+      ],
+      "extension": "30080",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-nizamiye",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "İl Jandarma",
+        "Jandarma Destek"
+      ],
+      "title": "Nizamiye",
+      "aliases": [
+        "Jandarma Nizamiye",
+        "Ana Giriş Kapısı"
+      ],
+      "extension": "30081",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "İl Jandarma",
+        "Jandarma Destek"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Jandarma Faks",
+        "Jandarma Belgegeçer"
+      ],
+      "extension": "30009",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "30100",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Asayiş Şube Müdürü",
+      "aliases": [
+        "Jandarma Asayiş Müdürü",
+        "Jandarma Asayiş Şube Müdürü"
+      ],
+      "extension": "30101",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-idari-astsubay",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "İdari İşlemler Astsubayı",
+      "aliases": [
+        "Jandarma Asayiş İdari İşlemler"
+      ],
+      "extension": "30110",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-buro-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Jandarma Asayiş Büro Amiri"
+      ],
+      "extension": "30120",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-pers-1",
+      "kind": "person",
+      "first_name": "Uğur",
+      "last_name": "Çelik",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Uğur Astsubay",
+        "Uğur Bey"
+      ],
+      "extension": "30131",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-asayis-pers-2",
+      "kind": "person",
+      "first_name": "Hüseyin",
+      "last_name": "Demir",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Hüseyin Astsubay",
+        "Hüseyin Bey"
+      ],
+      "extension": "30132",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel",
+        "Personel Şube Müdürlüğü"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "30200",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Şube Müdürü",
+      "aliases": [
+        "Jandarma Personel Müdürü",
+        "Jandarma Personel Şube Müdürü"
+      ],
+      "extension": "30201",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-idari-astsubay",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "İdari İşlemler Astsubayı",
+      "aliases": [
+        "Jandarma Personel İdari İşlemler"
+      ],
+      "extension": "30210",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-buro-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Jandarma Personel Büro Amiri"
+      ],
+      "extension": "30220",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-pers-1",
+      "kind": "person",
+      "first_name": "Uğur",
+      "last_name": "Çelik",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Uğur Astsubay",
+        "Uğur Bey"
+      ],
+      "extension": "30231",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-personel-pers-2",
+      "kind": "person",
+      "first_name": "Hüseyin",
+      "last_name": "Demir",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Hüseyin Astsubay",
+        "Hüseyin Bey"
+      ],
+      "extension": "30232",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "30300",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "Şube Müdürü",
+      "aliases": [
+        "Jandarma Lojistik Müdürü",
+        "Jandarma Lojistik Şube Müdürü"
+      ],
+      "extension": "30301",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-idari-astsubay",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "İdari İşlemler Astsubayı",
+      "aliases": [
+        "Jandarma Lojistik İdari İşlemler"
+      ],
+      "extension": "30310",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-buro-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Jandarma Lojistik Büro Amiri"
+      ],
+      "extension": "30320",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-pers-1",
+      "kind": "person",
+      "first_name": "Uğur",
+      "last_name": "Çelik",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Uğur Astsubay",
+        "Uğur Bey"
+      ],
+      "extension": "30331",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "j-lojistik-pers-2",
+      "kind": "person",
+      "first_name": "Hüseyin",
+      "last_name": "Demir",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "Astsubay",
+      "aliases": [
+        "Hüseyin Astsubay",
+        "Hüseyin Bey"
+      ],
+      "extension": "30332",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova İl Emniyet Müdürlüğü",
+      "department_aliases": [
+        "Emniyet",
+        "İl Emniyet",
+        "Polis",
+        "Polis Merkezi",
+        "İl Emniyet Müdürlüğü"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40000",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Müdürlüğü Makamı",
+      "department_aliases": [
+        "Emniyet"
+      ],
+      "title": "İl Emniyet Müdürü",
+      "aliases": [
+        "Emniyet Müdürü",
+        "İl Emniyet Müdürü"
+      ],
+      "extension": "40001",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-mudur-yrd-1",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Müdürlüğü Makamı",
+      "department_aliases": [
+        "Emniyet"
+      ],
+      "title": "İl Emniyet Müdür Yardımcısı",
+      "aliases": [
+        "Emniyet Müdür Yardımcısı"
+      ],
+      "extension": "40002",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-mudur-yrd-2",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Müdürlüğü Makamı",
+      "department_aliases": [
+        "Emniyet"
+      ],
+      "title": "İl Emniyet Müdür Yardımcısı",
+      "aliases": [
+        "Emniyet Müdür Yardımcısı"
+      ],
+      "extension": "40003",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-destek-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Destek",
+        "Destek Hizmetleri"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40070",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-nobetci-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "Emniyet",
+        "Emniyet Destek"
+      ],
+      "title": "Nöbetçi Amiri",
+      "aliases": [
+        "Emniyet Nöbetçi Amiri",
+        "Haber Merkezi Amiri"
+      ],
+      "extension": "40080",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Destek Hizmetleri Müdürlüğü",
+      "department_aliases": [
+        "Emniyet",
+        "Emniyet Destek"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Emniyet Faks",
+        "Emniyet Belgegeçer"
+      ],
+      "extension": "40009",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Destek Hizmetleri Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-asayis-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Asayiş",
+        "Asayiş Şube"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40100",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-asayis-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Asayiş"
+      ],
+      "title": "Asayiş Şube Müdürü",
+      "aliases": [
+        "Emniyet Asayiş Şube Müdürü"
+      ],
+      "extension": "40101",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-cinayet-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Cinayet Bürosu",
+      "department_aliases": [
+        "Cinayet Büro",
+        "Cinayet",
+        "Cinayet Büro Amirliği"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40110",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Cinayet Bürosu"
+      ],
+      "kategori": "büro",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-cinayet-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Cinayet Bürosu",
+      "department_aliases": [
+        "Cinayet Büro",
+        "Cinayet",
+        "Cinayet Büro Amirliği"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Cinayet Büro Amiri",
+        "Cinayet Amiri"
+      ],
+      "extension": "40111",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Cinayet Bürosu"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-cinayet-memur-1",
+      "kind": "person",
+      "first_name": "Mehmet",
+      "last_name": "Kaya",
+      "department": "İl Emniyet Cinayet Bürosu",
+      "department_aliases": [
+        "Cinayet Büro",
+        "Cinayet",
+        "Cinayet Büro Amirliği"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Polis Mehmet Bey",
+        "Mehmet Kaya"
+      ],
+      "extension": "40112",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Cinayet Bürosu"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-cinayet-memur-2",
+      "kind": "person",
+      "first_name": "Ahmet",
+      "last_name": "Yıldız",
+      "department": "İl Emniyet Cinayet Bürosu",
+      "department_aliases": [
+        "Cinayet Büro",
+        "Cinayet",
+        "Cinayet Büro Amirliği"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Polis Ahmet Bey",
+        "Ahmet Bey"
+      ],
+      "extension": "40113",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Cinayet Bürosu"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-hirsizlik-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Hırsızlık Bürosu",
+      "department_aliases": [
+        "Hırsızlık Büro",
+        "Hırsızlık",
+        "Hırsızlık Büro Amirliği"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40120",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Hırsızlık Bürosu"
+      ],
+      "kategori": "büro",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-hirsizlik-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Hırsızlık Bürosu",
+      "department_aliases": [
+        "Hırsızlık Büro",
+        "Hırsızlık",
+        "Hırsızlık Büro Amirliği"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Hırsızlık Büro Amiri",
+        "Hırsızlık Amiri"
+      ],
+      "extension": "40121",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Hırsızlık Bürosu"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-hirsizlik-memur-1",
+      "kind": "person",
+      "first_name": "Burak",
+      "last_name": "Arslan",
+      "department": "İl Emniyet Hırsızlık Bürosu",
+      "department_aliases": [
+        "Hırsızlık Büro",
+        "Hırsızlık",
+        "Hırsızlık Büro Amirliği"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Polis Burak Bey",
+        "Burak Bey"
+      ],
+      "extension": "40122",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Hırsızlık Bürosu"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-gasp-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Gasp Bürosu",
+      "department_aliases": [
+        "Gasp Büro",
+        "Gasp",
+        "Gasp Büro Amirliği"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40130",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Gasp Bürosu"
+      ],
+      "kategori": "büro",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-gasp-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Gasp Bürosu",
+      "department_aliases": [
+        "Gasp Büro",
+        "Gasp",
+        "Gasp Büro Amirliği"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Gasp Büro Amiri",
+        "Gasp Amiri"
+      ],
+      "extension": "40131",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Gasp Bürosu"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-gasp-memur-1",
+      "kind": "person",
+      "first_name": "Emre",
+      "last_name": "Kılıç",
+      "department": "İl Emniyet Gasp Bürosu",
+      "department_aliases": [
+        "Gasp Büro",
+        "Gasp",
+        "Gasp Büro Amirliği"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Polis Emre Bey",
+        "Emre Bey"
+      ],
+      "extension": "40132",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Asayiş Şube Müdürlüğü",
+        "Gasp Bürosu"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-trafik-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik",
+        "Trafik Şube",
+        "Trafik Denetleme"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40200",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-trafik-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik"
+      ],
+      "title": "Trafik Şube Müdürü",
+      "aliases": [
+        "Emniyet Trafik Şube Müdürü"
+      ],
+      "extension": "40201",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-trafik-buro-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Trafik Büro Amiri",
+        "Trafik Tescil Amiri"
+      ],
+      "extension": "40210",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-trafik-memur-1",
+      "kind": "person",
+      "first_name": "Ayşe",
+      "last_name": "Demir",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Ayşe Hanım",
+        "Polis Ayşe Hanım"
+      ],
+      "extension": "40212",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-trafik-memur-2",
+      "kind": "person",
+      "first_name": "Murat",
+      "last_name": "Şen",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Murat Bey",
+        "Trafikçi Murat Bey"
+      ],
+      "extension": "40213",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-narkotik-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Narkotik",
+        "Narkotik Şube",
+        "Narkotik"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "40300",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-narkotik-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Narkotik"
+      ],
+      "title": "Narkotik Şube Müdürü",
+      "aliases": [
+        "Emniyet Narkotik Şube Müdürü"
+      ],
+      "extension": "40301",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-narkotik-buro-amiri",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Narkotik"
+      ],
+      "title": "Büro Amiri",
+      "aliases": [
+        "Narkotik Büro Amiri"
+      ],
+      "extension": "40310",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "e-narkotik-memur-1",
+      "kind": "person",
+      "first_name": "Serkan",
+      "last_name": "Kurt",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Narkotik"
+      ],
+      "title": "Polis Memuru",
+      "aliases": [
+        "Serkan Bey"
+      ],
+      "extension": "40312",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Akçakaya Kaymakamlığı",
+      "department_aliases": [
+        "Akçakaya Kaymakamlık",
+        "Akçakaya İlçe",
+        "Akçakaya"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "51000",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-kaymakam",
+      "kind": "person",
+      "first_name": "Serkan",
+      "last_name": "Doğan",
+      "department": "Akçakaya Kaymakamlığı",
+      "department_aliases": [
+        "Akçakaya Kaymakamlığı"
+      ],
+      "title": "Kaymakam",
+      "aliases": [
+        "Akçakaya Kaymakamı",
+        "Serkan Doğan",
+        "Kaymakam Serkan Bey",
+        "Serkan Bey"
+      ],
+      "extension": "51001",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-yazi-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Akçakaya Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Yazı İşleri",
+        "Yazı İşleri"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "51010",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-yazi-mudur",
+      "kind": "person",
+      "first_name": "Mustafa",
+      "last_name": "Yılmaz",
+      "department": "Akçakaya Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Yazı İşleri"
+      ],
+      "title": "Yazı İşleri Müdürü",
+      "aliases": [
+        "Mustafa Bey",
+        "Yazı İşleri Müdürü Mustafa Bey"
+      ],
+      "extension": "51011",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-yazi-memur-1",
+      "kind": "person",
+      "first_name": "Gizem",
+      "last_name": "Polat",
+      "department": "Akçakaya Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Yazı İşleri"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Gizem Hanım"
+      ],
+      "extension": "51012",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-nufus-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Akçakaya İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Nüfus",
+        "Akçakaya Nüfus Müdürlüğü",
+        "Nüfus"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "51020",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-nufus-mudur",
+      "kind": "person",
+      "first_name": "Elif",
+      "last_name": "Kurt",
+      "department": "Akçakaya İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Nüfus"
+      ],
+      "title": "Nüfus Müdürü",
+      "aliases": [
+        "Elif Hanım",
+        "Nüfus Müdürü Elif Hanım"
+      ],
+      "extension": "51021",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-nufus-memur-1",
+      "kind": "person",
+      "first_name": "Derya",
+      "last_name": "Bulut",
+      "department": "Akçakaya İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Akçakaya Nüfus"
+      ],
+      "title": "Nüfus Memuru",
+      "aliases": [
+        "Derya Hanım"
+      ],
+      "extension": "51022",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-akcakaya-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Akçakaya Kaymakamlığı",
+      "department_aliases": [
+        "Akçakaya Kaymakamlığı"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Akçakaya Faks",
+        "Akçakaya Belgegeçer"
+      ],
+      "extension": "51009",
+      "transferable": false,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Dereköy Kaymakamlığı",
+      "department_aliases": [
+        "Dereköy Kaymakamlık",
+        "Dereköy İlçe",
+        "Dereköy"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "52000",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-kaymakam",
+      "kind": "person",
+      "first_name": "Okan",
+      "last_name": "Yıldırım",
+      "department": "Dereköy Kaymakamlığı",
+      "department_aliases": [
+        "Dereköy Kaymakamlığı"
+      ],
+      "title": "Kaymakam",
+      "aliases": [
+        "Dereköy Kaymakamı",
+        "Okan Yıldırım",
+        "Kaymakam Okan Bey",
+        "Okan Bey"
+      ],
+      "extension": "52001",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-yazi-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Dereköy Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Yazı İşleri",
+        "Yazı İşleri"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "52010",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-yazi-mudur",
+      "kind": "person",
+      "first_name": "Murat",
+      "last_name": "Şahin",
+      "department": "Dereköy Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Yazı İşleri"
+      ],
+      "title": "Yazı İşleri Müdürü",
+      "aliases": [
+        "Murat Bey",
+        "Yazı İşleri Müdürü Murat Bey"
+      ],
+      "extension": "52011",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-yazi-memur-1",
+      "kind": "person",
+      "first_name": "Hilal",
+      "last_name": "Aydın",
+      "department": "Dereköy Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Yazı İşleri"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Hilal Hanım"
+      ],
+      "extension": "52012",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-nufus-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Dereköy İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Nüfus",
+        "Dereköy Nüfus Müdürlüğü",
+        "Nüfus"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "52020",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-nufus-mudur",
+      "kind": "person",
+      "first_name": "Deniz",
+      "last_name": "Polat",
+      "department": "Dereköy İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Nüfus"
+      ],
+      "title": "Nüfus Müdürü",
+      "aliases": [
+        "Deniz Hanım",
+        "Nüfus Müdürü Deniz Hanım"
+      ],
+      "extension": "52021",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-nufus-memur-1",
+      "kind": "person",
+      "first_name": "Tolga",
+      "last_name": "Can",
+      "department": "Dereköy İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Dereköy Nüfus"
+      ],
+      "title": "Nüfus Memuru",
+      "aliases": [
+        "Tolga Bey"
+      ],
+      "extension": "52022",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "k-derekoy-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Dereköy Kaymakamlığı",
+      "department_aliases": [
+        "Dereköy Kaymakamlığı"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Dereköy Faks",
+        "Dereköy Belgegeçer"
+      ],
+      "extension": "52009",
+      "transferable": false,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-kurum",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova İl Milli Eğitim Müdürlüğü",
+      "department_aliases": [
+        "Milli Eğitim",
+        "İl Milli Eğitim",
+        "Milli Eğitim Müdürlüğü",
+        "İl Milli Eğitim Müdürlüğü",
+        "MEB"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "60000",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü"
+      ],
+      "kategori": "kurum",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Milli Eğitim Müdürlüğü Makamı",
+      "department_aliases": [
+        "İl Milli Eğitim"
+      ],
+      "title": "İl Milli Eğitim Müdürü",
+      "aliases": [
+        "Milli Eğitim Müdürü",
+        "İl Müdürü"
+      ],
+      "extension": "60001",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-belgegecer",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "Yeşilova İl Milli Eğitim Müdürlüğü",
+      "department_aliases": [
+        "İl Milli Eğitim"
+      ],
+      "title": "Belgegeçer",
+      "aliases": [
+        "Milli Eğitim Faks",
+        "MEB Faks",
+        "Milli Eğitim Belgegeçer"
+      ],
+      "extension": "60009",
+      "transferable": false,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü"
+      ],
+      "kategori": "destek",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-orta-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "Ortaöğretim Şube",
+        "Ortaöğretim",
+        "Liseler Şubesi"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "60100",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-orta-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "Ortaöğretim Şube"
+      ],
+      "title": "Şube Müdürü",
+      "aliases": [
+        "Ortaöğretim Şube Müdürü",
+        "MEB Ortaöğretim Şube Müdürü"
+      ],
+      "extension": "60101",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-orta-uzman-1",
+      "kind": "person",
+      "first_name": "Mehmet",
+      "last_name": "Kaya",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "Ortaöğretim Şube"
+      ],
+      "title": "Eğitim Uzmanı",
+      "aliases": [
+        "Mehmet Bey",
+        "Eğitim Uzmanı Mehmet Bey",
+        "Mehmet Kaya"
+      ],
+      "extension": "60102",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-orta-uzman-2",
+      "kind": "person",
+      "first_name": "Ayşe",
+      "last_name": "Acar",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "Ortaöğretim Şube"
+      ],
+      "title": "Öğretmen",
+      "aliases": [
+        "Ayşe Hanım",
+        "Öğretmen Ayşe Hanım"
+      ],
+      "extension": "60103",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-orta-memur-1",
+      "kind": "person",
+      "first_name": "Cem",
+      "last_name": "Öztürk",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "Ortaöğretim Şube"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Cem Bey"
+      ],
+      "extension": "60104",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-temel-birim",
+      "kind": "department",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "Temel Eğitim Şube",
+        "Temel Eğitim",
+        "İlkokullar Şubesi"
+      ],
+      "title": "",
+      "aliases": [],
+      "extension": "60200",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "şube",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-temel-mudur",
+      "kind": "role",
+      "first_name": "",
+      "last_name": "",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "Temel Eğitim Şube"
+      ],
+      "title": "Şube Müdürü",
+      "aliases": [
+        "Temel Eğitim Şube Müdürü",
+        "MEB Temel Eğitim Şube Müdürü"
+      ],
+      "extension": "60201",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "makam",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-temel-uzman-1",
+      "kind": "person",
+      "first_name": "Cemil",
+      "last_name": "Erdoğan",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "Temel Eğitim Şube"
+      ],
+      "title": "Eğitim Uzmanı",
+      "aliases": [
+        "Cemil Bey",
+        "Eğitim Uzmanı Cemil Bey"
+      ],
+      "extension": "60202",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-temel-uzman-2",
+      "kind": "person",
+      "first_name": "Selin",
+      "last_name": "Yurt",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "Temel Eğitim Şube"
+      ],
+      "title": "Eğitim Uzmanı",
+      "aliases": [
+        "Selin Hanım"
+      ],
+      "extension": "60203",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "m-temel-memur-1",
+      "kind": "person",
+      "first_name": "İbrahim",
+      "last_name": "Bozkurt",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "Temel Eğitim Şube"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "İbrahim Bey"
+      ],
+      "extension": "60204",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-3-yasemin-polat",
+      "kind": "person",
+      "first_name": "Yasemin",
+      "last_name": "Polat",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Yasemin Polat",
+        "Yasemin Hanım"
+      ],
+      "extension": "30103",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-4-tolga-koç",
+      "kind": "person",
+      "first_name": "Tolga",
+      "last_name": "Koç",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Tolga Koç",
+        "Tolga Bey"
+      ],
+      "extension": "30204",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-5-ceren-bozkurt",
+      "kind": "person",
+      "first_name": "Ceren",
+      "last_name": "Bozkurt",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Ceren Bozkurt",
+        "Ceren Hanım"
+      ],
+      "extension": "30305",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-6-okan-acar",
+      "kind": "person",
+      "first_name": "Okan",
+      "last_name": "Acar",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Trafik"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Okan Acar",
+        "Okan Bey"
+      ],
+      "extension": "40206",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-7-hakan-kaya",
+      "kind": "person",
+      "first_name": "Hakan",
+      "last_name": "Kaya",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Narkotik"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Hakan Kaya",
+        "Hakan Bey"
+      ],
+      "extension": "40307",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-8-hilal-kaya",
+      "kind": "person",
+      "first_name": "Hilal",
+      "last_name": "Kaya",
+      "department": "Akçakaya Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Yazı İşleri"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Hilal Kaya",
+        "Hilal Hanım"
+      ],
+      "extension": "51008",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-12-hakan-kaplan",
+      "kind": "person",
+      "first_name": "Hakan",
+      "last_name": "Kaplan",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "MEB"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Hakan Kaplan",
+        "Hakan Bey"
+      ],
+      "extension": "60112",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-13-i̇rem-şahin",
+      "kind": "person",
+      "first_name": "İrem",
+      "last_name": "Şahin",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "MEB"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "İrem Şahin",
+        "İrem Hanım"
+      ],
+      "extension": "60213",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-14-deniz-kılıç",
+      "kind": "person",
+      "first_name": "Deniz",
+      "last_name": "Kılıç",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Deniz Kılıç",
+        "Deniz Hanım"
+      ],
+      "extension": "20014",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-15-uğur-kurt",
+      "kind": "person",
+      "first_name": "Uğur",
+      "last_name": "Kurt",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İK"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Uğur Kurt",
+        "Uğur Bey"
+      ],
+      "extension": "20015",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-16-hüseyin-kılıç",
+      "kind": "person",
+      "first_name": "Hüseyin",
+      "last_name": "Kılıç",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Hüseyin Kılıç",
+        "Hüseyin Bey"
+      ],
+      "extension": "30116",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-17-onur-öztürk",
+      "kind": "person",
+      "first_name": "Onur",
+      "last_name": "Öztürk",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Onur Öztürk",
+        "Onur Bey"
+      ],
+      "extension": "30217",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-18-tolga-demir",
+      "kind": "person",
+      "first_name": "Tolga",
+      "last_name": "Demir",
+      "department": "İl Jandarma Lojistik Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Lojistik"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Tolga Demir",
+        "Tolga Bey"
+      ],
+      "extension": "30318",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Lojistik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-19-ömer-yıldız",
+      "kind": "person",
+      "first_name": "Ömer",
+      "last_name": "Yıldız",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Trafik"
+      ],
+      "title": "Uzman",
+      "aliases": [
+        "Ömer Yıldız",
+        "Ömer Bey"
+      ],
+      "extension": "40219",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-20-mustafa-kurt",
+      "kind": "person",
+      "first_name": "Mustafa",
+      "last_name": "Kurt",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Narkotik"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Mustafa Kurt",
+        "Mustafa Bey"
+      ],
+      "extension": "40320",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-23-gamze-polat",
+      "kind": "person",
+      "first_name": "Gamze",
+      "last_name": "Polat",
+      "department": "Dereköy Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Yazı İşleri"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Gamze Polat",
+        "Gamze Hanım"
+      ],
+      "extension": "52023",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-24-murat-kılıç",
+      "kind": "person",
+      "first_name": "Murat",
+      "last_name": "Kılıç",
+      "department": "Dereköy İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Nüfus"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Murat Kılıç",
+        "Murat Bey"
+      ],
+      "extension": "52024",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-25-fatma-acar",
+      "kind": "person",
+      "first_name": "Fatma",
+      "last_name": "Acar",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "MEB"
+      ],
+      "title": "Uzman",
+      "aliases": [
+        "Fatma Acar",
+        "Fatma Hanım"
+      ],
+      "extension": "60125",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-26-zeynep-koç",
+      "kind": "person",
+      "first_name": "Zeynep",
+      "last_name": "Koç",
+      "department": "İl Milli Eğitim Temel Eğitim Şube Müdürlüğü",
+      "department_aliases": [
+        "MEB"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Zeynep Koç",
+        "Zeynep Hanım"
+      ],
+      "extension": "60226",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Temel Eğitim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-27-hakan-çelik",
+      "kind": "person",
+      "first_name": "Hakan",
+      "last_name": "Çelik",
+      "department": "Valilik Hukuk İşleri Şube Müdürlüğü",
+      "department_aliases": [
+        "Hukuk"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Hakan Çelik",
+        "Hakan Bey"
+      ],
+      "extension": "20027",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "Hukuk İşleri Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-28-okan-öztürk",
+      "kind": "person",
+      "first_name": "Okan",
+      "last_name": "Öztürk",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İK"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Okan Öztürk",
+        "Okan Bey"
+      ],
+      "extension": "20028",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-29-serkan-yıldız",
+      "kind": "person",
+      "first_name": "Serkan",
+      "last_name": "Yıldız",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Uzman",
+      "aliases": [
+        "Serkan Yıldız",
+        "Serkan Bey"
+      ],
+      "extension": "30129",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-30-kemal-koç",
+      "kind": "person",
+      "first_name": "Kemal",
+      "last_name": "Koç",
+      "department": "İl Jandarma Personel Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Personel"
+      ],
+      "title": "Uzman",
+      "aliases": [
+        "Kemal Koç",
+        "Kemal Bey"
+      ],
+      "extension": "30230",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Personel Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-32-emre-kılıç",
+      "kind": "person",
+      "first_name": "Emre",
+      "last_name": "Kılıç",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Trafik"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Emre Kılıç",
+        "Emre Bey"
+      ],
+      "extension": "40232",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-33-hüseyin-kurt",
+      "kind": "person",
+      "first_name": "Hüseyin",
+      "last_name": "Kurt",
+      "department": "İl Emniyet Narkotik Şube Müdürlüğü",
+      "department_aliases": [
+        "Narkotik"
+      ],
+      "title": "Memur",
+      "aliases": [
+        "Hüseyin Kurt",
+        "Hüseyin Bey"
+      ],
+      "extension": "40333",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Narkotik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-34-merve-bulut",
+      "kind": "person",
+      "first_name": "Merve",
+      "last_name": "Bulut",
+      "department": "Akçakaya Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Yazı İşleri"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Merve Bulut",
+        "Merve Hanım"
+      ],
+      "extension": "51034",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-35-burak-acar",
+      "kind": "person",
+      "first_name": "Burak",
+      "last_name": "Acar",
+      "department": "Akçakaya İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Nüfus"
+      ],
+      "title": "Tekniker",
+      "aliases": [
+        "Burak Acar",
+        "Burak Bey"
+      ],
+      "extension": "51035",
+      "transferable": true,
+      "birim_yolu": [
+        "Akçakaya Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-36-burak-şen",
+      "kind": "person",
+      "first_name": "Burak",
+      "last_name": "Şen",
+      "department": "Dereköy Yazı İşleri Müdürlüğü",
+      "department_aliases": [
+        "Yazı İşleri"
+      ],
+      "title": "VHKİ",
+      "aliases": [
+        "Burak Şen",
+        "Burak Bey"
+      ],
+      "extension": "52036",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "Yazı İşleri Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-37-zeynep-arslan",
+      "kind": "person",
+      "first_name": "Zeynep",
+      "last_name": "Arslan",
+      "department": "Dereköy İlçe Nüfus Müdürlüğü",
+      "department_aliases": [
+        "Nüfus"
+      ],
+      "title": "Şef",
+      "aliases": [
+        "Zeynep Arslan",
+        "Zeynep Hanım"
+      ],
+      "extension": "52037",
+      "transferable": true,
+      "birim_yolu": [
+        "Dereköy Kaymakamlığı",
+        "İlçe Nüfus Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "ekstra-38-hakan-bulut",
+      "kind": "person",
+      "first_name": "Hakan",
+      "last_name": "Bulut",
+      "department": "İl Milli Eğitim Ortaöğretim Şube Müdürlüğü",
+      "department_aliases": [
+        "MEB"
+      ],
+      "title": "Uzman",
+      "aliases": [
+        "Hakan Bulut",
+        "Hakan Bey"
+      ],
+      "extension": "60138",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Milli Eğitim Müdürlüğü",
+        "Ortaöğretim Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": false
+    },
+    {
+      "id": "del-valilik-eski-personel",
+      "kind": "person",
+      "first_name": "Bülent",
+      "last_name": "Eski",
+      "department": "Valilik İnsan Kaynakları Şube Müdürlüğü",
+      "department_aliases": [
+        "İnsan Kaynakları"
+      ],
+      "title": "Eski Uzman",
+      "aliases": [
+        "Bülent Bey"
+      ],
+      "extension": "20099",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova Valiliği",
+        "İnsan Kaynakları Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": true
+    },
+    {
+      "id": "del-jandarma-eski-astsubay",
+      "kind": "person",
+      "first_name": "Kemal",
+      "last_name": "Ayrılan",
+      "department": "İl Jandarma Asayiş Şube Müdürlüğü",
+      "department_aliases": [
+        "Jandarma Asayiş"
+      ],
+      "title": "Eski Astsubay",
+      "aliases": [
+        "Kemal Bey"
+      ],
+      "extension": "30099",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Jandarma Komutanlığı",
+        "Asayiş Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": true
+    },
+    {
+      "id": "del-emniyet-eski-memur",
+      "kind": "person",
+      "first_name": "Zafer",
+      "last_name": "Geçmiş",
+      "department": "İl Emniyet Trafik Şube Müdürlüğü",
+      "department_aliases": [
+        "Emniyet Trafik"
+      ],
+      "title": "Eski Polis Memuru",
+      "aliases": [
+        "Zafer Bey"
+      ],
+      "extension": "40099",
+      "transferable": true,
+      "birim_yolu": [
+        "Yeşilova İl Emniyet Müdürlüğü",
+        "Trafik Şube Müdürlüğü"
+      ],
+      "kategori": "kişi",
+      "updated_at": "2026-11-09T08:00:00Z",
+      "deleted": true
+    }
+  ]
+}
