@@ -149,7 +149,7 @@ class GatewaySettings(BaseSettings):
     #   announce: kapanış anonsu + kapat; assistant: asistan çalışır, operatör yerine anons + kapat
     timezone: str = "Europe/Istanbul"         # boş: sunucunun yerel saati
 
-    # Koddan söylenen cümleler (tasarim.md 13). Boş: varsayılan metin (core/dialog.py DialogTexts).
+    # Koddan söylenen cümleler (tasarim.md 13). Boş: varsayılan metin (core/dialog/common.py DialogTexts).
     # Yer tutucular: {kurum} {kurum_e} (karşılama), {ad} {ad_e} (kişiye aktarma), {birim} (birime aktarma).
     greeting_text: str = ""
     not_understood_text: str = ""

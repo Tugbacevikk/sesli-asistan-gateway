@@ -1916,6 +1916,19 @@ ondan bağımsızdır.
   konmaz (`data/yerel/`).
 - **Sonuç:** Kurum dosyası olmadan bu bozmalar düzeltilmez; kurulumda kurumun denemelerinden çıkan listeyle doldurulur.
 
+### ADR-034 — Diyalog yöneticisi konu konu modüllere bölündü
+
+- **Bağlam:** `core/dialog.py` 2.000 satıra, `DialogAgent` 96 yönteme ulaştı. Adımlar, seçim, aktarma denetimleri ve
+  LLM döngüsü aynı dosyadaydı; bir yerdeki değişiklik başka bir adımı etkiliyordu (09.11.2026: aktarma denetimi ile
+  "hangisi?" sorusu arasında sonsuz özyineleme; açık birim sorusunun cevabı çoklu hedef sayıldı).
+- **Karar:** `core/dialog/` paketi; davranış değişmedi, yöntemler aynen taşındı. `common` (sabitler, ayarlar, oturum,
+  yardımcılar), `agent` (`DialogAgent`: giriş noktası, `handle_user`), karışım sınıfları: `steps` (akış adımları,
+  `STEPS`), `rules` (hızlı yol, rehber taraması, birim / konu adımı), `choice` ("hangisi?", birim yoluyla daraltma,
+  seçim), `transfer` (kodla aktarma ve öncesindeki denetimler, teyit, operatör, sayaç, santral sonucu), `llm` (LLM
+  döngüsü). Karışım sınıflarında yöntemler `self: DialogAgent` ile yazılır: mypy birbirini çağıran yöntemleri denetler.
+  İçe aktarma yolu aynı (`sesli_asistan.gateway.core.dialog`), log adı aynı.
+- **Sonuç:** Bir konunun değişikliği tek dosyada; senaryo setleri CI'da (kural modu) bölünmeden önceki sonucu verir.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği
@@ -2021,7 +2034,7 @@ sesli-asistan-gateway/
 │   │   │   ├── stt/          # grpc_client.py (Gateway → STT)
 │   │   │   ├── pbx/          # rest.py: Gateway → santral eylemleri (yeniden deneme)
 │   │   │   └── mcp/          # rehber.py: rehber MCP sunucusunun istemcisi (LLM_TOOLS=mcp)
-│   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog.py, tools.py,
+│   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog/ (ADR-034), tools.py,
 │   │   │                     #   policy.py, search.py, directory.py, speech.py, models.py, ports.py
 │   │   ├── api/              # app.py: REST uçları (FastAPI); ui.py + ui.html: arayüz (ADR-014)
 │   │   ├── config.py         # GatewaySettings
@@ -2060,7 +2073,7 @@ sesli-asistan-gateway/
 
 ### Ek B — Sistem promptu
 
-Kaynak: `gateway/core/dialog.py` → `SYSTEM_PROMPT` ve `FEW_SHOT` (buradaki metin kodla aynı tutulur, test:
+Kaynak: `gateway/core/dialog/common.py` → `SYSTEM_PROMPT` ve `FEW_SHOT` (buradaki metin kodla aynı tutulur, test:
 `tests/unit/test_prompt.py`; değişiklik kodda yapılır, kurum kendi şablonunu `LLM_PROMPT_PATH` ile verebilir).
 İstemin sonuna sırayla eklenir (ADR-024): `LLM_FEW_SHOT=true` ise örnekler, `LLM_PROMPT_DEPARTMENTS>0` ise kurumun
 birim listesi ("Bu kurumdaki birimler (Department alanına bunlardan birini yaz): …"; rehberden, yalnız rehber
