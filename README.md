@@ -4,10 +4,36 @@ Santrale gelen çağrıyı Türkçe karşılayan, arayanın söylediği kişi ve
 bulan ve çağrıyı ilgili dahiliye aktaran sesli asistan.
 
 ```
-Santral ──RTP (G.711)──► Gateway ──gRPC──► STT (Silero VAD + Whisper medium)
-   ▲                        │  └──HTTP──► LLM (Ollama, qwen3.5:4b) + InContacts / TransferCall
-   └──RTP + REST (aktar)────┘  └──HTTP──► TTS (Piper)
+Santral ──RTP (G.711 / G.722)──► Gateway ──gRPC──► STT (Silero VAD + mihu akışlı model; GPU'da Whisper)
+   ▲                                │  ├──MCP──► yerel rehber sunucusu (konu adımı)
+   │                                │  ├──HTTP─► LLM (Ollama, qwen3.5) + InContacts / TransferCall
+   └──RTP + REST (aktar)────────────┘  └──HTTP─► TTS (Piper)
 ```
+
+## Kod haritası
+
+Bir çağrının yolu, baştan sona (`src/sesli_asistan/`):
+
+1. **Santral → Gateway:** `gateway/api/app.py` (REST: çağrı aç / olay / kapat) → `core/manager.py` (çağrı ve port
+   havuzu) → `core/call.py` (`CallSession`: karşılama, dinleme, söze girme, sessizlik, aktarma; ses
+   `adapters/rtp/`). Tarayıcıdan deneme aynı oturumu kullanır (`api/ui.py`).
+2. **Ses → metin:** `adapters/stt/` (gRPC istemcisi) → ayrı servis `stt/` (`service.py`: akış, `vad.py`: cümle
+   sınırı, `sherpa_engine.py` / `engine.py`: tanıma). Arka plan sesi ve söze girme: `core/level.py`.
+3. **Metin → karar:** `core/dialog/` (`DialogAgent.handle_user`). Söz sırayla `steps.py`'deki adımlardan
+   (`STEPS`) geçer; ilk cevap veren turu bitirir:
+   - `rules.py`: hızlı yol (tam ad, birim, dahili), unvan ve kişi çözme, konu adımı (MCP)
+   - `choice.py`: birden çok aday → "hangisi?" (birim yoluyla seviye seviye) ve cevaptan seçim
+   - `transfer.py`: aktarmadan önceki denetimler (teyit, aktarılamaz makam, belgegeçer), operatör, deneme sayacı
+   - `llm.py`: kurallar çözemezse LLM döngüsü (araçlar: `core/tools.py`)
+4. **Rehber:** `core/search.py` (bulanık arama, Türkçe ekler), `core/people/` (ad, birim, unvan kuralları; `resolve_person`),
+   `core/units.py` (birim yolu), `core/directory.py` (önbellek, yenileme). Kaynaklar: `adapters/directory/`;
+   dosyayla yükleme `directory_import.py` + `abbreviations.py` (kısaltma açma).
+5. **Aktarma güvenliği:** `core/policy.py` (yalnız rehberde aktarılabilir dahili) ← `core/tools.py` (TransferCall).
+6. **Metin → ses:** `core/speech.py` (cümle cümle seslendirme, sabit anonslar) → `adapters/tts/` → servis `tts/`.
+
+Kurulum ve bağlama: `gateway/composition.py` (ayardan nesneler), `config.py` (bütün ayarlar). Kuruma özgü ayarlar
+kodda değil dosyalarda: rehber, kısaltmalar ve STT düzeltmeleri (`ABBREVIATIONS_PATH`), konular (`MCP_TOPICS_PATH`).
+Davranışın ölçüsü: `tests/data/diyalog_seti*.yaml` (CI'da kural modunda koşar, `tests/unit/test_diyalog_setleri.py`).
 
 Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim.md](docs/tasarim.md)**.
 Ölçüm kayıtları: **[docs/olcumler.md](docs/olcumler.md)**.

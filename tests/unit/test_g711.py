@@ -12,12 +12,17 @@ def test_bilinen_degerler():
     assert g711.ALAW_INT16[0x55] == -8
 
 
+
+def _decode_int16(payload, codec):
+    return {"pcmu": g711.ULAW_INT16, "pcma": g711.ALAW_INT16}[codec][np.frombuffer(payload, dtype=np.uint8)]
+
+
 @pytest.mark.parametrize("codec", ["pcma", "pcmu"])
 def test_tum_kodlar_kodla_coz_ayni_kalir(codec):
     # her G.711 kodu çözülüp yeniden kodlanınca aynı kod çıkmalı (μ-law'da +0/-0 hariç)
     codes = np.arange(256, dtype=np.uint8).tobytes()
-    pcm = g711.decode_int16(codes, codec)
-    again = g711.decode_int16(g711.encode_int16(pcm, codec), codec)
+    pcm = _decode_int16(codes, codec)
+    again = _decode_int16(g711.encode_int16(pcm, codec), codec)
     assert np.array_equal(pcm, again)
 
 
@@ -33,7 +38,7 @@ def test_sinyal_hatasi_kucuk(codec):
 def test_sinirda_tasma_yok():
     x = np.array([-32768, 32767, -1, 0, 1], np.int16)
     for codec in g711.CODECS:
-        y = g711.decode_int16(g711.encode_int16(x, codec), codec)
+        y = _decode_int16(g711.encode_int16(x, codec), codec)
         assert np.all(np.sign(y[:2]) == [-1, 1])
 
 

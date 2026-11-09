@@ -4,10 +4,6 @@ from __future__ import annotations
 from sesli_asistan.libs.text.normalizer import fold_tr_words
 
 
-def _fold_words(text: str) -> list[str]:
-    return fold_tr_words(text)
-
-
 class SttCorrections:
     """Kurumun STT düzeltmeleri (ADR-033): konuşma tanımanın o kuruma özgü adları sık bozduğu biçimler ("masaj
     bakanlığı" → "asayiş başkanlığı", "ama tepe" → "Anıttepe"). Kurum dosyasında (ABBREVIATIONS_PATH)
@@ -16,7 +12,7 @@ class SttCorrections:
     bakanlığına" → "asayiş başkanlığına"). Uzun kural önce."""
 
     def __init__(self, table: dict[str, str] | None = None):
-        rules = [(tuple(_fold_words(k)), v.strip()) for k, v in (table or {}).items() if v.strip()]
+        rules = [(tuple(fold_tr_words(k)), v.strip()) for k, v in (table or {}).items() if v.strip()]
         self.rules = sorted((r for r in rules if r[0]), key=lambda r: -len(r[0]))
 
     def __bool__(self) -> bool:
@@ -26,7 +22,7 @@ class SttCorrections:
         if not self.rules or not text:
             return text
         toks = text.split()
-        folded = [" ".join(_fold_words(t)) for t in toks]
+        folded = [" ".join(fold_tr_words(t)) for t in toks]
         out: list[str] = []
         i = 0
         while i < len(toks):

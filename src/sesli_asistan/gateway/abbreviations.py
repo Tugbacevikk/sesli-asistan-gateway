@@ -21,10 +21,6 @@ from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
 from .core.corrections import SttCorrections
 
-
-def _fold_words(text: str) -> list[str]:
-    return fold_tr_words(text)
-
 # kısaltma: harfler + nokta, ardından isteğe bağlı nokta sonrası ek ("Bşk.lığı", "Md.lüğü", "K.lığı")
 _TOKEN = re.compile(r"(?<![\wçğıöşüÇĞİÖŞÜâ])([A-Za-zÇĞİÖŞÜçğıöşüâÂ]+\.(?:l[ıiuü]ğ[ıiuü]|[ıiuü]|l[ıiuü]k)?)")
 
@@ -39,7 +35,7 @@ class Abbreviations:
         self.table = {_key(k): v.strip() for k, v in (table or {}).items() if k.strip() and v.strip()}
         self.words = {_key(k): v.strip() for k, v in (words or {}).items() if k.strip() and v.strip()}
         # kurumun hat adlarında geçen, kişi adı olmayan yer / birim sözcükleri ("ad_olmayan_sozcukler", katlanmış)
-        self.not_names = frozenset(w for n in not_names for w in _fold_words(n))
+        self.not_names = frozenset(w for n in not_names for w in fold_tr_words(n))
 
     def __len__(self) -> int:
         return len(self.table)

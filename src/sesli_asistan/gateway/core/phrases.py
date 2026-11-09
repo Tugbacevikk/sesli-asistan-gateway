@@ -7,9 +7,9 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
+from sesli_asistan.libs.text.normalizer import TR_FOLD, fold_tr_words, turkish_lower
 
-from .search import _FOLD, search_key, similarity, strip_suffix
+from .search import search_key, similarity, strip_suffix
 from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
@@ -103,8 +103,7 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
                    "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
 
 
-def _folded_words(text: str) -> list[str]:
-    return fold_tr_words(text)
+_folded_words = fold_tr_words      # kısa ad (diyalog modüllerinde çok kullanılır)
 
 
 _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
@@ -204,7 +203,7 @@ def asks_operator(text: str) -> bool:
 def wants_hangup(text: str, strict: bool = False) -> bool:
     """"görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "vazgeçtim", "teşekkürler görüşürüz". `strict`
     (STT güveni çok düşük): kök yalnız kurallı bir fiil ekiyle ("kapatın", "kapatabilirsiniz"; "kapatıya" değil)."""
-    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(_FOLD)).split())
+    t = " ".join(re.sub(r"[^\w\s]", " ", turkish_lower(text).translate(TR_FOLD)).split())
     words = t.split()
     for w in words:
         # olumsuz: "kapatma", "kapatmayın", "sonlandırmadan" (ama "kapatmak", "sonlandırmak" olumlu)
