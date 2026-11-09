@@ -1069,8 +1069,8 @@ class DialogAgent:
         "müdürü" ~ "Müdürlüğü" benzerliğiyle Asayiş Şube Müdürlüklerinin birim hatları aday olabiliyor."""
         if all(c.contact.unit_path for c in cands):
             cands = self._titled_inside(s, cands)
-            if len(cands) == 1:
-                return self._code_transfer(s, cands[0])
+        # tek aday kalırsa burada aktarılmaz: çağıran kendi akışına devam eder (_code_transfer → _topic_clash →
+        # _clarify → buraya dönen bir döngü olmasın)
         contacts = [c.contact for c in cands]
         level = units.split_level(contacts)
         if level is None:
