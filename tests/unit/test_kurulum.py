@@ -39,7 +39,8 @@ def test_gizli_degerler_yalniz_secrets_env_de():
     for name in ("gateway.env", "stt.env", "tts.env"):
         text = (DEPLOY / "ayar" / name).read_text(encoding="utf-8")
         assert not re.search(r"^(API_KEY|PBX_API_KEY)=", text, re.M), name
-    assert re.search(r"^API_KEY=$", (DEPLOY / "ayar" / "secrets.env").read_text(), re.M)   # kurulum üretir
+    secrets = (DEPLOY / "ayar" / "secrets.env").read_text(encoding="utf-8")
+    assert re.search(r"^API_KEY=$", secrets, re.M)   # kurulum üretir
 
 
 def _deps(spec: list[str]) -> set[str]:
@@ -143,7 +144,7 @@ def test_kaldir_veriler_kalir(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert not onek.exists() and not onb.exists()
     assert (ayar / "secrets.env").exists() and (veri / "rehber.json").exists() and not yedek.exists()
-    log = (tmp_path / "komutlar.log").read_text()
+    log = (tmp_path / "komutlar.log").read_text(encoding="utf-8")
     assert "disable -q --now sesli-gateway" in log and "daemon-reload" in log and "userdel" not in log
 
 
@@ -160,7 +161,7 @@ def test_kaldir_verilerle_once_yedek_alir(tmp_path):
     with tarfile.open(arsiv[0]) as t:
         assert {"ayar/secrets.env", "veri/rehber.json"} <= set(t.getnames())
     has_user = subprocess.run(["id", "sesli"], capture_output=True).returncode == 0
-    assert ("userdel sesli" in (tmp_path / "komutlar.log").read_text()) == has_user
+    assert ("userdel sesli" in (tmp_path / "komutlar.log").read_text(encoding="utf-8")) == has_user
 
 
 def test_kaldir_onaysiz_ve_tehlikeli_onek_reddedilir(tmp_path):
@@ -187,7 +188,8 @@ def _gpg_anahtari(home, ad):
 
 def _imza_dogrula(tmp_path, paket, imzasiz=0, anahtar=""):
     """install.sh'taki imza_dogrula işlevi tek başına (kurulumun geri kalanı çalışmadan)."""
-    fn = re.search(r"^IMZA_HALKASI=.*?^}\n", (ROOT / "deploy/install.sh").read_text(), re.S | re.M).group(0)
+    install = (ROOT / "deploy/install.sh").read_text(encoding="utf-8")
+    fn = re.search(r"^IMZA_HALKASI=.*?^}\n", install, re.S | re.M).group(0)
     script = ('set -Eeuo pipefail\nbilgi() { echo "BILGI $*"; }\nuyari() { echo "UYARI $*"; }\n'
               'dur() { echo "DUR $*"; exit 1; }\n' + fn + "imza_dogrula\n")
     env = {**os.environ, "AYAR": str(tmp_path / "ayar"), "PAKET": str(paket), "IMZASIZ": str(imzasiz),

@@ -68,7 +68,10 @@ def main(argv: list[str] | None = None) -> int:
 
     x, rate = read_wav(a.wav)
     x16 = resample(x, rate, SAMPLE_RATE) if rate != SAMPLE_RATE else x
-    utts = split(x16, make_detector("silero", a.vad_model, a.esik), SegmenterConfig(end_silence_ms=a.sessizlik_ms))
+    # ön pay 350 ms'de sabit: kayıtların kendi payı (0,3 sn) var; STT'nin 500 ms'si okuma setlerini uzatıp önceki
+    # ölçümlerle karşılaştırmayı bozardı
+    cfg = SegmenterConfig(end_silence_ms=a.sessizlik_ms, pre_roll_ms=350)
+    utts = split(x16, make_detector("silero", a.vad_model, a.esik), cfg)
     utts = [u for i, u in enumerate(utts, 1) if i not in a.atla]
     names = [f"k{i:02d}.wav" for i in range(1, len(utts) + 1)]
     if a.tsv:

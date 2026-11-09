@@ -90,7 +90,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Konu adımına giriş (09.11.2026 eklenen niyet şartı): niyet sözcükleri eksiz eşlendiği için "arızam var", "su arızası
   bildireceğim" ve "ik ile görüşebilir miyim" (D06) konu adımını atlıyordu. Artık yalnız tek sözcüklü, niyet kökü
   ya da birim adı içermeyen kırıntı atlanır; kökler ön ekle eşlenir.
-- Bulunamayan aramalar listesine aynı söz iki kez, santral olayları ya da yalnız "evet / hayır / hiçbiri" yazılmaz.
+- Testler dosyaları açıkça UTF-8 okur (Windows'ta cp1254 ile okunup başarısız oluyordu).
 - Gerçek LLM ölçümünün (06.11.2026, qwen3.5:4b, kamu %90,5) bulguları: aktarılamaz makam ("valiyle") LLM açıkken de
   kodla kurumun genel hattına gider (LLM vali yardımcılarını soruyordu); "şu" katlanınca "su" olduğundan "şu kişiyle
   görüşmek istiyorum" Su ve Kanalizasyon İdaresi'ne aktarılıyordu ("su" tek başına birim sayılmaz); iyelik ekli birim

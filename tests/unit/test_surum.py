@@ -30,10 +30,10 @@ def test_hazirla_surumu_ve_basligi_gunceller(tmp_path):
     kok = kopya(tmp_path)
     old = surum.pyproject_version(kok)
     new = ".".join([*old.split(".")[:1], str(int(old.split(".")[1]) + 1), "0"])
-    unreleased = surum.sections((kok / "CHANGELOG.md").read_text())[surum.YAYIMLANMAMIS]
+    unreleased = surum.sections((kok / "CHANGELOG.md").read_text(encoding="utf-8"))[surum.YAYIMLANMAMIS]
     surum.prepare(new, kok, today=dt.date(2026, 11, 2))
     assert surum.pyproject_version(kok) == new
-    text = (kok / "CHANGELOG.md").read_text()
+    text = (kok / "CHANGELOG.md").read_text(encoding="utf-8")
     sec = surum.sections(text)
     assert sec[surum.YAYIMLANMAMIS] == "" and sec[new] == unreleased
     assert f"## [{new}] — 2026-11-02" in text and f"compare/v{new}...HEAD" in text
@@ -57,6 +57,6 @@ def test_geri_surum_hazirlanamaz(tmp_path):
 
 
 def test_ci_surum_isi_denetimleri_cagirir():
-    wf = (ROOT / ".github/workflows/surum.yml").read_text()
+    wf = (ROOT / ".github/workflows/surum.yml").read_text(encoding="utf-8")
     assert "uses: ./.github/workflows/ci.yml" in wf and "surum.py denetle" in wf and "needs: denetim" in wf
-    assert "workflow_call" in (ROOT / ".github/workflows/ci.yml").read_text()
+    assert "workflow_call" in (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")

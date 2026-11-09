@@ -1024,24 +1024,12 @@ class DialogAgent:
     def _not_found(self, s: DialogSession) -> DialogTurn:
         """Kodla "bulamadım" (ADR-019): deneme sayılır; sondan bir önceki denemede operatör teklif edilir, sonda
         operatöre aktarılır."""
-        self._note_miss(s)
         if (turn := self._count_failure(s)) is not None:
             return turn
         last = s.state.failed_attempts == self.cfg.max_failed_attempts - 1
         turn = self._reply(s, self.cfg.texts.not_found_again if last else self.cfg.texts.not_found)
         turn.fallback = True
         return turn
-
-    @staticmethod
-    def _note_miss(s: DialogSession) -> None:
-        """İzleme'deki "bulunamayan aramalar" için arayanın son sözü (rehbere takma ad eklemek için). Aynı söz iki kez
-        yazılmaz; santral olayları ve yalnız evet / hayır / "hiçbiri" gibi cevaplar arama sayılmaz."""
-        heard = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "").strip()
-        if not heard or heard.startswith("[Santral]") or (s.state.misses and s.state.misses[-1] == heard):
-            return
-        if set(_folded_words(heard)) <= _YES | _NEGATION | _FILLER | {"yanlis", "hicbiri", "hicbirisi"}:
-            return
-        s.state.misses.append(heard)
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 

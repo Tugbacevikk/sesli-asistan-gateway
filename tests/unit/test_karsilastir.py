@@ -46,7 +46,7 @@ def test_tablo_ve_wer(tmp_path, monkeypatch, capsys):
     text = capsys.readouterr().out
     assert "| c1.wav | Ayşe Yılmaz | aşağıya yılmaz | ayşe yılmaz |" in text
     import json
-    s = json.loads(out.read_text())["ozet"]
+    s = json.loads(out.read_text(encoding="utf-8"))["ozet"]
     assert s["whisper:medium"]["WER"] == 50.0 and s["whisper:medium+ipucu"]["WER"] == 0.0
     assert s["whisper:medium+ipucu"]["tam"] == 1
 

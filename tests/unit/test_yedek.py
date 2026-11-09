@@ -43,7 +43,7 @@ def test_al_dogrula_geri_yukle(ortam):
     (veri / "yerel_ayarlar.json").write_text("{bozuk")
     yedek.restore(arsiv, veri, ayar)
     assert (veri / "yerel_ayarlar.json").read_text(encoding="utf-8").startswith('{"aliases"')
-    assert (veri / "yerel_ayarlar.json.geri-yukleme-oncesi").read_text() == "{bozuk"
+    assert (veri / "yerel_ayarlar.json.geri-yukleme-oncesi").read_text(encoding="utf-8") == "{bozuk"
     rows = sqlite3.connect(veri / "cagri_gecmisi.db").execute("SELECT who FROM changes").fetchall()
     assert rows == [("tugba",)]
 
@@ -63,7 +63,7 @@ def test_bozuk_yedek_reddedilir(ortam, tmp_path):
             t.addfile(info, io.BytesIO(d))
     with pytest.raises(SystemExit, match="SHA256"):
         yedek.restore(kotu, veri, ayar)
-    assert (ayar / "gateway.env").read_text() == "ORGANIZATION_NAME=Deneme\n"   # hiçbir şey yazılmadı
+    assert (ayar / "gateway.env").read_text(encoding="utf-8") == "ORGANIZATION_NAME=Deneme\n"   # hiçbir şey yazılmadı
 
 
 def test_klasor_disina_yazan_arsiv_reddedilir(tmp_path):

@@ -229,7 +229,7 @@ def test_onizle_uygula_geri_al(tmp_path):
         hit = rt.directory.index.search("mehmet kaya")
         assert hit.match == Match.SINGLE_HIGH and hit.candidates[0].contact.extension == "231"
         assert len(rt.directory.index.source_contacts()) == 2
-        assert json.loads(path.read_text())["_kaynak"] == "arayüzden yüklendi"
+        assert json.loads(path.read_text(encoding="utf-8"))["_kaynak"] == "arayüzden yüklendi"
         assert (tmp_path / "rehber.json.onceki").exists()
         # aynı belirteç ikinci kez kullanılamaz
         assert tc.post("/v1/admin/directory/apply", content=json.dumps({"token": p["token"]}),
@@ -315,7 +315,7 @@ def test_mevcut_rehbere_ekle_hicbir_kaydi_silmez(tmp_path):
         after = {c.id: c for c in rt.directory.index.source_contacts()}
         assert set(before) <= set(after)                                   # eski kayıtların hepsi duruyor
         assert rt.directory.index.search("mehmet kaya").candidates[0].contact.extension == "231"
-        stored = json.loads(path.read_text())["contacts"]
+        stored = json.loads(path.read_text(encoding="utf-8"))["contacts"]
         assert {c["id"] for c in stored} == set(after)
         assert tc.post("/v1/admin/directory/preview?mode=sil", content=xlsx(ROWS), headers=OCT).status_code == 400
 

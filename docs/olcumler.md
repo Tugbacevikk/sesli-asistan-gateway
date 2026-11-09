@@ -1298,6 +1298,12 @@ Windows dizüstü, RTX 3050 Ti 4 GB, Ollama, qwen3.5:4b (%50 CPU / %50 GPU, bağ
 
 - D06 ve "su arızası bildireceğim" teyidi niyet şartından (eksiz eşleme) → düzeltildi (bu commit).
 - Ön pay 500 ms'ye çıkınca konuşma başlangıcı zaman damgası ~150 ms erken: test sınırları ön paya bağlandı.
-- K01, K06, K14, K21 ve M09 niyet şartıyla açıklanamıyor: kişi çözme / unvan kapsamı değişiklikleri (9c552ab)
-  şüpheli; commit commit karşılaştırma yapılacak.
+- K01, K06, K14, K21 ve M09 gerileme **değil**: aynı setler d660d6a, 9c552ab ve c3a15f8'de kural modunda aynı
+  sonucu verdi (kamu %95,7: yalnız K19, konu adımı gerektiriyor; makam %100). MCP sunucusu kamu rehberiyle
+  (`DIRECTORY_PATH=tests/data/kamu_rehber.json`) açılınca kamu seti kural modunda ve qwen3.5:4b ile %100 (23/23;
+  izinsiz / yanlış aktarma 0). İlk ölçümdeki düşüş ölçüm düzeneğindendi.
+- c3a15f8'de birim testleri (Windows): 9 başarısız + 2 hata. İkisi `_not_found`'a eklenen bulunamayan söz kaydından
+  (LLM yolundaki kayıtla çiftleniyordu; ekleme geri alındı), biri `okuma_bol` parça uzunluğundan (araç ön payı 350'de
+  sabitlendi), dördü testlerin kodlamasız dosya okumasından (UTF-8'e çevrildi). Kalanlar Windows'a özgü: sembolik bağ
+  yetkisi, ortam değişkeni / yol uzunluğu, Windows soketinde 1 sn bağlanma zaman aşımı, yol ayracı.
 - Windows'a özgü başarısızlıklar (yol ayracı, UTF-8 varsayılanı) CI'da (Ubuntu) görülmez.
