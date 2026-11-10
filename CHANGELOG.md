@@ -95,6 +95,12 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Bilinen senaryo hataları kapandı: kendini tanıtan arayanın adı aday sayılmaz ve "-daki / -deki" ekli birim
+  tanınır (D122: "ben Mehmet, satıştaki Ayşe Hanım"); kural modunda da STT'nin bozduğu ad ses benzerliğiyle teyit
+  edilir (D124, D125: yalnız `MCP_STEP` açıkken geçiyordu, Windows / Linux farkı sanılan buydu); unvan + ad tek kişiyi
+  seçer (S18: "vali yardımcısı Kemal Bey"); önüne sözcük alan unvan alt hat sayılmaz (S28: "Cinayet Büro Amiri").
+- Selama aynı sözle karşılık: "günaydın" → "Günaydın, kiminle görüşmek istersiniz?" (metin ayardan değiştirilmişse
+  dokunulmaz).
 - Şirket rehberinin ortaya çıkardığı zayıflıklar: birim + ad adaşı çok olunca çözülmüyordu ("muhasebeden Merve
   Hanım", altı Merve: arama 3 adayla sınırlı); adaşı üçten çok olan adda birim sorulmuyordu ("Volkan Bey" → artık
   birim yoluyla); ek benzerliği gevşekti ("satış" ~ "satınalma", "yönetim" ~ "yöneticisi"); unvanın "müdürü" sözü
