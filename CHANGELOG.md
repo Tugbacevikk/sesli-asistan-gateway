@@ -198,6 +198,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- `CallSession` karışım sınıflarına bölündü (kod aynen taşındı): seslendirme `core/call/speaking.py`, santral
+  eylemleri `core/call/pbx_actions.py`; olay tipi `core/call/models.Event`. `session.py` 600 → 400 satır.
 - `GatewayRuntime`: santral ve arayüz çağrısının oturumu tek yerde kurulur (`_session`; önceden iki kopya), LLM
   ısıtma ayrı işlev (`warm_llm`).
 - Rehber dosyasına yazma, yedek ve geri alma bir arayüzün arkasında (`ports.DirectoryStore`,
