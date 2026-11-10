@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Arayüz: `/ui?kazanc=kapali` tarayıcının otomatik mikrofon kazancını kapatır (kulaklıklı mikrofonla demoda arka
+  plan süzgeci için). Tasarım belgesi: ADR-036 (çok adaş, aynı birimde farklı unvanlar, birbirinin yerine geçen hatlar).
 - Sentetik şirket rehberi (`data/sirket_rehber.json`, 130 kayıt, birim yollu; üretici `tools/rehber/sirket_rehber.py`)
   ve 20 senaryoluk set (`tests/data/diyalog_seti_sirket.yaml`, CI'da kural modunda).
 - Kısa sohbet (ADR-035, `SMALL_TALK=true`): hal hatıra ("günaydın, nasılsınız") LLM sıcak bir cümleyle karşılık

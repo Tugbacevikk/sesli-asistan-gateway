@@ -1943,6 +1943,27 @@ ondan bağımsızdır.
 - **Sonuç:** Sohbet eden turlar LLM süresi kadar (3–7 sn) bekletir; varsayılan kapalı kalır, kurum açar. Varsayılan
   istem değişmedi (Ek B).
 
+### ADR-036 — Çok adaş, aynı birimde farklı unvanlar, birbirinin yerine geçen hatlar
+
+- **Bağlam:** Sentetik şirket rehberi (130 kayıt, `data/sirket_rehber.json`) ve canlı deneme (10.11.2026) üç durumu
+  gösterdi: (1) adaşı üçten çok olan adda ("Volkan Bey", dört Volkan) arama ve kişi çözme 3 aday döndürüyordu;
+  dördüncü hiç sorulmuyor, "soyadını söyler misiniz" deniyor ya da söz LLM'e gidip 5–6 sn bekletiyordu; "birim + ad"
+  ("satıştaki Merve") kişinin alt biriminde olduğunda eşleşmiyordu. (2) Aynı birimde "Hukuk Müşaviri Avukat" ve iki
+  "Avukat" hattı: "avukat" sözü biriminden gelen "hukuk" yüzünden doğrudan Hukuk Müşaviri'ne aktarılıyordu.
+  (3) Aynı unvanlı, aynı birimdeki adsız hatlar (iki "Avukat", üç "Müfettiş") operatöre bağlanıyordu: arayan da
+  ayırt edemez, soru bir tur kaybettirir.
+- **Karar:** (1) Birim yolu olan rehberde adaşların hepsi döner (`DirectoryIndex.matches`, kişi çözmede en çok 30) ve
+  birim yoluyla seviye seviye sorulur (ADR-032); "birim + ad" kuralında birim yolunun üst seviyeleri de birimdir.
+  (2) Bulunan hattın unvanı tam söylenmediyse ve aynı birimde unvanı sözde **tam** geçen başka hat varsa
+  (`people.title_rivals`) unvanla sorulur: "Avukat mı, Hukuk Müşaviri mi?" (ortak sözcük seçenekten atılır).
+  (3) Birbirinin yerine geçen hatlar: birinciye (dahili sırasıyla) aktarılır; santral meşgul / cevapsız / hata
+  derse sıradakine kendiliğinden geçilir (`NEXT_LINE_TEXT`), hepsi ulaşılamazsa olağan "meşgul" cümlesi. Unvan + ad
+  ("vali yardımcısı Kemal Bey") unvanla bulunanlardan adı söylenen tek kişiyi seçer. Kurallar kişi çözme işlevinde:
+  MCP sunucusu ve Gateway (MCP düşünce) aynı sonucu verir.
+- **Sonuç:** Diyalog setleri CI'da iki akışta (kural ve MCP adımı, sunucusuz) koşar; MCP akışı kural modunun
+  göremediği hataları gösterdi (S18). Karar S35 için kullanıcıyla verildi; müfettiş gibi belirli kişinin arandığı
+  unvanlarda operatör istenirse kural unvan listesiyle daraltılabilir.
+
 ### ADR-024 — Sistem istemi ölçülerek değiştirilir: şablon, birim listesi, örnekler, saldırılara karşı kural
 - **Bağlam:** İstem kodda sabitti; her değişiklik koda dokunmayı gerektiriyordu ve etkisi ölçülmeden giriyordu.
   Dağıtılan sistemde LLM kurumun birimlerini bilmeden "konuya uygun birim" tahmin ediyordu. İstem mühendisliği

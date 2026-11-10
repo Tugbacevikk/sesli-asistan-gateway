@@ -18,6 +18,7 @@ WebSocket protokolü:
                               | {"type": "dtmf", "digit": ...} | {"type": "hangup"}
   `?mod=metin`: yazarak deneme (mikrofon yok); ses yine çalınır, sessizlik uyarısı ve ses zaman aşımı kapalı.
   `?mesai=acik|mesai_disi|tatil`: mesai durumunu zorla (kuralları saati beklemeden denemek için).
+  `/ui?kazanc=kapali`: tarayıcının otomatik mikrofon kazancı kapalı (kulaklıklı mikrofonda arka plan süzgeci için).
   Gateway → tarayıcı   ikili: çalınacak 8 kHz mono PCM16, gerçek zaman hızında (20 ms'lik parçalar)
                        metin: {"type": "call", "call_id"} | {"type": "state" | "heard" | "reply" | "turn" | "action"
                               | "barge_in" | "ended", ...} | {"type": "clear"} (çalmayı hemen kes) | {"type": "error"}

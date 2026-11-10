@@ -592,8 +592,11 @@ async function startCall(text = false, firstMessage = "") {
   $("callBtn").disabled = true;
   if (!text) {
     try {
+      // ?kazanc=kapali: tarayıcının otomatik kazancı kapalı. Kazanç kısık sesi (arka plandakini de) yükseltir; arka plan
+      // süzgeci arayan ile arka plan arasındaki seviye farkına bakar. Ağza yakın (kulaklıklı) mikrofonda kapalı daha iyi.
+      const agc = new URLSearchParams(location.search).get("kazanc") !== "kapali";
       micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: agc, channelCount: 1 } });
     } catch (e) {
       $("callInfo").textContent = "Mikrofona erişilemedi. Tarayıcı izinlerini kontrol edin (sayfa localhost ya da https üzerinden açılmalı). Yazarak deneyebilirsiniz.";
       $("callBtn").disabled = false;

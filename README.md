@@ -51,7 +51,7 @@ Mimari, arayüz sözleşmeleri, kararlar (ADR) ve yol haritası: **[docs/tasarim
 | — | Arayüz: tarayıcıdan deneme çağrısı + izleme (ADR-014) | ✅ |
 | 6 | Dayanıklılık: devre kesici, LLM / MCP / STT düşüşünde kural tabanlı tur, izole hata → operatör | ✅ |
 | 7 | Kurulum ve işletim: `install.sh`, paket, yedek / geri yükleme, destek paketi, Prometheus / Grafana izleme | ✅ (konteynerde; GPU sunucuda kabul bekliyor) |
-| 8 | Rehber: dosyayla yükleme (kısaltma açma, önizleme / geri alma), yerel MCP rehber sunucusu, makam hatları, birim yapılı rehber (ADR-030, ADR-032) | ✅ (Sentra rehber API'si bekliyor) |
+| 8 | Rehber: dosyayla yükleme (kısaltma açma, önizleme / geri alma), yerel MCP rehber sunucusu, makam hatları, birim yapılı rehber, çok adaş ve birbirinin yerine geçen hatlar (ADR-030, ADR-032, ADR-036); sentetik demo / şirket / kurum rehberleri ve senaryo setleri (CI'da kural ve MCP akışında) | ✅ (Sentra rehber API'si bekliyor) |
 | 9 | Performans | ⏳ gerçek santral ve GPU sunucuda ölçülecek |
 | 10 | Kabul: gerçek santral, gerçek rehber, telefon hattından test seti | ⏳ |
 
