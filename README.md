@@ -15,8 +15,8 @@ Santral ──RTP (G.711 / G.722)──► Gateway ──gRPC──► STT (Sile
 Bir çağrının yolu, baştan sona (`src/sesli_asistan/`):
 
 1. **Santral → Gateway:** `gateway/api/app.py` (REST: çağrı aç / olay / kapat) → `core/manager.py` (çağrı ve port
-   havuzu) → `core/call.py` (`CallSession`: karşılama, dinleme, söze girme, sessizlik, aktarma; ses
-   `adapters/rtp/`). Tarayıcıdan deneme aynı oturumu kullanır (`api/ui.py`).
+   havuzu) → `core/call/` (`session.py` `CallSession`: karşılama, dinleme, söze girme, sessizlik, aktarma; ses
+   `adapters/rtp/`). Tarayıcıdan deneme aynı oturumu kullanır (`api/ui.py` yollar, `api/web_call.py` ses yolu).
 2. **Ses → metin:** `adapters/stt/` (gRPC istemcisi) → ayrı servis `stt/` (`service.py`: akış, `vad.py`: cümle
    sınırı, `sherpa_engine.py` / `engine.py`: tanıma). Arka plan sesi ve söze girme: `core/level.py`.
 3. **Metin → karar:** `core/dialog/` (`DialogAgent.handle_user`). Söz sırayla `steps.py`'deki adımlardan
@@ -27,7 +27,7 @@ Bir çağrının yolu, baştan sona (`src/sesli_asistan/`):
    - `llm.py`: kurallar çözemezse LLM döngüsü (araçlar: `core/tools.py`)
 4. **Rehber:** `core/search.py` (bulanık arama, Türkçe ekler), `core/people/` (ad, birim, unvan kuralları; `resolve_person`),
    `core/units.py` (birim yolu), `core/directory.py` (önbellek, yenileme). Kaynaklar: `adapters/directory/`;
-   dosyayla yükleme `directory_import.py` + `abbreviations.py` (kısaltma açma).
+   dosyayla yükleme `directory_import/` (okuma, satırlar, karşılaştırma) + `directory_upload.py` + `abbreviations.py` (kısaltma açma).
 5. **Aktarma güvenliği:** `core/policy.py` (yalnız rehberde aktarılabilir dahili) ← `core/tools.py` (TransferCall).
 6. **Metin → ses:** `core/speech.py` (cümle cümle seslendirme, sabit anonslar) → `adapters/tts/` → servis `tts/`.
 
@@ -130,7 +130,7 @@ python tools/stt/dene.py kayit.wav --ipucu "Ayşe Yılmaz"
 |---|---|
 | `gateway/api/app.py` | `POST /v1/calls`, `/events`, `DELETE`, `/v1/health`; Bearer anahtar + IP izin listesi; ortak hata gövdesi |
 | `gateway/core/manager.py` | Port havuzu, eşzamanlı çağrı sınırı, hazır değilken ret (503), idempotent bitirme |
-| `gateway/core/call.py` | Çağrı durum makinesi: karşılama → dinleme → düşünme → konuşma → aktarma; barge-in, aktarma sonucu, DTMF, zaman aşımları, zarif bozulma |
+| `gateway/core/call/` | `models.py` durum, ayarlar, tur / çağrı kaydı; `session.py` çağrı durum makinesi: karşılama → dinleme → düşünme → konuşma → aktarma; barge-in, aktarma sonucu, DTMF, zaman aşımları, zarif bozulma |
 | `gateway/adapters/rtp/media.py` | Çağrının RTP yolu (giriş + simetrik çıkış) |
 | `gateway/adapters/pbx/rest.py` | Gateway → santral eylemleri (`transfer`, `operator`), 3 deneme |
 | `gateway/composition.py` | `GatewayRuntime`: açılış (rehber, anonslar, LLM ısınma), arka planda sağlık, kapanış |
