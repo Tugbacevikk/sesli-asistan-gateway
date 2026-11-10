@@ -233,6 +233,11 @@ class RulesMixin:
                          "" if sure else " (teyit)")
                 return (self._code_transfer(s, cands[0]) if sure
                         else self._confirm(s, cands[0].contact, why="kişi kesin değil")), ()
+            if len(cands) > 3 and (turn := self._ask_units(s, cands)) is not None:
+                # adaşı çok, birim yolu var ("Volkan Bey"): birim sorulur (ADR-032)
+                log.info("[%s] kişi (MCP): %s → %d aday, birim soruluyor", s.call_id, log_text(text), len(cands))
+                turn.fast = True
+                return turn, ()
             if 2 <= len(cands) <= 3:
                 s.state.last_results, s.state.truncated = cands, False
                 if (turn := self._clarify(s, cands)) is not None:

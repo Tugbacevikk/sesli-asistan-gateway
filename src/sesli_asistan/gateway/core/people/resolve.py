@@ -53,11 +53,17 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     depts = _mentioned_departments(index, words)
     named = [c for c in persons if _name_said(c, words)]
     if depts and named:
-        in_dept = [c for c in named if c.department in depts]
+        # birim yolunun üst seviyesi de birimdir: "satıştaki Merve" → Yurt İçi / Yurt Dışı Satış'taki Merve'ler
+        # (canlı deneme 10.11.2026, şirket rehberi: yalnız kendi birimine bakılıyordu, altı Merve soruldu)
+        in_dept = [c for c in named if c.department in depts or set(c.unit_path) & depts]
         if in_dept:
             return _out(in_dept, "birim_ad", len(in_dept) == 1)
         # söylenen birimde o ad yok ("satıştan Burak Bey"; Burak muhasebede): aktarılmaz, teyit sorulur
         return _out(named, "ad", False)
+    if len(named) > MAX_CANDIDATES and all(c.unit_path for c in named):
+        # adaşı çok ("Volkan Bey", dört Volkan) ama birim yolu var: hepsi döner, Gateway birim yoluyla sorar (ADR-032).
+        # Kesilince dördüncü aday hiç sorulmuyordu (canlı deneme 10.11.2026)
+        return _out(named, "ad", False, limit=_UNIT_PATH_MAX)
     if named and len(named) <= MAX_CANDIDATES:
         # hitapla ("Zeynep Hanım", "Can Bey", "Mehmet Albay") ya da soyadla ("Öztürk Bey") söylenen tek kişi: kesin
         # (kural modu ve LLM de doğrudan aktarıyordu); yalnız ad ("Mehmet var mı"): teyit
@@ -67,8 +73,11 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     return _out([], "", False)
 
 
-def _out(cands: list[Contact], why: str, sure: bool) -> dict[str, Any]:
-    cands = sorted(cands, key=lambda c: c.full_name)[:MAX_CANDIDATES]
+_UNIT_PATH_MAX = 30          # birim yoluyla sorulacak adaşlarda üst sınır (çok büyük rehberde soru anlamsızlaşır)
+
+
+def _out(cands: list[Contact], why: str, sure: bool, limit: int = MAX_CANDIDATES) -> dict[str, Any]:
+    cands = sorted(cands, key=lambda c: c.full_name)[:limit]
     return {"adaylar": [{"id": c.id, "neden": why} for c in cands], "kesin": sure and len(cands) == 1}
 
 

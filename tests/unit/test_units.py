@@ -127,3 +127,33 @@ def test_sirket_rehberi_ureticiyle_ayni():
     assert len({c.extension for c in contacts}) == len(contacts)
     assert len({(c.first_name, c.last_name) for c in contacts if c.kind == "person"}) == sum(
         c.kind == "person" for c in contacts)                                  # aynı tam ad yok
+
+
+# --- şirket rehberi, akışın 2. adımı (MCP_STEP; MCP yoksa aynı işlev yerelde) — canlı deneme 10.11.2026 ---------
+
+@pytest.fixture(scope="module")
+def sirket():
+    data = json.loads((ROOT / "data/sirket_rehber.json").read_text(encoding="utf-8"))
+    return [Contact.from_api(c) for c in data["contacts"]]
+
+
+def test_kisi_cozme_ust_birimle_ve_cok_adasla(sirket):
+    from sesli_asistan.gateway.core.people import resolve_person
+
+    ix = DirectoryIndex(sirket)
+    ext = {c.id: c.extension for c in sirket}
+    res = resolve_person(ix, "ben tuğba, satıştaki merve hanımı arıyorum")
+    assert {ext[a["id"]] for a in res["adaylar"]} == {"1230", "1244"}           # Yurt İçi / Yurt Dışı Satış
+    res = resolve_person(ix, "volkan bey ile görüşecektim")
+    assert len(res["adaylar"]) == 4 and not res["kesin"]                      # dördü de (birim yoluyla sorulur)
+
+
+def test_mcp_adiminda_cok_adasa_birim_sorulur(sirket):
+    a = DialogAgent(NoLlm(), ToolRegistry(DirectoryIndex(sirket), topics=load_topics()),
+                    DialogConfig(organization="Deneme", llm_enabled=False, mcp_step=True))
+    t1, t2 = say(a, "volkan bey ile görüşecektim", "ar-ge")
+    assert not t1.actions and "Ar-Ge" in t1.text, t1.text
+    assert [x.extension for x in t2.actions] == ["2004"], t2.text
+    t1, t2 = say(a, "ben tuğba, satıştaki merve hanımı arıyorum", "yurt dışı")
+    assert not t1.actions and "Yurt Dışı" in t1.text, t1.text
+    assert [x.extension for x in t2.actions] == ["1244"], t2.text
