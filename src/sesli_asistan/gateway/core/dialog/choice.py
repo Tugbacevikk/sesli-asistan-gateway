@@ -30,6 +30,7 @@ from ..phrases import (
 )
 from ..ports import ToolCall
 from ..search import (
+    fold_words,
     has_role_word,
     query_variants,
     search_key,
@@ -126,10 +127,11 @@ class ChoiceMixin:
         titles = list(dict.fromkeys(c.contact.title for c in cands if c.contact.title))
         if len(titles) < 2 or len(titles) == len(cands):
             return None                                     # hepsi farklıysa olağan "X mı, Y mi?" sorusu yeter
-        common = set.intersection(*(set(search_key(t).split()) for t in titles))
+        # fold_words: unvan sözcükleri ad aramasında atılır ("avukat"), burada asıl sözcüktür
+        common = set.intersection(*(set(fold_words(t)) for t in titles))
         labels = []
         for t in titles:
-            rest = [w for w in t.split() if search_key(w) not in common]
+            rest = [w for w in t.split() if not set(fold_words(w)) <= common]
             labels.append(" ".join(rest) if rest else t)
         parts = [f"{x} {question_particle(x)}" for x in labels]
         q = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
