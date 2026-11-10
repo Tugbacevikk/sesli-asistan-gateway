@@ -12,6 +12,7 @@ Dış bağımlılıklar (STT, TTS, LLM, santral) test_call / test_ui'deki sahtel
 """
 import asyncio
 import importlib
+import json
 from dataclasses import fields
 
 import pytest
@@ -107,6 +108,27 @@ def test_rehber_yukleme_durumu_alanlari(tmp_path):
         st = tc.get("/v1/admin/settings").json()["directory_upload"]
     assert {"enabled", "file", "revertible"} <= set(st) <= {"enabled", "file", "revertible", "modified", "reason"}
     assert st["enabled"] is True and st["revertible"] is False and st["file"] == str(path)
+
+
+def test_yerel_ayar_dosyasi_bicimi(tmp_path):
+    # ayar dosyası (LOCAL_SETTINGS_FILE) yedekleme aracı ve önceki sürümlerle aynı biçimde kalmalı: yalnız farklar
+    tc, _, _ = upload_client(tmp_path)
+    with tc:
+        r = tc.put("/v1/admin/settings", content=json.dumps({"texts": {"greeting": "Hoş geldiniz, kimi arıyorsunuz?"},
+                                                             "aliases": {"c-101": ["Ferhat Bey"]}}),
+                   headers={"Content-Type": "application/json"})
+        assert r.status_code == 200, r.text
+        r = tc.post("/v1/admin/contacts", content=json.dumps({"first_name": "Deniz", "last_name": "Kurt",
+                                                              "department": "Arşiv", "extension": "198"}),
+                    headers={"Content-Type": "application/json"})
+        assert r.status_code == 201, r.text
+    saved = json.loads((tmp_path / "ayar.json").read_text(encoding="utf-8"))
+    assert set(saved) == {"texts", "aliases", "contacts"}
+    assert saved["texts"] == {"greeting": "Hoş geldiniz, kimi arıyorsunuz?"}
+    assert saved["aliases"] == {"c-101": ["Ferhat Bey"]}
+    (c,) = saved["contacts"]
+    assert set(c) == {"id", "first_name", "last_name", "department", "title", "extension", "kind"}
+    assert c["id"].startswith("yerel-") and c["kind"] == "person" and c["extension"] == "198"
 
 
 # --- 5. operatöre aktarma söze girilse de yapılır ---------------------------------------------------------

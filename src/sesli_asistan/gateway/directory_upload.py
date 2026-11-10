@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 
 from . import directory_import as dimp
 from .core.models import Contact
+from .local_settings import LocalSettings
 
 if TYPE_CHECKING:
     from .composition import GatewayRuntime
@@ -80,18 +81,18 @@ class DirectoryUpload:
         d = dimp.diff(old, contacts)
         warnings = [p.as_dict() for p in res.warnings]
         # yerel katman: takma adı olan kayıt yeni rehberde yoksa takma ad etkisiz kalır; yerel kayıtla dahili çakışması
-        local = self.rt.settings.local if getattr(self.rt, "settings", None) else {}
+        local = self.rt.settings.local if getattr(self.rt, "settings", None) else LocalSettings()
         new_ids = {c["id"] for c in contacts}
-        orphan = [cid for cid in local.get("aliases", {}) if cid not in new_ids and not cid.startswith("yerel-")]
+        orphan = [cid for cid in local.aliases if cid not in new_ids and not cid.startswith("yerel-")]
         if orphan:
             names = {c.id: c.full_name for c in old}
             warnings.append({"row": 0, "message": "takma adları olan kayıtlar yeni rehberde yok, takma adlar "
                              "etkisiz kalacak: " + ", ".join(names.get(c, c) for c in orphan[:5])})
         new_ext = {c["extension"] for c in contacts}
-        clash = [c for c in local.get("contacts", []) if c["extension"] in new_ext]
+        clash = [c for c in local.contacts if c.extension in new_ext]
         if clash:
             warnings.append({"row": 0, "message": "arayüzden eklenen yerel kayıtların dahilisi artık rehberde de "
-                             "var (yerel kaydı silebilirsiniz): " + ", ".join(c["extension"] for c in clash[:5])})
+                             "var (yerel kaydı silebilirsiniz): " + ", ".join(c.extension for c in clash[:5])})
         now = time.monotonic()
         self._pending = {k: v for k, v in self._pending.items() if v[0] > now}
         token = secrets.token_urlsafe(16)

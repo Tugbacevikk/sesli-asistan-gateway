@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 import numpy as np
@@ -190,7 +190,7 @@ class DirectoryIndex:
         self.local_contacts: list[Contact] = []               # ayar ekranından eklenen kayıtlar (kaynakta yok)
         self.rebuild(contacts)
 
-    def set_overlay(self, aliases: dict[str, Iterable[str]], local_contacts: Iterable[Contact]) -> None:
+    def set_overlay(self, aliases: Mapping[str, Iterable[str]], local_contacts: Iterable[Contact]) -> None:
         """Yerel katman (ayar ekranı): takma adlar ve yerel kayıtlar. Kaynak rehber her güncellendiğinde yeniden
         uygulanır; kaynağın kendisi değişmez."""
         self.extra_aliases = {k: tuple(v) for k, v in aliases.items() if v}
