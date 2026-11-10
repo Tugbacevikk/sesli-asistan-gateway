@@ -67,3 +67,50 @@ def test_tasarim_ekindeki_istem_kodla_ayni():
 
     doc = (Path(__file__).resolve().parents[2] / "docs" / "tasarim.md").read_text(encoding="utf-8")
     assert f"```\n{SYSTEM_PROMPT}\n```" in doc and f"```\n{FEW_SHOT.strip()}\n```" in doc
+
+
+# --- kısa sohbet (ADR-035) ----------------------------------------------------------------------------------
+
+def test_kisa_sohbet_istemde_sohbet_kuralini_degistirir():
+    from sesli_asistan.gateway.core.dialog.common import (
+        NO_CHAT_EXAMPLE,
+        NO_CHAT_RULE,
+        SMALL_TALK_EXAMPLE,
+        SMALL_TALK_RULE,
+    )
+
+    assert NO_CHAT_RULE in SYSTEM_PROMPT and NO_CHAT_EXAMPLE in FEW_SHOT        # varsayılan istem aynı
+    p = _agent(REHBER, small_talk=True, few_shot=True).system_prompt
+    assert SMALL_TALK_RULE in p and NO_CHAT_RULE not in p
+    assert SMALL_TALK_EXAMPLE in p and NO_CHAT_EXAMPLE not in p
+    custom = _agent(REHBER, small_talk=True, prompt_template="Sen {kurum} asistanısın.").system_prompt
+    assert custom.endswith(SMALL_TALK_RULE)                                     # özel şablona eklenir
+
+
+class _Llm:
+    def __init__(self):
+        self.seen = 0
+
+    async def chat(self, messages, tools):
+        from sesli_asistan.gateway.core.ports import LlmMessage
+
+        self.seen += 1
+        return LlmMessage("Günaydın, iyiyim, teşekkür ederim. Kiminle görüşmek istersiniz?")
+
+
+@pytest.mark.parametrize("small_talk, text, to_llm", [
+    (True, "günaydın nasılsınız", True),       # hal hatır: LLM karşılık verir
+    (True, "merhaba", False),                  # yalın selam: kod anında
+    (False, "günaydın nasılsınız", False),     # kapalı: kod (eski davranış)
+])
+def test_hal_hatir_sohbet_acikken_llme_gider(small_talk, text, to_llm):
+    import asyncio
+
+    llm = _Llm()
+    a = DialogAgent(llm, ToolRegistry(DirectoryIndex(REHBER)),
+                    DialogConfig(organization="D", small_talk=small_talk, stream_replies=False))
+    turn = asyncio.run(a.new_session("c").handle_user(text))
+    assert (llm.seen > 0) is to_llm, turn.text
+    assert not turn.actions
+    if not to_llm:
+        assert turn.text == a.cfg.texts.greeting_reply

@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Kısa sohbet (ADR-035, `SMALL_TALK=true`): hal hatıra ("günaydın, nasılsınız") LLM sıcak bir cümleyle karşılık
+  verir, sonra kiminle görüşmek istendiğini sorar. Varsayılan kapalı; yalın selam yine kodla ve anında.
 - Birim yapılı rehber (ADR-032): kayıtlarda isteğe bağlı `birim_yolu` ve `kategori`; birden çok aday seviye seviye
   sorulur ("Jandarma mı, Emniyet mi?" → "Asayiş Şube mi, Trafik Şube mi, Narkotik mi?"), cevap alt birimin adı da
   olabilir ("cinayet"). Sorulan birime verilen cevap artık kurumun santraline aktarılmaz. Demo rehberi

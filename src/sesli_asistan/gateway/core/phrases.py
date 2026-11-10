@@ -133,6 +133,16 @@ _GREETING_CORE = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin
                   "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"}
 
 
+_HOW_ARE_YOU = {"nasilsin", "nasilsiniz", "naber", "nabersin", "nasil", "nasilsinizdir", "iyimisin", "iyimisiniz",
+                "keyifler", "ne", "haber"}
+
+
+def is_small_talk(text: str) -> bool:
+    """Selamın ötesinde hal hatır ("günaydın, nasılsınız", "naber"): sohbet açık iken LLM karşılık verir."""
+    w = set(_folded_words(text))
+    return bool(w & (_HOW_ARE_YOU - {"ne", "haber"})) or {"ne", "haber"} <= w
+
+
 def is_greeting_only(text: str, noise: int = 0) -> bool:
     """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı.
     Sonu kesilmiş selam ("merhab") selam sayılır. `noise`: tanınmayan en çok kaç sözcüğe izin verilir (STT kırıntısı:

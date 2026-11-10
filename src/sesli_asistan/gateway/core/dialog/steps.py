@@ -28,6 +28,7 @@ from ..phrases import (
     asks_office_hours,
     asks_operator,
     is_greeting_only,
+    is_small_talk,
     maybe_operator,
     spoken_numbers,
     unknown_target,
@@ -58,6 +59,9 @@ class StepsMixin:
         (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)."""
         if not (is_greeting_only(u.text) or (is_greeting_only(u.text, noise=1) and not self._mentions_target(u.text))):
             return None
+        if (self.cfg.small_talk and self.cfg.llm_enabled and is_small_talk(u.text)
+                and self.pending_question(s) is None):
+            return None             # hal hatır: LLM karşılık verip yönlendirir (ADR-035); açık soru varsa o yinelenir
         u.reopen(s)
         log.info("[%s] yalnız selam: %s", s.call_id, log_text(u.text))
         reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)

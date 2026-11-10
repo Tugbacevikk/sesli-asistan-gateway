@@ -63,6 +63,7 @@ class GatewaySettings(BaseSettings):
     llm_prompt_path: str = ""                            # şablon dosyası ({kurum}); boş: koddaki istem
     llm_prompt_departments: int = Field(0, ge=0, le=500)  # isteme kurumun birim listesi (en çok); 0: yok
     llm_few_shot: bool = False                           # isteme örnek konuşmalar
+    small_talk: bool = False                             # ADR-035: hal hatıra LLM karşılık verir, sonra yönlendirir
 
     # Rehber (ADR-008)
     directory_source: Literal["json", "sentra"] = "json"
