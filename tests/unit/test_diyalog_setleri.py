@@ -7,6 +7,7 @@ başarısızlık ve her izinsiz aktarma testi kırar; listedekinden biri düzeli
 """
 import asyncio
 import importlib.util
+import logging
 from pathlib import Path
 
 import pytest
@@ -26,13 +27,15 @@ SETS = [
     ("diyalog_seti_kamu.yaml", "tests/data/kamu_rehber.json", {"K19"}),        # K19: konu adımı (MCP) gerekir
     ("diyalog_seti_makam.yaml", "tests/data/makam_rehber.json", set()),
     ("diyalog_seti_demo.yaml", "data/demo_rehber.json", set()),
+    ("diyalog_seti_sirket.yaml", "data/sirket_rehber.json", set()),
     # S18 ("vali yardımcısı kemal bey" çok aday), S28, S35 (karar bekliyor): birim yolu olmayan rehberde
     ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json", {"S06", "S18", "S28", "S35"}),
 ]
 
 
 @pytest.mark.parametrize("name, rehber, known", SETS, ids=[s[0] for s in SETS])
-def test_set_kural_modunda(name, rehber, known, monkeypatch):
+def test_set_kural_modunda(name, rehber, known, monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger="sesli_asistan.gateway.core")
     for var in ("DIRECTORY_PATH", "ABBREVIATIONS_PATH", "MCP_STEP", "LLM_TOOLS"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.chdir(ROOT)
@@ -41,5 +44,10 @@ def test_set_kural_modunda(name, rehber, known, monkeypatch):
                                         rehber=str(ROOT / rehber) if rehber else ""))
     failed = set(out["basarisizlar"])
     detail = {r["id"]: (r["cevaplar"], r["eylemler"]) for r in out["ayrinti"] if r["id"] in failed - known}
+    for sid, (replies, actions) in detail.items():            # pytest uzun ayrıntıyı kısaltır: tamamı çıktıda
+        print(f"{sid}: {replies} {actions}")
+        for rec in caplog.records:                             # o senaryonun diyalog kaydı (neden bu cevap?)
+            if f"[{sid}]" in rec.getMessage():
+                print(f"    {rec.getMessage()[:300]}")
     assert out["izinsiz_aktarma"] == 0, detail
     assert failed <= known, detail

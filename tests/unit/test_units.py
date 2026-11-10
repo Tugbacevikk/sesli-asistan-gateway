@@ -111,3 +111,19 @@ def test_belgegecer_istenince_birim_hatti_teyitle_sorulur(contacts):
     t1, t2 = say(a, "emniyet faks hattı", "evet")
     assert not t1.actions and t1.text.startswith("Belgegeçer hattına sesli arama aktarılamıyor.")
     assert [x.extension for x in t2.actions] == ["40000"]
+
+
+def test_sirket_rehberi_ureticiyle_ayni():
+    # data/sirket_rehber.json elle değiştirilmez: üretici (sabit tohum) aynı kayıtları verir
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("sirket_rehber", ROOT / "tools/rehber/sirket_rehber.py")
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    data = json.loads((ROOT / "data/sirket_rehber.json").read_text(encoding="utf-8"))
+    assert data["contacts"] == mod.build()
+    contacts = [Contact.from_api(c) for c in data["contacts"]]
+    assert len({c.extension for c in contacts}) == len(contacts)
+    assert len({(c.first_name, c.last_name) for c in contacts if c.kind == "person"}) == sum(
+        c.kind == "person" for c in contacts)                                  # aynı tam ad yok

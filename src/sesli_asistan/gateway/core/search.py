@@ -283,7 +283,15 @@ class DirectoryIndex:
         self._cache[(qn, qd)] = res
         return res
 
-    def _search(self, qn: str, qd: str) -> SearchResult:
+    def matches(self, name: str) -> tuple[Candidate, ...]:
+        """`search` gibi ama aday sayısı sınırsız: adı / soyadı uyan **bütün** yüksek puanlı kayıtlar. Arama sonucu
+        `limit` adayla sınırlı; adaşı çok olan adda ("Merve Hanım", altı Merve) birimle süzmek için hepsi gerekir."""
+        qn = search_key(name)
+        if not qn:
+            return ()
+        return tuple(c for c in self._search(qn, "", limit=None).candidates if c.score >= self.high_score)
+
+    def _search(self, qn: str, qd: str, limit: int | None = -1) -> SearchResult:
         """Puanlar kayıt başına değil, **benzersiz anahtar** başına bir kez hesaplanır; önce rapidfuzz'ın C ile
         yazılmış toplu karşılaştırmasıyla (cdist) her anahtar için üst sınır bulunur, yalnız eşiği geçebilecek
         anahtarlarda tam `similarity` hesaplanır. Sonuç eski kayıt-kayıt döngüsüyle birebir aynıdır (test:
@@ -314,7 +322,8 @@ class DirectoryIndex:
         top = scored[0].score
         close = [x for x in scored if x.score >= top - self.margin]
         if len(close) > 1:
-            return SearchResult(tuple(close[: self.limit]), Match.MULTIPLE, total=len(close))
+            keep = close if limit is None else close[: self.limit if limit == -1 else limit]
+            return SearchResult(tuple(keep), Match.MULTIPLE, total=len(close))
         match = Match.SINGLE_HIGH if top >= self.high_score else Match.SINGLE_LOW
         return SearchResult((scored[0],), match)
 

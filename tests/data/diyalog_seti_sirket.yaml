@@ -1,0 +1,109 @@
+# Sentetik şirket rehberi senaryoları (birim yollu: Satış → Yurt İçi / Yurt Dışı / Kurumsal, Bilgi İşlem → Yazılım /
+# Sistem ve Ağ / Teknik Destek …). Rehber: data/sirket_rehber.json (üretici: tools/rehber/sirket_rehber.py)
+# Çalıştırma:
+#   python tests/eval/diyalog.py --kural --set tests/data/diyalog_seti_sirket.yaml --rehber data/sirket_rehber.json
+
+# --- 1. BİRİM HATLARI (ad ve eş anlamlı) ---
+- id: R01
+  aciklama: "Birim hattı, yönelme ekiyle"
+  konusma: ["muhasebeye bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "1400"}
+
+- id: R02
+  aciklama: "Birim hattı, tam ad"
+  konusma: ["insan kaynakları ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "1600"}
+
+- id: R03
+  aciklama: "Birimin eş anlamlısı: personel → İnsan Kaynakları"
+  konusma: ["personel birimine bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "1600"}
+
+- id: R04
+  aciklama: "Alt birimin hattı: Teknik Destek (Bilgi İşlem içinde)"
+  konusma: ["teknik destek"]
+  beklenen: {eylem: transfer, dahili: "1760"}
+
+- id: R05
+  aciklama: "Eş anlamlı: çağrı merkezi → Müşteri Hizmetleri"
+  konusma: ["çağrı merkezine bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "2300"}
+
+- id: R06
+  aciklama: "Eş anlamlı: depo → Lojistik"
+  konusma: ["depoya bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "2200"}
+
+# --- 2. KİŞİ (tam ad, birim + ad) ---
+- id: R07
+  aciklama: "Tam ad"
+  konusma: ["selin ekinci ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "1401"}
+
+- id: R08
+  aciklama: "Tam ad (alt birimde)"
+  konusma: ["volkan keskin"]
+  beklenen: {eylem: transfer, dahili: "1743"}
+
+- id: R09
+  aciklama: "Birim + ad + hitap: altı Merve'den muhasebedeki"
+  konusma: ["muhasebeden merve hanım"]
+  beklenen: {eylem: transfer, dahili: "1404"}
+
+- id: R10
+  aciklama: "Birim + ad + hitap: kaliteden Merve Hanım (Kalite Müdürü)"
+  konusma: ["kaliteden merve hanımla görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "1901"}
+
+# --- 3. UNVAN ---
+- id: R11
+  aciklama: "Tekil unvan"
+  konusma: ["satış müdürüyle görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "1201"}
+
+- id: R12
+  aciklama: "Tekil unvan (birim adı içinde)"
+  konusma: ["bilgi işlem müdürü"]
+  beklenen: {eylem: transfer, dahili: "1701"}
+
+- id: R13
+  aciklama: "Tekil unvan"
+  konusma: ["hukuk müşaviri ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "2401"}
+
+- id: R14
+  aciklama: "İki sistem yöneticisi: hangisi sorulur, adla seçilir"
+  konusma: ["sistem yöneticisiyle görüşecektim", "gizem hanım"]
+  beklenen: {eylem: transfer, dahili: "1741"}
+
+# --- 4. ÇOK TURLU DARALTMA (birim yolu) ---
+- id: R15
+  aciklama: "Dört Volkan dört birimde: birim sorulur, Ar-Ge seçilir"
+  konusma: ["volkan bey ile görüşecektim", "ar-ge"]
+  beklenen: {eylem: transfer, dahili: "2004"}
+
+- id: R16
+  aciklama: "Altı Gizem: önce üst birim (Bilgi İşlem), sonra alt birim (Sistem ve Ağ)"
+  konusma: ["gizem hanımla görüşecektim", "bilgi işlem", "sistem ve ağ"]
+  beklenen: {eylem: transfer, dahili: "1741"}
+
+# --- 5. AKTARILAMAYAN, OLMAYAN, DAHİLİ, OPERATÖR ---
+- id: R17
+  aciklama: "Genel Müdür makamı aktarılmaz"
+  konusma: ["genel müdürle görüşmek istiyorum"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["1101"]}
+
+- id: R18
+  aciklama: "Rehberde olmayan birim"
+  konusma: ["kreş birimine bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok}
+
+- id: R19
+  aciklama: "Dahili numarayla"
+  konusma: ["1401 numaralı dahili"]
+  beklenen: {eylem: transfer, dahili: "1401"}
+
+- id: R20
+  aciklama: "Operatör isteği"
+  konusma: ["operatöre bağlar mısınız"]
+  beklenen: {eylem: operator}

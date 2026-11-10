@@ -36,6 +36,7 @@ from ..phrases import (
 )
 from ..search import (
     has_role_word,
+    is_role_word,
     search_key,
     strip_suffix,
 )
@@ -139,6 +140,15 @@ class StepsMixin:
             return self._repeat_choice(s, u.choice)
         return None
 
+    def _title_only_lines(self: DialogAgent, text: str, numbers: list[str]) -> bool:
+        """Sözde kesin bir unvan var ("bilgi işlem müdürü") ve unvan sözcükleri atılınca geriye tek hedef kalıyor:
+        öbür "hedef" unvan sözünün bir birim adına benzemesinden ("müdürü" ~ Genel Müdürlük; diyalog seti R12)."""
+        res = resolve_person(self.tools.index, text)
+        if not (res["kesin"] and sum(a.get("neden") == "unvan" for a in res["adaylar"]) == 1):
+            return False
+        core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
+        return len(mentioned_targets(self.tools.index, core, numbers).contacts) <= 1
+
     async def _step_conflict(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Sözde birden çok hedef: hiçbirine aktarılmaz, operatöre bağlanmaz, kapatılmaz; sorulur ("X mı, Y mi?",
         tek hedefte teyit). Ölçüm 05.11.2026 (sesli set, arkada ikinci konuşan 10 dB kısık): STT iki sözü
@@ -176,6 +186,8 @@ class StepsMixin:
             targets = [*persons, *lines, *(c for c in topic if c not in lines)]
         elif not (len(persons) + len(m.others) >= 2 or (persons and (lines or m.departments)) or len(lines) >= 2
                   or (intent and (targets or m.departments)) or (m.others and (lines or m.departments))):
+            return None
+        if lines and not persons and not intent and self._title_only_lines(u.text, numbers):
             return None
         log.info("[%s] sözde birden çok hedef%s: %s", s.call_id, " (operatör / kapatma isteğiyle)" if intent else "",
                  ", ".join(c.full_name for c in (*m.contacts, *m.others)))
