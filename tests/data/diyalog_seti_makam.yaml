@@ -22,9 +22,9 @@
   konusma: ["müfettiş ile görüşmek istiyorum", "hukuk müşavirliği"]
   beklenen: {eylem: transfer, dahili: "21040"}
 - id: M06
-  aciklama: Aynı unvan, aynı birim → ayırt edilemez, operatör
+  aciklama: Aynı unvan, aynı birim, adsız → birbirinin yerine geçer, birinciye (meşgulse sıradakine; S35 kararı)
   konusma: ["teftiş kurulu müfettişi"]
-  beklenen: {eylem: operator}
+  beklenen: {eylem: transfer, dahili: "21031"}
 - id: M07
   aciklama: Şube müdürü → hangi birim → hangisi → özlük
   konusma: ["şube müdürü", "personel", "özlük"]
