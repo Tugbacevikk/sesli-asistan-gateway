@@ -750,3 +750,51 @@ async def test_mesai_disinda_akis_yok_operator_cumlesi_soylenmez():
     said = " ".join(tts.texts[n0:]).lower()
     assert "operatöre bağlıyorum" not in said and "operatörümüz" in said
     assert llm.seen == []                                  # mesai dışında akışlı çağrı yapılmadı
+
+
+# --- arka plan süzgeci: kısık ama çağrıyla ilgili söz atılmaz (canlı deneme 10.11.2026) -----------------------
+
+def _frames(amplitude: float, n: int = 40) -> list[bytes]:
+    from sesli_asistan.libs.audio import g711
+
+    t = np.arange(160) / 8000
+    pcm = (np.sin(2 * np.pi * 300 * t) * amplitude * 32767).astype(np.int16)
+    return [g711.encode_int16(pcm, "pcma")] * n
+
+
+async def _speak(c, text, amplitude):
+    from sesli_asistan.gateway.core.ports import SttEvent
+
+    sent = c.stt.stream.sent
+    c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+    await asyncio.sleep(0.01)
+    for f in _frames(amplitude):
+        c.media.q.put_nowait(f)
+    await c.until(lambda: c.stt.stream.sent >= sent + 40)
+    c.stt.stream.ev.put_nowait(SttEvent("final", text, 0.9, 0, 800))
+
+
+async def test_kisik_ama_rehberi_anan_soz_arka_plan_sayilmaz():
+    # arayan önce yüksek sesle konuştu (seviyesi öğrenildi); sonraki cevabı ~30 dB kısık geldi. İlgisiz kısık söz
+    # (odadaki biri) atılır, rehberdeki birimi anan kısık söz ("satış bizimi": STT'nin bozduğu "satış birimi")
+    # arayanın kendi cevabı sayılır.
+    async with Call(play_s=0.01) as c:
+        await _speak(c, "filanca kişiyle görüşecektim", 0.3)
+        await c.until(lambda: len(c.session.stats.turns) == 1)
+        await c.until(lambda: c.session.state == CallState.LISTENING)
+        await _speak(c, "fena değil eyvah günaydın", 0.01)
+        await c.until(lambda: c.session.stats.background_ignored == 1)
+        await _speak(c, "satış bizimi", 0.01)
+        await c.until(lambda: len(c.session.stats.turns) == 2)
+        assert c.session.stats.turns[-1].heard == "satış bizimi"
+        assert c.session.stats.background_ignored == 1
+
+
+async def test_kisi_ve_birim_hatti_adayini_kod_sorar():
+    # "matış" → Ayşe Kaya (Satış) ve Satış birim hattı: soru kodla, LLM'e ikinci tur yazdırılmaz
+    async with Call(Llm(tool("InContacts", Name="Matış"))) as c:
+        c.say("matış video ile görüşmek istiyorum")
+        await c.until(lambda: c.session.stats.turns)
+        reply = c.session.stats.turns[0].reply
+        assert reply == "Ayşe Kaya mı, Satış mı?", reply
+        assert len(c.llm.seen) == 1

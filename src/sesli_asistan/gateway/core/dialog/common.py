@@ -240,6 +240,9 @@ class DialogSession:
     async def handle_user(self, text: str) -> DialogTurn:
         return await self.agent.handle_user(self, text)
 
+    def concerns_call(self, text: str) -> bool:
+        return self.agent.concerns_call(self, text)
+
     async def handle_transfer_result(self, status: str) -> DialogTurn:
         return await self.agent.handle_transfer_result(self, status)
 

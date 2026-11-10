@@ -91,6 +91,11 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Arka plan süzgeci arayanın kısık cevabını atıyordu (canlı deneme 10.11.2026: ilk sözden 17 dB kısık "satış birimi"
+  iki kez arka plan sayıldı). Rehberde bir hedefi anan ya da açık soruya cevap veren söz artık kısık da olsa
+  dinlenir; ilgisiz kısık sözler eskisi gibi atılır.
+- Kişi ve birim hattı birlikte aday olunca "hangisi?" sorusu kodla sorulur ("Ayşe Kaya mı, Satış mı?"); önceden
+  LLM'e kalıyor, ~7 sn sürüyor ve bozuk cümle kuruyordu.
 - Konu adımına giriş (09.11.2026 eklenen niyet şartı): niyet sözcükleri eksiz eşlendiği için "arızam var", "su arızası
   bildireceğim" ve "ik ile görüşebilir miyim" (D06) konu adımını atlıyordu. Artık yalnız tek sözcüklü, niyet kökü
   ya da birim adı içermeyen kırıntı atlanır; kökler ön ekle eşlenir.
