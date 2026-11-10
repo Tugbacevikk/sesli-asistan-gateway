@@ -118,3 +118,8 @@
   aciklama: "Aynı soru, ilk turda aktarma yok"
   konusma: ["ar-ge mühendisiyle görüşmek istiyorum"]
   beklenen: {eylem: yok}
+
+- id: R23
+  aciklama: "Unvan + ad aynı sözde: soru sorulmadan o kişi"
+  konusma: ["ar-ge mühendisi volkan bey ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "2004"}

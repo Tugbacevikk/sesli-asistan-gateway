@@ -16,6 +16,8 @@ from ..people import (
     resolve_person,
     same_title,
 )
+from ..people.common import _without_self
+from ..people.names import _name_said
 from ..phrases import (
     _FAST_BLOCK,
     _NEGATION,
@@ -278,6 +280,9 @@ class ChoiceMixin:
         Birinciye (dahili sırasıyla) aktarılır; meşgul / cevapsızsa santral sonucuyla sıradakine geçilir
         (`handle_transfer_result`). Hepsi bu çağrıda ulaşılamadıysa operatör. Karar 10.11.2026 (S35)."""
         named = [c for c in cands if c.contact.kind == "person" and c.contact.full_name.strip()]
+        said = [c for c in named if _name_said(c.contact, _without_self(text))]
+        if len(said) == 1 and (picked := self._choice_transfer(s, said[0], cands, text, "unvan + ad")) is not None:
+            return picked                     # unvan + ad aynı sözde ("Ar-Ge mühendisi Volkan"): soru sorulmaz
         if named:
             # adı olan kişiler birbirinin yerine geçmez ("Ar-Ge Mühendisi": altı mühendis, adları belli): birimden
             # kiminle görüşüleceği sorulur, cevap adla seçilir. Önceden birinciye aktarılıyordu (deneme 10.11.2026)
