@@ -297,7 +297,9 @@ def test_erisim_icerik_turu_ve_boyut(tmp_path):
 
 def test_yazilamayan_rehber_dosyasinda_kapali(tmp_path):
     tc, rt, path = client(tmp_path)
-    rt.settings.upload.path = tmp_path / "yok" / "rehber.json"
+    from sesli_asistan.gateway.adapters.directory.json_file_store import JsonDirectoryFile
+
+    rt.settings.upload.store = JsonDirectoryFile(tmp_path / "yok" / "rehber.json")      # klasörü yok: yazılamaz
     with tc:
         st = tc.get("/v1/admin/settings").json()["directory_upload"]
         assert not st["enabled"] and "yazılamıyor" in st["reason"]

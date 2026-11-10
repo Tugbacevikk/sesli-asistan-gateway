@@ -1,19 +1,17 @@
 """Rehber yükleme (tasarim.md 13.2): önizle → onayla → rehber dosyasına yaz (önceki sürüm saklanır) → yeniden oku.
-Dosyayı okuma ve karşılaştırma `directory_import`'ta; burada akış, belirteç, atomik yazma, geri alma, denetim kaydı."""
+Okuma ve karşılaştırma `directory_import`'ta, yazma ve geri alma `DirectoryStore`'da; burada akış, belirteç, denetim."""
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
-import os
 import secrets
 import time
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from . import directory_import as dimp
 from .core.models import Contact
+from .core.ports import DirectoryStore
 from .local_settings import LocalSettings
 
 if TYPE_CHECKING:
@@ -27,36 +25,27 @@ class DirectoryUpload:
 
     Önizleme sonucu 15 dk bellekte tutulur ve bir belirteçle onaylanır (dosya ikinci kez gönderilmez; önizlenen ile
     uygulanan aynıdır). Yazmadan önce mevcut dosya `<rehber>.onceki` olarak saklanır: `revert()` tek adımda geri
-    döner. Yalnız JSON kaynakta (DIRECTORY_SOURCE=json) ve dosya Gateway kullanıcısınca yazılabilirse açıktır."""
+    döner. Yalnız yazılabilir bir rehber kaydı varsa (JSON kaynak, DIRECTORY_SOURCE=json) açıktır; yazma ve geri
+    alma `DirectoryStore`'da (`adapters/directory/json_file_store.py`)."""
 
     TTL_S = 900
 
-    def __init__(self, rt: GatewayRuntime):
-        self.rt = rt
-        self.path = Path(rt.s.directory_path) if rt.s.directory_source == "json" else None
+    def __init__(self, rt: GatewayRuntime, store: DirectoryStore | None):
+        self.rt, self.store = rt, store
         self._pending: dict[str, tuple[float, list[dict[str, Any]], dict[str, Any]]] = {}
         self._lock = asyncio.Lock()
 
-    @property
-    def previous(self) -> Path | None:
-        return None if self.path is None else self.path.with_name(self.path.name + ".onceki")
-
     def status(self) -> dict[str, Any]:
         """Arayüz için: yükleme açık mı, değilse neden; geri alınabilir mi."""
-        if self.path is None:
+        if self.store is None:
             return {"enabled": False, "reason": "rehber dış kaynaktan (API) geliyor; yükleme kapalı"}
-        folder = self.path.parent
-        ok = os.access(folder, os.W_OK) and (not self.path.exists() or os.access(self.path, os.W_OK))
-        prev = self.previous
-        out: dict[str, Any] = {"enabled": ok, "file": str(self.path),
-                               "revertible": bool(ok and prev is not None and prev.exists())}
-        if not ok:
-            out["reason"] = (f"{self.path} Gateway tarafından yazılamıyor: DIRECTORY_PATH'i "
-                             "/var/lib/sesli-asistan/rehber.json yapın (tasarim.md 13.2)")
-        try:
-            out["modified"] = datetime.fromtimestamp(self.path.stat().st_mtime, UTC).isoformat(timespec="seconds")
-        except OSError:
-            pass
+        reason = self.store.unwritable_reason()
+        out: dict[str, Any] = {"enabled": reason is None, "file": self.store.label,
+                               "revertible": reason is None and self.store.has_previous()}
+        if reason is not None:
+            out["reason"] = reason
+        if (modified := self.store.modified()) is not None:
+            out["modified"] = modified
         return out
 
     def _source(self) -> list[Contact]:
@@ -115,13 +104,13 @@ class DirectoryUpload:
             raise ValueError(f"{summary['errors']} hatalı satır var: düzeltip yeniden yükleyin ya da "
                              "'hatalı satırları atla' ile onaylayın")
         async with self._lock:
-            assert self.path is not None
+            assert self.store is not None              # status() açıksa var
             doc = {"server_time": datetime.now(UTC).isoformat(timespec="seconds"), "contacts": contacts,
                    "_kaynak": "arayüzden yüklendi"}
-            await asyncio.to_thread(self._write, doc)
+            await asyncio.to_thread(self.store.write, doc)
             self._pending.pop(token, None)
             if not await self.rt.directory.refresh():
-                await asyncio.to_thread(self._restore)
+                await asyncio.to_thread(self.store.restore)
                 await self.rt.directory.refresh()
                 raise ValueError("yeni rehber okunamadı; önceki rehbere dönüldü")
         d = summary["diff"]
@@ -135,8 +124,9 @@ class DirectoryUpload:
         st = self.status()
         if not st.get("revertible"):
             raise ValueError("geri alınacak önceki rehber yok")
+        assert self.store is not None
         async with self._lock:
-            await asyncio.to_thread(self._restore)
+            await asyncio.to_thread(self.store.restore)
             await self.rt.directory.refresh()
         msg = f"rehber önceki sürüme döndü: {len(self._source())} kayıt"
         await self._audit(actor, msg)
@@ -144,29 +134,6 @@ class DirectoryUpload:
 
     def export(self) -> bytes:
         return dimp.export_csv(self._source())
-
-    def _write(self, doc: dict[str, Any]) -> None:
-        assert self.path is not None and self.previous is not None
-        tmp = self.path.with_name(f".{self.path.name}.yaziliyor")
-        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(doc, f, ensure_ascii=False, indent=1)
-            f.flush()
-            os.fsync(f.fileno())
-        if self.path.exists():
-            os.replace(self.path, self.previous)
-        os.replace(tmp, self.path)
-
-    def _restore(self) -> None:
-        """Önceki rehberle yer değiştir (geri al iki kez basılırsa yeniye döner)."""
-        assert self.path is not None and self.previous is not None
-        if not self.path.exists():
-            os.replace(self.previous, self.path)
-            return
-        tmp = self.path.with_name(f".{self.path.name}.takas")
-        os.replace(self.path, tmp)
-        os.replace(self.previous, self.path)
-        os.replace(tmp, self.previous)
 
     async def _audit(self, actor: dict[str, str], msg: str) -> None:
         log.info("%s (%s, %s)", msg, actor.get("kim"), actor.get("ip"))

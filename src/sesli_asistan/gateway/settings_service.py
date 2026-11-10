@@ -71,11 +71,10 @@ _EXTENSION = re.compile(r"^\d{2,6}$")   # yalnız dahili numara: dış hat / cep
 
 
 class SettingsService:
-    def __init__(self, rt: GatewayRuntime, store: LocalSettingsStore | None):
-        self.rt, self.store = rt, store
+    def __init__(self, rt: GatewayRuntime, store: LocalSettingsStore | None, upload: DirectoryUpload):
+        self.rt, self.store, self.upload = rt, store, upload
         self.local = LocalSettings()
         self._lock = asyncio.Lock()
-        self.upload = DirectoryUpload(rt)
 
     # --- yükleme / uygulama ---------------------------------------------------------------------------------
 
