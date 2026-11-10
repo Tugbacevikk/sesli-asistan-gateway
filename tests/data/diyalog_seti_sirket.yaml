@@ -107,3 +107,14 @@
   aciklama: "Operatör isteği"
   konusma: ["operatöre bağlar mısınız"]
   beklenen: {eylem: operator}
+
+# --- 6. AYNI UNVANLI ADLI KİŞİLER (canlı deneme 10.11.2026) ---
+- id: R21
+  aciklama: "Altı Ar-Ge Mühendisi (adları belli): birinciye aktarılmaz, kiminle sorulur, adla seçilir"
+  konusma: ["ar-ge mühendisiyle görüşmek istiyorum", "volkan bey"]
+  beklenen: {eylem: transfer, dahili: "2004"}
+
+- id: R22
+  aciklama: "Aynı soru, ilk turda aktarma yok"
+  konusma: ["ar-ge mühendisiyle görüşmek istiyorum"]
+  beklenen: {eylem: yok}

@@ -97,6 +97,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Aynı unvanlı, aynı birimdeki **adı olan** kişiler birbirinin yerine geçmez ("Ar-Ge mühendisi": altı mühendis):
+  "Ar-Ge'den kiminle görüşmek istersiniz?" sorulur, cevap adla seçilir. Sıradaki hatta geçme yalnız adsız hatlar
+  için (S35 kuralı birinciye aktarıyordu; deneme 10.11.2026).
 - LLM'in birim araması aranan birimin ayırt edici sözcüklerini taşımayan tek bir kayda düşerse ("jandarma sosyal
   tesis müdürlüğü" → yalnız "jandarma"dan Jandarma santrali) sormadan aktarılmaz, teyit sorulur.
 - Asistanın karşılamasının mikrofondan geri gelen yankısı ("denem'e hoş geldin", "benim hoş gel") selam sayılır,
