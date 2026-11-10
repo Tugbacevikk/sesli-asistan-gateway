@@ -38,6 +38,7 @@ from ..search import (
     strip_suffix,
 )
 from ..thresholds import (
+    CHOICE_WORD,
     FIRST_NAME_LIKE,
     FUZZY_CHOICE_MARGIN,
     FUZZY_CHOICE_MIN,
@@ -237,6 +238,8 @@ class ChoiceMixin:
             return self._not_found(s)
         if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
             return None
+        if (turn := self._choice_by_title(s, text, choice)) is not None:
+            return turn
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
             decided, turn = self._choice_by_unit(s, text, words, choice)
             if decided:
@@ -244,6 +247,32 @@ class ChoiceMixin:
         if not words:
             return None
         return self._choice_by_words(s, text, words, choice)
+
+    def _choice_by_title(self: DialogAgent, s: DialogSession, text: str,
+                         choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """`_ask_titles` sorusunun cevabı ("Hukuk Müşaviri mi, Avukat mı?"): seçenek etiketi (unvanın ortak sözcük
+        dışı kısmı) ya da yalnız ortak sözcük ("avukat") söylendiyse o unvanlı hat(lar). Tek hat → aktar; aynı unvanlı
+        birden çok hat → ayırt edilemez, operatör. Soru bu biçimde değilse None. Sözcükler `fold_words` ile: unvan
+        sözcükleri ("avukat") ad aramasında atılır, cevapta asıl sözcüktür (S35)."""
+        titles = list(dict.fromkeys(c.contact.title for c in choice if c.contact.title))
+        if len({c.contact.department for c in choice}) != 1 or len(titles) < 2 or len(titles) == len(choice):
+            return None                                     # unvan sorusu değil (tek birim, tekrarlanan unvan)
+        said = fold_words(text)
+
+        def says(x: str) -> bool:
+            return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in said)
+
+        common = set.intersection(*(set(fold_words(t)) for t in titles))
+        hit = [t for t in titles if (rest := set(fold_words(t)) - common) and all(says(x) for x in rest)]
+        if not hit:
+            hit = [t for t in titles if set(fold_words(t)) == common and all(says(x) for x in common)]
+        if len(hit) != 1:
+            return None
+        picked = [c for c in choice if c.contact.title == hit[0]]
+        if len(picked) == 1:
+            return self._choice_transfer(s, picked[0], choice, text, "seçim (unvan)")
+        log.info("[%s] seçilen unvanda %d hat (%s): ayırt edilemedi", s.call_id, len(picked), hit[0])
+        return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
 
     def _choice_by_unit(self: DialogAgent, s: DialogSession, text: str, words: list[str],
                         choice: tuple[Candidate, ...]) -> tuple[bool, DialogTurn | None]:

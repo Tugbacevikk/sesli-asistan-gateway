@@ -18,7 +18,6 @@ from ..phrases import (
 )
 from ..ports import ToolCall
 from ..search import (
-    fold_words,
     is_role_word,
     query_variants,
     search_key,
@@ -397,12 +396,6 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
                for k in dept_keys if " " not in k):
             return True
     if any(" " in k and k in " ".join(words) for k in dept_keys):
-        return True
-    title = fold_words(c.title)                    # unvan sözcüğü ("avukat") ad aramasında atılır, burada sayılır
-    if (len(title) == 1
-            and any(w.startswith(title[0]) or similarity(strip_suffix(w), title[0]) >= CHOICE_WORD for w in words)
-            and all(title[0] in fold_words(o.contact.title) for o in choice)):
-        # unvanı yalnız ortak sözcük olan hat ("Avukat"; öbürü "Hukuk Müşaviri Avukat"): cevap "avukat" → o hat(lar)
         return True
     # birimi ya da unvanı öbür adaylardan ayıran sözcük: "Nilüfer Kaymakamlığı mı, İnegöl …?" → "nilüfer"; aynı
     # birimdeki adaylar birbirinin rakibi sayılmaz ("Hangi birimdeki şube müdürü?" → "asayiş" ikisini de seçer);
