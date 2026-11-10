@@ -42,5 +42,7 @@ def test_set_kural_modunda(name, rehber, known, monkeypatch):
                                         rehber=str(ROOT / rehber) if rehber else ""))
     failed = set(out["basarisizlar"])
     detail = {r["id"]: (r["cevaplar"], r["eylemler"]) for r in out["ayrinti"] if r["id"] in failed - known}
+    for sid, (replies, actions) in detail.items():            # pytest uzun ayrıntıyı kısaltır: tamamı çıktıda
+        print(f"{sid}: {replies} {actions}")
     assert out["izinsiz_aktarma"] == 0, detail
     assert failed <= known, detail
