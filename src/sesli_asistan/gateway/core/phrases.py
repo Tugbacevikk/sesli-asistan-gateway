@@ -109,7 +109,8 @@ _folded_words = fold_tr_words      # kısa ad (diyalog modüllerinde çok kullan
 _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
                    "selamun", "aleykum", "aleykumselam", "selamunaleykum", "kolay", "gelsin", "hayirli", "isler",
                    "nasilsiniz", "nasilsin", "efendim", "evet", "buyurun", "hosbulduk", "tesekkurler", "sagolun",
-                   "tesekkur", "ederim", "duyuyor", "musunuz", "beni", "sesim", "geliyor", "mu"}
+                   "tesekkur", "ederim", "duyuyor", "musunuz", "beni", "sesim", "geliyor", "mu",
+                   "hos", "gel", "geldin", "geldiniz", "hosgeldin", "hosgeldiniz"}
 
 
 _HOURS_WORDS = {"acik", "aciliyor", "acilir", "aciyorsunuz", "kapaniyor", "kapanir", "kapatiyorsunuz", "kadar",
@@ -129,8 +130,11 @@ def asks_office_hours(text: str) -> bool:
                 or re.search(r"\bacik (misiniz|mi)\b", joined))
 
 
+# "hoş geldiniz": asistanın kendi karşılaması mikrofondan geri geliyor ("denem'e hoş geldin", "benim hoş gel"; çağrı
+# geçmişi 05.11.2026: 5 tur LLM'e gidip 1,5–12 sn bekletti, sonunda "bulamadım"); selam gibi kodla, anında
 _GREETING_CORE = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "gunaydin", "aksamlar", "selamun", "aleykum",
-                  "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin"}
+                  "aleykumselam", "selamunaleykum", "gunler", "gelsin", "nasilsiniz", "nasilsin", "hos", "geldin",
+                  "geldiniz", "hosgeldin", "hosgeldiniz"}
 
 
 _HOW_ARE_YOU = {"nasilsin", "nasilsiniz", "naber", "nabersin", "nasil", "nasilsinizdir", "iyimisin", "iyimisiniz",

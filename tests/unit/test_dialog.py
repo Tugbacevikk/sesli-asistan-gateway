@@ -954,7 +954,8 @@ async def test_kural_modunda_birim_kisaltmasi():
 
 @pytest.mark.parametrize("text", ["selam", "merhaba", "iyi günler", "selamün aleyküm", "günaydın", "alo",
                                   "kolay gelsin", "alo duyuyor musunuz", "merhaba nasılsınız",
-                                  "bakalımızı merhaba iyi günler merhab"])     # canlı 09.11.2026: kırıntı + kesik selam
+                                  "bakalımızı merhaba iyi günler merhab",      # canlı 09.11.2026: kırıntı + kesik selam
+                                  "denem'e hoş geldin", "ben hoş geldiniz", "benim hoş gel"])   # karşılamanın yankısı
 @pytest.mark.parametrize("llm", [True, False])
 async def test_yalniz_selam_kimi_aradigini_sorar_deneme_saymaz(text, llm):
     a = agent(ScriptedLlm(), fast_path=True, llm_enabled=llm)
