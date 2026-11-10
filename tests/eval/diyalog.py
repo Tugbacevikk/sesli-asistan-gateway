@@ -145,7 +145,9 @@ def pct(values: list[float], p: float) -> float:
 async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
                     rules: bool = False, tools: str = "yerel", mcp_url: str = "",
                     mcp_step: bool = False, prompt: str = "", departments: int = 0,
-                    few_shot: bool = False, rehber: str = "") -> dict[str, Any]:
+                    few_shot: bool = False, rehber: str = "", mcp_local: bool = False) -> dict[str, Any]:
+    """`mcp_local`: MCP adımı açık ama sunucusuz (Gateway aynı işlevleri yerelde çalıştırır; MCP düşünce olan yol).
+    CI'da MCP adımlı akışı sunucu kurmadan sınamak için."""
     s = GatewaySettings()
     s.llm_model = model
     s.llm_enabled = not rules
@@ -164,6 +166,8 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     from sesli_asistan.gateway.composition import build_llm
 
     agent.llm = CountingLlm(build_llm(s))
+    if mcp_local:
+        agent.tools.remote = None
     remote = agent.tools.remote
     if remote is not None and not await remote.ping():
         # ölçüm sessizce yerel aramaya düşmesin: iki yolu karşılaştırıyoruz

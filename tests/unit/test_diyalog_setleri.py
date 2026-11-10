@@ -30,14 +30,22 @@ SETS = [
 ]
 
 
+# Aynı setler MCP adımı açıkken (canlı kurulumdaki `MCP_STEP=true` akışı; sunucusuz, işlevler yerelde). Kural modu bu
+# yolu sınamıyordu: canlı denemede (10.11.2026) "satıştaki Merve", "Volkan Bey" hataları ancak orada görüldü.
+MCP_KNOWN: dict[str, set[str]] = {}
+
+
+@pytest.mark.parametrize("mcp", [False, True], ids=["kural", "mcp"])
 @pytest.mark.parametrize("name, rehber, known", SETS, ids=[s[0] for s in SETS])
-def test_set_kural_modunda(name, rehber, known, monkeypatch, caplog):
+def test_set_kural_modunda(name, rehber, known, mcp, monkeypatch, caplog):
+    if mcp:
+        known = MCP_KNOWN.get(name, set())
     caplog.set_level(logging.INFO, logger="sesli_asistan.gateway.core")
     for var in ("DIRECTORY_PATH", "ABBREVIATIONS_PATH", "MCP_STEP", "LLM_TOOLS"):
         monkeypatch.delenv(var, raising=False)
     monkeypatch.chdir(ROOT)
     scenarios = yaml.safe_load((ROOT / "tests/data" / name).read_text(encoding="utf-8"))
-    out = asyncio.run(diyalog.run_model("kural", scenarios, 1, None, rules=True,
+    out = asyncio.run(diyalog.run_model("kural", scenarios, 1, None, rules=True, mcp_step=mcp, mcp_local=mcp,
                                         rehber=str(ROOT / rehber) if rehber else ""))
     failed = set(out["basarisizlar"])
     detail = {r["id"]: (r["cevaplar"], r["eylemler"]) for r in out["ayrinti"] if r["id"] in failed - known}
