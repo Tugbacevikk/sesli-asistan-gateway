@@ -210,6 +210,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- CI'da senaryo setleri iki akışta koşar: kural modu ve MCP adımı (`MCP_STEP=true`, sunucusuz; canlı kurulumun
+  akışı). MCP akışında bulunan S18 ("vali yardımcısı Kemal Bey") düzeltildi: unvan + ad kuralı kişi çözme işlevinde
+  (MCP sunucusu ve Gateway aynı işlev). Şirket rehberinde "İç Satış" eş adı kaldırıldı ("Yurt İçi Satış mı, Yurt Dışı
+  Satış mı?").
 - Aynı birimde farklı unvanlı hatlar unvanla sorulur ("Hukuk Müşaviri mi, Avukat mı?"); aynı unvanlı, adsız hatlar
   (iki "Avukat") birbirinin yerine geçer: birinciye aktarılır, meşgul / cevapsızsa santral sonucuyla sıradakine
   geçilir (`NEXT_LINE_TEXT`). Önceden operatöre bağlanıyordu (S35 kararı 10.11.2026).
