@@ -191,6 +191,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Ayar servisi çalışan sistemin iç alanlarını değiştirmez; dar giriş noktalarını kullanır:
+  `DialogAgent.set_texts`, `GatewayRuntime.set_office_rules`, `GatewayRuntime.reload_prompts`
+  (`prompts_missing` artık açık alan).
 - Yerel ayarlar tipli (`local_settings.LocalSettings`, `LocalContact`): ayar servisi serbest sözlük yerine bunu
   taşır; ayar dosyasının biçimi aynı (yalnız farklar). Mesai / tatil / mesai dışı davranışın "yerel yoksa ayar
   dosyasındaki" kuralı tek yerde.
