@@ -70,6 +70,24 @@ def _by_title(index: DirectoryIndex, words: list[str]) -> list[Contact]:
     return []
 
 
+def title_rivals(index: DirectoryIndex, c: Contact, text: str) -> list[Contact]:
+    """Unvanla bulunan hattın birimindeki, söylenen unvan sözcüğünü taşıyan **başka** unvanlı hatlar; yalnız arayan
+    bulunanın unvanını tam söylemediyse. "valilik hukuk işleri avukatı" → Hukuk Müşaviri Avukat bulunur ama aynı
+    birimde iki "Avukat" hattı da var: hangisi sorulur (S35 kararı 10.11.2026). Alt hatlar ("… Shp.") rakip değil."""
+    said = _title_words(text)
+    title = fold_words(c.title)
+    if not title or all(any(_like(w, s) for s in said) for w in title):
+        return []                                          # unvan tam söylendi: hedef belli
+    head = [w for w in title if is_role_word(w) and any(_like(w, s) for s in said)]
+    if not head:
+        return []
+    own = " ".join(title)
+    return [o for o in index.contacts()
+            if o.id != c.id and o.kind != "department" and o.title and o.department == c.department
+            and not " ".join(fold_words(o.title)).startswith(own)
+            and all(any(_like(h, x) for x in fold_words(o.title)) for h in head)]
+
+
 def _drop_sublines(cands: list[Contact]) -> list[Contact]:
     """Aynı birimde bir makamın alt/cihaz hatları ("… Müdürü Shp.", "… Dinlenme", "… Mbl.") varsa ve asıl makamın
     sözcük kümesi onun öz alt kümesiyse yalnız asıl makam kalır."""

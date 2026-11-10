@@ -26,8 +26,7 @@ SETS = [
     ("diyalog_seti_makam.yaml", "tests/data/makam_rehber.json", set()),
     ("diyalog_seti_demo.yaml", "data/demo_rehber.json", set()),
     ("diyalog_seti_sirket.yaml", "data/sirket_rehber.json", set()),
-    # S35 (aynı birimde "Hukuk Müşaviri Avukat" ve iki "Avukat" hattı): davranış kararı bekliyor
-    ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json", {"S35"}),
+    ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json", set()),
 ]
 
 

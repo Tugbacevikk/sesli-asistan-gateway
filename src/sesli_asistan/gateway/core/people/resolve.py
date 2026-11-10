@@ -30,6 +30,7 @@ from .names import (
 )
 from .titles import (
     _by_title,
+    title_rivals,
 )
 
 
@@ -49,6 +50,8 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
     persons = [c for c in index.contacts() if c.kind == "person"]
     tw = _title_words(text)
     if any(is_role_word(w) for w in tw) and (hit := _by_title(index, tw)):
+        if len(hit) == 1 and (rivals := title_rivals(index, hit[0], text)):
+            return _out([*hit, *rivals], "unvan", False)          # aynı birimde başka unvanlı hat: sorulur
         return _out(hit, "unvan", len(hit) == 1)
     depts = _mentioned_departments(index, words)
     named = [c for c in persons if _name_said(c, words)]

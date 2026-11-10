@@ -117,6 +117,28 @@ class ChoiceMixin:
         s.state.choice, s.state.choice_question = candidates, ""
         return self._reply(s, q)
 
+    def _ask_titles(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Aynı birimde farklı unvanlı hatlar, bazıları aynı unvanda (ad yok, soru adla kurulamıyor): unvanla sorulur,
+        "Hukuk Müşaviri mi, Avukat mı?" (S35). Seçenekte ortak unvan sözcüğü atılır ("Hukuk Müşaviri Avukat" →
+        "Hukuk Müşaviri"); cevap tek hattı seçerse aktarılır, aynı unvanlı hatları seçerse ayırt edilemez (operatör)."""
+        if len({c.contact.department for c in cands}) != 1:
+            return None
+        titles = list(dict.fromkeys(c.contact.title for c in cands if c.contact.title))
+        if len(titles) < 2 or len(titles) == len(cands):
+            return None                                     # hepsi farklıysa olağan "X mı, Y mi?" sorusu yeter
+        common = set.intersection(*(set(search_key(t).split()) for t in titles))
+        labels = []
+        for t in titles:
+            rest = [w for w in t.split() if search_key(w) not in common]
+            labels.append(" ".join(rest) if rest else t)
+        parts = [f"{x} {question_particle(x)}" for x in labels]
+        q = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
+        s.state.choice, s.state.choice_question, s.state.truncated = cands, q, False
+        log.info("[%s] aynı birimde %d unvan soruluyor: %s", s.call_id, len(titles), q)
+        turn = self._reply(s, q)
+        turn.fast = True
+        return turn
+
     def _ask_units(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
         """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?".
         Sözde unvan varsa ("asayiş şube müdürü") birim hatları değil o birimlerin içindeki unvanlı hatlar sorulur:
