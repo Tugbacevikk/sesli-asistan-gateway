@@ -97,6 +97,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- LLM'in birim araması aranan birimin ayırt edici sözcüklerini taşımayan tek bir kayda düşerse ("jandarma sosyal
+  tesis müdürlüğü" → yalnız "jandarma"dan Jandarma santrali) sormadan aktarılmaz, teyit sorulur.
 - Asistanın karşılamasının mikrofondan geri gelen yankısı ("denem'e hoş geldin", "benim hoş gel") selam sayılır,
   kodla ve anında cevaplanır; önceden LLM'e gidip 1,5–12 sn bekletiyordu (çağrı geçmişi).
 - Bilinen senaryo hataları kapandı: kendini tanıtan arayanın adı aday sayılmaz ve "-daki / -deki" ekli birim

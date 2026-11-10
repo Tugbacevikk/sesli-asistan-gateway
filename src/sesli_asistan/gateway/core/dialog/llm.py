@@ -10,6 +10,7 @@ from ..ports import LlmError, ToolCall
 from ..resilience import supports_stream
 from ..search import (
     search_key,
+    similarity,
 )
 from ..thresholds import (
     MAX_BARGE_REPEATS,
@@ -185,6 +186,11 @@ class LlmMixin:
                 return turn
             s.history.append(_tool_message(call, content))
             return self._confirm(s, contact)
+        if r.caller_turn and (missing := _missing_unit_words(call.arguments.get("Department", ""), contact)):
+            # aranan birimin ayırt edici sözcükleri bulunan birimde yok ("jandarma sosyal tesis müdürlüğü" → yalnız
+            # "jandarma"dan Jandarma santrali; deneme 10.11.2026): sormadan aktarılmaz, teyit sorulur
+            s.history.append(_tool_message(call, {**content, "note": f"Rehberde yok: {' '.join(missing)}"}))
+            return self._confirm(s, contact, why="birimin bir kısmı rehberde yok")
         action = self.tools.transfer(contact.extension, s.state)
         if action is None:
             return None
@@ -245,3 +251,23 @@ class LlmMixin:
     def _last_assistant(s: DialogSession) -> str:
         return next((m.get("content") or "" for m in reversed(s.history) if m["role"] == "assistant"
                      and (m.get("content") or "").strip()), "")
+
+
+# birim adlarında ayırt edici olmayan sözcükler (katlanmış): bunlar eksik diye teyit sorulmaz
+_GENERIC_UNIT_WORDS = {"mudurlugu", "mudurluk", "mudurlugune", "baskanligi", "baskanlik", "komutanligi", "komutanlik",
+                       "sube", "subesi", "birim", "birimi", "buro", "burosu", "daire", "dairesi", "il", "ilce", "genel",
+                       "merkez", "merkezi", "departman", "departmani", "bolum", "bolumu"}
+
+
+def _missing_unit_words(query: str, contact: Any) -> list[str]:
+    """LLM'in birim aramasındaki ayırt edici sözcüklerden bulunan kayıtta (birim adı, eş anlamlıları, unvan) hiç
+    geçmeyenler. Boşsa aranan birim bulunmuştur. Yalnız arama bir birim adıysa ("… müdürlüğü", "… şubesi"): konu
+    sözcükleri ("arıza kaydı" → Teknik Destek) eksik sayılmaz."""
+    every = search_key(query).split()
+    if not set(every) & _GENERIC_UNIT_WORDS - {"il", "ilce", "genel", "merkez", "merkezi"}:
+        return []
+    words = [w for w in every if len(w) >= 3 and w not in _GENERIC_UNIT_WORDS]
+    have = search_key(" ".join([contact.department, *contact.department_aliases, contact.title])).split()
+    return [w for w in words
+            if not any(x.startswith(w[:5]) or w.startswith(x[:5]) or similarity(w, x) >= 80 for x in have if x)]
+
