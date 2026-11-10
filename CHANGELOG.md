@@ -97,6 +97,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Asistanın karşılamasının mikrofondan geri gelen yankısı ("denem'e hoş geldin", "benim hoş gel") selam sayılır,
+  kodla ve anında cevaplanır; önceden LLM'e gidip 1,5–12 sn bekletiyordu (çağrı geçmişi).
 - Bilinen senaryo hataları kapandı: kendini tanıtan arayanın adı aday sayılmaz ve "-daki / -deki" ekli birim
   tanınır (D122: "ben Mehmet, satıştaki Ayşe Hanım"); kural modunda da STT'nin bozduğu ad ses benzerliğiyle teyit
   edilir (D124, D125: yalnız `MCP_STEP` açıkken geçiyordu, Windows / Linux farkı sanılan buydu); unvan + ad tek kişiyi
