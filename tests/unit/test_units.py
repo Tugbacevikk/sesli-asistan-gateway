@@ -186,6 +186,7 @@ def test_aranan_birimin_bir_kismi_yoksa_llm_aramasi_teyit_ister():
     line = next(c for c in contacts if c.extension == "30000")
     assert _missing_unit_words("jandarma sosyal tesis müdürlüğü", line) == ["sosyal", "tesis"]
     assert _missing_unit_words("jandarma komutanlığı", line) == []
+    assert _missing_unit_words("jandarma sosyal tesis", line) == []                # birim adı değil: denetlenmez
 
     class Llm:
         def __init__(self):
