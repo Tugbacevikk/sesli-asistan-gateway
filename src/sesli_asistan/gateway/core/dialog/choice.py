@@ -94,8 +94,7 @@ class ChoiceMixin:
             turn = self._reply(s, q)
             turn.fast = True
             return turn
-        log.info("[%s] aynı unvan ve birimde %d hat: ayırt edilemedi", s.call_id, len(cands))
-        return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        return self._interchangeable(s, cands, text)
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 
@@ -271,8 +270,23 @@ class ChoiceMixin:
         picked = [c for c in choice if c.contact.title == hit[0]]
         if len(picked) == 1:
             return self._choice_transfer(s, picked[0], choice, text, "seçim (unvan)")
-        log.info("[%s] seçilen unvanda %d hat (%s): ayırt edilemedi", s.call_id, len(picked), hit[0])
-        return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        return self._interchangeable(s, tuple(picked), text)
+
+    def _interchangeable(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...], text: str) -> DialogTurn:
+        """Aynı unvanlı, aynı birimdeki adsız hatlar (iki "Avukat"): arayan da ayırt edemez, soru bir tur kaybettirir.
+        Birinciye (dahili sırasıyla) aktarılır; meşgul / cevapsızsa santral sonucuyla sıradakine geçilir
+        (`handle_transfer_result`). Hepsi bu çağrıda ulaşılamadıysa operatör. Karar 10.11.2026 (S35)."""
+        order = sorted((c for c in cands if c.contact.extension not in s.state.unreachable),
+                       key=lambda c: c.contact.extension)
+        if not order:
+            return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        log.info("[%s] aynı unvanlı %d hat (%s): birinciye, kalanlar yedek", s.call_id, len(order),
+                 order[0].contact.title)
+        turn = self._choice_transfer(s, order[0], cands, text, "birbirinin yerine geçen hat")
+        if turn is None:
+            return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        s.state.alternates = tuple(order[1:])
+        return turn
 
     def _choice_by_unit(self: DialogAgent, s: DialogSession, text: str, words: list[str],
                         choice: tuple[Candidate, ...]) -> tuple[bool, DialogTurn | None]:

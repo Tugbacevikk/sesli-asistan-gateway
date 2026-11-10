@@ -60,6 +60,7 @@ TEXT_LABELS = {
     "indistinct": ("Aynı unvan, aynı birim: operatöre aktarma", ""),
     "ask_person_in_department": ("Birim belli, kişi değil: kiminle sorusu", "{birimden}"),
     "fax_line": ("Belgegeçer / faks hattı istendi: teyitten önce söylenen cümle", ""),
+    "next_line": ("Aynı unvanlı hatlardan biri ulaşılamadı: sıradakine geçiş", "{unvan}"),
     "ask_topic": ("Hedefsiz genel istek (\"bilgi almak istiyorum\")", ""),
     "no_input_question": ("Soru açıkken ses gelmedi (sorudan önce)", ""),
     "greeting_reply": ("Arayan yalnız selam verdi", ""),

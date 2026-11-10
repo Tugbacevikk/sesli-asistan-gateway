@@ -210,6 +210,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Aynı birimde farklı unvanlı hatlar unvanla sorulur ("Hukuk Müşaviri mi, Avukat mı?"); aynı unvanlı, adsız hatlar
+  (iki "Avukat") birbirinin yerine geçer: birinciye aktarılır, meşgul / cevapsızsa santral sonucuyla sıradakine
+  geçilir (`NEXT_LINE_TEXT`). Önceden operatöre bağlanıyordu (S35 kararı 10.11.2026).
 - `CallSession` karışım sınıflarına bölündü (kod aynen taşındı): seslendirme `core/call/speaking.py`, santral
   eylemleri `core/call/pbx_actions.py`; olay tipi `core/call/models.Event`. `session.py` 600 → 400 satır.
 - `GatewayRuntime`: santral ve arayüz çağrısının oturumu tek yerde kurulur (`_session`; önceden iki kopya), LLM

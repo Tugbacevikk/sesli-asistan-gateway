@@ -186,9 +186,9 @@
   beklenen: {eylem: transfer, dahili: "20024"}
 
 - id: S35B
-  aciklama: Aynı soru, cevap "avukat" → iki Avukat hattı ayırt edilemez → operatör
+  aciklama: Aynı soru, cevap "avukat" → iki Avukat hattı birbirinin yerine geçer → birinciye (meşgulse ikinciye, test_units)
   konusma: ["valilik hukuk işleri avukatı", "avukat"]
-  beklenen: {eylem: operator}
+  beklenen: {eylem: transfer, dahili: "20025"}
 
 # --- 7. İLÇE KAYMAKAMLIKLARI ---
 - id: S36
