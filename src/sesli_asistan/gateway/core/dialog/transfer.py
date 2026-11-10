@@ -26,6 +26,7 @@ from ..search import (
     search_key,
     similarity,
 )
+from ..speech import split_sentences
 from ..thresholds import (
     GROUNDED_MIN,
     NAME_SAME,
@@ -380,6 +381,10 @@ class TransferMixin:
             return turn
         n, limit = s.state.failed_attempts, self.cfg.max_failed_attempts
         text = self.cfg.texts.offer_operator if n == limit - 1 else self.cfg.texts.not_understood
+        if n < limit - 1 and (q := self.pending_question(s)):
+            # açık soru varken anlaşılmayan söz: soru yinelenir, açık kalır ("Sizi anlayamadım. Ar-Ge'den kiminle…?");
+            # genel cümle arayana neye cevap vereceğini söylemiyordu (deneme 10.11.2026)
+            text = f"{split_sentences(self.cfg.texts.not_understood)[0]} {q}"
         s.history.append({"role": "assistant", "content": text})
         return DialogTurn(text, fallback=True)
 

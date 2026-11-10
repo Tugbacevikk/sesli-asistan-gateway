@@ -205,3 +205,22 @@ def test_aranan_birimin_bir_kismi_yoksa_llm_aramasi_teyit_ister():
     t = asyncio.run(s.handle_user("jandarma sosyal tesis müdürlüğüyle görüşmek istiyorum"))
     assert not t.actions, t.text
     assert s.state.confirm is not None and s.state.confirm.contact.extension == "30000", t.text
+
+
+def test_kim_musaitse_ve_anlasilmayan_cevapta_soru_yinelenir(sirket):
+    # deneme 10.11.2026: "Ar-Ge'den kiminle?" → "kim müsaitse" anlaşılmadı; anlaşılmayan sözden sonra soru unutuldu
+    from sesli_asistan.gateway.core.phrases import ablative, wants_anyone
+
+    assert ablative("Ar-Ge") == "Ar-Ge'den" and ablative("Muhasebe") == "Muhasebeden" and ablative("BT") == "BT'den"
+    assert wants_anyone("aileden kim müsaitse onunla görüşmek istiyorum") and wants_anyone("fark etmez")
+    assert not wants_anyone("volkan bey")
+    a = agent(sirket)
+    s = a.new_session("m")
+    t1 = asyncio.run(s.handle_user("ar-ge mühendisiyle görüşmek istiyorum"))
+    assert t1.text == "Ar-Ge'den kiminle görüşmek istersiniz?" and not t1.actions, t1.text
+    t2 = asyncio.run(s.handle_user(""))
+    assert t2.text == "Sizi anlayamadım. Ar-Ge'den kiminle görüşmek istersiniz?" and not t2.actions, t2.text
+    t3 = asyncio.run(s.handle_user("kim müsaitse"))
+    assert [x.extension for x in t3.actions] == ["2002"], t3.text
+    t4 = asyncio.run(s.handle_transfer_result("busy"))
+    assert [x.extension for x in t4.actions] == ["2003"], t4.text

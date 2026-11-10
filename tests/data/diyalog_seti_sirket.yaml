@@ -123,3 +123,8 @@
   aciklama: "Unvan + ad aynı sözde: soru sorulmadan o kişi"
   konusma: ["ar-ge mühendisi volkan bey ile görüşmek istiyorum"]
   beklenen: {eylem: transfer, dahili: "2004"}
+
+- id: R24
+  aciklama: "'Kim müsaitse': sorulan mühendislerden birinciye (meşgulse sıradakine)"
+  konusma: ["ar-ge mühendisiyle görüşmek istiyorum", "kim müsaitse"]
+  beklenen: {eylem: transfer, dahili: "2002"}

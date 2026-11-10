@@ -100,6 +100,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- "Hangisi?" sorusuna "kim müsaitse", "fark etmez", "herhangi biri": sorulanlardan birinciye aktarılır, meşgul /
+  cevapsızsa sıradakine; bu cevaplar kısık da olsa arka plan sayılmaz. Açık soru varken anlaşılmayan sözde soru
+  yinelenir ("Sizi anlayamadım. Ar-Ge'den kiminle görüşmek istersiniz?"). Kısaltma / tireli birimde ek kesmeyle
+  ("Ar-Ge'den"). Çağrı kayıtlarından (deneme 10.11.2026).
 - Aynı unvanlı, aynı birimdeki **adı olan** kişiler birbirinin yerine geçmez ("Ar-Ge mühendisi": altı mühendis):
   "Ar-Ge'den kiminle görüşmek istersiniz?" sorulur, cevap adla seçilir. Sıradaki hatta geçme yalnız adsız hatlar
   için (S35 kuralı birinciye aktarıyordu; deneme 10.11.2026).
