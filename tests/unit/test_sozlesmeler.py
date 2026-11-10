@@ -131,6 +131,22 @@ def test_yerel_ayar_dosyasi_bicimi(tmp_path):
     assert c["id"].startswith("yerel-") and c["kind"] == "person" and c["extension"] == "198"
 
 
+def test_rehber_dosyasi_yazilir_onceki_saklanir_geri_alinir(tmp_path):
+    from sesli_asistan.gateway.adapters.directory.json_file_store import JsonDirectoryFile
+
+    f = JsonDirectoryFile(tmp_path / "rehber.json")
+    assert f.unwritable_reason() is None and not f.has_previous() and f.modified() is None
+    f.write({"contacts": [1]})
+    assert not f.has_previous() and f.modified()
+    f.write({"contacts": [2]})
+    assert json.loads(f.path.read_text(encoding="utf-8")) == {"contacts": [2]} and f.has_previous()
+    f.restore()                                                       # geri al: önceki ile yer değiştirir
+    assert json.loads(f.path.read_text(encoding="utf-8")) == {"contacts": [1]}
+    f.restore()                                                       # ikinci kez: yeniye döner
+    assert json.loads(f.path.read_text(encoding="utf-8")) == {"contacts": [2]}
+    assert not list(tmp_path.glob(".rehber.json.*"))                  # geçici dosya kalmaz
+
+
 # --- 5. operatöre aktarma söze girilse de yapılır ---------------------------------------------------------
 
 async def test_operator_cumlesine_soze_girilse_de_operatore_aktarilir():

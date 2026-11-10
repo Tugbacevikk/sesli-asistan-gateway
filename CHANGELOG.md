@@ -191,6 +191,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Rehber dosyasına yazma, yedek ve geri alma bir arayüzün arkasında (`ports.DirectoryStore`,
+  `adapters/directory/json_file_store.py`); rehber yükleme akışı dosya sistemini bilmez. Dosya adları aynı.
 - Ayar servisi çalışan sistemin iç alanlarını değiştirmez; dar giriş noktalarını kullanır:
   `DialogAgent.set_texts`, `GatewayRuntime.set_office_rules`, `GatewayRuntime.reload_prompts`
   (`prompts_missing` artık açık alan).

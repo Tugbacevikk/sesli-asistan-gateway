@@ -173,11 +173,14 @@ class GatewayRuntime:
         self.after_hours_mode = s.after_hours_mode
         self.top_extensions: list[str] = []      # çağrı geçmişinden en çok aranan dahililer (ipucu önceliği)
         self._tz = ZoneInfo(s.timezone.strip()) if s.timezone.strip() else None
+        from .adapters.directory.json_file_store import JsonDirectoryFile
         from .adapters.settings.json_store import LocalSettingsStore
+        from .directory_upload import DirectoryUpload
         from .settings_service import SettingsService
 
+        upload = DirectoryUpload(self, JsonDirectoryFile(s.directory_path) if s.directory_source == "json" else None)
         self.settings = SettingsService(self, LocalSettingsStore(s.local_settings_file)
-                                        if s.local_settings_file else None)
+                                        if s.local_settings_file else None, upload)
         self.settings.load()        # anonslar seslendirilmeden önce (start)
         self._health_task: asyncio.Task | None = None
         self._last_purge = time.monotonic()

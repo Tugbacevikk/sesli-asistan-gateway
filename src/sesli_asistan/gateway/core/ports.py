@@ -73,6 +73,24 @@ class DirectorySource(Protocol):
     async def fetch(self, updated_since: str | None = None) -> DirectoryPage: ...
 
 
+class DirectoryStore(Protocol):
+    """Arayüzden yüklenen rehberin yazıldığı yer (JSON kaynakta rehber dosyası, tasarim.md 13.2). Yazmadan önce
+    mevcut sürüm saklanır; `restore` onunla yer değiştirir."""
+
+    @property
+    def label(self) -> str: ...                 # arayüzde gösterilen yer (dosya yolu)
+
+    def unwritable_reason(self) -> str | None: ...
+
+    def has_previous(self) -> bool: ...
+
+    def modified(self) -> str | None: ...       # son yazılma (UTC, ISO)
+
+    def write(self, doc: dict[str, Any]) -> None: ...
+
+    def restore(self) -> None: ...
+
+
 # --- Ses çıkışı (Aşama 3) ---
 
 @dataclass(frozen=True)
