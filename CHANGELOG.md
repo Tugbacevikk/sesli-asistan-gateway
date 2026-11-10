@@ -198,6 +198,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- `GatewayRuntime`: santral ve arayüz çağrısının oturumu tek yerde kurulur (`_session`; önceden iki kopya), LLM
+  ısıtma ayrı işlev (`warm_llm`).
 - Rehber dosyasına yazma, yedek ve geri alma bir arayüzün arkasında (`ports.DirectoryStore`,
   `adapters/directory/json_file_store.py`); rehber yükleme akışı dosya sistemini bilmez. Dosya adları aynı.
 - Ayar servisi çalışan sistemin iç alanlarını değiştirmez; dar giriş noktalarını kullanır:
