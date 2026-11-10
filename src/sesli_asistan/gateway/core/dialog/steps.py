@@ -27,6 +27,7 @@ from ..phrases import (
     asks_general_help,
     asks_office_hours,
     asks_operator,
+    greeting_echo,
     is_greeting_only,
     is_small_talk,
     maybe_operator,
@@ -65,7 +66,10 @@ class StepsMixin:
             return None             # hal hatır: LLM karşılık verip yönlendirir (ADR-035); açık soru varsa o yinelenir
         u.reopen(s)
         log.info("[%s] yalnız selam: %s", s.call_id, log_text(u.text))
-        reply = self._reply(s, self.pending_question(s) or self.cfg.texts.greeting_reply)
+        text = self.cfg.texts.greeting_reply
+        if (echo := greeting_echo(u.text)) and text.startswith("Merhaba,"):
+            text = f"{echo},{text[len('Merhaba,'):]}"     # "günaydın" → "Günaydın, kiminle…" (metin özelse dokunulmaz)
+        reply = self._reply(s, self.pending_question(s) or text)
         reply.fast = True
         return reply
 

@@ -77,7 +77,7 @@ başında neyin aynen alındığı, neyin uyarlandığı ve neyin alınmadığı
 
 | Modül | Ne yapar |
 |---|---|
-| `gateway/core/dialog.py` | LLM araç döngüsü; iki deneme kuralı, LLM hatasında operatör, tur ve geçmiş sınırı (kodda) |
+| `gateway/core/dialog/` | Diyalog: adımlar (`steps.py`), kurallar, seçim, aktarma denetimleri, LLM araç döngüsü (`llm.py`); iki deneme kuralı, LLM hatasında operatör, tur ve geçmiş sınırı (kodda; ADR-034) |
 | `gateway/core/tools.py` | `InContacts`, `TransferCall`, `ConnectOperator` tanımları ve yürütücüleri |
 | `gateway/core/policy.py` | Aktarma yalnızca son rehber sonucundaki, aktarılabilir dahiliye (uydurma / enjeksiyon koruması) |
 | `gateway/core/search.py` | Türkçe bulanık arama: ekler, hitaplar, unvanlar, rakamlar; `single_high / single_low / multiple / none` |

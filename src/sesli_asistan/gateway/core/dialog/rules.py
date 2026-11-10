@@ -12,7 +12,10 @@ from ..models import Candidate, DialogTurn, Match, SearchResult
 from ..people import (
     resolve_person,
     said_surely,
+    sound_alike,
 )
+from ..people.common import _without_self
+from ..people.names import _name_said
 from ..phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -75,13 +78,16 @@ class RulesMixin:
                   if (c := self.tools.index.get(a["id"])) is not None]
         if len(titled) == 1 and res["kesin"]:
             return self._code_transfer(s, Candidate(titled[0], 100))
+        if len(titled) >= 2 and len(named := [c for c in titled if _name_said(c, _without_self(text))]) == 1:
+            # unvan + ad ("vali yardımcısı Kemal Bey"; üç vali yardımcısından biri Kemal): o kişi (diyalog seti S18)
+            return self._code_transfer(s, Candidate(named[0], 100))
         if 2 <= len(titled) <= 3:
             return self._clarify(s, tuple(Candidate(c, 100) for c in titled), lines=True)
         return None
 
     def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
         """Sözdeki kişi / birim: tek aday → aktar (yalnız adla söylendiyse teyit), çok aday → soru, yoksa bulamadım."""
-        words = search_key(text).split()
+        words = _without_self(text)            # "ben mehmet, …": arayanın kendi adı aday değil (diyalog seti D122)
         people, depts, more = self._rule_scan(words)
         if depts and (more or len(people) > 1) and (inside := self._named_people(words, depts)):
             # birim + ad, adaşı çok ("muhasebeden Merve Hanım", altı Merve): arama 3 adayla sınırlı, birimdeki Merve
@@ -119,6 +125,10 @@ class RulesMixin:
         if (near := self._near_name(text)) is not None:
             # rehberde tam uyan yok ama tek bir kişinin adına yakın ("ahmet bey" → Mehmet Demir, D14): teyitle
             return self._confirm(s, near, why="benzer ad")
+        if (sound := sound_alike(self.tools.index, text)) and (near := self.tools.index.get(sound[0]["id"])):
+            # STT adı bozdu ("bırakçayı" → Burak Çelik): ses benzerliğiyle, yalnız teyitle (ADR-025). Önceden yalnız
+            # MCP adımında vardı; kural modunda "bulamadım" deniyordu (D124, D125 yalnız MCP_STEP açıkken geçiyordu)
+            return self._confirm(s, near, why="ses benzerliği")
         s.state.misses.append(text)
         return self._not_found(s)
 

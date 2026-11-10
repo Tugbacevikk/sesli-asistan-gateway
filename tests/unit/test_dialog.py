@@ -960,8 +960,20 @@ async def test_yalniz_selam_kimi_aradigini_sorar_deneme_saymaz(text, llm):
     a = agent(ScriptedLlm(), fast_path=True, llm_enabled=llm)
     s = a.new_session("g")
     t = await s.handle_user(text)
-    assert t.text == a.cfg.texts.greeting_reply and not t.actions and a.llm.seen == []
+    # selama aynı sözle karşılık: "günaydın" → "Günaydın, kiminle…"; tanınmayan selamda varsayılan "Merhaba, …"
+    from sesli_asistan.gateway.core.phrases import greeting_echo
+
+    echo = greeting_echo(text)
+    want = a.cfg.texts.greeting_reply.replace("Merhaba", echo, 1) if echo else a.cfg.texts.greeting_reply
+    assert t.text == want and not t.actions and a.llm.seen == []
     assert s.state.failed_attempts == 0
+
+
+def test_selama_ayni_sozle_karsilik():
+    from sesli_asistan.gateway.core.phrases import greeting_echo
+
+    assert greeting_echo("günaydın") == "Günaydın" and greeting_echo("iyi akşamlar efendim") == "İyi akşamlar"
+    assert greeting_echo("selamün aleyküm") == "Aleykümselam" and greeting_echo("merhaba") is None
 
 
 async def test_selam_ve_hedef_selam_sayilmaz():
