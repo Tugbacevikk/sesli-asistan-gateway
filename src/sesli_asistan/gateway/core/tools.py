@@ -80,6 +80,7 @@ class CallToolState:
     confirm_operator: bool = False          # arayana "operatöre mi bağlayayım?" diye soruldu (hedef anlaşılmadı)
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı
     pending_transfer: TransferAction | None = None
+    alternates: tuple[Candidate, ...] = ()  # birbirinin yerine geçen hatlardan henüz denenmeyenler (sırayla)
     unreachable: set[str] = field(default_factory=set)   # bu çağrıda ulaşılamayan dahililer (meşgul, cevapsız, hata)
     failed_attempts: int = 0
     barge_repeats: int = 0                  # söze girme anlaşılmadı, yarıda kalan cümle üst üste yinelendi

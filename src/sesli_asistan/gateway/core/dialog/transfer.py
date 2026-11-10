@@ -327,6 +327,17 @@ class TransferMixin:
             return DialogTurn("", ended=True)
         if pending is not None:
             s.state.unreachable.add(pending.extension)     # aynı çağrıda istenmeden yeniden aktarılmasın
+        while s.state.alternates:
+            # birbirinin yerine geçen hatlar (aynı unvan, aynı birim): sıradakine kendiliğinden geçilir (S35)
+            nxt, s.state.alternates = s.state.alternates[0], s.state.alternates[1:]
+            if nxt.contact.extension in s.state.unreachable:
+                continue
+            action = self.tools.transfer(nxt.contact.extension, s.state)
+            if action is None:
+                continue
+            log.info("[%s] %s: sıradaki hat %s", s.call_id, status, nxt.contact.extension)
+            title = nxt.contact.title or nxt.contact.department
+            return self._reply(s, self.cfg.texts.next_line.format(unvan=title))
         reasons = {"busy": "meşgul", "no_answer": "cevap vermiyor", "failed": "aktarma başarısız oldu"}
         target = next((c.contact for c in s.state.last_results
                        if pending and c.contact.extension == pending.extension), None)

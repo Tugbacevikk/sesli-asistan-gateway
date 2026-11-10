@@ -157,3 +157,19 @@ def test_mcp_adiminda_cok_adasa_birim_sorulur(sirket):
     t1, t2 = say(a, "ben tuğba, satıştaki merve hanımı arıyorum", "yurt dışı")
     assert not t1.actions and "Yurt Dışı" in t1.text, t1.text
     assert [x.extension for x in t2.actions] == ["1244"], t2.text
+
+
+def test_ayni_unvanli_adsiz_hatlar_sirayla_denenir():
+    # S35 kararı (B, 10.11.2026): iki "Avukat" hattı ayırt edilemez → birinciye; meşgulse ikinciye; o da olmazsa
+    # olağan "meşgul" cümlesi (sıra biter)
+    data = json.loads((ROOT / "data/sentetik_kurum_rehber.json").read_text(encoding="utf-8"))
+    a = agent([Contact.from_api(c) for c in data["contacts"]])
+    s = a.new_session("s35")
+    t1 = asyncio.run(s.handle_user("valilik hukuk işleri avukatı"))
+    assert not t1.actions and "Hukuk Müşaviri" in t1.text and "Avukat" in t1.text, t1.text
+    t2 = asyncio.run(s.handle_user("avukat"))
+    assert [x.extension for x in t2.actions] == ["20025"], t2.text
+    t3 = asyncio.run(s.handle_transfer_result("busy"))
+    assert [x.extension for x in t3.actions] == ["20026"] and "diğer Avukat hattına" in t3.text, t3.text
+    t4 = asyncio.run(s.handle_transfer_result("no_answer"))
+    assert not t4.actions and t4.text, t4.text

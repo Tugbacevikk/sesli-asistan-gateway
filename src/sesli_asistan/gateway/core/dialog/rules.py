@@ -82,7 +82,8 @@ class RulesMixin:
             # unvan + ad ("vali yardımcısı Kemal Bey"; üç vali yardımcısından biri Kemal): o kişi (diyalog seti S18)
             return self._code_transfer(s, Candidate(named[0], 100))
         if 2 <= len(titled) <= 3:
-            return self._clarify(s, tuple(Candidate(c, 100) for c in titled), lines=True)
+            cands = tuple(Candidate(c, 100) for c in titled)
+            return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
         return None
 
     def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
@@ -240,7 +241,7 @@ class RulesMixin:
                 return turn, ()
             if 2 <= len(cands) <= 3:
                 s.state.last_results, s.state.truncated = cands, False
-                if (turn := self._clarify(s, cands)) is not None:
+                if (turn := self._ask_titles(s, cands) or self._clarify(s, cands)) is not None:
                     log.info("[%s] kişi (MCP): %s → soru %s", s.call_id, log_text(text),
                              [c.contact.extension for c in cands])
                     turn.fast = True

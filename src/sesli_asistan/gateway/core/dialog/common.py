@@ -130,6 +130,8 @@ class DialogTexts:
     indistinct: str = "Bu unvanda birden fazla hat var. Sizi operatöre bağlıyorum, lütfen hatta kalın."
     # belgegeçer / faks hattına sesli arama aktarılmaz; ardından birimin genel hattı için teyit (confirm) sorulur
     fax_line: str = "Belgegeçer hattına sesli arama aktarılamıyor."
+    # birbirinin yerine geçen hatlardan (aynı unvan, aynı birim, adsız) biri meşgul / cevapsız: sıradakine geçilir
+    next_line: str = "Bu hatta ulaşılamadı. Sizi diğer {unvan} hattına aktarıyorum."
     busy: str = "{ad} şu an meşgul. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     no_answer: str = "{ad} şu an cevap vermiyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"
     transfer_failed: str = "{ad_e} şu an ulaşılamıyor. Başka birine mi, yoksa operatöre mi bağlamamı istersiniz?"

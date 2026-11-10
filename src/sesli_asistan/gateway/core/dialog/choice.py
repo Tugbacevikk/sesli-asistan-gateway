@@ -30,6 +30,7 @@ from ..phrases import (
 )
 from ..ports import ToolCall
 from ..search import (
+    fold_words,
     has_role_word,
     query_variants,
     search_key,
@@ -37,6 +38,7 @@ from ..search import (
     strip_suffix,
 )
 from ..thresholds import (
+    CHOICE_WORD,
     FIRST_NAME_LIKE,
     FUZZY_CHOICE_MARGIN,
     FUZZY_CHOICE_MIN,
@@ -92,8 +94,7 @@ class ChoiceMixin:
             turn = self._reply(s, q)
             turn.fast = True
             return turn
-        log.info("[%s] aynı unvan ve birimde %d hat: ayırt edilemedi", s.call_id, len(cands))
-        return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        return self._interchangeable(s, cands, text)
 
     # --- belirsiz aramada soru ve seçim (ADR-017) ---
 
@@ -116,6 +117,29 @@ class ChoiceMixin:
             return None
         s.state.choice, s.state.choice_question = candidates, ""
         return self._reply(s, q)
+
+    def _ask_titles(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
+        """Aynı birimde farklı unvanlı hatlar, bazıları aynı unvanda (ad yok, soru adla kurulamıyor): unvanla sorulur,
+        "Hukuk Müşaviri mi, Avukat mı?" (S35). Seçenekte ortak unvan sözcüğü atılır ("Hukuk Müşaviri Avukat" →
+        "Hukuk Müşaviri"); cevap tek hattı seçerse aktarılır, aynı unvanlı hatları seçerse ayırt edilemez (operatör)."""
+        if len({c.contact.department for c in cands}) != 1:
+            return None
+        titles = list(dict.fromkeys(c.contact.title for c in cands if c.contact.title))
+        if len(titles) < 2 or len(titles) == len(cands):
+            return None                                     # hepsi farklıysa olağan "X mı, Y mi?" sorusu yeter
+        # fold_words: unvan sözcükleri ad aramasında atılır ("avukat"), burada asıl sözcüktür
+        common = set.intersection(*(set(fold_words(t)) for t in titles))
+        labels = []
+        for t in titles:
+            rest = [w for w in t.split() if not set(fold_words(w)) <= common]
+            labels.append(" ".join(rest) if rest else t)
+        parts = [f"{x} {question_particle(x)}" for x in labels]
+        q = ", ".join(parts[:-1]) + (", yoksa " if len(parts) > 2 else ", ") + parts[-1] + "?"
+        s.state.choice, s.state.choice_question, s.state.truncated = cands, q, False
+        log.info("[%s] aynı birimde %d unvan soruluyor: %s", s.call_id, len(titles), q)
+        turn = self._reply(s, q)
+        turn.fast = True
+        return turn
 
     def _ask_units(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...]) -> DialogTurn | None:
         """Adayların birim yolu varsa (ADR-032) yollarının ayrıldığı seviye sorulur: "Jandarma mı, Emniyet mi?".
@@ -213,6 +237,8 @@ class ChoiceMixin:
             return self._not_found(s)
         if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
             return None
+        if (turn := self._choice_by_title(s, text, choice)) is not None:
+            return turn
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
             decided, turn = self._choice_by_unit(s, text, words, choice)
             if decided:
@@ -220,6 +246,47 @@ class ChoiceMixin:
         if not words:
             return None
         return self._choice_by_words(s, text, words, choice)
+
+    def _choice_by_title(self: DialogAgent, s: DialogSession, text: str,
+                         choice: tuple[Candidate, ...]) -> DialogTurn | None:
+        """`_ask_titles` sorusunun cevabı ("Hukuk Müşaviri mi, Avukat mı?"): seçenek etiketi (unvanın ortak sözcük
+        dışı kısmı) ya da yalnız ortak sözcük ("avukat") söylendiyse o unvanlı hat(lar). Tek hat → aktar; aynı unvanlı
+        birden çok hat → ayırt edilemez, operatör. Soru bu biçimde değilse None. Sözcükler `fold_words` ile: unvan
+        sözcükleri ("avukat") ad aramasında atılır, cevapta asıl sözcüktür (S35)."""
+        titles = list(dict.fromkeys(c.contact.title for c in choice if c.contact.title))
+        if len({c.contact.department for c in choice}) != 1 or len(titles) < 2 or len(titles) == len(choice):
+            return None                                     # unvan sorusu değil (tek birim, tekrarlanan unvan)
+        said = fold_words(text)
+
+        def says(x: str) -> bool:
+            return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in said)
+
+        common = set.intersection(*(set(fold_words(t)) for t in titles))
+        hit = [t for t in titles if (rest := set(fold_words(t)) - common) and all(says(x) for x in rest)]
+        if not hit:
+            hit = [t for t in titles if set(fold_words(t)) == common and all(says(x) for x in common)]
+        if len(hit) != 1:
+            return None
+        picked = [c for c in choice if c.contact.title == hit[0]]
+        if len(picked) == 1:
+            return self._choice_transfer(s, picked[0], choice, text, "seçim (unvan)")
+        return self._interchangeable(s, tuple(picked), text)
+
+    def _interchangeable(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...], text: str) -> DialogTurn:
+        """Aynı unvanlı, aynı birimdeki adsız hatlar (iki "Avukat"): arayan da ayırt edemez, soru bir tur kaybettirir.
+        Birinciye (dahili sırasıyla) aktarılır; meşgul / cevapsızsa santral sonucuyla sıradakine geçilir
+        (`handle_transfer_result`). Hepsi bu çağrıda ulaşılamadıysa operatör. Karar 10.11.2026 (S35)."""
+        order = sorted((c for c in cands if c.contact.extension not in s.state.unreachable),
+                       key=lambda c: c.contact.extension)
+        if not order:
+            return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        log.info("[%s] aynı unvanlı %d hat (%s): birinciye, kalanlar yedek", s.call_id, len(order),
+                 order[0].contact.title)
+        turn = self._choice_transfer(s, order[0], cands, text, "birbirinin yerine geçen hat")
+        if turn is None:
+            return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
+        s.state.alternates = tuple(order[1:])
+        return turn
 
     def _choice_by_unit(self: DialogAgent, s: DialogSession, text: str, words: list[str],
                         choice: tuple[Candidate, ...]) -> tuple[bool, DialogTurn | None]:

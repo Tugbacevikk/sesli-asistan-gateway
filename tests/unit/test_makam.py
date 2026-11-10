@@ -137,15 +137,21 @@ def test_ayni_unvanli_cok_hat_birimle_suzulur():
     q = say(a, "müfettiş ile görüşmek istiyorum")
     assert not q.actions and q.text == "Hangi birimdeki müfettiş?"
     assert [x.extension for x in say(a, "müfettiş ile görüşmek istiyorum", "hukuk müşavirliği").actions] == ["21040"]
-    t = say(a, "müfettiş ile görüşmek istiyorum", "teftiş kurulundan")      # 3 aynı hat: ayırt edilemez
-    assert [x.type for x in t.actions] == ["operator"]
+    t = say(a, "müfettiş ile görüşmek istiyorum", "teftiş kurulundan")      # 3 aynı hat: birbirinin yerine geçer
+    assert [x.extension for x in t.actions] == ["21031"]
     t = say(a, "şube müdürü", "personel", "özlük")
     assert [x.extension for x in t.actions] == ["21013"]
 
 
-def test_ayirt_edilemeyen_ayni_hatlar_operatore():
-    t = say(agent(), "teftiş kurulu müfettişi")
-    assert [x.type for x in t.actions] == ["operator"] and "birden fazla hat" in t.text
+def test_ayirt_edilemeyen_ayni_hatlar_sirayla_denenir():
+    # aynı unvan, aynı birim, adsız (3 "Müfettiş"): arayan da ayırt edemez; birinciye, ulaşılamazsa sıradakine
+    # (S35 kararı 10.11.2026; önceden operatör)
+    a = agent()
+    s = a.new_session("m")
+    t = asyncio.run(s.handle_user("teftiş kurulu müfettişi"))
+    assert [x.extension for x in t.actions] == ["21031"]
+    t = asyncio.run(s.handle_transfer_result("busy"))
+    assert [x.extension for x in t.actions] == ["21032"] and "diğer" in t.text, t.text
 
 
 def test_belgegecer_aktarilmaz():

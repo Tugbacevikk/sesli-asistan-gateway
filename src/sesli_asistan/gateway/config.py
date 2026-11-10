@@ -26,7 +26,8 @@ def check_texts(t: DialogTexts) -> None:
     checks = [("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department,
                                                    ("{birim}",)), ("OFFICE_HOURS_TEXT", t.office_hours, ("{saatler}",)),
               ("WHICH_DEPARTMENT_TEXT", t.which_department, ("{unvan}",)),
-              ("ASK_PERSON_IN_DEPARTMENT_TEXT", t.ask_person_in_department, ("{birimden}",))]
+              ("ASK_PERSON_IN_DEPARTMENT_TEXT", t.ask_person_in_department, ("{birimden}",)),
+              ("NEXT_LINE_TEXT", t.next_line, ("{unvan}",))]
     checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
     if "{mi}" in "".join(getattr(t, f) for f in _NAMED if f != "confirm"):
         raise ValueError("{mi} (soru eki) yalnız CONFIRM_TEXT'te kullanılabilir")
@@ -42,7 +43,7 @@ def check_texts(t: DialogTexts) -> None:
             raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")
     for f in TEXT_FIELDS:
         if (f not in ("greeting", "transferring_department", "office_hours", "which_department",
-                      "ask_person_in_department", *_NAMED)
+                      "ask_person_in_department", "next_line", *_NAMED)
                 and "{" in getattr(t, f)):
             raise ValueError(f"{f.upper()}_TEXT yer tutucu almaz: {getattr(t, f)!r}")
 
@@ -178,6 +179,7 @@ class GatewaySettings(BaseSettings):
     indistinct_text: str = ""                 # aynı unvan, aynı birim: ayırt edilemedi → operatör
     ask_topic_text: str = ""                  # hedefsiz genel istek ("bilgi almak istiyorum") cevabı
     fax_line_text: str = ""                   # belgegeçer / faks hattı istendi: teyitten önce söylenen cümle (ADR-032)
+    next_line_text: str = ""                  # aynı unvanlı adsız hatlardan biri ulaşılamadı: sıradakine geçerken
     ask_person_in_department_text: str = ""   # birim belli, kişi değil: "{birimden} kiminle görüşmek istersiniz?"
     no_input_question_text: str = ""          # soru açıkken arayan susunca, sorudan önce ("Sizi duyamadım.")
     greeting_reply_text: str = ""             # arayan yalnız selam verince ("Merhaba, kiminle görüşmek istersiniz?")

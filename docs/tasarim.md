@@ -1146,6 +1146,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `NO_INPUT_QUESTION_TEXT`, `GREETING_REPLY_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |
 | `FAX_LINE_TEXT` | — | belgegeçer / faks hattı istenince, birim hattı teyidinden önce söylenen cümle (ADR-032) |
+| `NEXT_LINE_TEXT` | — | aynı unvanlı, aynı birimdeki adsız hatlardan biri meşgul / cevapsız: sıradakine geçerken (`{unvan}`) |
 | `LOG_TEXTS` | true (kurulum şablonunda false) | false: loglarda arayanın sözü ve cevaplar yerine yalnız uzunluk (kişisel veri) |
 | `OFFICE_HOURS` / `HOLIDAYS` | (boş: hep açık) | Mesai saatleri ve tatiller (5.1.3) |
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |

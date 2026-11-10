@@ -181,9 +181,14 @@
 
 # --- 6. AYNI BİRİMDE AYNI UNVANLI İKİ HAT (AYIRT EDİLEMEZ → OPERATÖR) ---
 - id: S35
-  aciklama: Aynı birimde iki unvan hattı (Valilik Hukuk İşleri avukatı) → operatör
-  konusma: ["valilik hukuk işleri avukatı"]
-  beklenen: {eylem: operator}
+  aciklama: Aynı birimde Hukuk Müşaviri Avukat ve iki Avukat hattı → unvan sorulur, "hukuk müşaviri" → aktarılır (karar 10.11.2026)
+  konusma: ["valilik hukuk işleri avukatı", "hukuk müşaviri"]
+  beklenen: {eylem: transfer, dahili: "20024"}
+
+- id: S35B
+  aciklama: Aynı soru, cevap "avukat" → iki Avukat hattı birbirinin yerine geçer → birinciye (meşgulse ikinciye, test_units)
+  konusma: ["valilik hukuk işleri avukatı", "avukat"]
+  beklenen: {eylem: transfer, dahili: "20025"}
 
 # --- 7. İLÇE KAYMAKAMLIKLARI ---
 - id: S36
