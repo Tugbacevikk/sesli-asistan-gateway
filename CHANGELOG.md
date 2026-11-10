@@ -191,6 +191,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Dosyalar sorumluluğa göre bölündü (kod aynen taşındı, davranış ve içe aktarma yolları aynı): `core/people/`,
+  `core/call/` (models, session), `directory_import/` (common, table, rows, compare), `directory_upload.py`,
+  `api/web_call.py`.
 - Çağrı olay adları sabit (`core.models.CallEvent`); canlı izleme ve metrikler metin yerine sabiti kullanır
   (adlar değişmedi, arayüz aynı). Eksik dönüş tipleri yazıldı (`_thinking` genel tipli: sarılan işin sonucunu döner).
 - `core/dialog.py` (2.000 satır) konu konu modüllere bölündü (`core/dialog/`, ADR-034); davranış aynı.

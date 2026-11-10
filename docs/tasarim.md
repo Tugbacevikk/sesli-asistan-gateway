@@ -326,7 +326,7 @@ flowchart TB
 
 #### 5.1.1 Çağrı durum makinesi
 
-Kod: `gateway/core/call.py`. Durum yalnızca oturumun olay döngüsünde değişir; RTP okuma, STT olayları, zamanlayıcı
+Kod: `gateway/core/call/` (`session.py`; veri tipleri `models.py`). Durum yalnızca oturumun olay döngüsünde değişir; RTP okuma, STT olayları, zamanlayıcı
 ve konuşma (TTS → RTP) ayrı görevlerdir ve olayları sıraya koyar (yarış koşulu yok, ağır iş okumayı bekletmez).
 
 ```mermaid
@@ -1244,7 +1244,7 @@ Arayüzün **Ayarlar** sekmesi (`GET/PUT /v1/admin/settings`, erişim kuralı ar
 ### 13.2 Rehber yükleme (Excel / CSV)
 
 Müşterinin rehberi genelde Excel'de ya da santralin dışa aktarımındadır. **Rehber → Rehber dosyası** (yalnız
-yönetici; kod: `gateway/directory_import.py`, `settings_service.DirectoryUpload`):
+yönetici; kod: `gateway/directory_import/`, `gateway/directory_upload.py`):
 
 1. **Dosya:** `.xlsx` (ilk sayfa) ya da `.csv` (UTF-8 ya da Windows-1254; `;` `,` sekme). Eski `.xls` okunmaz
    ("Farklı kaydet → .xlsx" denir). En çok 5 MB / 20.000 satır. Excel ek kütüphanesiz okunur (zipfile + ElementTree);
@@ -1747,7 +1747,7 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   "il jandarma komutanı" gibi sözler LLM'e gidiyordu (3–6 sn) ya da yanlış yere: kamu unvanları (komutan, vali,
   kaymakam…) unvan sayılmadığı için "il jandarma komutanını ara" komutanlığın genel hattına aktarılıyordu. Ürün
   Türkiye genelinde kamu kurumlarına da dağıtılacak.
-- **Karar:** MCP adımına (rehber → **MCP** → LLM) `kisi_coz` aracı; kurallar ortak işlevde (`core/people.py`), MCP
+- **Karar:** MCP adımına (rehber → **MCP** → LLM) `kisi_coz` aracı; kurallar ortak işlevde (`core/people/`), MCP
   düşerse Gateway aynısını kendisi çalıştırır (adım kaybolmaz). Sıra: kişi çözme, sonra konu. Kurallar:
   (1) **Unvan**: unvan sözcüğü ve önündeki en çok 3 sözcüğün hepsi kişinin unvanında ya da biriminde geçmeli ("Nilüfer
   kaymakamı", "jandarma komutanıyla"); unvan sözcükleri sağdan sola taranır ("komutan **yardımcısı**"); birden çok
@@ -2036,7 +2036,7 @@ sesli-asistan-gateway/
 │   │   │   └── mcp/          # rehber.py: rehber MCP sunucusunun istemcisi (LLM_TOOLS=mcp)
 │   │   ├── core/             # call.py (CallSession), manager.py (CallManager, port havuzu), dialog/ (ADR-034), tools.py,
 │   │   │                     #   policy.py, search.py, directory.py, speech.py, models.py, ports.py
-│   │   ├── api/              # app.py: REST uçları (FastAPI); ui.py + ui.html: arayüz (ADR-014)
+│   │   ├── api/              # app.py: REST uçları (FastAPI); ui.py + ui.html: arayüz, web_call.py: deneme çağrısının ses yolu (ADR-014)
 │   │   ├── config.py         # GatewaySettings
 │   │   ├── composition.py    # bileşenleri ayarlardan kurar; GatewayRuntime (açılış, sağlık, kapanış)
 │   │   ├── rehber_mcp.py     # rehber MCP sunucusu (ADR-022): python -m sesli_asistan.gateway.rehber_mcp
