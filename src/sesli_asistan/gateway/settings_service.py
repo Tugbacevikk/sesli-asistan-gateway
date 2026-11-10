@@ -101,9 +101,8 @@ class SettingsService:
 
     def apply(self, local: LocalSettings) -> None:
         rt = self.rt
-        rt.agent.cfg = replace(rt.agent.cfg, texts=replace(self.base_texts(), **local.texts))
-        rt.office = OfficeHours.parse(*self._office(local))
-        rt.after_hours_mode = self._mode(local)
+        rt.agent.set_texts(replace(self.base_texts(), **local.texts))
+        rt.set_office_rules(OfficeHours.parse(*self._office(local)), self._mode(local))
         rt.directory.index.set_overlay(local.aliases, [Contact.from_api(c.as_api()) for c in local.contacts])
 
     def _office(self, local: LocalSettings) -> tuple[str, str]:
@@ -204,7 +203,7 @@ class SettingsService:
         rt, s, base, local = self.rt, self.rt.s, self.base_texts(), self.local
         # yerel kayıt sonradan kaynak rehbere de girdiyse (aynı dahili): yerel olan silinebilir diye uyarılır
         source_ext = {c.extension: c.full_name for c in rt.directory.index.source_contacts()}
-        texts = rt.agent.cfg.texts
+        texts = rt.agent.texts
         role = getattr(principal, "role", "yonetici")
         return {
             "writable": self.writable and role == "yonetici",
@@ -222,7 +221,7 @@ class SettingsService:
                                 for c in rt.directory.index.contacts()),
                                key=lambda x: (x["department"].casefold(), x["kind"] != "department",
                                               x["name"].casefold())),
-            "prompts_missing": rt._prompts_missing,
+            "prompts_missing": rt.prompts_missing,
             "directory_upload": self.upload.status(),
         }
 
@@ -233,14 +232,11 @@ class SettingsService:
         async with self._lock:
             clean = self.normalize(data)
             changes = describe_changes(self.local, clean, self.rt.directory.index)
-            before = self.rt.agent.cfg.texts
+            before = self.rt.agent.texts
             await asyncio.to_thread(self.store.save, clean.to_json())
             self.local = clean
             self.apply(clean)
-            missing: list[str] = []
-            if self.rt.speaker is not None and self.rt.agent.cfg.texts != before:
-                missing = await self.rt.speaker.library.preload(self.rt.speaker.tts, self.rt.agent.fixed_prompts())
-                self.rt._prompts_missing = bool(missing)
+            missing = await self.rt.reload_prompts() if self.rt.agent.texts != before else []
             log.info("ayarlar kaydedildi: %d anons, %d kişiye takma ad", len(clean.texts), len(clean.aliases))
             if changes:
                 a = actor or {"kim": "?", "rol": "?", "ip": "?"}

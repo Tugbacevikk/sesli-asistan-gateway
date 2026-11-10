@@ -31,10 +31,11 @@ from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.manager import CallManager, NewCall, PortPool
 from .core.ports import LlmPort, MediaPort, TtsPort
-from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN
+from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN, OfficeHours
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
+from .local_settings import AfterHoursMode
 
 if TYPE_CHECKING:
     import numpy as np
@@ -166,7 +167,7 @@ class GatewayRuntime:
                                    ready=lambda: self.ready, on_finished=self._record)
         self.history = (SqliteCallHistory(s.call_history_db, s.call_history_days, s.call_history_texts)
                         if s.call_history_db else MemoryCallHistory(self.manager))
-        self._prompts_missing = False
+        self.prompts_missing = False             # sabit anonslardan biri seslendirilemedi (TTS "down" sayılır)
         self.thinking_pcm = load_thinking_sound(s.thinking_sound_file) if s.thinking_sound_file else None
         self.office = s.office()
         self.after_hours_mode = s.after_hours_mode
@@ -197,6 +198,18 @@ class GatewayRuntime:
             if b.is_open:
                 out[name] = "devre_acik"
         return out
+
+    def set_office_rules(self, office: OfficeHours, after_hours_mode: AfterHoursMode) -> None:
+        """Ayar ekranından: mesai kuralı ve mesai dışı davranış yeni çağrılarda geçerli."""
+        self.office, self.after_hours_mode = office, after_hours_mode
+
+    async def reload_prompts(self) -> list[str]:
+        """Sabit anonsları (değişen metinler) yeniden seslendirir; seslendirilemeyenleri döner."""
+        if self.speaker is None:
+            return []
+        missing = await self.speaker.library.preload(self.speaker.tts, self.agent.fixed_prompts())
+        self.prompts_missing = bool(missing)
+        return missing
 
     def office_status(self) -> str:
         """acik | mesai_disi | tatil (tasarim.md 5.1.3)."""
@@ -281,7 +294,7 @@ class GatewayRuntime:
 
         self.speaker, missing = await build_speaker(
             self.s, self.agent, BreakerTts(TimedTts(self.tts, self.metrics), self.breakers["tts"]))
-        self._prompts_missing = bool(missing)
+        self.prompts_missing = bool(missing)
         if missing:
             log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)
         warm = getattr(self.llm, "warmup", None) if self.s.llm_enabled else None
@@ -331,7 +344,7 @@ class GatewayRuntime:
             self.components["llm"] = await _http_up(self.s.llm_base_url) if hasattr(self.llm, "http") else "ok"
         if self.mcp is not None:
             self.components["mcp"] = "ok" if await self.mcp.ping() else "down"
-        if self._prompts_missing or self.speaker is None:
+        if self.prompts_missing or self.speaker is None:
             self.components["tts"] = "down"
         elif isinstance(self.tts, CachingTts):
             self.components["tts"] = await _http_up(self.s.tts_url)

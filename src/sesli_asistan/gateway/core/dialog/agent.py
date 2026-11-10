@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
@@ -20,6 +21,7 @@ from .common import (
     SYSTEM_PROMPT,
     DialogConfig,
     DialogSession,
+    DialogTexts,
     _Utterance,
     fixed_prompts,
 )
@@ -60,6 +62,14 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin):
 
     def fixed_prompts(self) -> dict[str, str]:
         return fixed_prompts(self.cfg)
+
+    @property
+    def texts(self) -> DialogTexts:
+        return self.cfg.texts
+
+    def set_texts(self, texts: DialogTexts) -> None:
+        """Ayar ekranından: süren çağrılar yeni metinleri bir sonraki cümlede kullanır."""
+        self.cfg = replace(self.cfg, texts=texts)
 
     # --- giriş noktaları ---
 
