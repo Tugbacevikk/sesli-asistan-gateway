@@ -16,6 +16,8 @@ from ..people import (
     resolve_person,
     same_title,
 )
+from ..people.common import _without_self
+from ..people.names import _name_said
 from ..phrases import (
     _FAST_BLOCK,
     _NEGATION,
@@ -23,6 +25,7 @@ from ..phrases import (
     _YES,
     _folded_words,
     _vowel_mask,
+    ablative,
     contact_dative,
     question_particle,
     spoken_numbers,
@@ -273,9 +276,23 @@ class ChoiceMixin:
         return self._interchangeable(s, tuple(picked), text)
 
     def _interchangeable(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...], text: str) -> DialogTurn:
-        """Aynı unvanlı, aynı birimdeki adsız hatlar (iki "Avukat"): arayan da ayırt edemez, soru bir tur kaybettirir.
+        """Aynı unvanlı, aynı birimdeki **adsız** hatlar (iki "Avukat"): arayan da ayırt edemez, soru tur kaybettirir.
         Birinciye (dahili sırasıyla) aktarılır; meşgul / cevapsızsa santral sonucuyla sıradakine geçilir
         (`handle_transfer_result`). Hepsi bu çağrıda ulaşılamadıysa operatör. Karar 10.11.2026 (S35)."""
+        named = [c for c in cands if c.contact.kind == "person" and c.contact.full_name.strip()]
+        said = [c for c in named if _name_said(c.contact, _without_self(text))]
+        if len(said) == 1 and (picked := self._choice_transfer(s, said[0], cands, text, "unvan + ad")) is not None:
+            return picked                     # unvan + ad aynı sözde ("Ar-Ge mühendisi Volkan"): soru sorulmaz
+        if named:
+            # adı olan kişiler birbirinin yerine geçmez ("Ar-Ge Mühendisi": altı mühendis, adları belli): birimden
+            # kiminle görüşüleceği sorulur, cevap adla seçilir. Önceden birinciye aktarılıyordu (deneme 10.11.2026)
+            unit = cands[0].contact.department
+            q = self.cfg.texts.ask_person_in_department.format(birimden=ablative(unit))
+            log.info("[%s] aynı unvanlı %d kişi (%s): adı soruluyor", s.call_id, len(cands), cands[0].contact.title)
+            s.state.choice, s.state.choice_question, s.state.truncated = cands, q, False
+            ask = self._reply(s, q)
+            ask.fast = True
+            return ask
         order = sorted((c for c in cands if c.contact.extension not in s.state.unreachable),
                        key=lambda c: c.contact.extension)
         if not order:
