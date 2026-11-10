@@ -17,6 +17,10 @@ from .common import (
     _BRACKETS,
     DEPARTMENTS_HEAD,
     FEW_SHOT,
+    NO_CHAT_EXAMPLE,
+    NO_CHAT_RULE,
+    SMALL_TALK_EXAMPLE,
+    SMALL_TALK_RULE,
     STEPS,
     SYSTEM_PROMPT,
     DialogConfig,
@@ -39,7 +43,11 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin):
         self.cfg = cfg or DialogConfig()
         org = self.cfg.organization.strip()
         base = (self.cfg.prompt_template or SYSTEM_PROMPT).format(kurum=f"{org} şirketinin" if org else "bir şirketin")
-        self._prompt_base = base + (FEW_SHOT if self.cfg.few_shot else "")
+        few = FEW_SHOT
+        if self.cfg.small_talk:
+            base = base.replace(NO_CHAT_RULE, SMALL_TALK_RULE) if NO_CHAT_RULE in base else f"{base}\n{SMALL_TALK_RULE}"
+            few = few.replace(NO_CHAT_EXAMPLE, SMALL_TALK_EXAMPLE)
+        self._prompt_base = base + (few if self.cfg.few_shot else "")
         self._prompt: tuple[int, str] | None = None
 
     @property
