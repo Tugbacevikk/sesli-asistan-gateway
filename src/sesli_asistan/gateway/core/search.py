@@ -110,7 +110,9 @@ _DIGITS = re.compile(r"\d+")
 # Hâl ekleri (katlanmış biçimde, uzundan kısaya). STT kesme işaretini çoğu zaman yazmaz:
 # "muhasebeden", "zeynep hanımı". Ek atılmış biçim yalnızca **ek aday** olarak denenir, asıl biçim
 # korunur; kök en az 4 harf kalmalı ("ayşe" → "ays" denenmez).
-_SUFFIXES = ("ndan", "nden", "sine", "sina", "sini", "sinda", "sinde", "dan", "den", "tan", "ten",
+# "-daki / -deki" ("satıştaki Ayşe Hanım", "muhasebedeki"): birimi niteleyen ek (diyalog seti D122)
+_SUFFIXES = ("ndaki", "ndeki", "daki", "deki", "taki", "teki",
+             "ndan", "nden", "sine", "sina", "sini", "sinda", "sinde", "dan", "den", "tan", "ten",
              "nin", "nun", "yla", "yle", "ine", "ina", "ini", "una", "une", "unu", "la", "le", "ya", "ye",
              "yi", "yu", "da", "de", "ta", "te", "i", "u", "a", "e")
 

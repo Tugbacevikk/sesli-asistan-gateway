@@ -239,3 +239,10 @@ def test_unvan_kokleri(word, role):
     # canlı 09.11.2026: "kontrol işletmeni" kişi adı gibi aranıyordu
     from sesli_asistan.gateway.core.search import is_role_word
     assert is_role_word(word) is role
+
+
+def test_niteleyen_ek_atilir():
+    from sesli_asistan.gateway.core.search import strip_suffix
+
+    assert strip_suffix("satistaki") == "satis" and strip_suffix("muhasebedeki") == "muhasebe"
+    assert strip_suffix("bilgiislemdeki") == "bilgiislem"
