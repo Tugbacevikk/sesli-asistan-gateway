@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Sentetik şirket rehberi (`data/sirket_rehber.json`, 130 kayıt, birim yollu; üretici `tools/rehber/sirket_rehber.py`)
+  ve 20 senaryoluk set (`tests/data/diyalog_seti_sirket.yaml`, CI'da kural modunda).
 - Kısa sohbet (ADR-035, `SMALL_TALK=true`): hal hatıra ("günaydın, nasılsınız") LLM sıcak bir cümleyle karşılık
   verir, sonra kiminle görüşmek istendiğini sorar. Varsayılan kapalı; yalın selam yine kodla ve anında.
 - Birim yapılı rehber (ADR-032): kayıtlarda isteğe bağlı `birim_yolu` ve `kategori`; birden çok aday seviye seviye
@@ -93,6 +95,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Şirket rehberinin ortaya çıkardığı zayıflıklar: birim + ad adaşı çok olunca çözülmüyordu ("muhasebeden Merve
+  Hanım", altı Merve: arama 3 adayla sınırlı); adaşı üçten çok olan adda birim sorulmuyordu ("Volkan Bey" → artık
+  birim yoluyla); ek benzerliği gevşekti ("satış" ~ "satınalma", "yönetim" ~ "yöneticisi"); unvanın "müdürü" sözü
+  "Genel Müdürlük"ü ayrı hedef saydırıyordu; "X mi, Y mi?" sorusuna adla cevap seçmiyordu.
 - Arka plan süzgeci arayanın kısık cevabını atıyordu (canlı deneme 10.11.2026: ilk sözden 17 dB kısık "satış birimi"
   iki kez arka plan sayıldı). Rehberde bir hedefi anan ya da açık soruya cevap veren söz artık kısık da olsa
   dinlenir; ilgisiz kısık sözler eskisi gibi atılır.
