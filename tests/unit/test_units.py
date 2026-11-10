@@ -173,3 +173,34 @@ def test_ayni_unvanli_adsiz_hatlar_sirayla_denenir():
     assert [x.extension for x in t3.actions] == ["20026"] and "diğer Avukat hattına" in t3.text, t3.text
     t4 = asyncio.run(s.handle_transfer_result("no_answer"))
     assert not t4.actions and t4.text, t4.text
+
+
+def test_aranan_birimin_bir_kismi_yoksa_llm_aramasi_teyit_ister():
+    # "jandarma sosyal tesis müdürlüğü": rehberde yok; LLM'in birim araması yalnız "jandarma"dan Jandarma santralini
+    # (tek, yüksek puan) buldu ve sormadan aktarılıyordu (deneme 10.11.2026). Artık teyit sorulur.
+    from sesli_asistan.gateway.core.dialog.llm import _missing_unit_words
+    from sesli_asistan.gateway.core.ports import LlmMessage, ToolCall
+
+    data = json.loads((ROOT / "data/sentetik_kurum_rehber.json").read_text(encoding="utf-8"))
+    contacts = [Contact.from_api(c) for c in data["contacts"]]
+    line = next(c for c in contacts if c.extension == "30000")
+    assert _missing_unit_words("jandarma sosyal tesis müdürlüğü", line) == ["sosyal", "tesis"]
+    assert _missing_unit_words("jandarma komutanlığı", line) == []
+
+    class Llm:
+        def __init__(self):
+            self.n = 0
+
+        async def chat(self, messages, tools):
+            self.n += 1
+            if self.n == 1:
+                return LlmMessage("", [ToolCall(id="c1", name="InContacts",
+                                                arguments={"Department": "jandarma sosyal tesis müdürlüğü"})])
+            return LlmMessage("Kiminle görüşmek istersiniz?")
+
+    a = DialogAgent(Llm(), ToolRegistry(DirectoryIndex(contacts), topics=load_topics()),
+                    DialogConfig(organization="Deneme", fast_path=False, stream_replies=False))
+    s = a.new_session("t")
+    t = asyncio.run(s.handle_user("jandarma sosyal tesis müdürlüğüyle görüşmek istiyorum"))
+    assert not t.actions, t.text
+    assert s.state.confirm is not None and s.state.confirm.contact.extension == "30000", t.text
