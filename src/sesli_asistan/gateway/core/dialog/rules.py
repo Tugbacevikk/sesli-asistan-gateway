@@ -81,7 +81,12 @@ class RulesMixin:
 
     def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
         """Sözdeki kişi / birim: tek aday → aktar (yalnız adla söylendiyse teyit), çok aday → soru, yoksa bulamadım."""
-        people, depts, more = self._rule_scan(search_key(text).split())
+        words = search_key(text).split()
+        people, depts, more = self._rule_scan(words)
+        if depts and (more or len(people) > 1) and (inside := self._named_people(words, depts)):
+            # birim + ad, adaşı çok ("muhasebeden Merve Hanım", altı Merve): arama 3 adayla sınırlı, birimdeki Merve
+            # o üçte olmayabilir; söylenen birimdeki adaşlar ayrıca aranır (diyalog seti R09)
+            people, more = {c.contact.id: c for c in inside}, False
         if people and depts:
             narrowed = {k: c for k, c in people.items() if search_key(c.contact.department) in depts}
             if not narrowed and len(people) == 1:
@@ -98,6 +103,11 @@ class RulesMixin:
             if not said_surely(self.tools.index, cands[0].contact, text):
                 return self._confirm(s, cands[0].contact, why="yalnız ad ya da başka bir adla söylendi")
             return self._code_transfer(s, cands[0])
+        if more and not depts and (every := self._named_people(words)) and len(every) > 3:
+            # adaşı çok, birim söylenmedi ("Volkan Bey", dört Volkan): birim yoluyla seviye seviye sorulur (ADR-032)
+            if (turn := self._ask_units(s, every)) is not None:
+                s.state.failed_attempts = 0
+                return turn
         if len(cands) > 1 or more:
             s.state.last_results = tuple(cands[:3])
             s.state.truncated = more or len(cands) > 3
@@ -111,6 +121,25 @@ class RulesMixin:
             return self._confirm(s, near, why="benzer ad")
         s.state.misses.append(text)
         return self._not_found(s)
+
+    def _named_people(self: DialogAgent, words: list[str], depts: set[str] | None = None) -> tuple[Candidate, ...]:
+        """Sözdeki ad / soyad pencerelerine (2, 1 sözcük) uyan **bütün** kişiler; `depts` verilirse yalnız o
+        birimlerdekiler (birim yolunun herhangi bir seviyesi de sayılır: "satıştan" → Yurt İçi Satış'taki kişi)."""
+        index = self.tools.index
+        found: dict[str, Candidate] = {}
+        for n in (2, 1):
+            for i in range(len(words) - n + 1):
+                window = " ".join(words[i:i + n])
+                if not self._mentions_person(words[i:i + n]):
+                    continue
+                for c in index.matches(window):
+                    k = c.contact
+                    units = {search_key(k.department), *map(search_key, k.unit_path)}
+                    if k.kind == "person" and (depts is None or units & depts):
+                        found.setdefault(k.id, c)
+            if found:
+                break
+        return tuple(found.values())
 
     def _near_name(self: DialogAgent, text: str) -> Any:
         """Sözün 1–2 sözcüklük ad pencerelerinden yalnız bir kişiye düşük skorla (single_low) uyan; yoksa None.
