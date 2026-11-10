@@ -30,7 +30,7 @@ from .core.call import CallConfig, CallSession
 from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.manager import CallManager, NewCall, PortPool
-from .core.ports import LlmPort, MediaPort, TtsPort
+from .core.ports import LlmPort, MediaPort, PbxPort, TtsPort
 from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN, OfficeHours
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
@@ -236,14 +236,18 @@ class GatewayRuntime:
         return self.speaker
 
     def _new_session(self, req: NewCall, media: MediaPort) -> CallSession:
-        return CallSession(req.call_id, req.codec, media, self.stt, self._speaker(),
-                           self.agent.new_session(req.call_id), self.pbx, self._call_config(),
-                           hotwords=self._hotwords(),
-                           hotword_priority=self.top_extensions,
-                           thinking_pcm=self.thinking_pcm,
-                           observer=_fanout(self.metrics.observer("santral"),
-                                            self.live.observer(req.call_id, "santral")),
-                           office=self.office_status())
+        return self._session(req.call_id, req.codec, media, self.pbx, self._call_config(), "santral")
+
+    def _session(self, call_id: str, codec: str, media: MediaPort, pbx: PbxPort, cfg: CallConfig, channel: str,
+                 observer: Observer | None = None, office: str | None = None) -> CallSession:
+        """Santral ve arayüz çağrısı aynı oturumu kullanır; yalnız ses yolu, santral ve gözlemci farklıdır. Olaylar
+        metriğe ve canlı izlemeye (ve verilmişse arayüze) gider."""
+        observers = [self.metrics.observer(channel), self.live.observer(call_id, channel)]
+        return CallSession(call_id, codec, media, self.stt, self._speaker(), self.agent.new_session(call_id), pbx,
+                           cfg, hotwords=self._hotwords(), hotword_priority=self.top_extensions,
+                           thinking_pcm=self.thinking_pcm, channel=channel,
+                           observer=_fanout(*observers, *([observer] if observer else [])),
+                           office=office or self.office_status())
 
     def _call_config(self) -> CallConfig:
         return CallConfig(rtp_idle_timeout_s=self.s.rtp_idle_timeout_s, max_call_duration_s=self.s.max_call_duration_s,
@@ -253,27 +257,16 @@ class GatewayRuntime:
                           thinking_sound=self.s.thinking_sound, thinking_sound_delay_s=self.s.thinking_sound_delay_s,
                           after_hours_mode=self.after_hours_mode)
 
-    def web_session(self, call_id: str, media: MediaPort, pbx, observer, text_mode: bool = False,
+    def web_session(self, call_id: str, media: MediaPort, pbx: PbxPort, observer: Observer, text_mode: bool = False,
                     office: str | None = None) -> CallSession:
         """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
         text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer).
         office: mesai durumunu denemek için zorla (acik | mesai_disi | tatil); None: saate göre."""
         cfg = self._call_config()
-        channel = "web-metin" if text_mode else "web"
-        stats = self.metrics.observer(channel)
-        live = self.live.observer(call_id, channel)
-
-        def both(kind: str, data: dict[str, Any]) -> None:
-            observer(kind, data)
-            stats(kind, data)
-            live(kind, data)
-
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
-        return CallSession(call_id, "pcma", media, self.stt, self._speaker(), self.agent.new_session(call_id),
-                           pbx, cfg, hotwords=self._hotwords(), hotword_priority=self.top_extensions, observer=both,
-                           thinking_pcm=self.thinking_pcm, channel=channel,
-                           office=office if office in (OPEN, AFTER_HOURS, HOLIDAY) else self.office_status())
+        return self._session(call_id, "pcma", media, pbx, cfg, "web-metin" if text_mode else "web", observer,
+                             office if office in (OPEN, AFTER_HOURS, HOLIDAY) else None)
 
     def _hotwords(self) -> list[str]:
         return self.directory.index.hotwords(priority=self.top_extensions)
@@ -301,20 +294,8 @@ class GatewayRuntime:
         self.prompts_missing = bool(missing)
         if missing:
             log.error("sabit anonslar seslendirilemedi: %s (TTS: %s)", missing, self.s.tts_url)
-        warm = getattr(self.llm, "warmup", None) if self.s.llm_enabled else None
-        if warm:
-            try:
-                # gerçek çağrıyla aynı baş: sistem istemi + araçlar (Ollama önceki isteğin hesabını yeniden kullanır)
-                head = [{"role": "system", "content": self.agent.system_prompt}, {"role": "user", "content": "merhaba"}]
-                t0 = time.monotonic()
-                # süre sınırı: model diskten yüklenirken ısıtma ~60 sn sürebiliyor (ölçüm 06.11.2026, 4 GB GPU)
-                try:
-                    await asyncio.wait_for(warm(messages=head, tools=self.agent.tools.schemas), timeout=_WARMUP_S)
-                except TypeError:                   # isteğe bağlı parametreleri almayan adaptör
-                    await asyncio.wait_for(warm(), timeout=_WARMUP_S)
-                log.info("LLM ısıtıldı: %s (%.1f sn)", self.s.llm_model, time.monotonic() - t0)
-            except Exception as e:
-                log.error("LLM ısıtılamadı: %s", e or type(e).__name__)
+        if self.s.llm_enabled:
+            await warm_llm(self.llm, self.agent, self.s.llm_model)
         if self.mcp is not None:
             # bağlantı açılışta kurulur: ilk bağlantı ~1 sn sürüyor, bir çağrının ilk aramasına denk gelmesin
             log.info("rehber MCP: %s (%s)", self.s.mcp_url,
@@ -370,6 +351,25 @@ class GatewayRuntime:
 
 
 Observer = Callable[[str, dict[str, Any]], None]
+
+
+async def warm_llm(llm: Any, agent: DialogAgent, model: str) -> None:
+    """LLM'i açılışta belleğe alır: ilk çağrının ilk cevabı model yüklenmesini beklemesin. Gerçek çağrıyla aynı baş
+    (sistem istemi + araçlar): Ollama önceki isteğin hesabını yeniden kullanır. Isıtma olmazsa servis yine açılır."""
+    warm = getattr(llm, "warmup", None)
+    if warm is None:
+        return
+    head = [{"role": "system", "content": agent.system_prompt}, {"role": "user", "content": "merhaba"}]
+    t0 = time.monotonic()
+    try:
+        # süre sınırı: model diskten yüklenirken ısıtma ~60 sn sürebiliyor (ölçüm 06.11.2026, 4 GB GPU)
+        try:
+            await asyncio.wait_for(warm(messages=head, tools=agent.tools.schemas), timeout=_WARMUP_S)
+        except TypeError:                   # isteğe bağlı parametreleri almayan adaptör
+            await asyncio.wait_for(warm(), timeout=_WARMUP_S)
+        log.info("LLM ısıtıldı: %s (%.1f sn)", model, time.monotonic() - t0)
+    except Exception as e:
+        log.error("LLM ısıtılamadı: %s", e or type(e).__name__)
 
 
 def _fanout(*observers: Observer) -> Observer:
