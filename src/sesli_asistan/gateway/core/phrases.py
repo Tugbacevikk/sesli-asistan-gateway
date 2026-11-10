@@ -137,6 +137,17 @@ _HOW_ARE_YOU = {"nasilsin", "nasilsiniz", "naber", "nabersin", "nasil", "nasilsi
                 "keyifler", "ne", "haber"}
 
 
+_ECHO = (("gunaydin", "Günaydın"), ("iyi aksamlar", "İyi akşamlar"), ("hayirli aksamlar", "Hayırlı akşamlar"),
+         ("iyi gunler", "İyi günler"), ("hayirli gunler", "Hayırlı günler"), ("selamun aleykum", "Aleykümselam"),
+         ("selamunaleykum", "Aleykümselam"))
+
+
+def greeting_echo(text: str) -> str | None:
+    """Arayanın selamına aynı sözle karşılık ("günaydın" → "Günaydın"); bilinen bir selam yoksa None."""
+    said = " ".join(_folded_words(text))
+    return next((reply for key, reply in _ECHO if key in said), None)
+
+
 def is_small_talk(text: str) -> bool:
     """Selamın ötesinde hal hatır ("günaydın, nasılsınız", "naber"): sohbet açık iken LLM karşılık verir."""
     w = set(_folded_words(text))

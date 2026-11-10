@@ -113,4 +113,4 @@ def test_hal_hatir_sohbet_acikken_llme_gider(small_talk, text, to_llm):
     assert (llm.seen > 0) is to_llm, turn.text
     assert not turn.actions
     if not to_llm:
-        assert turn.text == a.cfg.texts.greeting_reply
+        assert turn.text.endswith(a.cfg.texts.greeting_reply.split(",", 1)[1])     # "Günaydın, kiminle…" / "Merhaba, …"
