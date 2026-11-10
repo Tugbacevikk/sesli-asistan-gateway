@@ -1,0 +1,2777 @@
+{
+ "_aciklama": "Sentetik şirket rehberi (birim_yolu ve kategori alanlı); tools/rehber/sirket_rehber.py",
+ "server_time": "2026-11-10T08:00:00Z",
+ "contacts": [
+  {
+   "id": "s-genelmüd",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Genel Müdürlük",
+   "department_aliases": [
+    "Yönetim"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1100",
+   "transferable": true,
+   "birim_yolu": [
+    "Genel Müdürlük"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-genelmudur",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "Genel Müdürlük",
+   "department_aliases": [
+    "Yönetim"
+   ],
+   "title": "Genel Müdür",
+   "aliases": [
+    "Genel Müdür Bey",
+    "Patron"
+   ],
+   "extension": "1101",
+   "transferable": false,
+   "birim_yolu": [
+    "Genel Müdürlük"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1102",
+   "kind": "person",
+   "first_name": "Murat",
+   "last_name": "Güler",
+   "department": "Genel Müdürlük",
+   "department_aliases": [
+    "Yönetim"
+   ],
+   "title": "Genel Müdür Yardımcısı",
+   "aliases": [],
+   "extension": "1102",
+   "transferable": true,
+   "birim_yolu": [
+    "Genel Müdürlük"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1103",
+   "kind": "person",
+   "first_name": "Hasan",
+   "last_name": "Yıldız",
+   "department": "Genel Müdürlük",
+   "department_aliases": [
+    "Yönetim"
+   ],
+   "title": "Genel Müdür Yardımcısı",
+   "aliases": [],
+   "extension": "1103",
+   "transferable": true,
+   "birim_yolu": [
+    "Genel Müdürlük"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1104",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Aksoy",
+   "department": "Genel Müdürlük",
+   "department_aliases": [
+    "Yönetim"
+   ],
+   "title": "Genel Müdür Asistanı",
+   "aliases": [],
+   "extension": "1104",
+   "transferable": true,
+   "birim_yolu": [
+    "Genel Müdürlük"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-satış",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Satış",
+   "department_aliases": [
+    "Satış Birimi",
+    "Satış Departmanı"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1200",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1201",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Bulut",
+   "department": "Satış",
+   "department_aliases": [
+    "Satış Birimi",
+    "Satış Departmanı"
+   ],
+   "title": "Satış Müdürü",
+   "aliases": [],
+   "extension": "1201",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-satış-yurti̇çi",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1220",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1221",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Çelik",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Bölge Satış Sorumlusu",
+   "aliases": [],
+   "extension": "1221",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1222",
+   "kind": "person",
+   "first_name": "Ayşe",
+   "last_name": "Ekinci",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Bölge Satış Sorumlusu",
+   "aliases": [],
+   "extension": "1222",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1223",
+   "kind": "person",
+   "first_name": "Elif",
+   "last_name": "Yıldırım",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1223",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1224",
+   "kind": "person",
+   "first_name": "Hilal",
+   "last_name": "Turan",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1224",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1225",
+   "kind": "person",
+   "first_name": "Selin",
+   "last_name": "Bozkurt",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1225",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1226",
+   "kind": "person",
+   "first_name": "Ceren",
+   "last_name": "Sevim",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1226",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1227",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Başaran",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1227",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1228",
+   "kind": "person",
+   "first_name": "Volkan",
+   "last_name": "Polat",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1228",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1229",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Uysal",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1229",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1230",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Bulut",
+   "department": "Yurt İçi Satış",
+   "department_aliases": [
+    "İç Satış",
+    "Yurtiçi Satış"
+   ],
+   "title": "Satış Temsilcisi",
+   "aliases": [],
+   "extension": "1230",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt İçi Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-satış-yurtdışı",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Yurt Dışı Satış",
+   "department_aliases": [
+    "Dış Satış",
+    "İhracat",
+    "Yurtdışı Satış"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1240",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt Dışı Satış"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1241",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Ekinci",
+   "department": "Yurt Dışı Satış",
+   "department_aliases": [
+    "Dış Satış",
+    "İhracat",
+    "Yurtdışı Satış"
+   ],
+   "title": "İhracat Uzmanı",
+   "aliases": [],
+   "extension": "1241",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt Dışı Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1242",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Güler",
+   "department": "Yurt Dışı Satış",
+   "department_aliases": [
+    "Dış Satış",
+    "İhracat",
+    "Yurtdışı Satış"
+   ],
+   "title": "İhracat Uzmanı",
+   "aliases": [],
+   "extension": "1242",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt Dışı Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1243",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Keskin",
+   "department": "Yurt Dışı Satış",
+   "department_aliases": [
+    "Dış Satış",
+    "İhracat",
+    "Yurtdışı Satış"
+   ],
+   "title": "İhracat Uzmanı",
+   "aliases": [],
+   "extension": "1243",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt Dışı Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1244",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Çetin",
+   "department": "Yurt Dışı Satış",
+   "department_aliases": [
+    "Dış Satış",
+    "İhracat",
+    "Yurtdışı Satış"
+   ],
+   "title": "İhracat Uzmanı",
+   "aliases": [],
+   "extension": "1244",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Yurt Dışı Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-satış-kurumsal",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Kurumsal Satış",
+   "department_aliases": [
+    "Kurumsal Müşteriler"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1260",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Kurumsal Satış"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1261",
+   "kind": "person",
+   "first_name": "Volkan",
+   "last_name": "Koç",
+   "department": "Kurumsal Satış",
+   "department_aliases": [
+    "Kurumsal Müşteriler"
+   ],
+   "title": "Kurumsal Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "1261",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Kurumsal Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1262",
+   "kind": "person",
+   "first_name": "Ali",
+   "last_name": "Keskin",
+   "department": "Kurumsal Satış",
+   "department_aliases": [
+    "Kurumsal Müşteriler"
+   ],
+   "title": "Kurumsal Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "1262",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Kurumsal Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1263",
+   "kind": "person",
+   "first_name": "Yusuf",
+   "last_name": "Yılmaz",
+   "department": "Kurumsal Satış",
+   "department_aliases": [
+    "Kurumsal Müşteriler"
+   ],
+   "title": "Kurumsal Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "1263",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Kurumsal Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1264",
+   "kind": "person",
+   "first_name": "Derya",
+   "last_name": "Çetin",
+   "department": "Kurumsal Satış",
+   "department_aliases": [
+    "Kurumsal Müşteriler"
+   ],
+   "title": "Kurumsal Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "1264",
+   "transferable": true,
+   "birim_yolu": [
+    "Satış",
+    "Kurumsal Satış"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-pazarlam",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1300",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1301",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Başaran",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Pazarlama Müdürü",
+   "aliases": [],
+   "extension": "1301",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1302",
+   "kind": "person",
+   "first_name": "Yasemin",
+   "last_name": "Kurt",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Dijital Pazarlama Uzmanı",
+   "aliases": [],
+   "extension": "1302",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1303",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Güler",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Dijital Pazarlama Uzmanı",
+   "aliases": [],
+   "extension": "1303",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1304",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Yılmaz",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Ürün Müdürü",
+   "aliases": [],
+   "extension": "1304",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1305",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Özdemir",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Ürün Müdürü",
+   "aliases": [],
+   "extension": "1305",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1306",
+   "kind": "person",
+   "first_name": "Ali",
+   "last_name": "Erdem",
+   "department": "Pazarlama",
+   "department_aliases": [
+    "Reklam",
+    "Kurumsal İletişim"
+   ],
+   "title": "Kurumsal İletişim Uzmanı",
+   "aliases": [],
+   "extension": "1306",
+   "transferable": true,
+   "birim_yolu": [
+    "Pazarlama"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-muhasebe",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1400",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1401",
+   "kind": "person",
+   "first_name": "Selin",
+   "last_name": "Ekinci",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Müdürü",
+   "aliases": [],
+   "extension": "1401",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1402",
+   "kind": "person",
+   "first_name": "Elif",
+   "last_name": "Kurt",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Uzmanı",
+   "aliases": [],
+   "extension": "1402",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1403",
+   "kind": "person",
+   "first_name": "Özlem",
+   "last_name": "Güler",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Uzmanı",
+   "aliases": [],
+   "extension": "1403",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1404",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Arslan",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Uzmanı",
+   "aliases": [],
+   "extension": "1404",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1405",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Başaran",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Uzmanı",
+   "aliases": [],
+   "extension": "1405",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1406",
+   "kind": "person",
+   "first_name": "Ömer",
+   "last_name": "Güler",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Personeli",
+   "aliases": [],
+   "extension": "1406",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1407",
+   "kind": "person",
+   "first_name": "Özlem",
+   "last_name": "Kaplan",
+   "department": "Muhasebe",
+   "department_aliases": [
+    "Mali İşler",
+    "Muhasebe Birimi"
+   ],
+   "title": "Muhasebe Personeli",
+   "aliases": [],
+   "extension": "1407",
+   "transferable": true,
+   "birim_yolu": [
+    "Muhasebe"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-finans",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1500",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1501",
+   "kind": "person",
+   "first_name": "Seda",
+   "last_name": "Bozkurt",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "Finans Müdürü",
+   "aliases": [],
+   "extension": "1501",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1502",
+   "kind": "person",
+   "first_name": "Seda",
+   "last_name": "Uysal",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "Finans Uzmanı",
+   "aliases": [],
+   "extension": "1502",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1503",
+   "kind": "person",
+   "first_name": "Hakan",
+   "last_name": "Yıldız",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "Finans Uzmanı",
+   "aliases": [],
+   "extension": "1503",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1504",
+   "kind": "person",
+   "first_name": "Ömer",
+   "last_name": "Acar",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "Tahsilat Sorumlusu",
+   "aliases": [],
+   "extension": "1504",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1505",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Aksoy",
+   "department": "Finans",
+   "department_aliases": [
+    "Finansman",
+    "Tahsilat"
+   ],
+   "title": "Tahsilat Sorumlusu",
+   "aliases": [],
+   "extension": "1505",
+   "transferable": true,
+   "birim_yolu": [
+    "Finans"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-i̇nsanka",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1600",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1601",
+   "kind": "person",
+   "first_name": "Yusuf",
+   "last_name": "Kara",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "İnsan Kaynakları Müdürü",
+   "aliases": [],
+   "extension": "1601",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1602",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Arslan",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "İşe Alım Uzmanı",
+   "aliases": [],
+   "extension": "1602",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1603",
+   "kind": "person",
+   "first_name": "Hilal",
+   "last_name": "Erdem",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "İşe Alım Uzmanı",
+   "aliases": [],
+   "extension": "1603",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1604",
+   "kind": "person",
+   "first_name": "Murat",
+   "last_name": "Ekinci",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "Bordro Uzmanı",
+   "aliases": [],
+   "extension": "1604",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1605",
+   "kind": "person",
+   "first_name": "Uğur",
+   "last_name": "Koç",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "Bordro Uzmanı",
+   "aliases": [],
+   "extension": "1605",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1606",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Doğan",
+   "department": "İnsan Kaynakları",
+   "department_aliases": [
+    "İK",
+    "Personel",
+    "Personel Birimi"
+   ],
+   "title": "Eğitim Uzmanı",
+   "aliases": [],
+   "extension": "1606",
+   "transferable": true,
+   "birim_yolu": [
+    "İnsan Kaynakları"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-bilgii̇ş",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Bilgi İşlem",
+   "department_aliases": [
+    "Bilgi Teknolojileri",
+    "BT"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1700",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1701",
+   "kind": "person",
+   "first_name": "Ceren",
+   "last_name": "Yıldız",
+   "department": "Bilgi İşlem",
+   "department_aliases": [
+    "Bilgi Teknolojileri",
+    "BT"
+   ],
+   "title": "Bilgi İşlem Müdürü",
+   "aliases": [],
+   "extension": "1701",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-bilgii̇ş-yazılımg",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1720",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1721",
+   "kind": "person",
+   "first_name": "Cem",
+   "last_name": "Polat",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Ekip Lideri",
+   "aliases": [],
+   "extension": "1721",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1722",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Erdem",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1722",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1723",
+   "kind": "person",
+   "first_name": "Okan",
+   "last_name": "Acar",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1723",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1724",
+   "kind": "person",
+   "first_name": "Okan",
+   "last_name": "Bozkurt",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1724",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1725",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Turan",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1725",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1726",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Güler",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1726",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1727",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Polat",
+   "department": "Yazılım Geliştirme",
+   "department_aliases": [
+    "Yazılım"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "1727",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Yazılım Geliştirme"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-bilgii̇ş-sistemve",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Sistem ve Ağ",
+   "department_aliases": [
+    "Sistem",
+    "Ağ Yönetimi"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1740",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Sistem ve Ağ"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1741",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Demir",
+   "department": "Sistem ve Ağ",
+   "department_aliases": [
+    "Sistem",
+    "Ağ Yönetimi"
+   ],
+   "title": "Sistem Yöneticisi",
+   "aliases": [],
+   "extension": "1741",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Sistem ve Ağ"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1742",
+   "kind": "person",
+   "first_name": "Özlem",
+   "last_name": "Güneş",
+   "department": "Sistem ve Ağ",
+   "department_aliases": [
+    "Sistem",
+    "Ağ Yönetimi"
+   ],
+   "title": "Sistem Yöneticisi",
+   "aliases": [],
+   "extension": "1742",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Sistem ve Ağ"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1743",
+   "kind": "person",
+   "first_name": "Volkan",
+   "last_name": "Keskin",
+   "department": "Sistem ve Ağ",
+   "department_aliases": [
+    "Sistem",
+    "Ağ Yönetimi"
+   ],
+   "title": "Ağ Uzmanı",
+   "aliases": [],
+   "extension": "1743",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Sistem ve Ağ"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-bilgii̇ş-teknikde",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1760",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "alt birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1761",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Tekin",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "Teknik Destek Uzmanı",
+   "aliases": [],
+   "extension": "1761",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1762",
+   "kind": "person",
+   "first_name": "Pınar",
+   "last_name": "Koç",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "Teknik Destek Uzmanı",
+   "aliases": [],
+   "extension": "1762",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1763",
+   "kind": "person",
+   "first_name": "Uğur",
+   "last_name": "Yıldırım",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "Teknik Destek Uzmanı",
+   "aliases": [],
+   "extension": "1763",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1764",
+   "kind": "person",
+   "first_name": "Hakan",
+   "last_name": "Kaplan",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "Teknik Destek Uzmanı",
+   "aliases": [],
+   "extension": "1764",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1765",
+   "kind": "person",
+   "first_name": "Uğur",
+   "last_name": "Aydın",
+   "department": "Teknik Destek",
+   "department_aliases": [
+    "Yardım Masası",
+    "Destek"
+   ],
+   "title": "Teknik Destek Uzmanı",
+   "aliases": [],
+   "extension": "1765",
+   "transferable": true,
+   "birim_yolu": [
+    "Bilgi İşlem",
+    "Teknik Destek"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-üretim",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1800",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1801",
+   "kind": "person",
+   "first_name": "Elif",
+   "last_name": "Çetin",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Üretim Müdürü",
+   "aliases": [],
+   "extension": "1801",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1802",
+   "kind": "person",
+   "first_name": "Cem",
+   "last_name": "Keskin",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Vardiya Amiri",
+   "aliases": [],
+   "extension": "1802",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1803",
+   "kind": "person",
+   "first_name": "Tolga",
+   "last_name": "Doğan",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Vardiya Amiri",
+   "aliases": [],
+   "extension": "1803",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1804",
+   "kind": "person",
+   "first_name": "Emre",
+   "last_name": "Yavuz",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Vardiya Amiri",
+   "aliases": [],
+   "extension": "1804",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1805",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Sevim",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Üretim Planlama Uzmanı",
+   "aliases": [],
+   "extension": "1805",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1806",
+   "kind": "person",
+   "first_name": "Ceren",
+   "last_name": "Yavuz",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Üretim Planlama Uzmanı",
+   "aliases": [],
+   "extension": "1806",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1807",
+   "kind": "person",
+   "first_name": "Ebru",
+   "last_name": "Turan",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Bakım Sorumlusu",
+   "aliases": [],
+   "extension": "1807",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1808",
+   "kind": "person",
+   "first_name": "Kemal",
+   "last_name": "Başaran",
+   "department": "Üretim",
+   "department_aliases": [
+    "Fabrika",
+    "İmalat"
+   ],
+   "title": "Bakım Sorumlusu",
+   "aliases": [],
+   "extension": "1808",
+   "transferable": true,
+   "birim_yolu": [
+    "Üretim"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-kalite",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "1900",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1901",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Öztürk",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "Kalite Müdürü",
+   "aliases": [],
+   "extension": "1901",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1902",
+   "kind": "person",
+   "first_name": "Ebru",
+   "last_name": "Şahin",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "Kalite Kontrol Uzmanı",
+   "aliases": [],
+   "extension": "1902",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1903",
+   "kind": "person",
+   "first_name": "Özlem",
+   "last_name": "Demir",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "Kalite Kontrol Uzmanı",
+   "aliases": [],
+   "extension": "1903",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1904",
+   "kind": "person",
+   "first_name": "Deniz",
+   "last_name": "Kaya",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "Kalite Kontrol Uzmanı",
+   "aliases": [],
+   "extension": "1904",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-1905",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Yıldız",
+   "department": "Kalite",
+   "department_aliases": [
+    "Kalite Kontrol",
+    "Kalite Güvence"
+   ],
+   "title": "Kalite Kontrol Uzmanı",
+   "aliases": [],
+   "extension": "1905",
+   "transferable": true,
+   "birim_yolu": [
+    "Kalite"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-ar-ge",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2001",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Turan",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Müdürü",
+   "aliases": [],
+   "extension": "2001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2002",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Sevim",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2003",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Özdemir",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2004",
+   "kind": "person",
+   "first_name": "Volkan",
+   "last_name": "Öztürk",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2005",
+   "kind": "person",
+   "first_name": "Yasemin",
+   "last_name": "Doğan",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2006",
+   "kind": "person",
+   "first_name": "Kemal",
+   "last_name": "Çelik",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2006",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2007",
+   "kind": "person",
+   "first_name": "Ebru",
+   "last_name": "Çelik",
+   "department": "Ar-Ge",
+   "department_aliases": [
+    "Araştırma Geliştirme",
+    "Arge"
+   ],
+   "title": "Ar-Ge Mühendisi",
+   "aliases": [],
+   "extension": "2007",
+   "transferable": true,
+   "birim_yolu": [
+    "Ar-Ge"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-satınalm",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2100",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2101",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Kaplan",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "Satın Alma Müdürü",
+   "aliases": [],
+   "extension": "2101",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2102",
+   "kind": "person",
+   "first_name": "Tolga",
+   "last_name": "Şahin",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "Satın Alma Uzmanı",
+   "aliases": [],
+   "extension": "2102",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2103",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Bozkurt",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "Satın Alma Uzmanı",
+   "aliases": [],
+   "extension": "2103",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2104",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Güneş",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "Satın Alma Uzmanı",
+   "aliases": [],
+   "extension": "2104",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2105",
+   "kind": "person",
+   "first_name": "Fatma",
+   "last_name": "Bozkurt",
+   "department": "Satın Alma",
+   "department_aliases": [
+    "Tedarik",
+    "Satınalma"
+   ],
+   "title": "Satın Alma Uzmanı",
+   "aliases": [],
+   "extension": "2105",
+   "transferable": true,
+   "birim_yolu": [
+    "Satın Alma"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-lojistik",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2200",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2201",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Kurt",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "Lojistik Müdürü",
+   "aliases": [],
+   "extension": "2201",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2202",
+   "kind": "person",
+   "first_name": "Ayşe",
+   "last_name": "Aydın",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "Depo Sorumlusu",
+   "aliases": [],
+   "extension": "2202",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2203",
+   "kind": "person",
+   "first_name": "Hasan",
+   "last_name": "Akın",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "Depo Sorumlusu",
+   "aliases": [],
+   "extension": "2203",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2204",
+   "kind": "person",
+   "first_name": "Deniz",
+   "last_name": "Çelik",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "Sevkiyat Sorumlusu",
+   "aliases": [],
+   "extension": "2204",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2205",
+   "kind": "person",
+   "first_name": "Okan",
+   "last_name": "Şahin",
+   "department": "Lojistik",
+   "department_aliases": [
+    "Depo",
+    "Sevkiyat"
+   ],
+   "title": "Sevkiyat Sorumlusu",
+   "aliases": [],
+   "extension": "2205",
+   "transferable": true,
+   "birim_yolu": [
+    "Lojistik"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-müşterih",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2300",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2301",
+   "kind": "person",
+   "first_name": "Yusuf",
+   "last_name": "Başaran",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Hizmetleri Müdürü",
+   "aliases": [],
+   "extension": "2301",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2302",
+   "kind": "person",
+   "first_name": "Deniz",
+   "last_name": "Uysal",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2302",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2303",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Öztürk",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2303",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2304",
+   "kind": "person",
+   "first_name": "Büşra",
+   "last_name": "Yılmaz",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2304",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2305",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Tekin",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2305",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2306",
+   "kind": "person",
+   "first_name": "Deniz",
+   "last_name": "Polat",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2306",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2307",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Akın",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2307",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2308",
+   "kind": "person",
+   "first_name": "Elif",
+   "last_name": "Aydın",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2308",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2309",
+   "kind": "person",
+   "first_name": "Emre",
+   "last_name": "Demir",
+   "department": "Müşteri Hizmetleri",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Müşteri Destek"
+   ],
+   "title": "Müşteri Temsilcisi",
+   "aliases": [],
+   "extension": "2309",
+   "transferable": true,
+   "birim_yolu": [
+    "Müşteri Hizmetleri"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-hukuk",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Hukuk",
+   "department_aliases": [
+    "Hukuk Müşavirliği",
+    "Avukatlık"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2400",
+   "transferable": true,
+   "birim_yolu": [
+    "Hukuk"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2401",
+   "kind": "person",
+   "first_name": "Ali",
+   "last_name": "Doğan",
+   "department": "Hukuk",
+   "department_aliases": [
+    "Hukuk Müşavirliği",
+    "Avukatlık"
+   ],
+   "title": "Hukuk Müşaviri",
+   "aliases": [],
+   "extension": "2401",
+   "transferable": true,
+   "birim_yolu": [
+    "Hukuk"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2402",
+   "kind": "person",
+   "first_name": "Pınar",
+   "last_name": "Polat",
+   "department": "Hukuk",
+   "department_aliases": [
+    "Hukuk Müşavirliği",
+    "Avukatlık"
+   ],
+   "title": "Avukat",
+   "aliases": [],
+   "extension": "2402",
+   "transferable": true,
+   "birim_yolu": [
+    "Hukuk"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2403",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Doğan",
+   "department": "Hukuk",
+   "department_aliases": [
+    "Hukuk Müşavirliği",
+    "Avukatlık"
+   ],
+   "title": "Avukat",
+   "aliases": [],
+   "extension": "2403",
+   "transferable": true,
+   "birim_yolu": [
+    "Hukuk"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-i̇darii̇",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "İdari İşler",
+   "department_aliases": [
+    "İdari",
+    "Güvenlik",
+    "Resepsiyon"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "2500",
+   "transferable": true,
+   "birim_yolu": [
+    "İdari İşler"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2501",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Yavuz",
+   "department": "İdari İşler",
+   "department_aliases": [
+    "İdari",
+    "Güvenlik",
+    "Resepsiyon"
+   ],
+   "title": "İdari İşler Müdürü",
+   "aliases": [],
+   "extension": "2501",
+   "transferable": true,
+   "birim_yolu": [
+    "İdari İşler"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2502",
+   "kind": "person",
+   "first_name": "Esra",
+   "last_name": "Yıldız",
+   "department": "İdari İşler",
+   "department_aliases": [
+    "İdari",
+    "Güvenlik",
+    "Resepsiyon"
+   ],
+   "title": "Güvenlik Amiri",
+   "aliases": [],
+   "extension": "2502",
+   "transferable": true,
+   "birim_yolu": [
+    "İdari İşler"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2503",
+   "kind": "person",
+   "first_name": "Cem",
+   "last_name": "Kaplan",
+   "department": "İdari İşler",
+   "department_aliases": [
+    "İdari",
+    "Güvenlik",
+    "Resepsiyon"
+   ],
+   "title": "Resepsiyon Görevlisi",
+   "aliases": [],
+   "extension": "2503",
+   "transferable": true,
+   "birim_yolu": [
+    "İdari İşler"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "s-2504",
+   "kind": "person",
+   "first_name": "Derya",
+   "last_name": "Koç",
+   "department": "İdari İşler",
+   "department_aliases": [
+    "İdari",
+    "Güvenlik",
+    "Resepsiyon"
+   ],
+   "title": "Resepsiyon Görevlisi",
+   "aliases": [],
+   "extension": "2504",
+   "transferable": true,
+   "birim_yolu": [
+    "İdari İşler"
+   ],
+   "kategori": "kişi",
+   "updated_at": "2026-11-10T08:00:00Z",
+   "deleted": false
+  }
+ ]
+}
