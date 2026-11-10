@@ -75,9 +75,12 @@ def _drop_sublines(cands: list[Contact]) -> list[Contact]:
     sözcük kümesi onun öz alt kümesiyse yalnız asıl makam kalır."""
     if len(cands) <= 1:
         return cands
-    sets = [(c, set(fold_words(c.title))) for c in cands]
-    return [c for c, w in sets
-            if not any(o.department == c.department and ow < w for o, ow in sets if o.id != c.id)]
+    sets = [(c, set(fold_words(c.title)), " ".join(fold_words(c.title))) for c in cands]
+    # alt hat asıl unvanın **sonuna** ek alır ("Şube Müdürü Shp."); önüne sözcük alan ayrı makamdır ("Cinayet Büro
+    # Amiri", "Büro Amiri" değil; diyalog seti S28: "cinayet" cevabı süzülemiyordu)
+    return [c for c, w, t in sets
+            if not any(o.department == c.department and ow < w and t.startswith(ot) for o, ow, ot in sets
+                       if o.id != c.id)]
 
 
 def same_title(index: DirectoryIndex, text: str) -> list[Contact]:
