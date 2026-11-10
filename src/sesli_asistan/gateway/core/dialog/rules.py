@@ -15,7 +15,6 @@ from ..people import (
     sound_alike,
 )
 from ..people.common import _without_self
-from ..people.names import _name_said
 from ..phrases import (
     _FAST_BLOCK,
     _FILLER,
@@ -78,9 +77,6 @@ class RulesMixin:
                   if (c := self.tools.index.get(a["id"])) is not None]
         if len(titled) == 1 and res["kesin"]:
             return self._code_transfer(s, Candidate(titled[0], 100))
-        if len(titled) >= 2 and len(named := [c for c in titled if _name_said(c, _without_self(text))]) == 1:
-            # unvan + ad ("vali yardımcısı Kemal Bey"; üç vali yardımcısından biri Kemal): o kişi (diyalog seti S18)
-            return self._code_transfer(s, Candidate(named[0], 100))
         if 2 <= len(titled) <= 3:
             cands = tuple(Candidate(c, 100) for c in titled)
             return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)

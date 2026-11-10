@@ -33,7 +33,7 @@ SOYAD = ["Acar", "Akın", "Arslan", "Aydın", "Bozkurt", "Bulut", "Çelik", "Dem
 BIRIMLER: list[tuple[tuple[str, ...], list[str], list[tuple[str, int]]]] = [
     (("Genel Müdürlük",), ["Yönetim"], [("Genel Müdür Yardımcısı", 2), ("Genel Müdür Asistanı", 1)]),
     (("Satış",), ["Satış Birimi", "Satış Departmanı"], [("Satış Müdürü", 1)]),
-    (("Satış", "Yurt İçi Satış"), ["İç Satış", "Yurtiçi Satış"], [("Bölge Satış Sorumlusu", 2),
+    (("Satış", "Yurt İçi Satış"), ["Yurtiçi Satış"], [("Bölge Satış Sorumlusu", 2),
                                                                      ("Satış Temsilcisi", 8)]),
     (("Satış", "Yurt Dışı Satış"), ["Dış Satış", "İhracat", "Yurtdışı Satış"], [("İhracat Uzmanı", 4)]),
     (("Satış", "Kurumsal Satış"), ["Kurumsal Müşteriler"], [("Kurumsal Müşteri Temsilcisi", 4)]),
