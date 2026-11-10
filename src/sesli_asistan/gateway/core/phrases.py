@@ -161,8 +161,9 @@ def is_small_talk(text: str) -> bool:
 def is_greeting_only(text: str, noise: int = 0) -> bool:
     """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı.
     Sonu kesilmiş selam ("merhab") selam sayılır. `noise`: tanınmayan en çok kaç sözcüğe izin verilir (STT kırıntısı:
-    "bakalımızı merhaba iyi günler", canlı 09.11.2026); çağıran sözün rehberde bir hedef içermediğini ayrıca bakar."""
-    raw = _folded_words(text)
+    "bakalımızı merhaba iyi günler", canlı 09.11.2026); çağıran sözün rehberde bir hedef içermediğini ayrıca bakar.
+    Kesmeden sonraki ek atılır: "denem'e" iki tanınmayan sözcük ("denem", "e") sayılıyordu."""
+    raw = _folded_words(re.sub(r"['’]\w*", "", text))
 
     def known(w: str) -> bool:
         return w in _GREETING_WORDS or (len(w) >= 4 and any(g.startswith(w) for g in _GREETING_CORE))
