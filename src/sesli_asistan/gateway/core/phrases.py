@@ -324,7 +324,10 @@ def ablative(word: str) -> str:
     İnsan Kaynakları → İnsan Kaynaklarından."""
     w = word.strip()
     if "-" in w or (w.isupper() and len(w) > 1):
-        # kısaltma / tireli ad ("Ar-Ge", "BT"): ek kesmeyle ("Ar-Ge'den"); okunuşa göre ünlü uyumu
+        # kısaltma / tireli ad ("Ar-Ge", "BT"): ek kesmeyle ("Ar-Ge'den"); okunuşa göre ünlü uyumu. Ünlüsüz kısaltma
+        # harf harf okunur ("be-te"): "BT'den"
+        if not any(ch in "aeıioöuü" for ch in turkish_lower(w)):
+            return f"{w}'den"
         last = turkish_lower(w)[-1:]
         hard = last in set("fstkçşhp")
         return f"{w}'" + ("t" if hard else "d") + ("a" if _last_vowel(w) in "aıou" else "e") + "n"

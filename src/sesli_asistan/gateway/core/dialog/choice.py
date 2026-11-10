@@ -239,14 +239,15 @@ class ChoiceMixin:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
+        if wants_anyone(text) and not self._mentions_person(search_key(text).split()):
+            # "kim müsaitse", "fark etmez": sorulanlardan birinciye, ulaşılamazsa sıradakine (adlı kişiler de).
+            # Soru sözcüğü ("kim") denetiminden önce: o denetim sözü LLM'e bırakıyordu
+            log.info("[%s] seçim: herhangi biri (%d aday)", s.call_id, len(choice))
+            return self._transfer_in_order(s, choice, text)
         if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
             return None
         if (turn := self._choice_by_title(s, text, choice)) is not None:
             return turn
-        if wants_anyone(text) and not self._mentions_person(search_key(text).split()):
-            # "kim müsaitse", "fark etmez": sorulanlardan birinciye, ulaşılamazsa sıradakine (adlı kişiler de)
-            log.info("[%s] seçim: herhangi biri (%d aday)", s.call_id, len(choice))
-            return self._transfer_in_order(s, choice, text)
         if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
             decided, turn = self._choice_by_unit(s, text, words, choice)
             if decided:
