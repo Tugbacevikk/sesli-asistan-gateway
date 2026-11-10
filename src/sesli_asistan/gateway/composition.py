@@ -5,9 +5,11 @@ import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 import httpx
@@ -33,6 +35,9 @@ from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN
 from .core.search import DirectoryIndex
 from .core.speech import PromptLibrary, Speaker
 from .core.tools import ToolRegistry
+
+if TYPE_CHECKING:
+    import numpy as np
 from .core.topics import Topic, parse_topics
 
 log = logging.getLogger(__name__)
@@ -241,7 +246,7 @@ class GatewayRuntime:
         stats = self.metrics.observer(channel)
         live = self.live.observer(call_id, channel)
 
-        def both(kind, data):
+        def both(kind: str, data: dict[str, Any]) -> None:
             observer(kind, data)
             stats(kind, data)
             live(kind, data)
@@ -347,14 +352,17 @@ class GatewayRuntime:
                 await close()
 
 
-def _fanout(*observers):
-    def on(kind, data):
+Observer = Callable[[str, dict[str, Any]], None]
+
+
+def _fanout(*observers: Observer) -> Observer:
+    def on(kind: str, data: dict[str, Any]) -> None:
         for o in observers:
             o(kind, data)
     return on
 
 
-def load_thinking_sound(path: str, level: float = 0.12):
+def load_thinking_sound(path: str, level: float = 0.12) -> np.ndarray:
     """Düşünme sesi dosyası → 8 kHz mono int16, tepe `level`'a ayarlı (konuşmanın altında kalsın).
     Okunamazsa servis başlamaz (yanlış yol sessizce kodla üretilen sese düşmesin)."""
     import wave

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import hmac
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any, Literal
 
 from fastapi import FastAPI, Request, Response
@@ -134,7 +134,7 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
                   docs_url="/v1/docs", redoc_url=None, lifespan=lifespan)
 
     @app.middleware("http")
-    async def guard(request: Request, call_next):
+    async def guard(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         path = request.url.path
         if path in ("/v1/openapi.json", "/v1/docs"):
             return await call_next(request)
@@ -164,11 +164,11 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         return await call_next(request)
 
     @app.exception_handler(CallError)
-    async def call_error(request: Request, e: CallError):
+    async def call_error(request: Request, e: CallError) -> JSONResponse:
         return _error(e.status, e.code, str(e), e.call_id or request.path_params.get("call_id"))
 
     @app.exception_handler(RequestValidationError)
-    async def invalid(request: Request, e: RequestValidationError):
+    async def invalid(request: Request, e: RequestValidationError) -> JSONResponse:
         msg = "; ".join(f"{'.'.join(map(str, x['loc'][1:]))}: {x['msg']}" for x in e.errors())
         return _error(400, "BAD_REQUEST", msg, request.path_params.get("call_id"))
 

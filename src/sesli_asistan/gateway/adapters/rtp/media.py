@@ -10,6 +10,7 @@ import asyncio
 import dataclasses
 import logging
 import time
+from collections.abc import AsyncIterator
 
 import numpy as np
 
@@ -42,7 +43,7 @@ class RtpMedia:
             log.warning("RTP hedefi gönderim başladıktan sonra değişti: %s → %s", self._tx.remote, remote)
             self._tx.remote = remote
 
-    async def frames(self):
+    async def frames(self) -> AsyncIterator[bytes]:
         while (f := await self.rx.frames.get()) is not None:
             yield f
 

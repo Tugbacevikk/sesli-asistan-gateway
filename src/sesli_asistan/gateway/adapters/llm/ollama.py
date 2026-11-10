@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -34,7 +35,8 @@ class OllamaChat:
         return {"model": self.model, "messages": to_ollama(messages), "tools": tools, "stream": stream,
                 "think": self.think, "keep_alive": self.keep_alive, "options": {"temperature": self.temperature}}
 
-    async def chat_stream(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]):
+    async def chat_stream(self, messages: list[dict[str, Any]],
+                          tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:
         """Akışlı cevap (ADR-018): metin parçaları geldikçe; sonunda bütün mesaj (araç çağrıları dahil)."""
         content, calls = "", []
         try:

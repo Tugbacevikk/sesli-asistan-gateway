@@ -7,6 +7,8 @@ yön için ayrı nesne. Kitaplık: G722 (sippy/libg722, kamu malı, pip).
 """
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 
 PAYLOAD_TYPE = 9
@@ -14,7 +16,7 @@ SAMPLE_RATE = 16000          # ses
 BIT_RATE = 64000
 
 
-def _codec():
+def _codec() -> Any:      # G722 paketinin tipi yok
     try:
         from G722 import G722
     except ImportError as e:            # gateway extra'sında; yoksa açık hata (çağrı açılmadan)

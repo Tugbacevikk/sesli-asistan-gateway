@@ -6,9 +6,11 @@ SIGTERM'de açık çağrılar kapatılır, sonra servis durur.
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 import uvicorn
+from fastapi import FastAPI
 
 from sesli_asistan.libs.obs import setup_logging
 
@@ -17,12 +19,12 @@ from .composition import GatewayRuntime
 from .config import GatewaySettings
 
 
-def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None = None):
+def build_app(s: GatewaySettings | None = None, runtime: GatewayRuntime | None = None) -> FastAPI:
     s = s or GatewaySettings()
     rt = runtime or GatewayRuntime(s)
 
     @asynccontextmanager
-    async def lifespan(app):
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await rt.start()
         app.state.runtime = rt
         yield

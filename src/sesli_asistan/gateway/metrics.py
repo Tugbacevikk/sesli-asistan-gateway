@@ -7,11 +7,14 @@ toplama anında çalışma zamanından okunur.
 from __future__ import annotations
 
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable, Iterator
 from typing import Any
 
 from prometheus_client import CollectorRegistry, Counter, Histogram
-from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily
+from prometheus_client.core import CounterMetricFamily, GaugeMetricFamily, Metric
+
+from .core.models import CallEvent
+from .core.ports import Audio, LlmDelta, LlmMessage
 
 LATENCY = (0.1, 0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.5, 10.0)
 
@@ -42,22 +45,22 @@ class GatewayMetrics:
     def observer(self, channel: str) -> Callable[[str, dict[str, Any]], None]:
         """Çağrı oturumu olaylarını metriğe çevirir."""
         def on(kind: str, data: dict[str, Any]) -> None:
-            if kind == "turn":
+            if kind == CallEvent.TURN:
                 if data.get("heard") and not str(data["heard"]).startswith("["):     # arayan turu (olay değil)
                     self.turns.labels("llm" if data.get("llm_calls") else "kod").inc()
                 if data.get("final_to_audio_s") is not None:
                     self.turn_latency.labels(channel).observe(data["final_to_audio_s"])
                 if data.get("dialog_s"):
                     self.dialog_latency.observe(data["dialog_s"])
-            elif kind == "heard" and not data.get("text"):
+            elif kind == CallEvent.HEARD and not data.get("text"):
                 self.not_understood.inc()
-            elif kind == "barge_in":
+            elif kind == CallEvent.BARGE_IN:
                 self.barge_in.inc()
-            elif kind == "action":
+            elif kind == CallEvent.ACTION:
                 self.actions.labels(data.get("action", "?")).inc()
-            elif kind == "thinking_sound":
+            elif kind == CallEvent.THINKING_SOUND:
                 self.thinking_sound.inc()
-            elif kind == "ended":
+            elif kind == CallEvent.ENDED:
                 self.calls.labels(data.get("outcome") or "hangup", channel).inc()
         return on
 
@@ -66,7 +69,7 @@ class _RuntimeCollector:
     def __init__(self, rt: Any):
         self.rt = rt
 
-    def collect(self):
+    def collect(self) -> Iterator[Metric]:
         rt = self.rt
         g = GaugeMetricFamily("calls_active", "Açık çağrı")
         g.add_metric([], rt.manager.active)
@@ -130,7 +133,7 @@ class TimedLlm:
     def __getattr__(self, name: str) -> Any:     # warmup, aclose, http …
         return getattr(self.inner, name)
 
-    async def chat(self, messages, tools):
+    async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> LlmMessage:
         t0 = time.perf_counter()
         try:
             return await self.inner.chat(messages, tools)
@@ -147,7 +150,8 @@ class TimedLlm:
 
         return supports_stream(self.inner)
 
-    async def chat_stream(self, messages, tools):
+    async def chat_stream(self, messages: list[dict[str, Any]],
+                          tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:
         t0 = time.perf_counter()
         try:
             async for d in self.inner.chat_stream(messages, tools):
@@ -166,7 +170,7 @@ class TimedTts:
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
 
-    async def synthesize(self, text: str):
+    async def synthesize(self, text: str) -> Audio:
         t0 = time.perf_counter()
         try:
             return await self.inner.synthesize(text)

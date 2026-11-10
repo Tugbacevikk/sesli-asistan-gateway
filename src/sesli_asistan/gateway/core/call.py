@@ -29,17 +29,19 @@ import contextlib
 import logging
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
 
+import numpy as np
+
 from sesli_asistan.libs.obs import log_text
 
 from .dialog import DialogSession
 from .level import LevelGate, frame_db
-from .models import Action, DialogTurn, HangupAction, OperatorAction, TransferAction
+from .models import Action, CallEvent, DialogTurn, HangupAction, OperatorAction, TransferAction
 from .ports import MediaPort, PbxError, PbxPort, SttError, SttPort, SttStream
 from .schedule import HOLIDAY, OPEN
 from .speech import Speaker, keyboard_sound
@@ -177,9 +179,9 @@ class CallSession:
     def state(self, value: CallState) -> None:
         if getattr(self, "_state", None) != value:
             self._state = value
-            self._emit("state", state=value.value)
+            self._emit(CallEvent.STATE, state=value.value)
 
-    def _emit(self, kind: str, **data: Any) -> None:
+    def _emit(self, kind: CallEvent, **data: Any) -> None:
         if self.observer is not None:
             try:
                 self.observer(kind, data)
@@ -254,7 +256,7 @@ class CallSession:
             self.stats.duration_s = round(self.clock() - self.started_at, 1)
             self.stats.misses = list(self.dialog.state.misses)
             self.media.close()
-            self._emit("ended", outcome=self.stats.outcome, reason=self.stats.reason)
+            self._emit(CallEvent.ENDED, outcome=self.stats.outcome, reason=self.stats.reason)
             log.info("[%s] çağrı bitti: %s (%s), %d tur, %d söze girme", self.call_id, self.stats.outcome,
                      self.stats.reason, len(self.stats.turns), self.stats.barge_ins)
         return self.stats
@@ -340,7 +342,7 @@ class CallSession:
                 return
             log.info("[%s] söze girildi: seslendirme durduruluyor", self.call_id)
             self.stats.barge_ins += 1
-            self._emit("barge_in")
+            self._emit(CallEvent.BARGE_IN)
             self._stop_speech()
             self._barged = True             # bu sözün başı asistanın sesiyle karıştı (anlaşılamazsa sayılmaz)
 
@@ -399,7 +401,7 @@ class CallSession:
         # karar tam değerle (yuvarlama eşiği aşırmasın: canlı deneme 03.11.2026, güven 0,495 → 0,5 sayılıp tekrar
         # istenmedi), arayüze iki basamak; yazarak denemede (güven yok) teyit sorulmaz
         conf = min(confs) if confs else None
-        self._emit("heard", text=heard, confidence=round(conf, 2) if conf is not None else None)
+        self._emit(CallEvent.HEARD, text=heard, confidence=round(conf, 2) if conf is not None else None)
         self.dialog.after_barge_in, self._barged = self._barged, False
         self.dialog.stt_confidence = conf
         self.state = CallState.THINKING
@@ -426,7 +428,7 @@ class CallSession:
         await self._update_hints()
         self._start_speech(turn, heard_at=inputs[0].at, heard=heard, dialog_s=dialog_s)
 
-    async def _thinking(self, work):
+    async def _thinking[T](self, work: Awaitable[T]) -> T:
         """Diyalog sürerken klavye sesi çalar (gecikmeli başlar), iş bitince keser."""
         if not self.cfg.thinking_sound:
             return await work
@@ -440,7 +442,7 @@ class CallSession:
 
     async def _filler(self) -> None:
         await asyncio.sleep(self.cfg.thinking_sound_delay_s)
-        self._emit("thinking_sound")
+        self._emit(CallEvent.THINKING_SOUND)
         pcm = self.thinking_pcm if self.thinking_pcm is not None else _keyboard()
         while True:
             for i in range(0, len(pcm), 4000):        # 0,5 sn'lik parçalar
@@ -465,7 +467,7 @@ class CallSession:
                 "dialog_s": 0.0, "t0": t0}
         self._speech_meta = meta
 
-        async def chunks():
+        async def chunks() -> AsyncIterator[str]:
             spoken = [first]
             yield first
             while True:
@@ -498,7 +500,7 @@ class CallSession:
                      log_text(turn.text),
                      [a.type for a in turn.actions], meta["dialog_s"])
             if turn.text:
-                self._emit("reply", text=turn.text)
+                self._emit(CallEvent.REPLY, text=turn.text)
             await self._update_hints()
         return meta["turn"]
 
@@ -526,7 +528,7 @@ class CallSession:
                              "dialog_s": dialog_s}
         self._speech = asyncio.create_task(self._speak(turn.text, self._speech_id), name=f"konusma-{self.call_id}")
         if turn.text:
-            self._emit("reply", text=turn.text)
+            self._emit(CallEvent.REPLY, text=turn.text)
 
     async def _speak(self, text: str, speech_id: int) -> None:
         said_at = self.clock()
@@ -557,7 +559,7 @@ class CallSession:
                              round(meta["dialog_s"], 3), latency, barged=not completed,
                              llm_calls=getattr(turn, "llm_calls", 0))
             self.stats.turns.append(rec)
-            self._emit("turn", **asdict(rec))
+            self._emit(CallEvent.TURN, **asdict(rec))
         if not tts_ok:
             self.stats.tts_failures += 1
             self._tts_fail_streak += 1
@@ -595,7 +597,7 @@ class CallSession:
 
     async def _send_transfer(self, tr: TransferAction) -> None:
         self.state = CallState.TRANSFERRING
-        self._emit("action", action="transfer", extension=tr.extension)
+        self._emit(CallEvent.ACTION, action="transfer", extension=tr.extension)
         self._transfer_deadline = self.clock() + self.cfg.transfer_result_timeout_s
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "transfer",
@@ -605,7 +607,7 @@ class CallSession:
             await self._transfer_result("failed")
 
     async def _send_operator(self, reason: str) -> None:
-        self._emit("action", action="operator", reason=reason)
+        self._emit(CallEvent.ACTION, action="operator", reason=reason)
         self._handed_off("operator", reason)
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "operator"})
@@ -615,7 +617,7 @@ class CallSession:
             self._stop.set()
 
     async def _send_hangup(self, reason: str) -> None:
-        self._emit("action", action="hangup", reason=reason)
+        self._emit(CallEvent.ACTION, action="hangup", reason=reason)
         self._handed_off("closed", reason)
         try:
             await self.pbx.send_action(self.call_id, {"action_id": _action_id(), "type": "hangup"})
@@ -737,7 +739,7 @@ async def _first_of(q: asyncio.Queue, work: asyncio.Task) -> str | None:
 _KEYBOARD = None
 
 
-def _keyboard():
+def _keyboard() -> np.ndarray:
     global _KEYBOARD
     if _KEYBOARD is None:
         _KEYBOARD = keyboard_sound()

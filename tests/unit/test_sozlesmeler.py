@@ -20,6 +20,7 @@ from test_directory_import import client as upload_client
 from test_ui import client as ui_client
 
 from sesli_asistan.gateway.core.call import CallState, TurnRecord
+from sesli_asistan.gateway.core.models import CallEvent
 from sesli_asistan.gateway.core.ports import LlmError
 from sesli_asistan.gateway.live import KINDS
 
@@ -73,6 +74,13 @@ async def test_gozlemci_olaylari_ve_alanlari():
     assert set(first["turn"]) == {f.name for f in fields(TurnRecord)}
     assert {d["state"] for k, d in seen if k == "state"} <= {s.value for s in CallState}
     assert seen[-1][1] == {"outcome": c.stats.outcome, "reason": c.stats.reason}
+
+
+def test_olay_adlari_arayuzle_ayni():
+    # arayüzün JavaScript'i ve metrikler bu adları metin olarak okur: sabite çevrilmeleri adı değiştirmemeli
+    assert {e.value for e in CallEvent} == {"start", "state", "heard", "reply", "action", "barge_in", "turn",
+                                           "thinking_sound", "ended"}
+    assert KINDS == {e for e in CallEvent} - {CallEvent.THINKING_SOUND}
 
 
 # --- 3. ayar ekranı ---------------------------------------------------------------------------------------

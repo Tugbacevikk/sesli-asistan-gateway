@@ -46,7 +46,8 @@ def build_service(s: SttSettings, engine: Engine | None) -> SpeechToTextService:
                                use_hotwords=s.hotwords, highpass_hz=s.highpass_hz)
 
 
-async def start_server(s: SttSettings, engine: Engine | None = None, bind: str | None = None):
+async def start_server(s: SttSettings, engine: Engine | None = None,
+                       bind: str | None = None) -> tuple[grpc.aio.Server, health.aio.HealthServicer, int]:
     """Sunucuyu başlatır; (server, health_servicer, port) döner. engine verilmezse Whisper yüklenip ısıtılır.
 
     gRPC işleyicileri sunucu başlamadan kaydedilmelidir; bu yüzden servis motorsuz kaydedilir, motor hazır

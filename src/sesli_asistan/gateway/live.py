@@ -18,8 +18,10 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
+from .core.models import CallEvent
+
 # arayüzün gösterdiği olaylar; "turn" yalnız ölçümle (metin zaten heard / reply'da)
-KINDS = {"start", "state", "heard", "reply", "action", "barge_in", "turn", "ended"}
+KINDS = set(CallEvent) - {CallEvent.THINKING_SOUND}
 _TEXT_FIELDS = ("text",)
 _TURN_FIELDS = ("final_to_audio_s", "dialog_s", "llm_calls")
 
@@ -39,13 +41,13 @@ class LiveFeed:
     # --- yayın ------------------------------------------------------------------------------------------------
 
     def observer(self, call_id: str, channel: str) -> Callable[[str, dict[str, Any]], None]:
-        self.publish(call_id, channel, "start", {"started": datetime.now().isoformat(timespec="seconds")})
+        self.publish(call_id, channel, CallEvent.START, {"started": datetime.now().isoformat(timespec="seconds")})
         return lambda kind, data: self.publish(call_id, channel, kind, data)
 
     def publish(self, call_id: str, channel: str, kind: str, data: dict[str, Any]) -> None:
         if kind not in KINDS:
             return
-        if kind == "turn":
+        if kind == CallEvent.TURN:
             data = {k: data[k] for k in _TURN_FIELDS if data.get(k) is not None}
         elif not self.keep_texts:
             data = {k: ("" if k in _TEXT_FIELDS else v) for k, v in data.items()}
@@ -58,9 +60,9 @@ class LiveFeed:
             c = self.calls[call_id] = {"call_id": call_id, "channel": channel, "state": "", "ended_at": None,
                                        "last": 0.0, "events": deque(maxlen=self.MAX_EVENTS)}
         c["last"] = self.clock()
-        if kind == "state":
+        if kind == CallEvent.STATE:
             c["state"] = data.get("state", "")
-        if kind == "ended":
+        if kind == CallEvent.ENDED:
             c["ended_at"] = self.clock()
         c["events"].append(ev)
         for q in list(self._subs):

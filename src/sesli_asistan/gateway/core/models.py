@@ -56,6 +56,20 @@ class Match(StrEnum):
     NONE = "none"                 # bulunamadı → tekrar sor
 
 
+class CallEvent(StrEnum):
+    """Çağrı oturumunun gözlemciye bildirdiği olaylar (canlı izleme, metrikler, arayüzden deneme)."""
+
+    START = "start"                    # canlı izleme ekler (oturum değil)
+    STATE = "state"
+    HEARD = "heard"
+    REPLY = "reply"
+    ACTION = "action"
+    BARGE_IN = "barge_in"
+    TURN = "turn"
+    THINKING_SOUND = "thinking_sound"  # yalnız metrik; canlı izlemeye gitmez
+    ENDED = "ended"
+
+
 @dataclass(frozen=True)
 class Candidate:
     contact: Contact

@@ -36,7 +36,7 @@ import json
 import logging
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from importlib import resources
 from typing import Any
 
@@ -108,7 +108,7 @@ class WsMedia:
                 self.dropped += 1
             self.q.put_nowait(frame)
 
-    async def frames(self):
+    async def frames(self) -> AsyncIterator[bytes]:
         while (f := await self.q.get()) is not None:
             yield f
 
