@@ -139,7 +139,7 @@ def test_rehbere_yerel_kayit_eklenir_bulunur_silinir():
         # silme: takma adı da gider; kaynak rehber kaydı silinemez
         assert tc.delete(f"/v1/admin/contacts/{local['id']}").status_code == 200
         assert rt.directory.index.search("ferhat yıldırım").match == Match.NONE
-        assert local["id"] not in rt.settings.local.get("aliases", {})
+        assert local["id"] not in rt.settings.local.aliases
         assert tc.delete("/v1/admin/contacts/c-101").status_code == 400
 
 

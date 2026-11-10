@@ -191,6 +191,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- Yerel ayarlar tipli (`local_settings.LocalSettings`, `LocalContact`): ayar servisi serbest sözlük yerine bunu
+  taşır; ayar dosyasının biçimi aynı (yalnız farklar). Mesai / tatil / mesai dışı davranışın "yerel yoksa ayar
+  dosyasındaki" kuralı tek yerde.
 - Dosyalar sorumluluğa göre bölündü (kod aynen taşındı, davranış ve içe aktarma yolları aynı): `core/people/`,
   `core/call/` (models, session), `directory_import/` (common, table, rows, compare), `directory_upload.py`,
   `api/web_call.py`.

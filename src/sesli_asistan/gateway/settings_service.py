@@ -23,6 +23,7 @@ from .core.models import Contact
 from .core.schedule import OfficeHours
 from .core.search import search_key
 from .directory_upload import DirectoryUpload
+from .local_settings import AfterHoursMode, LocalContact, LocalSettings
 
 if TYPE_CHECKING:
     from .adapters.settings.json_store import LocalSettingsStore
@@ -72,7 +73,7 @@ _EXTENSION = re.compile(r"^\d{2,6}$")   # yalnız dahili numara: dış hat / cep
 class SettingsService:
     def __init__(self, rt: GatewayRuntime, store: LocalSettingsStore | None):
         self.rt, self.store = rt, store
-        self.local: dict[str, Any] = {}
+        self.local = LocalSettings()
         self._lock = asyncio.Lock()
         self.upload = DirectoryUpload(rt)
 
@@ -92,45 +93,44 @@ class SettingsService:
             log.error("yerel ayarlar uygulanamadı (%s): ayar dosyasındaki değerlerle devam", e)
             return
         self.apply(self.local)
-        log.info("yerel ayarlar uygulandı: %d anons, %d kişiye takma ad%s", len(self.local.get("texts", {})),
-                 len(self.local.get("aliases", {})), ", mesai kuralı" if "office_hours" in self.local else "")
+        log.info("yerel ayarlar uygulandı: %d anons, %d kişiye takma ad%s", len(self.local.texts),
+                 len(self.local.aliases), ", mesai kuralı" if self.local.office_hours is not None else "")
 
     def base_texts(self) -> DialogTexts:
         return self.rt.s.dialog_texts()
 
-    def apply(self, local: dict[str, Any]) -> None:
-        rt, s = self.rt, self.rt.s
-        texts = replace(self.base_texts(), **local.get("texts", {}))
-        rt.agent.cfg = replace(rt.agent.cfg, texts=texts)
-        rt.office = OfficeHours.parse(local.get("office_hours", s.office_hours), local.get("holidays", s.holidays))
-        rt.after_hours_mode = local.get("after_hours_mode", s.after_hours_mode)
-        rt.directory.index.set_overlay(local.get("aliases", {}),
-                                       [Contact.from_api(c) for c in local.get("contacts", [])])
+    def apply(self, local: LocalSettings) -> None:
+        rt = self.rt
+        rt.agent.cfg = replace(rt.agent.cfg, texts=replace(self.base_texts(), **local.texts))
+        rt.office = OfficeHours.parse(*self._office(local))
+        rt.after_hours_mode = self._mode(local)
+        rt.directory.index.set_overlay(local.aliases, [Contact.from_api(c.as_api()) for c in local.contacts])
+
+    def _office(self, local: LocalSettings) -> tuple[str, str]:
+        """Geçerli (mesai saatleri, tatiller): yerel ayar yoksa ayar dosyasındaki."""
+        s = self.rt.s
+        return (s.office_hours if local.office_hours is None else local.office_hours,
+                s.holidays if local.holidays is None else local.holidays)
+
+    def _mode(self, local: LocalSettings) -> AfterHoursMode:
+        return self.rt.s.after_hours_mode if local.after_hours_mode is None else local.after_hours_mode
 
     # --- doğrulama ----------------------------------------------------------------------------------------
 
-    def normalize(self, data: dict[str, Any], check_contacts: bool = True) -> dict[str, Any]:
-        """Gelen ayarları temizler ve doğrular; ayar dosyasıyla aynı olanları atar (yalnız fark saklanır)."""
+    def normalize(self, data: dict[str, Any], check_contacts: bool = True) -> LocalSettings:
+        """Gelen ayarları (JSON) temizler ve doğrular; ayar dosyasıyla aynı olanları atar (yalnız fark saklanır)."""
         if not isinstance(data, dict):
             raise ValueError("ayarlar JSON nesnesi olmalı")
-        out: dict[str, Any] = {}
-        if texts := self._clean_texts(data.get("texts") or {}):
-            out["texts"] = texts
-        out.update(self._clean_office(data))
-        contacts = self._clean_contacts(data.get("contacts", self.local.get("contacts", [])))
-        if contacts:
-            out["contacts"] = contacts
-        known = {c.id: c for c in self.rt.directory.index.source_contacts() if c.transferable}
-        known.update({c["id"]: Contact.from_api(c) for c in contacts})
+        contacts = self._clean_contacts(data.get("contacts", [c.as_api() for c in self.local.contacts]))
+        known = {c.id for c in self.rt.directory.index.source_contacts() if c.transferable} | {c.id for c in contacts}
         aliases = {}
         for cid, values in (data.get("aliases") or {}).items():
             if check_contacts and cid not in known:
                 raise ValueError(f"rehberde olmayan kayıt: {cid}")
             if clean := _clean_aliases(values):
                 aliases[cid] = clean
-        if aliases:
-            out["aliases"] = aliases
-        return out
+        return LocalSettings(texts=self._clean_texts(data.get("texts") or {}), **self._clean_office(data),
+                             aliases=aliases, contacts=tuple(contacts))
 
     def _clean_texts(self, data: dict[str, Any]) -> dict[str, str]:
         """Anonslar: bilinen alan, uzunluk, yer tutucular ({ad}, {saatler} …); varsayılanla aynı olan atılır."""
@@ -168,7 +168,7 @@ class SettingsService:
             out["after_hours_mode"] = mode
         return out
 
-    def _clean_contacts(self, items: Any) -> list[dict[str, Any]]:
+    def _clean_contacts(self, items: Any) -> list[LocalContact]:
         """Yerel kayıtlar: biçim, zorunlu alanlar, dahili numara çakışması (kaynak rehberle ve kendi aralarında)."""
         if not isinstance(items, list):
             raise ValueError("kayıtlar liste olmalı")
@@ -181,17 +181,18 @@ class SettingsService:
     async def add_contact(self, contact: dict[str, Any], actor: dict[str, str] | None = None) -> dict[str, Any]:
         if not isinstance(contact, dict):
             raise ValueError("kayıt JSON nesnesi olmalı")
-        view = await self.update({**self.local, "contacts": [*self.local.get("contacts", []),
-                                                              {**contact, "id": ""}]}, actor=actor, action="rehber")
-        log.info("yerel kayıt eklendi: %s", self.local["contacts"][-1]["extension"])
+        contacts = [*(c.as_api() for c in self.local.contacts), {**contact, "id": ""}]
+        view = await self.update({**self.local.to_json(), "contacts": contacts}, actor=actor, action="rehber")
+        log.info("yerel kayıt eklendi: %s", self.local.contacts[-1].extension)
         return view
 
     async def remove_contact(self, contact_id: str, actor: dict[str, str] | None = None) -> dict[str, Any]:
-        rest = [c for c in self.local.get("contacts", []) if c["id"] != contact_id]
-        if len(rest) == len(self.local.get("contacts", [])):
+        rest = [c.as_api() for c in self.local.contacts if c.id != contact_id]
+        if len(rest) == len(self.local.contacts):
             raise ValueError("yalnız arayüzden eklenen (yerel) kayıtlar silinebilir")
-        aliases = {k: v for k, v in self.local.get("aliases", {}).items() if k != contact_id}
-        return await self.update({**self.local, "contacts": rest, "aliases": aliases}, actor=actor, action="rehber")
+        aliases = {k: v for k, v in self.local.aliases.items() if k != contact_id}
+        return await self.update({**self.local.to_json(), "contacts": rest, "aliases": aliases}, actor=actor,
+                                 action="rehber")
 
     # --- ayar ekranı --------------------------------------------------------------------------------------
 
@@ -200,22 +201,20 @@ class SettingsService:
         return self.store is not None
 
     def view(self, principal: Any = None) -> dict[str, Any]:
-        rt, s, base = self.rt, self.rt.s, self.base_texts()
+        rt, s, base, local = self.rt, self.rt.s, self.base_texts(), self.local
         # yerel kayıt sonradan kaynak rehbere de girdiyse (aynı dahili): yerel olan silinebilir diye uyarılır
         source_ext = {c.extension: c.full_name for c in rt.directory.index.source_contacts()}
         texts = rt.agent.cfg.texts
-        local_texts = self.local.get("texts", {})
         role = getattr(principal, "role", "yonetici")
         return {
             "writable": self.writable and role == "yonetici",
             "user": {"name": getattr(principal, "name", ""), "role": role},
             "texts": [{"name": n, "label": TEXT_LABELS[n][0], "placeholders": TEXT_LABELS[n][1],
-                       "value": getattr(texts, n), "default": getattr(base, n), "changed": n in local_texts}
+                       "value": getattr(texts, n), "default": getattr(base, n), "changed": n in local.texts}
                       for n in TEXT_FIELDS],
-            "office": {"hours": self.local.get("office_hours", s.office_hours),
-                       "holidays": self.local.get("holidays", s.holidays),
-                       "mode": rt.after_hours_mode, "status": rt.office_status(), "timezone": s.timezone},
-            "aliases": self.local.get("aliases", {}),
+            "office": dict(zip(("hours", "holidays"), self._office(local), strict=True),
+                           mode=rt.after_hours_mode, status=rt.office_status(), timezone=s.timezone),
+            "aliases": local.aliases,
             "contacts": sorted(({"id": c.id, "name": c.full_name, "department": c.department, "title": c.title,
                                  "extension": c.extension, "kind": c.kind, "aliases": list(c.aliases),
                                  "local": c.id.startswith("yerel-"),
@@ -235,15 +234,14 @@ class SettingsService:
             clean = self.normalize(data)
             changes = describe_changes(self.local, clean, self.rt.directory.index)
             before = self.rt.agent.cfg.texts
-            await asyncio.to_thread(self.store.save, clean)
+            await asyncio.to_thread(self.store.save, clean.to_json())
             self.local = clean
             self.apply(clean)
             missing: list[str] = []
             if self.rt.speaker is not None and self.rt.agent.cfg.texts != before:
                 missing = await self.rt.speaker.library.preload(self.rt.speaker.tts, self.rt.agent.fixed_prompts())
                 self.rt._prompts_missing = bool(missing)
-            log.info("ayarlar kaydedildi: %d anons, %d kişiye takma ad", len(clean.get("texts", {})),
-                     len(clean.get("aliases", {})))
+            log.info("ayarlar kaydedildi: %d anons, %d kişiye takma ad", len(clean.texts), len(clean.aliases))
             if changes:
                 a = actor or {"kim": "?", "rol": "?", "ip": "?"}
                 try:
@@ -262,10 +260,10 @@ class _Who:
         self.role = (actor or {}).get("rol", "yonetici")
 
 
-def describe_changes(old: dict[str, Any], new: dict[str, Any], index: Any) -> list[str]:
+def describe_changes(old: LocalSettings, new: LocalSettings, index: Any) -> list[str]:
     """Değişiklik geçmişi için insan okunur özet: "Karşılama anonsu değişti", "takma ad eklendi: …"."""
     out: list[str] = []
-    ot, nt = old.get("texts", {}), new.get("texts", {})
+    ot, nt = old.texts, new.texts
     for name in TEXT_FIELDS:
         if ot.get(name) != nt.get(name):
             label = TEXT_LABELS[name][0]
@@ -273,16 +271,15 @@ def describe_changes(old: dict[str, Any], new: dict[str, Any], index: Any) -> li
                        f"{nt.get(name, '')[:80]}".rstrip(": "))
     for key, label in (("office_hours", "çalışma saatleri"), ("holidays", "tatiller"),
                        ("after_hours_mode", "mesai dışı davranış")):
-        if old.get(key) != new.get(key):
-            out.append(f"{label}: {new.get(key, '(ayar dosyasındaki)')}")
-    names = {c["id"]: f"{c['first_name']} {c['last_name']}".strip() or c["department"]
-             for c in (*old.get("contacts", []), *new.get("contacts", []))}
+        if (v := getattr(new, key)) != getattr(old, key):
+            out.append(f"{label}: {'(ayar dosyasındaki)' if v is None else v}")
+    names = {c.id: c.label for c in (*old.contacts, *new.contacts)}
 
     def who(cid: str) -> str:
         c = index.get(cid)
         return names.get(cid) or (c.full_name if c else cid)
 
-    oa, na = old.get("aliases", {}), new.get("aliases", {})
+    oa, na = old.aliases, new.aliases
     for cid in sorted(set(oa) | set(na)):
         added = [a for a in na.get(cid, []) if a not in oa.get(cid, [])]
         removed = [a for a in oa.get(cid, []) if a not in na.get(cid, [])]
@@ -290,13 +287,12 @@ def describe_changes(old: dict[str, Any], new: dict[str, Any], index: Any) -> li
             out.append(f"takma ad eklendi: {who(cid)} ← {', '.join(added)}")
         if removed:
             out.append(f"takma ad silindi: {who(cid)} ← {', '.join(removed)}")
-    oc = {c["id"]: c for c in old.get("contacts", [])}
-    nc = {c["id"]: c for c in new.get("contacts", [])}
+    oc = {c.id: c for c in old.contacts}
+    nc = {c.id: c for c in new.contacts}
     for cid in nc.keys() - oc.keys():
-        c = nc[cid]
-        out.append(f"yerel kayıt eklendi: {names[cid]} ({c['department'] or '-'}, {c['extension']})")
+        out.append(f"yerel kayıt eklendi: {names[cid]} ({nc[cid].department or '-'}, {nc[cid].extension})")
     for cid in oc.keys() - nc.keys():
-        out.append(f"yerel kayıt silindi: {names[cid]} ({oc[cid]['extension']})")
+        out.append(f"yerel kayıt silindi: {names[cid]} ({oc[cid].extension})")
     return out
 
 
@@ -324,7 +320,7 @@ def _clean_aliases(values: Any) -> list[str]:
     return clean
 
 
-def _clean_contact(raw: Any, taken: dict[str, str], names: set[str]) -> dict[str, Any]:
+def _clean_contact(raw: Any, taken: dict[str, str], names: set[str]) -> LocalContact:
     """Bir yerel kayıt: biçim, zorunlu alanlar, dahili çakışması. `taken` / `names` (dahili → ad, kişi adları)
     güncellenir: sonraki kayıtlar bununla da çakışamaz."""
     if not isinstance(raw, dict):
@@ -350,8 +346,10 @@ def _clean_contact(raw: Any, taken: dict[str, str], names: set[str]) -> dict[str
     if c["kind"] == "person" and search_key(who) in names:
         raise ValueError(f"{who} rehberde zaten var")
     cid = str(raw.get("id") or "")
-    c["id"] = cid if re.fullmatch(r"yerel-[0-9a-f]{8}", cid) else f"yerel-{secrets.token_hex(4)}"
     taken[c["extension"]] = who
     if c["kind"] == "person":
         names.add(search_key(who))
-    return c
+    return LocalContact(id=cid if re.fullmatch(r"yerel-[0-9a-f]{8}", cid) else f"yerel-{secrets.token_hex(4)}",
+                        first_name=c["first_name"], last_name=c["last_name"], department=c["department"],
+                        title=c["title"], extension=c["extension"],
+                        kind="department" if c["kind"] == "department" else "person")
