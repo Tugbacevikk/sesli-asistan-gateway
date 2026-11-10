@@ -10,7 +10,7 @@ from collections.abc import Callable
 from datetime import datetime
 from typing import Any
 
-from sesli_asistan.libs.obs import log_text
+from sesli_asistan.libs.obs import CURRENT_CALL, log_text
 
 from ..dialog import DialogSession
 from ..level import LevelGate, frame_db
@@ -116,6 +116,7 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
     # --- yaşam döngüsü ------------------------------------------------------------------------------------
 
     async def run(self) -> CallStats:
+        CURRENT_CALL.set(self.call_id)          # bu görevin ve alt görevlerinin log satırları bu çağrıya bağlanır
         tasks: list[asyncio.Task] = []
         try:
             try:

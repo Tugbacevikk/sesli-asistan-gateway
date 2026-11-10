@@ -15,6 +15,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Her konuşmanın log dosyası (`CALL_LOG_DIR`, varsayılan `cagri_kayitlari/`): çağrı bitince o çağrının bütün log
+  satırları (ön eksiz araç satırları dahil, `obs.CURRENT_CALL`) ve özeti `<gün>/<saat>_<call_id>.log` dosyasına
+  yazılır; `CALL_HISTORY_DAYS` sonra silinir. JSON loglarda da ön eksiz satırların `call_id`'si dolar.
 - Arayüz: `/ui?kazanc=kapali` tarayıcının otomatik mikrofon kazancını kapatır (kulaklıklı mikrofonla demoda arka
   plan süzgeci için). Tasarım belgesi: ADR-036 (çok adaş, aynı birimde farklı unvanlar, birbirinin yerine geçen hatlar).
 - Sentetik şirket rehberi (`data/sirket_rehber.json`, 130 kayıt, birim yollu; üretici `tools/rehber/sirket_rehber.py`)
