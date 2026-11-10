@@ -185,6 +185,9 @@ class GatewayRuntime:
         self.settings.load()        # anonslar seslendirilmeden önce (start)
         self._health_task: asyncio.Task | None = None
         self._last_purge = time.monotonic()
+        from . import call_logs
+
+        self.call_logs = call_logs.attach(s.call_log_dir)     # her konuşmanın log dosyası (CALL_LOG_DIR)
 
     @property
     def ready(self) -> bool:
@@ -279,6 +282,11 @@ class GatewayRuntime:
             log.warning("çağrı geçmişinden sık aranan dahililer okunamadı: %s", e)
 
     async def _record(self, call_id: str, stats) -> None:
+        if self.call_logs is not None:
+            try:
+                await asyncio.to_thread(self.call_logs.flush_call, call_id, stats)
+            except OSError as e:          # disk dolu / yetki: konuşma geçmişi yine yazılır
+                log.error("[%s] çağrı kaydı dosyası yazılamadı: %s", call_id, e)
         await asyncio.to_thread(self.history.add, call_id, stats)
 
     async def start(self) -> None:
@@ -313,6 +321,8 @@ class GatewayRuntime:
                     self._last_purge = time.monotonic()
                     await asyncio.to_thread(self.history.purge)
                     await self._refresh_top()
+                    if self.call_logs is not None:
+                        await asyncio.to_thread(self.call_logs.purge, self.s.call_history_days)
             except Exception:
                 log.exception("sağlık kontrolü hatası")
 
@@ -341,6 +351,9 @@ class GatewayRuntime:
     async def stop(self) -> None:
         if self._health_task:
             self._health_task.cancel()
+        from . import call_logs
+
+        call_logs.detach(self.call_logs)
         await self.manager.shutdown()
         self.history.close()
         await self.directory.stop()

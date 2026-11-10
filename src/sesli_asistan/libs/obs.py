@@ -11,8 +11,18 @@ import logging
 import os
 import re
 import time
+from contextvars import ContextVar
 
 _CALL = re.compile(r"^\[([^\]\s]{1,64})\]\s")
+# Çağrı oturumunun görevlerinde geçerli çağrı kimliği (oturum başında kurulur; alt görevler ve iş parçacıkları
+# devralır): "[call_id]" ön eki olmayan satırlar da ("araç InContacts(…)") doğru çağrıya bağlanır
+CURRENT_CALL: ContextVar[str | None] = ContextVar("current_call", default=None)
+
+
+def call_id_of(record: logging.LogRecord) -> str | None:
+    """Satırın çağrı kimliği: "[call_id] …" ön eki, yoksa o an çalışan çağrı oturumu."""
+    m = _CALL.match(record.getMessage())
+    return m.group(1) if m else CURRENT_CALL.get()
 _SECRET = re.compile(r"(anahtar=)[^&\s\"']+", re.I)
 
 
@@ -46,7 +56,7 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "service": self.service,
             "logger": record.name,
-            "call_id": m.group(1) if m else None,
+            "call_id": m.group(1) if m else CURRENT_CALL.get(),
             "msg": msg[m.end():] if m else msg,
         }
         if record.exc_info:

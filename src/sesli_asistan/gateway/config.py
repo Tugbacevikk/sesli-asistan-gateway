@@ -188,6 +188,9 @@ class GatewaySettings(BaseSettings):
     call_history_db: str = "cagri_gecmisi.db"   # üretimde /var/lib/sesli-asistan/cagri_gecmisi.db
     call_history_days: int = Field(30, ge=1)
     call_history_texts: bool = True             # false: konuşma metinleri yazılmaz (yalnız sonuç, süre, eylem)
+    # her konuşma bitince o çağrının log satırları + özeti: <klasör>/<gün>/<saat>_<call_id>.log; boş: kapalı.
+    # Saklama CALL_HISTORY_DAYS kadar. Üretimde /var/lib/sesli-asistan/cagri_kayitlari
+    call_log_dir: str = "cagri_kayitlari"
 
     # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
     ui_enabled: bool = True

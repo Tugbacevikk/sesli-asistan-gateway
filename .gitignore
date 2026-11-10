@@ -62,3 +62,5 @@ yedek_deneme/
 data/yerel/
 sample_db*.csv
 sonuc_*.json
+# her konuşmanın log dosyası (CALL_LOG_DIR): kişisel veri, repoya girmez
+cagri_kayitlari/

@@ -1152,6 +1152,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `AFTER_HOURS_MODE` | announce | announce: anons + kapat; assistant: asistan çalışır, operatör yerine anons |
 | `TIMEZONE` | Europe/Istanbul | Mesai kuralları için saat dilimi; boş: sunucu saati |
 | `CLOSED_TEXT` / `HOLIDAY_TEXT` / `NO_OPERATOR_TEXT` | (varsayılan metin) | Mesai dışı anonsları |
+| `CALL_LOG_DIR` | cagri_kayitlari | Her konuşma bitince o çağrının log satırları ve özeti ayrı dosyaya: `<klasör>/<gün>/<saat>_<call_id>.log` (`gateway/call_logs.py`). Saklama `CALL_HISTORY_DAYS`; metinler `LOG_TEXTS`'e uyar. Boş: kapalı. Üretimde `/var/lib/sesli-asistan/cagri_kayitlari` |
 | `CALL_HISTORY_DB` / `CALL_HISTORY_DAYS` / `CALL_HISTORY_TEXTS` | cagri_gecmisi.db / 30 / true | Kalıcı çağrı geçmişi (SQLite): sonuç, süre, turlar, bulunamayan aramalar, aktarılan dahililer. Kişisel veri: süre dolunca silinir; `false` ile konuşma metni yazılmaz. Ses ve arayan numarası saklanmaz. Üretimde `/var/lib/sesli-asistan/` |
 | `LOCAL_SETTINGS_FILE` | yerel_ayarlar.json | Ayar ekranında kaydedilenler (13.1). Boş: ayar ekranı salt okunur. Üretimde `/var/lib/sesli-asistan/` |
 | `FORWARDED_ALLOW_IPS` | 127.0.0.1 | Yalnız bu ters vekillerin `X-Forwarded-For` başlığına güvenilir (14.6). Boş: hiçbirine |
