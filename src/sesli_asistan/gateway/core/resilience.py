@@ -13,10 +13,10 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from typing import Any
 
-from .ports import Audio, LlmError, LlmMessage, SttError, TtsError
+from .ports import Audio, LlmDelta, LlmError, LlmMessage, SttError, SttStream, TtsError
 
 log = logging.getLogger(__name__)
 
@@ -82,7 +82,8 @@ class BreakerLlm:
         self.breaker.success()
         return out
 
-    async def chat_stream(self, messages, tools):
+    async def chat_stream(self, messages: list[dict[str, Any]],
+                          tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:
         if not self.breaker.allow():
             raise LlmError(f"devre açık: {self.breaker.name}")
         try:
@@ -126,7 +127,7 @@ class BreakerStt:
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
 
-    async def open(self, call_id: str, codec: str, hotwords: list[str]):
+    async def open(self, call_id: str, codec: str, hotwords: list[str]) -> SttStream:
         if not self.breaker.allow():
             raise SttError(f"devre açık: {self.breaker.name}")
         try:

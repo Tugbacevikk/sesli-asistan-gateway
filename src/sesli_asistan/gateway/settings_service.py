@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from . import directory_import as dimp
 from .config import TEXT_FIELDS, check_texts
+from .core.dialog import DialogTexts
 from .core.models import Contact
 from .core.schedule import OfficeHours
 from .core.search import search_key
@@ -99,7 +100,7 @@ class SettingsService:
         log.info("yerel ayarlar uygulandı: %d anons, %d kişiye takma ad%s", len(self.local.get("texts", {})),
                  len(self.local.get("aliases", {})), ", mesai kuralı" if "office_hours" in self.local else "")
 
-    def base_texts(self):
+    def base_texts(self) -> DialogTexts:
         return self.rt.s.dialog_texts()
 
     def apply(self, local: dict[str, Any]) -> None:

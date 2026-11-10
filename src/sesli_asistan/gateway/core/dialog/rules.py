@@ -163,7 +163,7 @@ class RulesMixin:
         pick = line or (members if len(members) == 1 else [])
         return (pick[0], []) if pick else (None, [Candidate(c, 100) for c in members])
 
-    def _code_search(self: DialogAgent, s: DialogSession, args: dict[str, str]):
+    def _code_search(self: DialogAgent, s: DialogSession, args: dict[str, str]) -> SearchResult:
         call = ToolCall(id=f"kural_{len(s.history)}", name="InContacts", arguments=args)
         self.tools.execute(call, s.state)
         return SearchResult(s.state.last_results, Match.SINGLE_HIGH if len(s.state.last_results) == 1

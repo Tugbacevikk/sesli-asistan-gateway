@@ -103,7 +103,7 @@ class GrpcSttStream:
     def _start(self) -> None:
         self._call = self.stub.Stream(self._requests(), metadata=(("x-call-id", self.cfg.call_id),))
 
-    async def _requests(self):
+    async def _requests(self) -> AsyncIterator[stt_pb2.AudioIn]:
         yield stt_pb2.AudioIn(config=self.cfg)
         while (item := await self._q.get()) is not _END:
             if isinstance(item, list):
