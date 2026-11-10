@@ -22,6 +22,7 @@ import threading
 import time
 import wave
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any, Protocol
 
 import numpy as np
@@ -67,6 +68,7 @@ def create_app(s: TtsSettings, engine: Engine | None = None) -> FastAPI:
     state: dict[str, Any] = {"engine": engine}
     lock = threading.Semaphore(s.workers)     # ONNX oturumu başına aynı anda en çok `workers` seslendirme
 
+    @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         if state["engine"] is None:
             t0 = time.perf_counter()
