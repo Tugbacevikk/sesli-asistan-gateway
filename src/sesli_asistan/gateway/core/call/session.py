@@ -272,8 +272,10 @@ class CallSession:
             log.info("[%s] arka plan sesinin sonucu yok sayıldı", self.call_id)
             return
         if (k == "final" and self._speech_at is not None
-                and self.level.is_background(self._speech_at, ev.at, self.cfg.background_margin_db)):
-            # odadaki başka biri: arayanın kendi seviyesinin çok altında (ofiste deneme 09.11.2026)
+                and self.level.is_background(self._speech_at, ev.at, self.cfg.background_margin_db)
+                and not self.dialog.concerns_call(ev.data.get("text", ""))):
+            # odadaki başka biri: arayanın kendi seviyesinin çok altında (ofiste deneme 09.11.2026). Rehberde bir
+            # hedefi anan ya da açık soruya cevap veren söz kısık da olsa arayanındır (canlı deneme 10.11.2026)
             log.info("[%s] arka plan konuşması yok sayıldı (%.1f dBFS, arayan %.1f dBFS): %s", self.call_id,
                      self.level.utterance_db(self._speech_at, ev.at) or -120, self.level.caller_db or -120,
                      ev.data.get("text", "")[:60])

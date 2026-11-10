@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
@@ -9,17 +10,22 @@ from sesli_asistan.libs.obs import log_text
 from .. import units
 from ..models import Candidate, DialogTurn, Match
 from ..people import (
+    department_said,
+    mentioned_targets,
     narrow_candidates,
+    resolve_person,
     same_title,
 )
 from ..phrases import (
     _FAST_BLOCK,
     _NEGATION,
     _ORDINALS,
+    _YES,
     _folded_words,
     _vowel_mask,
     contact_dative,
     question_particle,
+    spoken_numbers,
     which_question,
 )
 from ..ports import ToolCall
@@ -98,7 +104,10 @@ class ChoiceMixin:
         (sözde birden çok hedef: "Muhasebe mi, Teknik Destek mi?")."""
         if not s.state.truncated and (turn := self._ask_units(s, candidates)) is not None:
             return turn
-        if not 2 <= len(candidates) <= 3 or (not lines and any(c.contact.kind != "person" for c in candidates)):
+        # kişi ve birim hattı karışık da sorulur ("Ayşe Kaya mı, Satış mı?"): canlı deneme 10.11.2026'da bozuk duyulan
+        # "matış" ikisini buldu, soru LLM'e kaldı ("Matış isminde iki kişi var…", 6,6 sn)
+        if not 2 <= len(candidates) <= 3 or (
+                not lines and any(c.contact.kind not in ("person", "department") for c in candidates)):
             return None
         if s.state.truncated:
             return None                       # gösterilenden çok aday var: yalnız ilk üçünü sormak yanlış olur
@@ -273,6 +282,20 @@ class ChoiceMixin:
         if s.state.choice:
             return s.state.choice_question or which_question([c.contact for c in s.state.choice])
         return None
+
+    def concerns_call(self: DialogAgent, s: DialogSession, text: str) -> bool:
+        """Söz bu çağrıyla ilgili mi: rehberde bir hedefi (kişi, birim, unvan, dahili) anıyor, açık "hangisi?"
+        sorusunun adaylarından birini söylüyor ya da açık teyide evet / hayır diyor. Arka plan süzgeci (çağrı
+        oturumu) yalnız ilgisiz kısık sözleri atar: canlı deneme 10.11.2026'da arayanın ilk sözünden 17 dB kısık
+        gelen "satış birimi" cevabı (STT: "satış bizimi", "satış filmi") arka plan sayılıp iki kez atıldı."""
+        ix, words = self.tools.index, _folded_words(text)
+        if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (_YES | _NEGATION):
+            return True
+        if s.state.choice and any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice))):
+            return True
+        numbers = [*re.findall(r"\d{2,6}", text), *spoken_numbers(words)]
+        return (department_said(ix, text) is not None or mentioned_targets(ix, text, numbers).count > 0
+                or bool(resolve_person(ix, text)["adaylar"]))
 
     def _repeat_choice(self: DialogAgent, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
         """"Hangisi?" sorusunun cevabı anlaşılmadı (başka bir istek de yok): soru kodla yeniden sorulur, açık kalır.
