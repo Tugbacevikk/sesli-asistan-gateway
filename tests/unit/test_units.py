@@ -155,7 +155,7 @@ def test_mcp_adiminda_cok_adasa_birim_sorulur(sirket):
     assert not t1.actions and "Ar-Ge" in t1.text, t1.text
     assert [x.extension for x in t2.actions] == ["2004"], t2.text
     t1, t2 = say(a, "ben tuğba, satıştaki merve hanımı arıyorum", "yurt dışı")
-    assert not t1.actions and "Yurt Dışı" in t1.text, t1.text
+    assert not t1.actions and t1.text == "Yurt İçi Satış mı, Yurt Dışı Satış mı?", t1.text
     assert [x.extension for x in t2.actions] == ["1244"], t2.text
 
 
