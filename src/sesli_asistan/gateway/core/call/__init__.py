@@ -22,7 +22,8 @@ Kurallar (kodla):
   - Arayan dinleme sırasında `no_input_s` boyunca hiç konuşmazsa "Sizi duyamıyorum…" denir; `no_input_max`'ıncı
     sessizlikte operatöre aktarılır (santral sessizken de RTP gönderdiği için RTP zaman aşımı bunu yakalamaz).
 
-Modüller: `models` (durum, ayarlar, tur ve çağrı kayıtları), `session` (durum makinesi ve görevler)."""
+Modüller: `models` (durum, ayarlar, tur ve çağrı kayıtları, olay), `session` (durum makinesi, görevler, olaylar),
+`speaking` (seslendirme, söze girilince kesme, düşünme sesi), `pbx_actions` (aktarma, operatör, kapatma)."""
 from .models import (
     TRANSFER_STATUSES,
     CallConfig,

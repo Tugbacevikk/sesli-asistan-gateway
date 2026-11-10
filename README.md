@@ -130,7 +130,7 @@ python tools/stt/dene.py kayit.wav --ipucu "Ayşe Yılmaz"
 |---|---|
 | `gateway/api/app.py` | `POST /v1/calls`, `/events`, `DELETE`, `/v1/health`; Bearer anahtar + IP izin listesi; ortak hata gövdesi |
 | `gateway/core/manager.py` | Port havuzu, eşzamanlı çağrı sınırı, hazır değilken ret (503), idempotent bitirme |
-| `gateway/core/call/` | `models.py` durum, ayarlar, tur / çağrı kaydı; `session.py` çağrı durum makinesi: karşılama → dinleme → düşünme → konuşma → aktarma; barge-in, aktarma sonucu, DTMF, zaman aşımları, zarif bozulma |
+| `gateway/core/call/` | `models.py` durum, ayarlar, tur / çağrı kaydı; `session.py` çağrı durum makinesi: karşılama → dinleme → düşünme → konuşma → aktarma, DTMF, zaman aşımları; `speaking.py` seslendirme ve barge-in; `pbx_actions.py` aktarma, operatör, aktarma sonucu, zarif bozulma |
 | `gateway/adapters/rtp/media.py` | Çağrının RTP yolu (giriş + simetrik çıkış) |
 | `gateway/adapters/pbx/rest.py` | Gateway → santral eylemleri (`transfer`, `operator`), 3 deneme |
 | `gateway/composition.py` | `GatewayRuntime`: açılış (rehber, anonslar, LLM ısınma), arka planda sağlık, kapanış |

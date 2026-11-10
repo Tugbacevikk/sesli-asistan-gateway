@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Any
 
 from ..thresholds import (
     BACKGROUND_SPEECH_MARGIN_DB,
@@ -77,3 +78,12 @@ class CallStats:
     started: str = ""                  # yerel saat, ISO
     duration_s: float = 0.0
     misses: list[str] = field(default_factory=list)   # rehberde bulunamayan aramalar
+
+
+@dataclass
+class Event:
+    """Oturumun olay kuyruğundaki bir olay (STT, santral, zamanlayıcı, konuşma bitti); yalnız döngüde işlenir."""
+
+    kind: str
+    data: dict[str, Any] = field(default_factory=dict)
+    at: float = 0.0
