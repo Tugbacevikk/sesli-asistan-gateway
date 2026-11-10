@@ -383,8 +383,14 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
     c = choice[i].contact
     dept_keys = [k for k in (search_key(c.department), *map(search_key, c.department_aliases)) if k]
     last = search_key(c.last_name)
+    # ad da seçer, yalnız öbür adaylarda o ad yoksa ("Gizem Demir mi, Özlem Güneş mi?" → "gizem hanım"; diyalog seti
+    # R14). İki Ayşe varsa "ayşe" ikisini de seçer (soru yinelenir).
+    first = search_key(c.first_name)
+    rivals = {search_key(o.contact.first_name) for j, o in enumerate(choice) if j != i}
     for w in words:
         if last and any(similarity(v, last) >= CHOICE_WORD for v in query_variants(w)):
+            return True
+        if first and first not in rivals and any(similarity(v, first) >= CHOICE_WORD for v in query_variants(w)):
             return True
         if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= CHOICE_WORD)
                for k in dept_keys if " " not in k):
