@@ -8,6 +8,7 @@ Terminal kaydı (journald) ayrıca sürer; bu dosyalar bir konuşmayı sonradan 
 
 Satır çağrıya iki yoldan bağlanır: "[call_id] …" ön eki ya da çağrı oturumunun görevinde geçerli kimlik
 (`obs.CURRENT_CALL`; ön eksiz satırlar: "araç InContacts(…)"). Metinler `LOG_TEXTS` ayarına uyar (kişisel veri).
+Konuşma satırları INFO düzeyinde: `LOG_LEVEL` INFO (varsayılan) ya da daha ayrıntılı olmalı.
 Eski günler `CALL_HISTORY_DAYS`'ten sonra silinir (çağrı geçmişiyle aynı saklama süresi).
 """
 from __future__ import annotations

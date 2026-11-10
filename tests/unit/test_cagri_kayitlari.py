@@ -11,7 +11,8 @@ from sesli_asistan.libs.obs import CURRENT_CALL
 log = logging.getLogger("sesli_asistan.gateway.core.call")
 
 
-def test_cagrinin_satirlari_ve_ozeti_dosyaya_yazilir(tmp_path):
+def test_cagrinin_satirlari_ve_ozeti_dosyaya_yazilir(tmp_path, caplog):
+    caplog.set_level(logging.INFO)                   # serviste LOG_LEVEL=INFO (varsayılan); pytest'te WARNING
     rec = attach(str(tmp_path))
     try:
         log.info("[c-1] tur: 'muhasebe' → 'Sizi Muhasebe birimine aktarıyorum.'")
@@ -46,7 +47,8 @@ def test_eski_gunler_silinir_bos_klasor_kapali(tmp_path):
     assert attach("") is None and attach("  ") is None
 
 
-def test_gateway_konusma_bitince_dosya_yazar(tmp_path, monkeypatch):
+def test_gateway_konusma_bitince_dosya_yazar(tmp_path, monkeypatch, caplog):
+    caplog.set_level(logging.INFO)
     from sesli_asistan.gateway.composition import GatewayRuntime
     from sesli_asistan.gateway.config import GatewaySettings
 
