@@ -100,6 +100,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Beklenmedik hatayla çöken çağrı da çağrı geçmişine ve kayıt dosyasına yazılır (o ana kadarki turlarla); önceden
+  yazılmıyordu. Hiç bitmeyen çağrı kimliklerinin (santralin reddettiği çağrı) kayıt satırları bellekte birikmez.
 - "Hangisi?" sorusuna "kim müsaitse", "fark etmez", "herhangi biri": sorulanlardan birinciye aktarılır, meşgul /
   cevapsızsa sıradakine; bu cevaplar kısık da olsa arka plan sayılmaz. Açık soru varken anlaşılmayan sözde soru
   yinelenir ("Sizi anlayamadım. Ar-Ge'den kiminle görüşmek istersiniz?"). Kısaltma / tireli birimde ek kesmeyle

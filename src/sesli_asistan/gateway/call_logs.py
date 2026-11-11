@@ -25,6 +25,8 @@ from typing import Any
 from sesli_asistan.libs.obs import call_id_of
 
 MAX_LINES = 5000                      # bir çağrıda tutulan en çok satır (takılan çağrı belleği doldurmasın)
+MAX_OPEN = 200                        # bellekte bekleyen en çok çağrı: hiç bitmeyen kimlikler (santralin reddettiği
+                                      # çağrı: "yeni çağrı" satırı yazılır, oturum açılmaz) birikmesin; en eskisi atılır
 _FORMAT = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
 
 
@@ -47,7 +49,11 @@ class CallLogRecorder(logging.Handler):
             self.handleError(record)
             return
         with self._guard:
-            lines = self._lines.setdefault(call_id, [])
+            lines = self._lines.get(call_id)
+            if lines is None:
+                if len(self._lines) >= MAX_OPEN:
+                    self._lines.pop(next(iter(self._lines)))       # en eski (sözlük ekleme sırası)
+                lines = self._lines[call_id] = []
             if len(lines) < MAX_LINES:
                 lines.append(line)
 

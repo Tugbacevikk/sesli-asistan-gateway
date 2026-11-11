@@ -13,7 +13,7 @@ import contextlib
 import logging
 from collections import deque
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from .call import TRANSFER_STATUSES, CallSession, CallStats
 from .ports import MediaPort
@@ -164,17 +164,19 @@ class CallManager:
 
     async def _run(self, call_id: str, session: CallSession, port: int | None) -> None:
         try:
-            stats = await session.run()
+            try:
+                stats = await session.run()
+            except Exception:
+                log.exception("[%s] oturum hatası", call_id)
+                # çöken çağrı da geçmişe ve kayıt dosyasına yazılır (incelenmesi en gereken çağrılar bunlar);
+                # o ana kadarki turlar korunur
+                stats = replace(session.stats, outcome="error", reason="oturum_hatasi")
             self.results.append((call_id, stats))
             if self.on_finished is not None:
                 try:
                     await self.on_finished(call_id, stats)
                 except Exception:
                     log.exception("[%s] çağrı geçmişi yazılamadı", call_id)
-        except Exception:
-            log.exception("[%s] oturum hatası", call_id)
-            self.results.append((call_id, CallStats(outcome="error", reason="oturum_hatasi",
-                                                    channel=session.stats.channel, started=session.stats.started)))
         finally:
             self.sessions.pop(call_id, None)
             self._tasks.pop(call_id, None)

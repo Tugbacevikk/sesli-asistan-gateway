@@ -798,3 +798,26 @@ async def test_kisi_ve_birim_hatti_adayini_kod_sorar():
         reply = c.session.stats.turns[0].reply
         assert reply == "Ayşe Kaya mı, Satış mı?", reply
         assert len(c.llm.seen) == 1
+
+
+async def test_coken_cagri_de_gecmise_ve_kayda_yazilir():
+    # oturum beklenmedik hatayla çökerse de on_finished çağrılır (geçmiş + çağrı kayıt dosyası); o ana kadarki
+    # turlar korunur. Önceden yazılmıyordu: incelenmesi en gereken çağrılar kayıtsız kalıyordu (11.11.2026)
+    from sesli_asistan.gateway.core.call import CallStats, TurnRecord
+
+    class Crashing:
+        call_id = "x"
+        stats = CallStats(turns=[TurnRecord("muhasebe", "…", [], 0.0, None)], channel="web")
+
+        async def run(self):
+            raise RuntimeError("beklenmedik")
+
+    seen = []
+
+    async def on_finished(call_id, stats):
+        seen.append((call_id, stats.outcome, stats.reason, len(stats.turns)))
+
+    mgr = CallManager(lambda *a: None, lambda *a: None, PortPool(20000, 20000), on_finished=on_finished)
+    await mgr._run("x", Crashing(), None)
+    assert seen == [("x", "error", "oturum_hatasi", 1)]
+    assert mgr.results[-1][1].outcome == "error"
