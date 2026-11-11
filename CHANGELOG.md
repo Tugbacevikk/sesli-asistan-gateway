@@ -15,6 +15,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- "LLM önce anlar" kipi (ADR-037, deneme, `UNDERSTAND_MODE=llm`; varsayılan kapalı): söz önce LLM'le yapılandırılmış
+  bilgiye çevrilir, karar ve aktarma güvenlik kuralı kodda kalır. Karşılaştırma aracı `tests/eval/anlama_karsilastir.py`
+  (kural / normal / anlama) ve serbest söyleyiş seti `tests/data/diyalog_seti_serbest.yaml` (24 senaryo).
 - Her konuşmanın log dosyası (`CALL_LOG_DIR`, varsayılan `cagri_kayitlari/`): çağrı bitince o çağrının bütün log
   satırları (ön eksiz araç satırları dahil, `obs.CURRENT_CALL`) ve özeti `<gün>/<saat>_<call_id>.log` dosyasına
   yazılır; `CALL_HISTORY_DAYS` sonra silinir. JSON loglarda da ön eksiz satırların `call_id`'si dolar.

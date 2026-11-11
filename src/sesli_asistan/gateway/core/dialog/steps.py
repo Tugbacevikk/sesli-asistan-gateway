@@ -373,6 +373,6 @@ class StepsMixin:
 
     async def _step_answer(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """3. LLM (ya da LLM kapalıyken kural modu, ADR-019): her zaman cevap verir."""
-        if not self.cfg.llm_enabled:
+        if not self.cfg.llm_enabled or u.understood:   # anlaşılan söz (ADR-037): ikinci LLM turu yok
             return self._rule_turn(s, u.text)
         return await self._run(s)
