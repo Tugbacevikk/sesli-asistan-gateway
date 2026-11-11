@@ -211,7 +211,8 @@ async def test_yalniz_birim_dogrudan_hatta():
 
 async def test_hedefsiz_aktar_tahmini_birimle_sorulur():
     # ölçüm 4, F09: niyet aktar, hedef yok, tahmini birim var
-    turn = await _turn("ekranım kararıyor yardım edecek birini arıyorum",
+    # ("yardım" sözcüğü kuralda Teknik Destek'in eş anlamlısı "Yardım Masası"na doğrudan gider: o söz kullanılmaz)
+    turn = await _turn("ekranım kararıyor ne yapacağımı bilmiyorum",
                        {"niyet": "aktar", "konu": "ekran", "tahmini_birim": "Teknik Destek"})
     assert not turn.actions and "Teknik Destek" in turn.text
 
