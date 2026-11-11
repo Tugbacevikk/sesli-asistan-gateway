@@ -21,13 +21,13 @@ from ..search import (
     query_variants,
     search_key,
     similarity,
-    strip_suffix,
 )
 from ..speech import ABBREVIATIONS, split_sentences
 from ..thresholds import (
     CHOICE_WORD,
 )
 from ..tools import CallToolState
+from ..words import spoken_as
 
 if TYPE_CHECKING:
     from .agent import DialogAgent
@@ -393,8 +393,7 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
             return True
         if first and first not in rivals and any(similarity(v, first) >= CHOICE_WORD for v in query_variants(w)):
             return True
-        if any(len(k) >= 4 and (w.startswith(k) or similarity(strip_suffix(w), k) >= CHOICE_WORD)
-               for k in dept_keys if " " not in k):
+        if any(len(k) >= 4 and spoken_as(w, k) for k in dept_keys if " " not in k):
             return True
     if any(" " in k and k in " ".join(words) for k in dept_keys):
         return True
@@ -406,7 +405,7 @@ def _choice_said(choice: tuple[Candidate, ...], i: int, words: list[str]) -> boo
     own = [x for x in search_key(c.department).split() if len(x) >= 4 and x not in others]
     rival_titles = {x for j, o in enumerate(choice) if j != i for x in search_key(o.contact.title).split()}
     own += [x for x in search_key(c.title).split() if len(x) >= 4 and x not in rival_titles]
-    return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in words for x in own)
+    return any(spoken_as(w, x) for w in words for x in own)
 
 
 def first_sentences(text: str, n: int) -> str:

@@ -48,32 +48,13 @@ def _cached(index: DirectoryIndex, name: str, build: Any) -> Any:
 
 
 def _bucket(word: str) -> str:
-    """`_like` ancak ilk 4 harfi aynı (ya da 4'ten kısa ve tıpatıp aynı) sözcükler arasında doğru olabilir."""
+    """`words.same_word` (bulanıklıksız) ancak ilk 4 harfi aynı (ya da 4'ten kısa ve tıpatıp aynı) sözcükler
+    arasında doğru olabilir."""
     return word[:4] if len(word) >= 4 else f"={word}"
 
 
 def _words(text: str) -> set[str]:
     return set(search_key(text).split())
-
-
-_SOFTENING = {("p", "b"), ("t", "d"), ("k", "g")}    # katlanmış: kitap/kitabı, kanat/kanadı, renk/rengi
-_VOWELS = set("aeiou")                                              # katlanmış ünlüler (ı→i, ö→o, ü→u)
-
-
-def _like(a: str, b: str) -> bool:
-    """Aynı sözcüğün ekli biçimleri: biri ötekinin başı ("komutanıyla" ~ "komutanı", "kaymakamı" ~ "kaymakamlığı").
-    Türkçe ek atmak yerine ortak baş: katmanlı eklerde ("yardımcısına") ek atıcı kökü tutarlı bulamıyor. Kısa sözcüğün
-    son harfi ayrışabilir, ama yalnız ek ünlüsü ("kaymakamı") ya da ünsüz yumuşaması ("kitap" ~ "kitabı") ise: şirket
-    rehberinde "satış" ~ "satınalma", "yönetim" ~ "yöneticisi" aynı sözcük sayılıyordu (diyalog seti R11, R14)."""
-    if a == b:
-        return True
-    short, long_ = (a, b) if len(a) <= len(b) else (b, a)
-    n = next((i for i, (x, y) in enumerate(zip(short, long_, strict=False)) if x != y), len(short))
-    if n < 4:
-        return False
-    if n == len(short):
-        return True
-    return n == len(short) - 1 and (short[-1] in _VOWELS or (short[-1], long_[n]) in _SOFTENING)
 
 
 # --- ses benzerliği (STT adı bozduğunda) ---------------------------------------------------------------------------

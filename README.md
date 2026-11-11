@@ -222,3 +222,18 @@ python tools/rtp_simulator/rtp_gonder.py kayit.wav --hedef 127.0.0.1:10000 --cev
 - Üçüncü taraf kütüphaneler repoya kopyalanmaz; modeller repoya girmez.
 - GPL lisanslı bileşenler (Piper) yalnızca ayrı süreç olarak kullanılır.
 - Her ölçüm `n`, donanım, commit ve ayarlarla birlikte kaydedilir (tasarim.md 15.2).
+- Söylenen sözcüğün rehberdeki sözcük olup olmadığı yalnız `core/words.py` ile karar verilir (`same_word`,
+  `spoken_as`); yeni bir `startswith` / benzerlik eşiği yazmayın. Arama sıralaması (`similarity` puanı) ayrı iştir.
+
+### Yeni diyalog kuralı eklerken
+
+1. Önce mevcut adımlara bakın (`core/dialog/steps.py` sırası: kurallar → MCP adımı → LLM). Yeni durum çoğu kez var
+   olan bir adımın genişlemesidir (ör. çok aday → `choice.py`, aktarma sonucu → `transfer.py`); yeni adım ancak hiçbir
+   adıma uymuyorsa eklenir ve sırası bir ADR'de gerekçelendirilir.
+2. Sabit sözcük kümeleri ortak yerde: birim sözcükleri `search.UNIT_NOUNS` / `PLACE_WORDS`, olumlu-olumsuz cevaplar
+   `phrases`. Aynı kümeyi modülde yeniden yazmayın.
+3. Her davranış bir senaryoyla gelir: ilgili `tests/data/diyalog_seti_*.yaml` setine ekleyin; CI setleri kural ve MCP
+   kipinde koşar (`test_diyalog_setleri.py`). Yalnız MCP'de geçmesi beklenen senaryo `MCP_KNOWN`'a yazılır.
+4. Gerçek kişi, kurum ya da yer adı kullanmayın: sentetik rehberler (`data/sirket_rehber.json`,
+  `data/sentetik_kurum_rehber.json`) yeter; kuruma özgü düzeltmeler yerel `ABBREVIATIONS_PATH` dosyasındadır.
+
