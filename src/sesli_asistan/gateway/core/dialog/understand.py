@@ -31,8 +31,12 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from ..models import DialogTurn
+from ..people.common import without_self
+from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
-from ..search import search_key
+from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
+from ..thresholds import CHOICE_WORD
+from ..words import same_word
 
 if TYPE_CHECKING:
     from .agent import DialogAgent
@@ -69,6 +73,16 @@ CANONICAL = {
     "farketmez": "fark etmez",
 }
 ORDINAL_WORDS = {1: "birincisi", 2: "ikincisi", 3: "üçüncüsü"}
+# "artan sözcük" ölçüsünde açıklanmış sayılan genel sözcükler (katlanmış): istek fiilleri, soru ekleri, bağlaçlar.
+# Kökler ön ekle eşlenir ("gorusecektim" ~ "gorus").
+_GENERIC_STEMS = ("bagla", "gorus", "konus", "iste", "ulas", "aktar", "ara", "rica", "acaba", "lutfen", "misin",
+                  "musun", "miyim", "muyum", "orada", "burada", "kimle", "kiminle")
+_GENERIC = {"bir", "ile", "ve", "da", "de", "ki", "mi", "mu", "ben", "beni", "bana", "siz", "sizin", "size", "sizi",
+            "var", "yok", "icin", "o", "bu", "su", "kim", "alo", "merhaba", "selam", "iyi", "gunler", "tesekkur",
+            "tesekkurler", "numara", "numarasi", "dahili", "dahiliye", "bin", "yuz", "on", "hat", "hatti", "hattina"}
+_HONORIFIC_STEMS = tuple(HONORIFICS)     # "hanımla", "beye"
+NEGATION = {"degil", "degilde"}           # "muhasebe değil, satın alma": dışlama kuralın göremediği bir yapı
+COMPLEX_MIN = 2                           # bu kadar açıklanamayan sözcük: söz önce LLM'e (kanıt zayıf)
 _JSON = re.compile(r"\{.*\}", re.S)
 _DIGITS = re.compile(r"\d{2,6}")
 
@@ -119,6 +133,26 @@ class Understanding:
         fields = {k: v for k, v in vars(self).items() if k != "niyet" and v}
         return " ".join([self.niyet, *(f"{k}={v}" for k, v in fields.items())])
 
+    def problem(self, said: str, first_names: frozenset[str]) -> str | None:
+        """LLM'in yazdığı sözde yoksa (uydurma) ya da sözdeki bir adı atladıysa neden; tutarlıysa None.
+        Unvan serbest: tarif ("başındaki kişi" → müdür) ve eş anlam ("sekreter" → asistan) LLM'in işi.
+        Ölçüm 11.11.2026: "kreş" → uydurma "Eğitim ve Çocuk Bakımı" (R18); "kaliteden merve hanım" → ad atlandı
+        (R10)."""
+        words = fold_words(said)
+        for field in (self.ad, self.soyad, self.birim):
+            for w in fold_words(field):
+                if w not in UNIT_NOUNS and not any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words):
+                    return f"sözde yok: {w!r}"
+        if self.dahili:
+            heard = {*re.findall(r"\d{2,6}", said), *spoken_numbers(fold_words(said))}
+            if not set(_DIGITS.findall(self.dahili)) <= heard:
+                return f"dahili sözde yok: {self.dahili!r}"
+        named = fold_words(f"{self.ad} {self.soyad}")
+        for w in without_self(said):
+            if w in first_names and not any(same_word(w, n) for n in named):
+                return f"sözdeki ad atlandı: {w!r}"
+        return None
+
     def canonical(self) -> str | None:
         """Kural adımlarının tanıdığı kalıp söz; belirsizse (ya da aktar niyetinde hiçbir alan yoksa) None."""
         if self.niyet in CANONICAL:
@@ -138,10 +172,57 @@ class Understanding:
 
 
 class UnderstandMixin:
-    """`_understood_answer`: kuralların çözemediği sözü LLM'le kalıba çevirip adımları onunla yeniden çalıştırır
-    (`_step_answer` çağırır)."""
+    """İki giriş: `_understand_first` (kanıtı zayıf söz: adımlardan önce, `_handle_user`) ve `_understood_answer`
+    (kuralların çözemediği söz: son adım, `_step_answer`). İkisi de en çok bir LLM çağrısı yapar (`u.asked`)."""
+
+    _vocab_cache: tuple[int, int, frozenset[str], frozenset[str]] | None = None
+
+    def _vocabulary(self: DialogAgent) -> tuple[frozenset[str], frozenset[str]]:
+        """Rehberin sözcükleri (ad, soyad, birim, eş anlamlı, unvan; katlanmış) ve yalnız adlar. Rehber
+        yenilenince (nesne ya da kayıt sayısı değişince) yeniden kurulur."""
+        index = self.tools.index
+        contacts = index.contacts()
+        key = (id(index), len(contacts))
+        if self._vocab_cache is None or self._vocab_cache[:2] != key:
+            words: set[str] = set()
+            firsts: set[str] = set()
+            for c in contacts:
+                firsts.update(fold_words(c.first_name))
+                for t in (c.first_name, c.last_name, c.department, c.title, *c.department_aliases, *c.aliases):
+                    words.update(fold_words(t))
+            self._vocab_cache = (*key, frozenset(words), frozenset(firsts))
+        return self._vocab_cache[2], self._vocab_cache[3]
+
+    def unexplained(self: DialogAgent, text: str) -> list[str]:
+        """Rehberle, istek kalıplarıyla ve dolgu sözcükleriyle açıklanamayan sözcükler ("artan sözcük"). Kural
+        bu sözcükleri yok sayarak karar verir; çoksa kararın kanıtı zayıftır ("muhasebenin başındaki kişi")."""
+        vocab, _ = self._vocabulary()
+        known = FILLER_WORDS | YES_WORDS | NEGATION_WORDS | HONORIFICS | UNIT_NOUNS | PLACE_WORDS | OPERATOR_WORDS
+        out = []
+        for w in without_self(text):
+            if (len(w) <= 2 or w.isdigit() or w in known or w in _GENERIC or w.startswith(_GENERIC_STEMS)
+                    or w.startswith(_HONORIFIC_STEMS)
+                    or spoken_numbers([w]) or w in vocab or any(same_word(w, v) for v in vocab)):
+                continue
+            out.append(w)
+        return out
+
+    def _weak_evidence(self: DialogAgent, u: _Utterance) -> bool:
+        words = fold_words(u.text)
+        return bool(NEGATION & set(words)) or len(self.unexplained(u.text)) >= COMPLEX_MIN
+
+    async def _understand_first(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Kanıtı zayıf söz (ölçüm 2: F01, F07, F09, F17 kural yanlış ama emin): adımlardan önce LLM. Anlarsa kalıp
+        sözle, anlamazsa özgün sözle adımlar sürer; son adımda ikinci LLM çağrısı yapılmaz."""
+        if u.confirm or u.op_confirm or u.choice or not self._weak_evidence(u):
+            return None
+        log.info("[%s] anlama: kanıt zayıf, önce LLM (artan: %s)", s.call_id,
+                 log_text(" ".join(self.unexplained(u.text))))
+        return await self._understand(s, u)
 
     async def _understood_answer(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn:
+        if u.asked or not self.unexplained(u.text):
+            return self._rule_turn(s, u.text)    # LLM'e zaten soruldu ya da anlatacak bir şey yok ("evet")
         if (turn := await self._understand(s, u)) is not None:
             return turn                          # konudan birim tahmini: teyit sorusu
         if u.understood:
@@ -151,9 +232,14 @@ class UnderstandMixin:
     async def _understand(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Sözü anla: kalıp söz `u.text`'e yazılır ve `u.understood` işaretlenir (adımlar onunla sürer); konudan birim
         tahmininde doğrudan teyit sorusu döner. LLM düşerse / belirsizse hiçbir şey değişmez (kural kipi)."""
+        u.asked = True
         t0 = time.perf_counter()
         got = await self._ask_understanding(s, u.text)
         ms = (time.perf_counter() - t0) * 1000
+        if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, self._vocabulary()[1])):
+            log.info("[%s] anlama (LLM, %.0f ms): %s → %s → reddedildi (%s)", s.call_id, ms, log_text(u.text),
+                     got.summary(), why)
+            return None
         if got is None:
             log.info("[%s] anlama (LLM): sonuç yok (%.0f ms), kural kipi: %s", s.call_id, ms, log_text(u.text))
             return None
@@ -194,12 +280,20 @@ class UnderstandMixin:
         system = UNDERSTAND_PROMPT + self._understand_departments()
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": text}]
         s.llm_calls += 1
+        # JSON kipi ve kısa çıktı sınırı (Ollama `format: json`, `num_predict`); adaptör desteklemiyorsa düz sohbet
+        json_chat = getattr(self.llm, "chat_json", None)
         try:
-            msg = await asyncio.wait_for(self.llm.chat(messages, []), timeout=self.cfg.llm_timeout_s)
+            if json_chat is not None:
+                content, timing = await asyncio.wait_for(json_chat(messages), timeout=self.cfg.llm_timeout_s)
+            else:
+                content, timing = (await asyncio.wait_for(self.llm.chat(messages, []),
+                                                          timeout=self.cfg.llm_timeout_s)).content, ""
         except (TimeoutError, LlmError) as e:
             log.warning("[%s] anlama (LLM) hatası: %s %s", s.call_id, type(e).__name__, e)
             return None
-        return Understanding.parse(msg.content)
+        if timing:
+            log.info("[%s] anlama süresi: %s", s.call_id, timing)
+        return Understanding.parse(content)
 
     def _understand_departments(self: DialogAgent) -> str:
         names = sorted({c.department for c in self.tools.index.contacts() if c.department}, key=turkish_lower)

@@ -106,6 +106,10 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin, 
         s.history.append({"role": "user", "content": text})
         if not u.low:
             s.state.barge_repeats = 0       # anlaşılır söz: gürültü yinelemesi sayacı sıfırlanır
+        # ADR-037: kanıtı zayıf söz ("muhasebenin başındaki kişi", "değil") adımlardan önce LLM'e
+        first = self.cfg.understand == "llm" and self.cfg.llm_enabled and not u.low
+        if first and (turn := await self._understand_first(s, u)) is not None:
+            return turn
         return await self._run_steps(s, u)
 
     async def _run_steps(self, s: DialogSession, u: _Utterance) -> DialogTurn:

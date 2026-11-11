@@ -17,7 +17,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ### Eklendi
 - "LLM gerektiğinde anlar" kipi (ADR-037, deneme, `UNDERSTAND_MODE=llm`; varsayılan kapalı): kuralların çözemediği söz
   araçlı LLM döngüsü yerine tek çağrıyla yapılandırılmış bilgiye çevrilir, karar ve aktarma güvenlik kuralı kodda kalır.
-  İlk sürüm (her söz önce LLM'e) ölçümde bilinen sözleri bozdu ve yavaştı; ikinci sürümde kurallar önce. Karşılaştırma aracı `tests/eval/anlama_karsilastir.py`
+  İlk sürüm (her söz önce LLM'e) ölçümde bilinen sözleri bozdu ve yavaştı; ikinci sürümde kurallar önce. Üçüncü
+  sürüm: kanıtı zayıf söz ("artan sözcük", "değil") önce LLM'e; LLM'in uydurduğu ya da atladığı alan reddedilir;
+  Ollama JSON kipi ve süre dökümü. Karşılaştırma aracı `tests/eval/anlama_karsilastir.py`
   (kural / normal / anlama) ve serbest söyleyiş seti `tests/data/diyalog_seti_serbest.yaml` (24 senaryo).
 - Her konuşmanın log dosyası (`CALL_LOG_DIR`, varsayılan `cagri_kayitlari/`): çağrı bitince o çağrının bütün log
   satırları (ön eksiz araç satırları dahil, `obs.CURRENT_CALL`) ve özeti `<gün>/<saat>_<call_id>.log` dosyasına
