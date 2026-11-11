@@ -62,3 +62,14 @@ def test_gateway_konusma_bitince_dosya_yazar(tmp_path, monkeypatch, caplog):
         rt.history.close()
     files = list((tmp_path / "kayit").rglob("*_web-1.log"))
     assert len(files) == 1 and "çağrı açıldı" in files[0].read_text(encoding="utf-8")
+
+
+def test_bitmeyen_cagrilar_bellekte_birikmez(tmp_path, monkeypatch):
+    import sesli_asistan.gateway.call_logs as cl
+
+    monkeypatch.setattr(cl, "MAX_OPEN", 3)
+    rec = CallLogRecorder(tmp_path)
+    for i in range(5):                                   # santralin reddettiği çağrılar: satır var, bitiş yok
+        rec.emit(logging.makeLogRecord({"msg": f"[r-{i}] yeni çağrı", "levelno": logging.INFO,
+                                        "levelname": "INFO", "name": "sesli_asistan"}))
+    assert list(rec._lines) == ["r-2", "r-3", "r-4"]     # en eskiler atıldı
