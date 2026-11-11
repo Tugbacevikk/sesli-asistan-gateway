@@ -4,6 +4,7 @@ ve asistanın cümlelerindeki ekler (yönelme, ayrılma, soru eki). Durumsuz, sa
 """
 from __future__ import annotations
 
+import itertools
 import re
 from typing import Any
 
@@ -11,7 +12,6 @@ from sesli_asistan.libs.text.normalizer import TR_FOLD, fold_tr_words, turkish_l
 
 from .search import search_key, similarity, strip_suffix
 from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
-import itertools
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
 FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",

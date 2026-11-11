@@ -10,6 +10,7 @@ Sağlık: standart gRPC sağlık protokolü (`grpc.health.v1.Health`). Model yü
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 
@@ -23,7 +24,6 @@ from .engine import WhisperEngine, WhisperParams
 from .service import Engine, SpeechToTextService
 from .sherpa_engine import SherpaEngine, SherpaParams
 from .vad import SegmenterConfig, make_detector
-import contextlib
 
 log = logging.getLogger(__name__)
 SERVICE_NAME = "stt.v1.SpeechToText"
