@@ -106,10 +106,10 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin, 
         s.history.append({"role": "user", "content": text})
         if not u.low:
             s.state.barge_repeats = 0       # anlaşılır söz: gürültü yinelemesi sayacı sıfırlanır
-        # ADR-037 (UNDERSTAND_MODE=llm): söz önce LLM'le kalıba çevrilir; konudan birim tahmininde teyit sorusu döner
-        understand = self.cfg.understand == "llm" and self.cfg.llm_enabled and not u.low
-        if understand and (turn := await self._understand(s, u)) is not None:
-            return turn
+        return await self._run_steps(s, u)
+
+    async def _run_steps(self, s: DialogSession, u: _Utterance) -> DialogTurn:
+        """Söz adımlardan sırayla geçer (STEPS); cevap veren ilk adım turu bitirir."""
         for name in STEPS:
             if (turn := await getattr(self, name)(s, u)) is not None:
                 log.debug("[%s] cevap veren adım: %s", s.call_id, name)

@@ -375,4 +375,6 @@ class StepsMixin:
         """3. LLM (ya da LLM kapalıyken kural modu, ADR-019): her zaman cevap verir."""
         if not self.cfg.llm_enabled or u.understood:   # anlaşılan söz (ADR-037): ikinci LLM turu yok
             return self._rule_turn(s, u.text)
+        if self.cfg.understand == "llm" and not (u.confirm or u.op_confirm or u.choice):
+            return await self._understood_answer(s, u)  # ADR-037: araçlı döngü yerine tek "anla" çağrısı
         return await self._run(s)
