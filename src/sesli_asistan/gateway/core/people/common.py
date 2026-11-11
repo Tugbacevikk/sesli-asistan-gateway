@@ -26,7 +26,7 @@ def without_self(text: str) -> list[str]:
     """Arama sözcükleri; kendini tanıtma ("ben mehmet", "adım ali") ardındaki sözcük atılır."""
     raw = fold_words(text)
     drop = {raw[i + 1] for i, w in enumerate(raw[:-1]) if w in _SELF}
-    return [w for w in search_key(" ".join(w for w in raw if w not in drop)).split()]
+    return list(search_key(" ".join(w for w in raw if w not in drop)).split())
 
 
 def _title_words(text: str) -> list[str]:

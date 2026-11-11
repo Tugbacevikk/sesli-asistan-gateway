@@ -105,11 +105,11 @@ class RulesMixin:
             if not said_surely(self.tools.index, cands[0].contact, text):
                 return self._confirm(s, cands[0].contact, why="yalnız ad ya da başka bir adla söylendi")
             return self._code_transfer(s, cands[0])
-        if more and not depts and (every := self._named_people(words)) and len(every) > 3:
-            # adaşı çok, birim söylenmedi ("Volkan Bey", dört Volkan): birim yoluyla seviye seviye sorulur (ADR-032)
-            if (turn := self._ask_units(s, every)) is not None:
-                s.state.failed_attempts = 0
-                return turn
+        # adaşı çok, birim söylenmedi ("Volkan Bey", dört Volkan): birim yoluyla seviye seviye sorulur (ADR-032)
+        if (more and not depts and len(every := self._named_people(words)) > 3
+                and (turn := self._ask_units(s, every)) is not None):
+            s.state.failed_attempts = 0
+            return turn
         if len(cands) > 1 or more:
             s.state.last_results = tuple(cands[:3])
             s.state.truncated = more or len(cands) > 3

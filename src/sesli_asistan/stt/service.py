@@ -99,7 +99,7 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
             self.debug_dir.mkdir(parents=True, exist_ok=True)
             log.warning("STT teşhis kaydı AÇIK: cümle sesleri %s klasörüne yazılıyor", self.debug_dir)
 
-    async def Stream(self, requests: AsyncIterator[stt_pb2.AudioIn], context) -> AsyncIterator[stt_pb2.SttEvent]:  # noqa: N802
+    async def Stream(self, requests: AsyncIterator[stt_pb2.AudioIn], context) -> AsyncIterator[stt_pb2.SttEvent]:
         if self.engine is None:
             await context.abort(grpc.StatusCode.UNAVAILABLE, "STT hazırlanıyor (model yükleniyor)")
         if self.active >= self.max_streams:

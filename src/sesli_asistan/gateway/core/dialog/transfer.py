@@ -109,7 +109,7 @@ class TransferMixin:
 
     def _unsure(self: DialogAgent, s: DialogSession) -> bool:
         c = s.stt_confidence
-        return c is not None and 0 < self.cfg.confirm_below and c < self.cfg.confirm_below
+        return c is not None and self.cfg.confirm_below > 0 and c < self.cfg.confirm_below
 
     def _confirm(self: DialogAgent, s: DialogSession, contact: Any, why: str = "") -> DialogTurn:
         """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar

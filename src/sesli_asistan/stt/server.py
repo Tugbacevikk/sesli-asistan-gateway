@@ -23,6 +23,7 @@ from .engine import WhisperEngine, WhisperParams
 from .service import Engine, SpeechToTextService
 from .sherpa_engine import SherpaEngine, SherpaParams
 from .vad import SegmenterConfig, make_detector
+import contextlib
 
 log = logging.getLogger(__name__)
 SERVICE_NAME = "stt.v1.SpeechToText"
@@ -97,10 +98,8 @@ async def serve(s: SttSettings | None = None) -> None:
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:
+        with contextlib.suppress(NotImplementedError):  # Windows
             loop.add_signal_handler(sig, stop.set)
-        except NotImplementedError:  # Windows
-            pass
     try:
         await stop.wait()
     finally:
@@ -112,7 +111,5 @@ def main() -> None:
     from sesli_asistan.libs.obs import setup_logging
 
     setup_logging("stt")
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve())
-    except KeyboardInterrupt:
-        pass

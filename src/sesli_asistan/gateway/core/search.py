@@ -456,9 +456,9 @@ def _extends_word(q: str, k: str) -> bool:
     kws = k.split()
     for w in q.split():
         for kw in kws:
-            if len(kw) >= 3 and len(w) > len(kw) and w.startswith(kw) and w[len(kw):] not in _ENDINGS:
-                if w not in kws:
-                    return True
+            if (len(kw) >= 3 and len(w) > len(kw) and w.startswith(kw) and w[len(kw):] not in _ENDINGS
+                    and w not in kws):
+                return True
     return False
 
 

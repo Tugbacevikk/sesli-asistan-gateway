@@ -161,8 +161,8 @@ class WhisperEngine:
         cuda_ok = self.p.device != "cpu" and _cuda_ok()
         dev, c_type = resolve_device(self.p.device, self.p.compute_type, cuda_ok)
         log.info("Whisper yükleniyor: %s, device=%s, compute_type=%s", folder, dev, c_type)
-        kw = dict(device_index=self.p.device_index, cpu_threads=self.p.cpu_threads,
-                  local_files_only=True, num_workers=self.p.num_workers)
+        kw = {"device_index": self.p.device_index, "cpu_threads": self.p.cpu_threads,
+                  "local_files_only": True, "num_workers": self.p.num_workers}
         try:
             return WhisperModel(str(folder), device=dev, compute_type=c_type, **kw)
         except Exception as e:

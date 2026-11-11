@@ -285,10 +285,9 @@ def describe_changes(old: LocalSettings, new: LocalSettings, index: Any) -> list
             out.append(f"takma ad silindi: {who(cid)} ← {', '.join(removed)}")
     oc = {c.id: c for c in old.contacts}
     nc = {c.id: c for c in new.contacts}
-    for cid in nc.keys() - oc.keys():
-        out.append(f"yerel kayıt eklendi: {names[cid]} ({nc[cid].department or '-'}, {nc[cid].extension})")
-    for cid in oc.keys() - nc.keys():
-        out.append(f"yerel kayıt silindi: {names[cid]} ({oc[cid].extension})")
+    out.extend(f"yerel kayıt eklendi: {names[cid]} ({nc[cid].department or '-'}, {nc[cid].extension})"
+               for cid in nc.keys() - oc.keys())
+    out.extend(f"yerel kayıt silindi: {names[cid]} ({oc[cid].extension})" for cid in oc.keys() - nc.keys())
     return out
 
 

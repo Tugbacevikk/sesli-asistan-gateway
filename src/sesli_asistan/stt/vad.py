@@ -201,9 +201,8 @@ class Segmenter:
             if self._silence_run * FRAME_SEC * 1000 >= self.cfg.end_silence_ms:
                 if utt := self._close(trim=True):
                     events.append(utt)
-            elif length_sec >= self.cfg.max_utterance_sec:
-                if utt := self._close(trim=False):
-                    events.append(utt)
+            elif length_sec >= self.cfg.max_utterance_sec and (utt := self._close(trim=False)):
+                events.append(utt)
         return events
 
     def _announce(self, events: list) -> None:

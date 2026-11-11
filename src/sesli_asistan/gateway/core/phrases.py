@@ -11,6 +11,7 @@ from sesli_asistan.libs.text.normalizer import TR_FOLD, fold_tr_words, turkish_l
 
 from .search import search_key, similarity, strip_suffix
 from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
+import itertools
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
 FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
@@ -73,7 +74,7 @@ def asks_general_help(text: str) -> bool:
     (canlı 05.11.2026: "bilgi almak istiyorum" Bilgi İşlem'e aktarıldı). Kişi / birim / konu ayrıca denetlenir."""
     w = fold_tr_words(text)
     joined = " ".join(w)
-    if any(a == "bilgi" and b.startswith("al") for a, b in zip(w, w[1:], strict=False)):
+    if any(a == "bilgi" and b.startswith("al") for a, b in itertools.pairwise(w)):
         return True
     # "şey" dolgu sesi olarak atıldığı için "bir şey soracaktım" buraya "bir soracaktım" diye gelir
     return bool(re.search(r"\b(bir )?(sorum|soru) (var|olacak|soracaktim|sormak)|\b(soracaktim|soracagim|"
