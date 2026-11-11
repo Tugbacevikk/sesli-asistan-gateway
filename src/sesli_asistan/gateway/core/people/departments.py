@@ -11,10 +11,10 @@ from ..search import (
 )
 from ..thresholds import FUZZY_TARGET_MIN
 from ..topics import TopicTable
+from ..words import same_word
 from .common import (
     _SOUND_STOP,
     _cached,
-    _like,
     without_self,
 )
 
@@ -28,7 +28,7 @@ def department_said(index: DirectoryIndex, text: str) -> str | None:
 def _mentioned_departments(index: DirectoryIndex, words: list[str]) -> set[str]:
     """Sözde geçen birimler (adı ya da eş anlamlısı ardışık sözcüklerle; ekli biçimler: "bilgi işlemden")."""
     return {d for d, k in _dept_names(index)
-            if any(all(_like(words[i + j], k[j]) for j in range(len(k))) for i in range(len(words) - len(k) + 1))}
+            if any(all(same_word(words[i + j], k[j]) for j in range(len(k))) for i in range(len(words) - len(k) + 1))}
 
 
 def _dept_names(index: DirectoryIndex) -> list[tuple[str, list[str]]]:
@@ -56,10 +56,10 @@ def _department_tails(index: DirectoryIndex, words: list[str]) -> set[str]:
                 heads.setdefault((k[0], k[1][:2]), set()).add(d)
         return tails, heads
     tails, heads = _cached(index, "dept_parts", build)
-    out = {d for w in words for tail, ds in tails.items() if len(ds) == 1 and _like(w, tail) for d in ds}
+    out = {d for w in words for tail, ds in tails.items() if len(ds) == 1 and same_word(w, tail) for d in ds}
     for i, w in enumerate(words[:-1]):
         for (head, start), ds in heads.items():
-            if len(ds) == 1 and _like(w, head) and words[i + 1].startswith(start):
+            if len(ds) == 1 and same_word(w, head) and words[i + 1].startswith(start):
                 out |= ds
     return out
 
@@ -85,7 +85,7 @@ def fuzzy_departments(index: DirectoryIndex, text: str, topics: TopicTable | Non
     # yalnız gerçekten bozuk sözcükler: bir birimin sözcüğüne zaten uyan ("personel", "kaymakamı" ~ "kaymakamlığı")
     # ya da unvan sözcüğü olan ("valiyle") bulanık eşlemeye girmez
     words = [w for w in fold_words(text) if len(w) >= 5 and w not in _SOUND_STOP and not is_role_word(w)
-             and not any(_like(w, k) for k, _ in keys)]
+             and not any(same_word(w, k) for k, _ in keys)]
     if not words:
         return set()
     out = {d for k, d in keys if len(k) >= 5 and any(similarity(strip_suffix(w), k) >= FUZZY_TARGET_MIN

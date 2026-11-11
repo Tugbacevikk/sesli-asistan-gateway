@@ -9,14 +9,12 @@ from ..search import (
     fold_words,
     has_role_word,
     is_role_word,
-    similarity,
-    strip_suffix,
 )
 from ..thresholds import CHOICE_WORD
+from ..words import same_word
 from .common import (
     _bucket,
     _cached,
-    _like,
     _title_words,
 )
 
@@ -77,9 +75,9 @@ def title_rivals(index: DirectoryIndex, c: Contact, text: str) -> list[Contact]:
     birimde iki "Avukat" hattı da var: hangisi sorulur (S35 kararı 10.11.2026). Alt hatlar ("… Shp.") rakip değil."""
     said = _title_words(text)
     title = fold_words(c.title)
-    if not title or all(any(_like(w, s) for s in said) for w in title):
+    if not title or all(any(same_word(w, s) for s in said) for w in title):
         return []                                          # unvan tam söylendi: hedef belli
-    head = [w for w in title if is_role_word(w) and any(_like(w, s) for s in said)]
+    head = [w for w in title if is_role_word(w) and any(same_word(w, s) for s in said)]
     if not head:
         return []
     own = " ".join(title)
@@ -88,7 +86,7 @@ def title_rivals(index: DirectoryIndex, c: Contact, text: str) -> list[Contact]:
     return [o for o in index.contacts()
             if o.id != c.id and o.kind != "department" and o.title and o.department == c.department
             and not " ".join(fold_words(o.title)).startswith(own)
-            and all(any(_like(x, s) for s in said) for x in fold_words(o.title))]
+            and all(any(same_word(x, s) for s in said) for x in fold_words(o.title))]
 
 
 def _drop_sublines(cands: list[Contact]) -> list[Contact]:
@@ -147,18 +145,18 @@ def _coverage_hits(index: DirectoryIndex, words: list[str], exact_single: bool =
             # Müdürü (emniyet unvanında), Trafik Şube Müdürü değil (emniyet yalnız biriminde)
             rows = set.intersection(*(buckets.get(_bucket(s), set()) for s in said))   # olası kayıtlar
             raw = [(c, title, vocab) for c, title, vocab in (people[r] for r in sorted(rows))
-                   if all(any(_like(s, v) for v in vocab) for s in said)]
+                   if all(any(same_word(s, v) for v in vocab) for s in said)]
             if not raw:
                 continue
             prefix = [w for w in words[:i - n + 1] if len(w) >= 3]
             used = said
             if prefix and len(raw) > 1 and n >= 2:
-                ps = [sum(any(_like(p, v) for v in vocab) for p in prefix) for _, _, vocab in raw]
+                ps = [sum(any(same_word(p, v) for v in vocab) for p in prefix) for _, _, vocab in raw]
                 if (best_p := max(ps)) > 0:
                     raw = [r for r, p in zip(raw, ps, strict=True) if p == best_p]
                     used = [*prefix, *said]
-            hits = [(sum(any(_like(s, x) for x in title) for s in used),
-                     sum(not any(_like(s, x) for s in used) for x in title), c)
+            hits = [(sum(any(same_word(s, x) for x in title) for s in used),
+                     sum(not any(same_word(s, x) for s in used) for x in title), c)
                     for c, title, _ in raw]
             if len(used) == 1 and exact_single:
                 hits = [h for h in hits if h[1] == 0]
@@ -171,14 +169,8 @@ _NARROW_STOP = {"birim", "birimi", "birimdeki", "birimine", "subedeki", "dairede
                 "departman", "hatti", "hattina", "baglanmak", "ulasmak"}
 
 
-def _word_matches(w: str, x: str) -> bool:
-    if _like(w, x) or (len(x) >= 4 and w.startswith(x)):
-        return True
-    return len(w) >= 4 and len(x) >= 4 and similarity(strip_suffix(w), strip_suffix(x)) >= CHOICE_WORD
-
-
 def _is_unit_word(w: str) -> bool:
-    return not is_role_word(w) and any(_like(w, u) for u in UNIT_NOUNS)
+    return not is_role_word(w) and any(same_word(w, u) for u in UNIT_NOUNS)
 
 
 def _unit_prefix_words(c: Contact) -> set[str]:
@@ -198,7 +190,7 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
     scored: list[tuple[int, Contact]] = []
     for c, v in zip(cands, vocab, strict=True):
         dist = {x for x in v - common if len(x) >= 3}
-        m = sum(1 for w in dist_words if any(_word_matches(w, x) for x in dist))
+        m = sum(1 for w in dist_words if any(same_word(w, x, CHOICE_WORD) for x in dist))
         if m > 0:
             scored.append((m, c))
     if not scored:
@@ -208,17 +200,17 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
     has_role = any(is_role_word(w) for w in words) or any(is_role_word(w) for w in common)
     if not has_role:
         dept_only = [c for c in top
-                     if all(any(_word_matches(w, d) for d in fold_words(c.department))
+                     if all(any(same_word(w, d, CHOICE_WORD) for d in fold_words(c.department))
                             for w in words
-                            if any(_word_matches(w, x) for x in fold_words(f"{c.department} {c.title}")))]
+                            if any(same_word(w, x, CHOICE_WORD) for x in fold_words(f"{c.department} {c.title}")))]
         if dept_only:
             return dept_only
         rem_u = []
         for c in top:
             dept_w = set(fold_words(c.department)) | UNIT_NOUNS
             u_dist = {x for x in _unit_prefix_words(c) - common - dept_w if len(x) >= 3}
-            unm = sum(1 for x in u_dist if not any(_word_matches(w, x) for w in words))
-            mat = sum(1 for x in u_dist if any(_word_matches(w, x) for w in words))
+            unm = sum(1 for x in u_dist if not any(same_word(w, x, CHOICE_WORD) for w in words))
+            mat = sum(1 for x in u_dist if any(same_word(w, x, CHOICE_WORD) for w in words))
             rem_u.append((mat > 0, unm, c))
         if any(has_mat for has_mat, _, _ in rem_u):
             min_unm = min(unm for has_mat, unm, _ in rem_u if has_mat)
@@ -229,8 +221,8 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
     for c in top:
         dept_w = set(fold_words(c.department)) | UNIT_NOUNS
         t_dist = {x for x in set(fold_words(c.title)) - common - dept_w if len(x) >= 3}
-        unm = sum(1 for x in t_dist if not any(_word_matches(w, x) for w in words))
-        mat = sum(1 for x in t_dist if any(_word_matches(w, x) for w in words))
+        unm = sum(1 for x in t_dist if not any(same_word(w, x, CHOICE_WORD) for w in words))
+        mat = sum(1 for x in t_dist if any(same_word(w, x, CHOICE_WORD) for w in words))
         rem_r.append((mat > 0, unm, c))
     exact = [c for has_mat, unm, c in rem_r if has_mat and unm == 0]
     return exact or top
@@ -252,7 +244,8 @@ def same_unit(index: DirectoryIndex, text: str) -> list[Contact]:
     if not all(buckets.get(_bucket(w)) for w in specific):
         return []
     cands = [c for c in narrow_candidates(roles, text)
-             if all(any(_word_matches(w, x) for x in fold_words(f"{c.department} {c.title}")) for w in specific)]
+             if all(any(same_word(w, x, CHOICE_WORD) for x in fold_words(f"{c.department} {c.title}"))
+                    for w in specific)]
     cleaned = _drop_sublines(cands)
     if len(cleaned) == 1 and has_unit:
         return cleaned

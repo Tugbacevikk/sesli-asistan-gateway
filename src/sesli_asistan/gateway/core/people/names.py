@@ -16,11 +16,11 @@ from ..search import (
     similarity,
 )
 from ..thresholds import NAME_SAME, SOUND_MARGIN, SOUND_MIN
+from ..words import same_word
 from .common import (
     _HONORIFIC_WORDS,
     _SOUND_STOP,
     _cached,
-    _like,
     without_self,
 )
 
@@ -117,7 +117,7 @@ def _other_given_name(index: DirectoryIndex, c: Contact, words: list[str]) -> bo
             continue
         prev = words[i - 1]
         if (similarity(prev, first) >= NAME_SAME or prev in _SOUND_STOP or is_role_word(prev)
-                or any(_like(prev, k) for k in depts)):
+                or any(same_word(prev, k) for k in depts)):
             continue
         return True
     return False

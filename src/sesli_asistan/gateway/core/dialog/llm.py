@@ -10,12 +10,12 @@ from ..ports import LlmError, ToolCall
 from ..resilience import supports_stream
 from ..search import (
     search_key,
-    similarity,
 )
 from ..thresholds import (
     MAX_BARGE_REPEATS,
     MAX_REPLY_SENTENCES,
 )
+from ..words import same_word
 from .common import (
     DialogSession,
     _assistant_tool_message,
@@ -270,5 +270,5 @@ def _missing_unit_words(query: str, contact: Any) -> list[str]:
     words = [w for w in every if len(w) >= 3 and w not in _GENERIC_UNIT_WORDS]
     have = search_key(" ".join([contact.department, *contact.department_aliases, contact.title])).split()
     return [w for w in words
-            if not any(x.startswith(w[:5]) or w.startswith(x[:5]) or similarity(w, x) >= 80 for x in have if x)]
+            if not any(same_word(w, x, fuzzy=80) for x in have if x)]
 

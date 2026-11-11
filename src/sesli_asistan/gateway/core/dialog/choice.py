@@ -42,11 +42,11 @@ from ..search import (
     strip_suffix,
 )
 from ..thresholds import (
-    CHOICE_WORD,
     FIRST_NAME_LIKE,
     FUZZY_CHOICE_MARGIN,
     FUZZY_CHOICE_MIN,
 )
+from ..words import spoken_as
 from .common import (
     DialogSession,
     _assistant_tool_message,
@@ -268,7 +268,7 @@ class ChoiceMixin:
         said = fold_words(text)
 
         def says(x: str) -> bool:
-            return any(w.startswith(x) or similarity(strip_suffix(w), x) >= CHOICE_WORD for w in said)
+            return any(spoken_as(w, x) for w in said)
 
         common = set.intersection(*(set(fold_words(t)) for t in titles))
         hit = [t for t in titles if (rest := set(fold_words(t)) - common) and all(says(x) for x in rest)]

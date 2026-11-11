@@ -228,6 +228,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Teyit sorusunda soru eki ünlü uyumuna uyar ("Yılmaz'a mı"; `{mi}` yer tutucusu).
 
 ### Değişti
+- "Aynı sözcük mü?" kararı tek modülde (`core/words.py`: `same_word`, `spoken_as`): kişi / birim / unvan eşleştirmede
+  ve seçim cevaplarında dağınık duran dört ayrı kural birleşti. README'ye yeni kural ekleme alışkanlığı yazıldı.
 - CI'da senaryo setleri iki akışta koşar: kural modu ve MCP adımı (`MCP_STEP=true`, sunucusuz; canlı kurulumun
   akışı). MCP akışında bulunan S18 ("vali yardımcısı Kemal Bey") düzeltildi: unvan + ad kuralı kişi çözme işlevinde
   (MCP sunucusu ve Gateway aynı işlev). Şirket rehberinde "İç Satış" eş adı kaldırıldı ("Yurt İçi Satış mı, Yurt Dışı
