@@ -20,6 +20,6 @@ def test_bulaniklik_yalniz_istenince():
     assert same_word("muhasbe", "muhasebe", fuzzy=0)
 
 
-def test_spoken_as_tek_yonlu():
+def test_spoken_as():
     assert spoken_as("muhasebedeki", "muhasebe")
-    assert not spoken_as("muha", "muhasebe")
+    assert not spoken_as("avukat", "muhasebe")

@@ -35,5 +35,5 @@ def same_word(a: str, b: str, fuzzy: float | None = None) -> bool:
 
 def spoken_as(said: str, target: str) -> bool:
     """Cevaptaki `said` sözcüğü `target`ı söylüyor mu: onunla başlıyor ("muhasebedeki") ya da eki atılınca ona
-    yakın (STT hatası: "muhasebde"). Tek yönlü: hedef kısaltılmış söylenirse sayılmaz."""
+    yakın (STT hatası: "muhasebde")."""
     return said.startswith(target) or similarity(strip_suffix(said), target) >= CHOICE_WORD
