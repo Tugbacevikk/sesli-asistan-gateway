@@ -2023,6 +2023,15 @@ ondan bağımsızdır.
   geçen ama LLM'in atladığı ad eklenir (F03); birim eş anlamlısıyla söylendiyse uydurma sayılmaz (F08, "personel");
   unvan + birim kalıp söze çevrilmeden birimde (alt birimler dahil) unvanla bulunur (F05); "bilgi" + birim konu gibi
   teyitle sorulur (F11); "bir insanla konuşmak" operatör (F18).
+- **Ölçüm 4 (dördüncü sürüm):** serbest set anlama **%79,2** (kural %45,8, normal %50), p50 1,55 sn, p95 4,0 sn
+  (normal 4,8 sn); şirket seti %100, p95 1,6 sn; izinsiz aktarma 0. Üretim ~60 → 18–35 token. `ollama ps`: model
+  %50 CPU / %50 GPU (4 GB kartta 3,7 GB): üretim hızı (~15 token/sn) bundan; sunucuda tümü GPU'da olmalı. Kalan
+  hatalar ve beşinci sürüm: LLM "sekreter" yazdı ve kalıp Genel Müdürlük hattına aktardı (F02) → unvan eş anlamları
+  (`TITLE_SYNONYMS`), unvan birimde yoksa birim hattı teyitle; LLM soyadı yazmadı, uydurma birim ekledi (F04) →
+  reddetmek yerine sözle onarım (sözdeki ad / soyad eklenir, sözde olmayan birim atılır, tam adda unvan yok
+  sayılır); yalnız birim kalıp yolunda bulunamadı (F15) → birim hattı doğrudan; niyet aktar ama hedef yok, tahmini
+  birim var (F09) → teyitle. F07 ("kaliteden sorumlu müdür hanım") LLM'e hiç gitmiyor: kuralın "müdür"ü Genel
+  Müdürlük'le karıştırması kural kipinin hatası, ayrıca düzeltilecek.
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.

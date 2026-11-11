@@ -178,3 +178,39 @@ def test_birim_es_anlamlisiyla_soylenmis_sayilir():
     got = Understanding("aktar", ad="yusuf", hitap="bey", unvan="müdür", birim="insan kaynakları")
     assert got.problem(said, a._vocabulary()[1], a._unit_said(said)) is None
     assert got.problem(said, a._vocabulary()[1]) is not None
+
+
+async def _turn(said, answer):
+    a, _ = _agent({said: answer})
+    s = a.new_session("u7")
+    s.greeting()
+    return await s.handle_user(said)
+
+
+async def test_unvan_es_anlamlisi_birimde_bulunur():
+    # ölçüm 4, F02: LLM "sekreter" yazdı, kalıp yolu Genel Müdürlük hattına aktarmıştı
+    turn = await _turn("genel müdürün sekreterine bağlar mısınız acaba rica etsem",
+                       {"niyet": "aktar", "unvan": "sekreter", "birim": "Genel Müdürlük"})
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1104"]
+
+
+async def test_sozle_onarim_soyad_eklenir_uydurma_birim_atilir():
+    # ölçüm 4, F04: LLM soyadı yazmadı, uydurma birim ve unvan ekledi
+    said = "geçen hafta selin hanımla konuşmuştum, soyadı ekinci miydi neydi, ona bağlayın"
+    turn = await _turn(said, {"niyet": "aktar", "ad": "selin", "hitap": "hanım", "unvan": "asistan",
+                              "birim": "İnsan Kaynakları"})
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
+
+
+async def test_yalniz_birim_dogrudan_hatta():
+    # ölçüm 4, F15: kalıp "yurt dışı satış" kural yolunda bulunamamıştı
+    turn = await _turn("yurt dışına satış yapan bölümünüz hangisiyse oraya bağlayın",
+                       {"niyet": "aktar", "birim": "Yurt Dışı Satış"})
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1240"]
+
+
+async def test_hedefsiz_aktar_tahmini_birimle_sorulur():
+    # ölçüm 4, F09: niyet aktar, hedef yok, tahmini birim var
+    turn = await _turn("bilgisayarım açılmıyor yardım edebilecek birini arıyorum",
+                       {"niyet": "aktar", "konu": "bilgisayar", "tahmini_birim": "Teknik Destek"})
+    assert not turn.actions and "Teknik Destek" in turn.text
