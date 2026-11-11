@@ -145,12 +145,14 @@ def pct(values: list[float], p: float) -> float:
 async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: float | None,
                     rules: bool = False, tools: str = "yerel", mcp_url: str = "",
                     mcp_step: bool = False, prompt: str = "", departments: int = 0,
-                    few_shot: bool = False, rehber: str = "", mcp_local: bool = False) -> dict[str, Any]:
+                    few_shot: bool = False, rehber: str = "", mcp_local: bool = False,
+                    understand: bool = False) -> dict[str, Any]:
     """`mcp_local`: MCP adımı açık ama sunucusuz (Gateway aynı işlevleri yerelde çalıştırır; MCP düşünce olan yol).
-    CI'da MCP adımlı akışı sunucu kurmadan sınamak için."""
+    CI'da MCP adımlı akışı sunucu kurmadan sınamak için. `understand`: "LLM önce anlar" kipi (ADR-037)."""
     s = GatewaySettings()
     s.llm_model = model
     s.llm_enabled = not rules
+    s.understand_mode = "llm" if understand else "kural"
     s.llm_tools = tools  # type: ignore[assignment]
     s.mcp_step = mcp_step
     s.llm_prompt_path, s.llm_prompt_departments, s.llm_few_shot = prompt, departments, few_shot
@@ -201,7 +203,8 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
         "rehber_aramasi_p95_ms": round(pct(tool_ms, 95), 2) if tool_ms else None,
         "mcp_hatasi": agent.tools.remote_failures,
         "istem_karakter": len(agent.system_prompt), "sizinti": sum(len(r["sizinti"]) for r in results),
-        "mcp_adimi": mcp_step, "konu_sorgusu": agent.tools.topic_calls, "konu_bulundu": agent.tools.topic_hits,
+        "mcp_adimi": mcp_step, "anlama": "llm" if understand else "kural",
+        "konu_sorgusu": agent.tools.topic_calls, "konu_bulundu": agent.tools.topic_hits,
         "konu_hatasi": agent.tools.topic_failures,
         "basarisizlar": sorted({r["id"] for r in results if not r["ok"]}),
         "ayrinti": results,
@@ -249,6 +252,8 @@ async def main(argv=None) -> int:
     ap.add_argument("--ornekler", action="store_true", help="isteme örnek konuşmalar (few-shot)")
     ap.add_argument("--mcp-adimi", action="store_true",
                     help="akış rehber → MCP (konu_ara) → LLM (ADR-023); MCP sunucusu çalışıyor olmalı")
+    ap.add_argument("--anlama", action="store_true",
+                    help="LLM önce anlar kipi (ADR-037, UNDERSTAND_MODE=llm): söz LLM'le kalıba çevrilir")
     ap.add_argument("-v", action="store_true", help="başarısız senaryoların konuşmasını yaz")
     a = ap.parse_args(argv)
 
@@ -273,7 +278,8 @@ async def main(argv=None) -> int:
     for m in models:
         r = await run_model(m, scenarios, a.tekrar, a.zaman_asimi, rules=a.kural, tools=a.araclar,
                             mcp_url=a.mcp_url, mcp_step=a.mcp_adimi, prompt=a.istem,
-                            departments=a.birim_listesi, few_shot=a.ornekler, rehber=a.rehber)
+                            departments=a.birim_listesi, few_shot=a.ornekler, rehber=a.rehber,
+                            understand=a.anlama)
         report["sonuclar"].append(r)
         print(f"{m:16} {r['basari_orani']:>9} {r['izinsiz_aktarma']:>8} {r['yanlis_aktarma']:>7} "
               f"{r['llm_hatasi_turu']:>11} "

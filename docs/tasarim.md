@@ -1138,6 +1138,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_PROMPT_DEPARTMENTS` | 0 | ADR-024: isteme kurumun birim listesi (en çok N birim, rehberden); 0: yok |
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
 | `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
+| `UNDERSTAND_MODE` | kural | ADR-037 (deneme): `llm` → her söz önce LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
@@ -1990,6 +1991,26 @@ ondan bağımsızdır.
   sözde geçmiyorsa) aktaramaz, teyit sorulur (istemden ve modelden bağımsız).
 
 ---
+
+### ADR-037 — "LLM önce anlar" kipi (deneme, ölçüme bağlı)
+
+- **Bağlam:** Diyalog kararı büyük ölçüde kurallarla veriliyor (`core/dialog/`, `core/people/`: ~4.300 satır; LLM
+  döngüsü ~270). Kurallar hızlı, öngörülebilir ve güvenli; ama yalnız öngörülen söyleyişleri tanıyor ve canlı
+  denemelerde çıkan hemen her yeni söyleyiş yeni bir kalıp ya da istisna olarak eklendi.
+- **Karar (deneme):** `UNDERSTAND_MODE=llm` (varsayılan `kural`). Her söz önce LLM'e verilir; LLM yalnız
+  yapılandırılmış bilgi döner (`{"niyet", "ad", "soyad", "unvan", "birim", "dahili", "konu", "tahmini_birim",
+  "sira"}`, `core/dialog/understand.py`). Kod bunu kural adımlarının kesin tanıdığı kalıp söze çevirir ("muhasebe
+  müdür", "operatöre bağlayın", "evet") ve aynı adımlar (rehber araması, "hangisi?", teyit, aktarma güvenlik kuralı)
+  onunla sürer; anlaşılan sözde ikinci (araçlı) LLM turu yapılmaz. LLM aktarmaz, dahili seçmez. Konudan birim
+  tahmini arayan söylemediği için her zaman teyitle sorulur. LLM düşerse, JSON bozuksa ya da niyet belirsizse söz
+  olduğu gibi kural kipine gider. STT güveni tekrar eşiğinin altındaki söz LLM'e verilmez.
+- **Ölçüm:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Kurallara
+  göre yazılmış setlerin yanında serbest söyleyiş seti (`tests/data/diyalog_seti_serbest.yaml`, 24 senaryo:
+  tarif eden, dolaylı, devrik sözler) eklendi. Varsayılan yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural
+  kipinden düşük değil, serbest sette belirgin yüksek; tur gecikmesi p95 ≤ 2 sn (NFR-01).
+- **Sonuç:** Ölçüm ölçütü sağlarsa kalıp listelerinin (söyleyiş kuralları) bir kısmı silinir; sağlamazsa kip
+  kapalı kalır ve yalnız kural kipinin çözemediği sözlerde denenebilir. Hızlı yol (tam ad, birim adı) her iki
+  durumda da kalır.
 
 ## 17. Riskler
 
