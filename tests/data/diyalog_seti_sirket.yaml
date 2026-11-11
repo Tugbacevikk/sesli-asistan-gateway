@@ -128,3 +128,13 @@
   aciklama: "'Kim müsaitse': sorulan mühendislerden birinciye (meşgulse sıradakine)"
   konusma: ["ar-ge mühendisiyle görüşmek istiyorum", "kim müsaitse"]
   beklenen: {eylem: transfer, dahili: "2002"}
+
+- id: R25
+  aciklama: "Birim + unvan: unvan çok birimde ama birim söylendi (ölçüm 7, F07)"
+  konusma: ["kaliteden sorumlu müdür hanımla görüşmem lazım"]
+  beklenen: {eylem: transfer, dahili: "1901"}
+
+- id: R26
+  aciklama: "Eş anlamlı unvan: sekreter → asistan (ölçüm 7, F02)"
+  konusma: ["genel müdürün sekreterine bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "1104"}

@@ -2068,8 +2068,8 @@ ondan bağımsızdır.
   anlama kipinde çözüldü.
 - **Sonuç:** `UNDERSTAND_MODE` varsayılanı `llm`. Araçlı LLM döngüsü (`_run`) `kural` kipinde kalır: sunucuda
   (model tümüyle GPU'da) ölçüm yinelenmeden emekliye ayrılmaz. Serbest setteki kalan üç hata kural kipinin kendi
-  hatası (söz LLM'e hiç gitmiyor): "kaliteden sorumlu müdür hanım" ve "genel müdürün sekreteri" sözlerinde kural
-  unvanı birimde aramak yerine birden çok birim arasında soru soruyor; ayrıca düzeltilecek. Söyleyiş kalıplarından
+  hatası (söz LLM'e hiç gitmiyor): "kaliteden sorumlu müdür hanım" ve "genel müdürün sekreteri". İkisi de kural
+  tarafında düzeltildi (unvan adayları söylenen birime daraltılır; eş anlamlı unvan da aranır — R25, R26). Söyleyiş kalıplarından
   yalnız LLM'in güvenle karşıladıkları ölçülerek silinir. Hızlı yol (tam ad, birim adı) her durumda kalır.
 
 ## 17. Riskler
