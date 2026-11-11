@@ -164,7 +164,7 @@ class DialogConfig:
     prompt_departments: int = 0              # ADR-024: isteme kurumun birim listesi (en çok bu kadar); 0: yok
     few_shot: bool = False                   # ADR-024: isteme örnek konuşmalar (FEW_SHOT)
     small_talk: bool = False                 # ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir
-    # ADR-037 (deneme): "llm" → söz önce LLM'le kalıba çevrilir (understand.py), karar yine kodda; "kural": kapalı
+    # ADR-037 (deneme): "llm" → kuralların çözemediği söz LLM'le kalıba çevrilir (understand.py); "kural": kapalı
     understand: str = "kural"
     # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
     # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.
@@ -189,7 +189,7 @@ class _Utterance:
     low: bool                           # STT güveni tekrar eşiğinin altında
     choice: tuple[Candidate, ...] = ()  # açık "hangisi?" sorusunun adayları (`_step_choice` alır)
     sound: tuple[Candidate, ...] = ()   # ses benzerliği adayı (`_step_mcp` bulur, `_step_sound_alike` kullanır)
-    understood: bool = False            # LLM sözü kalıba çevirdi (ADR-037): son adım LLM döngüsü değil kural turu
+    understood: bool = False            # LLM sözü kalıba çevirdi (ADR-037): adımlar kalıpla yeniden, son adım kural
 
     def reopen(self, s: DialogSession) -> None:
         s.state.confirm, s.state.confirm_suggested = self.confirm, self.suggested if self.confirm else False

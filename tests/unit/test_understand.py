@@ -1,4 +1,4 @@
-"""ADR-037 "LLM önce anlar" kipi: sahte LLM'le (yanıt söze göre). Gerçek modelle karşılaştırma:
+"""ADR-037 "LLM gerektiğinde anlar" kipi: sahte LLM'le (yanıt söze göre). Gerçek modelle karşılaştırma:
 tests/eval/anlama_karsilastir.py."""
 import json
 from pathlib import Path
@@ -70,39 +70,55 @@ def test_cozumleme_bozuk_ve_eksik_json():
     assert Understanding("belirsiz").canonical() is None
 
 
-async def test_dolayli_tarif_unvan_ve_birime_cevrilir():
-    a, llm = _agent({"muhasebenin başındaki kişi kimse onunla": {"niyet": "aktar", "unvan": "müdür",
-                                                                  "birim": "muhasebe"}})
-    s = a.new_session("u1")
-    s.greeting()
-    turn = await s.handle_user("muhasebenin başındaki kişi kimse onunla")
-    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
-    assert llm.calls == 1                       # anlama turu; ikinci (araçlı) LLM turu yok
-
-
-async def test_konudan_birim_teyitle_sorulur():
-    a, _ = _agent({"bilgisayarım açılmıyor": {"niyet": "konu", "konu": "arıza", "tahmini_birim": "Teknik Destek"},
-                   "evet": {"niyet": "evet"}})
-    s = a.new_session("u2")
-    s.greeting()
-    asked = await s.handle_user("bilgisayarım açılmıyor")
-    assert not asked.actions and "Teknik Destek" in asked.text
-    done = await s.handle_user("evet")
-    assert [x.extension for x in done.actions if x.type == "transfer"] == ["1760"]
-
-
-async def test_llm_dusunce_kural_kipi_surer():
-    a, llm = _agent({})                         # her çağrıda hata
-    s = a.new_session("u3")
+async def test_kuralin_cozdugu_soz_llme_gitmez():
+    a, llm = _agent({})
+    s = a.new_session("u0")
     s.greeting()
     turn = await s.handle_user("muhasebeye bağlar mısınız")
     assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1400"]
-    assert llm.calls >= 1
+    assert llm.calls == 0
+
+
+async def test_kuralin_cozemedigi_soz_kalipla_cozulur():
+    said = "o işlere bakan yerle görüşecektim"
+    a, llm = _agent({said: {"niyet": "aktar", "unvan": "müdür", "birim": "muhasebe"}})
+    s = a.new_session("u1")
+    s.greeting()
+    turn = await s.handle_user(said)
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
+    assert llm.calls == 1                       # tek "anla" çağrısı; araçlı LLM döngüsü yok
+
+
+async def test_hitap_kalipta_korunur():
+    u = Understanding.parse('{"niyet": "aktar", "ad": "Merve", "hitap": "hanım", "birim": "muhasebe"}')
+    assert u is not None and u.canonical() == "muhasebe merve hanım"
+    assert Understanding("aktar", ad="merve", soyad="öztürk", hitap="hanım").canonical() == "merve öztürk"
+
+
+async def test_konudan_birim_teyitle_sorulur_cevap_llme_gitmez():
+    said = "e-postalarım gelmiyor"
+    a, llm = _agent({said: {"niyet": "konu", "konu": "e-posta", "tahmini_birim": "Teknik Destek"}})
+    s = a.new_session("u2")
+    s.greeting()
+    asked = await s.handle_user(said)
+    assert not asked.actions and "Teknik Destek" in asked.text
+    done = await s.handle_user("evet")          # açık sorunun cevabı kurala gider
+    assert [x.extension for x in done.actions if x.type == "transfer"] == ["1760"]
+    assert llm.calls == 1
+
+
+async def test_llm_dusunce_kural_turu_cevap_verir():
+    a, llm = _agent({})                         # her çağrıda hata
+    s = a.new_session("u3")
+    s.greeting()
+    turn = await s.handle_user("o işlere bakan yerle görüşecektim")
+    assert not [x for x in turn.actions if x.type == "transfer"]
+    assert llm.calls == 1
 
 
 @pytest.mark.parametrize("said, niyet, action", [
-    ("ya ben en iyisi operatörle konuşayım", "operator", "operator"),
-    ("tamam gerek kalmadı kapatabilirsiniz", "kapat", "hangup"),
+    ("ya ben en iyisi gerçek bir insanla konuşayım", "operator", "operator"),
+    ("tamam tamam gerek kalmadı ben sonra ararım", "kapat", "hangup"),
 ])
 async def test_niyetler(said, niyet, action):
     a, _ = _agent({said: {"niyet": niyet}})
