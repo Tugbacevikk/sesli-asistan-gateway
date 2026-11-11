@@ -307,7 +307,7 @@ class UnderstandMixin:
                      got.summary())
             return turn
         only_unit = got.niyet == "aktar" and got.birim and not (got.ad or got.soyad or got.unvan or got.dahili)
-        if only_unit and (line := self._unit_line(got.birim)) is not None:
+        if only_unit and (line := self._named_unit_line(got.birim)) is not None:
             # yalnız birim: kalıp söze çevirmeden birim hattı (ölçüm 4, F15: "yurt dışı satış" kalıpta bulunamadı)
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → birim hattı %s", s.call_id, ms, log_text(u.text),
                      got.summary(), line.extension)
@@ -359,7 +359,7 @@ class UnderstandMixin:
         if 2 <= len(found) <= 3:
             cands = tuple(Candidate(c, 100) for c in found)
             return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
-        if not found and (line := self._unit_line(got.birim)) is not None:
+        if not found and (line := self._named_unit_line(got.birim)) is not None:
             # unvan birimde yok: unvanı atıp birim hattına doğrudan aktarmak yerine sorulur (ölçüm 4, F02: "genel
             # müdürlük sekreter" kalıpta Genel Müdürlük hattına aktarılmıştı)
             asked = self._confirm(s, line, why="unvan birimde bulunamadı")
@@ -367,7 +367,7 @@ class UnderstandMixin:
             return asked
         return None
 
-    def _unit_line(self: DialogAgent, birim: str) -> Any:
+    def _named_unit_line(self: DialogAgent, birim: str) -> Any:
         """Birimin hattı: adıyla ya da eş anlamlısıyla; hat yoksa tek kişisi. Bulunamazsa None."""
         key = search_key(birim)
         if not key:
@@ -385,7 +385,7 @@ class UnderstandMixin:
         if not search_key(got.tahmini_birim):
             log.info("[%s] anlama (LLM, %.0f ms): konu %r, birim yok: %s", s.call_id, ms, got.konu, log_text(u.text))
             return None
-        pick = self._unit_line(got.tahmini_birim)
+        pick = self._named_unit_line(got.tahmini_birim)
         if pick is None:
             log.info("[%s] anlama (LLM, %.0f ms): konu %r → %r rehberde yok", s.call_id, ms, got.konu,
                      got.tahmini_birim)
