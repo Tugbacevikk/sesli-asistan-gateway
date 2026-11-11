@@ -2069,7 +2069,12 @@ ondan bağımsızdır.
 - **Sonuç:** `UNDERSTAND_MODE` varsayılanı `llm`. Araçlı LLM döngüsü (`_run`) `kural` kipinde kalır: sunucuda
   (model tümüyle GPU'da) ölçüm yinelenmeden emekliye ayrılmaz. Serbest setteki kalan üç hata kural kipinin kendi
   hatası (söz LLM'e hiç gitmiyor): "kaliteden sorumlu müdür hanım" ve "genel müdürün sekreteri". İkisi de kural
-  tarafında düzeltildi (unvan adayları söylenen birime daraltılır; eş anlamlı unvan da aranır — R25, R26). Söyleyiş kalıplarından
+  tarafında düzeltildi (R25, R26): (1) unvan sözcüğü bir birim adına benziyorsa ("müdür" ~ Genel Müdürlük) ikinci
+  hedef sayılmaz — eski koşul unvanın tek kişiye uymasını istiyordu, oysa "müdür" her birimde var; (2) aynı unvanlı
+  çok hatta söylenen birim tek aday bırakıyorsa ona aktarılır (soru akışına dokunulmaz: daraltılmış adaylarla
+  sorulan sorunun cevabı tanınmıyordu, D26); (3) eş anlamlı unvan kapsamada sözcüğün **yerinde** kabul edilir
+  (`people.common.title_synonym`), listeye eklenmez: unvan araması sözcük sırasına bakar ("genel müdürün
+  sekreterine" → Genel Müdür Asistanı). Söyleyiş kalıplarından
   yalnız LLM'in güvenle karşıladıkları ölçülerek silinir. Hızlı yol (tam ad, birim adı) her durumda kalır.
 
 ## 17. Riskler
