@@ -2032,6 +2032,14 @@ ondan bağımsızdır.
   sayılır); yalnız birim kalıp yolunda bulunamadı (F15) → birim hattı doğrudan; niyet aktar ama hedef yok, tahmini
   birim var (F09) → teyitle. F07 ("kaliteden sorumlu müdür hanım") LLM'e hiç gitmiyor: kuralın "müdür"ü Genel
   Müdürlük'le karıştırması kural kipinin hatası, ayrıca düzeltilecek.
+- **Ölçüm 5 (beşinci sürüm, iki set):** serbest anlama %91,7, şirket %100. **Tam ölçüm (yedi set):** anlama kipi
+  sentetik %100, makam %100, şirket %100, kamu %95,7 (kural da %95,7; K19'u çözdü, K01'i bozdu), demo %96,7 (kural
+  %100; D20); izinsiz aktarma her sette 0; normal kip sentetik %74,5, kamu %78,3. "genel" set yanlış rehberle koştu
+  (araç `.env`'deki DIRECTORY_PATH'i aldı), düzeltildi. Altıncı sürüm: son adımda önce kural turu, yalnız
+  "bulamadım"da LLM (K01: kural unvanla buluyordu, LLM unvanı atıp birim hattı demişti; bulamazsa turun izleri geri
+  alınır); sözde geçmeyen ve tarif sözcüğü (`TITLE_CUES`) ya da eş anlamlısı olmayan unvan atılır (D20); ses
+  benzerliği adayı varsa söz önce LLM'e gitmez (D124 "bırakçayı" → LLM "borç" konusu); "selam" niyeti geri (D112
+  "merhaba nasılsınız" → LLM operatör demişti).
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.

@@ -20,6 +20,7 @@ Karşılaştırma: tests/eval/anlama_karsilastir.py (aynı setler kural / normal
 from __future__ import annotations
 
 import asyncio
+import copy
 import json
 import logging
 import re
@@ -33,6 +34,7 @@ from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from ..models import Candidate, DialogTurn
 from ..people.common import without_self
+from ..people.names import sound_alike
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
 from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
@@ -51,7 +53,8 @@ unvan, birim, dahili, konu, tahmini_birim.
 
 niyet: "aktar" (kişi, unvan, birim ya da dahili istiyor), "konu" (kişi / birim söylemeden sorun anlatıyor),
 "operator" (operatör, santral, bir insanla / gerçek biriyle konuşmak), "kapat" (görüşmeyi bitiriyor), "mesai"
-(çalışma saatleri), "farketmez" (kim olursa olsun), "belirsiz".
+(çalışma saatleri), "selam" (yalnız selam ya da hal hatır: "merhaba nasılsınız"), "farketmez" (kim olursa olsun),
+"belirsiz".
 - Sözcükleri eksiz, yalın yaz: "muhasebeden" → "muhasebe", "müdürüyle" → "müdür". Söylenmeyeni uydurma.
 - hitap: söylendiyse "bey" ya da "hanım". Arayanın kendi adı ("ben Mehmet") ad değildir.
 - Tarif edilen kişi: "başındaki kişi" → unvan "müdür"; "sekreter" → unvan "asistan".
@@ -102,6 +105,21 @@ def grounded(field: str, said: str) -> bool:
 # (ölçüm 4, F02).
 TITLE_SYNONYMS = {"sekreter": "asistan", "sekreteri": "asistan", "mudire": "mudur", "mudiresi": "mudur",
                   "sef": "lider", "sefi": "lider"}
+
+
+# sözde unvan geçmeden LLM'in unvan yazabileceği tarif sözcükleri (katlanmış, ön ekle): "muhasebenin başındaki kişi"
+# → müdür. Bunlar da eş anlamlılar da yoksa LLM'in unvanı atılır (ölçüm 5, D20: "trafikten zafer geçmiş" → uydurma
+# "müdür", birim hattı yerine şube müdürüne aktarıldı).
+TITLE_CUES = ("basinda", "sorumlu", "yonetic", "amir", "sef", "buyug", "patron", "sekreter", "mudur", "lider",
+              "baskan", "komutan")
+
+
+def title_said(unvan: str, said: str) -> bool:
+    words = fold_words(said)
+    words += [v for x in words for k, v in TITLE_SYNONYMS.items() if x.startswith(k)]
+    if all(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words) for w in fold_words(unvan)):
+        return True
+    return any(x.startswith(TITLE_CUES) for x in words)
 
 
 @dataclass(frozen=True)
@@ -169,6 +187,9 @@ class Understanding:
         if got.ad and not got.soyad and lasts:
             got = replace(got, soyad=lasts[0])
             notes.append(f"soyad eklendi: {lasts[0]}")
+        if got.unvan and not title_said(got.unvan, said):
+            got = replace(got, unvan="")
+            notes.append(f"sözde olmayan unvan atıldı: {self.unvan}")
         if (got.ad or got.soyad) and got.birim and not unit_said(got.birim) and not grounded(got.birim, said):
             got = replace(got, birim="")
             notes.append(f"sözde olmayan birim atıldı: {self.birim}")
@@ -263,6 +284,8 @@ class UnderstandMixin:
         sözle, anlamazsa özgün sözle adımlar sürer; son adımda ikinci LLM çağrısı yapılmaz."""
         if u.confirm or u.op_confirm or u.choice or not self._weak_evidence(u):
             return None
+        if sound_alike(self.tools.index, u.text):
+            return None    # bozuk duyulmuş ad ("bırakçayı" → Burak Çelik): kuralın ses teyidi (ölçüm 5, D124)
         log.info("[%s] anlama: kanıt zayıf, önce LLM (artan: %s)", s.call_id,
                  log_text(" ".join(self.unexplained(u.text))))
         return await self._understand(s, u)
@@ -270,11 +293,25 @@ class UnderstandMixin:
     async def _understood_answer(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn:
         if u.asked or not self.unexplained(u.text):
             return self._rule_turn(s, u.text)    # LLM'e zaten soruldu ya da anlatacak bir şey yok ("evet")
+        if (turn := self._rule_if_found(s, u.text)) is not None:
+            return turn                          # kural turu buldu (ölçüm 5, K01: LLM unvanı atıp birim hattı demişti)
         if (turn := await self._understand(s, u)) is not None:
             return turn                          # konudan birim tahmini: teyit sorusu
         if u.understood:
             return await self._run_steps(s, u)   # kalıp sözle adımlar yeniden; son adım kural turu (LLM yok)
         return self._rule_turn(s, u.text)        # LLM anlamadı / düştü: kural cevabı (bulunamadı, tekrar sor)
+
+    def _rule_if_found(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
+        """Kural turu bir şey bulursa (aktarma, soru) onu döner; bulamazsa ("bulamadım") turun izleri (deneme sayacı,
+        geçmiş) geri alınır ve None: söz LLM'e gider."""
+        saved, hist = copy.deepcopy(s.state), len(s.history)
+        turn = self._rule_turn(s, text)
+        st = s.state
+        if turn.actions or turn.ended or st.choice or st.confirm or st.confirm_operator:
+            return turn
+        s.state = saved
+        del s.history[hist:]
+        return None
 
     async def _understand(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Sözü anla: kalıp söz `u.text`'e yazılır ve `u.understood` işaretlenir (adımlar onunla sürer); konudan birim

@@ -35,7 +35,7 @@ SETS = {  # kısa ad → (set, rehber)
     "sentetik": ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json"),
     "kamu": ("diyalog_seti_kamu.yaml", "tests/data/kamu_rehber.json"),
     "makam": ("diyalog_seti_makam.yaml", "tests/data/makam_rehber.json"),
-    "genel": ("diyalog_seti.yaml", ""),
+    "genel": ("diyalog_seti.yaml", "data/rehber_ornek.json"),   # CI'da varsayılan DIRECTORY_PATH; .env'den bağımsız
 }
 MODES = ("kural", "normal", "anlama")
 _ID = re.compile(r"^\[([^\]]+)\] (anlama.*)$")
