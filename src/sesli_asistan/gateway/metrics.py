@@ -143,12 +143,28 @@ class TimedLlm:
         finally:
             self.m.llm_latency.observe(time.perf_counter() - t0)
 
+    async def chat_json(self, messages: list[dict[str, Any]], max_tokens: int = 80) -> tuple[str, str]:
+        """Anlama kipinin tek çağrısı (ADR-037): `__getattr__` iç nesneye geçirseydi ölçülmeden kalırdı."""
+        t0 = time.perf_counter()
+        try:
+            return await self.inner.chat_json(messages, max_tokens)
+        except Exception:
+            self.m.llm_errors.inc()
+            raise
+        finally:
+            self.m.llm_latency.observe(time.perf_counter() - t0)
 
     @property
     def supports_stream(self) -> bool:
         from .core.resilience import supports_stream
 
         return supports_stream(self.inner)
+
+    @property
+    def supports_json(self) -> bool:
+        from .core.resilience import supports_json
+
+        return supports_json(self.inner)
 
     async def chat_stream(self, messages: list[dict[str, Any]],
                           tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:

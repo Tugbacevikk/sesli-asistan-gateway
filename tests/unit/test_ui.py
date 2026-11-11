@@ -14,15 +14,22 @@ from sesli_asistan.gateway.core.ports import Audio, LlmMessage, SttEvent, ToolCa
 ROOT = Path(__file__).resolve().parents[2]
 
 
+SAID = "muhasebeden ayşe hanım"
+
+
 class Stt:
-    """30 kare (0,6 sn) ses gelince arayan "muhasebeden ayşe hanım" demiş olur."""
+    """30 kare (0,6 sn) ses gelince arayan `said` demiş olur (varsayılan: rehberde bulunan bir kişi)."""
+
+    def __init__(self, said: str = SAID):
+        self.said = said
 
     async def open(self, call_id, codec, hotwords):
-        return Stream()
+        return Stream(self.said)
 
 
 class Stream:
-    def __init__(self):
+    def __init__(self, said: str = SAID):
+        self.said = said
         self.n, self.q = 0, asyncio.Queue()
 
     async def send(self, frame):
@@ -30,7 +37,7 @@ class Stream:
         self.n += 1
         if self.n == 30:
             self.q.put_nowait(SttEvent("speech_started"))
-            self.q.put_nowait(SttEvent("final", "muhasebeden ayşe hanım", 0.9, 0, 1500))
+            self.q.put_nowait(SttEvent("final", self.said, 0.9, 0, 1500))
 
     async def events(self):
         while (e := await self.q.get()) is not None:
@@ -50,9 +57,9 @@ class Tts:
         return Audio(np.zeros(800, np.int16), 8000)
 
 
-def client(ui=True, ui_ips=None, key=""):
+def client(ui=True, ui_ips=None, key="", said=SAID):
     s = GatewaySettings(_env_file=None, directory_path=str(ROOT / "data/rehber_ornek.json"))
-    rt = GatewayRuntime(s, llm=Llm(), stt=Stt(), tts=Tts())
+    rt = GatewayRuntime(s, llm=Llm(), stt=Stt(said), tts=Tts())
 
     from contextlib import asynccontextmanager
 
@@ -120,12 +127,13 @@ def test_arayuz_kapali_ve_erisim_kurallari():
 
 
 def test_bulunamayan_aramalar_listelenir():
-    tc, rt = client()
+    # rehberdeki hiçbir ada benzemeyen bir ad: kural turu "bulamadım" der ve aramayı kaydeder (arayüz: takma ad
+    # eklemek için). Anlama kipi (ADR-037) JSON ister; bu sahte LLM araç çağrısı döndürdüğü için anlaşılmaz.
+    tc, rt = client(said="necdet özbalaban")
 
     class Miss:
         async def chat(self, messages, tools):
-            return LlmMessage("", [ToolCall("c", "InContacts", {"Name": "Ferhat Yıldırım"})]) \
-                if messages[-1]["role"] == "user" else LlmMessage("Bulamadım, tekrar söyler misiniz?")
+            return LlmMessage("", [ToolCall("c", "InContacts", {"Name": "Necdet Özbalaban"})])
 
     rt.agent.llm = Miss()
     with tc, tc.websocket_connect("/v1/ui/ws") as ws:
@@ -136,7 +144,7 @@ def test_bulunamayan_aramalar_listelenir():
         ws.send_text(json.dumps({"type": "hangup"}))
         recv_until(ws, "summary")
         misses = tc.get("/v1/admin/calls").json()["misses"]
-    assert misses == [{"text": "ferhat yıldırım", "count": 1}]
+    assert misses == [{"text": "necdet özbalaban", "count": 1}]
 
 
 def test_yazarak_deneme():

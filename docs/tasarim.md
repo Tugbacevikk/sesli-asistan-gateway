@@ -1138,7 +1138,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_PROMPT_DEPARTMENTS` | 0 | ADR-024: isteme kurumun birim listesi (en çok N birim, rehberden); 0: yok |
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
 | `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
-| `UNDERSTAND_MODE` | kural | ADR-037 (deneme): `llm` → kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda |
+| `UNDERSTAND_MODE` | llm | ADR-037: kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda. `kural`: kapalı (eski araçlı LLM döngüsü) |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
@@ -1992,12 +1992,12 @@ ondan bağımsızdır.
 
 ---
 
-### ADR-037 — "LLM gerektiğinde anlar" kipi (deneme, ölçüme bağlı)
+### ADR-037 — "LLM gerektiğinde anlar" kipi
 
 - **Bağlam:** Diyalog kararı büyük ölçüde kurallarla veriliyor (`core/dialog/`, `core/people/`: ~4.300 satır; LLM
   döngüsü ~270). Kurallar hızlı, öngörülebilir ve güvenli; ama yalnız öngörülen söyleyişleri tanıyor ve canlı
   denemelerde çıkan hemen her yeni söyleyiş yeni bir kalıp ya da istisna olarak eklendi.
-- **Karar (deneme):** `UNDERSTAND_MODE=llm` (varsayılan `kural`). Kuralların çözemediği söz (son adım) araçlı LLM
+- **Karar:** `UNDERSTAND_MODE` (varsayılan `llm`, ölçüm 7'den sonra; `kural` eski akışa döner). Kuralların çözemediği söz (son adım) araçlı LLM
   döngüsü yerine tek bir "anla" çağrısına gider; LLM yalnız yapılandırılmış bilgi döner (`{"niyet", "ad",
   "soyad", "hitap", "unvan", "birim", "dahili", "konu", "tahmini_birim"}`, `core/dialog/understand.py`). Kod bunu
   kural adımlarının kesin tanıdığı kalıp söze çevirir ("muhasebe müdür", "merve hanım", "operatöre bağlayın") ve
@@ -2050,7 +2050,26 @@ ondan bağımsızdır.
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.
-- **Sonuç:** Ölçüt sağlanırsa varsayılan olur ve araçlı LLM döngüsü emekliye ayrılabilir; söyleyiş kalıplarından
+- **Ölçüm 7 (yedinci sürüm, yedi set, 304 senaryo; qwen3.5:4b, RTX 3050 Ti, model %50 CPU / %50 GPU):** ölçüt
+  sağlandı. Anlama kipi kural kipinden hiçbir sette düşük değil ve tur gecikmesi her sette normal kipten iyi:
+
+  | set | kural | normal | anlama | p95 normal → anlama |
+  | --- | --- | --- | --- | --- |
+  | serbest (dolaylı söyleyiş, 24) | %45,8 | %50,0 | **%87,5** | 3,98 → 2,72 sn |
+  | şirket (24) | %100 | %91,7 | **%100** | 5,07 → 1,44 sn |
+  | demo (30) | %100 | %96,7 | **%100** | 3,35 → 2,68 sn |
+  | sentetik kurum (47) | %100 | %70,2 | **%100** | 3,21 → 0,18 sn |
+  | kamu (23) | %95,7 | %78,3 | **%100** | 3,97 → 2,69 sn |
+  | makam (14) | %100 | %85,7 | **%100** | 3,78 → 0,01 sn |
+  | genel (142) | %100 | %98,6 | **%100** | 3,52 → 2,04 sn |
+
+  İzinsiz aktarma üç kipte de her sette 0. LLM'e giden söz oranı düşük: şirket 5/24, sentetik 3/47, makam 2/14
+  (kuralların çözdüğü söz LLM'i hiç beklemez). Kamu setinde kuralın çözemediği K19 (konu adımı gerektiren senaryo)
+  anlama kipinde çözüldü.
+- **Sonuç:** `UNDERSTAND_MODE` varsayılanı `llm`. Araçlı LLM döngüsü (`_run`) `kural` kipinde kalır: sunucuda
+  (model tümüyle GPU'da) ölçüm yinelenmeden emekliye ayrılmaz. Serbest setteki kalan üç hata kural kipinin kendi
+  hatası (söz LLM'e hiç gitmiyor): "kaliteden sorumlu müdür hanım" ve "genel müdürün sekreteri" sözlerinde kural
+  unvanı birimde aramak yerine birden çok birim arasında soru soruyor; ayrıca düzeltilecek. Söyleyiş kalıplarından
   yalnız LLM'in güvenle karşıladıkları ölçülerek silinir. Hızlı yol (tam ad, birim adı) her durumda kalır.
 
 ## 17. Riskler

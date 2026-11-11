@@ -27,6 +27,13 @@ def supports_stream(llm: Any) -> bool:
     return bool(flag) if flag is not None else callable(getattr(llm, "chat_stream", None))
 
 
+def supports_json(llm: Any) -> bool:
+    """LLM yalnız-JSON çağrısı (`chat_json`, ADR-037) veriyor mu. Sarmalayıcılarda yöntem her zaman tanımlıdır
+    (ölçüm / devre kesici), bu yüzden `hasattr` yetmez: içteki adaptöre sorulur."""
+    flag = getattr(llm, "supports_json", None)
+    return bool(flag) if flag is not None else callable(getattr(llm, "chat_json", None))
+
+
 class CircuitBreaker:
     def __init__(self, name: str, failures: int = 3, reset_s: float = 30.0,
                  clock: Callable[[], float] = time.monotonic):
@@ -82,6 +89,18 @@ class BreakerLlm:
         self.breaker.success()
         return out
 
+    async def chat_json(self, messages: list[dict[str, Any]], max_tokens: int = 80) -> tuple[str, str]:
+        """Anlama kipinin tek çağrısı (ADR-037): LLM düşünce devre açılsın, her söz 5 sn beklemesin."""
+        if not self.breaker.allow():
+            raise LlmError(f"devre açık: {self.breaker.name}")
+        try:
+            out = await self.inner.chat_json(messages, max_tokens)
+        except (LlmError, asyncio.CancelledError, TimeoutError):
+            self.breaker.failure()
+            raise
+        self.breaker.success()
+        return out
+
     async def chat_stream(self, messages: list[dict[str, Any]],
                           tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:
         if not self.breaker.allow():
@@ -97,6 +116,10 @@ class BreakerLlm:
     @property
     def supports_stream(self) -> bool:
         return supports_stream(self.inner)
+
+    @property
+    def supports_json(self) -> bool:
+        return supports_json(self.inner)
 
 
 class BreakerTts:
