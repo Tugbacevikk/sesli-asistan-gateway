@@ -191,6 +191,7 @@ class _Utterance:
     sound: tuple[Candidate, ...] = ()   # ses benzerliği adayı (`_step_mcp` bulur, `_step_sound_alike` kullanır)
     understood: bool = False            # LLM sözü kalıba çevirdi (ADR-037): adımlar kalıpla yeniden, son adım kural
     asked: bool = False                 # bu söz için LLM'e soruldu (ADR-037): ikinci kez sorulmaz
+    guess: Any = None                   # LLM'in konudan birim tahmini (ADR-037): kurallar bulamazsa son adımda sorulur
 
     def reopen(self, s: DialogSession) -> None:
         s.state.confirm, s.state.confirm_suggested = self.confirm, self.suggested if self.confirm else False

@@ -2040,6 +2040,13 @@ ondan bağımsızdır.
   alınır); sözde geçmeyen ve tarif sözcüğü (`TITLE_CUES`) ya da eş anlamlısı olmayan unvan atılır (D20); ses
   benzerliği adayı varsa söz önce LLM'e gitmez (D124 "bırakçayı" → LLM "borç" konusu); "selam" niyeti geri (D112
   "merhaba nasılsınız" → LLM operatör demişti).
+- **Ölçüm 6 (altıncı sürüm, yedi set, doğru rehberlerle):** anlama kipi şirket, demo, sentetik, kamu, makam %100
+  (kamuda kural %95,7: K19'u da çözdü), serbest %87,5 (kural %45,8), genel %97,2 (kural %100); izinsiz aktarma 0.
+  Normal (bugünkü) kip: sentetik %72,3, kamu %78,3, makam %85,7. Genel setteki 4 hata ve yedinci sürüm: LLM'in
+  konudan birim tahmini kuralların önüne geçiyordu ("internetim çalışmıyor arıza var" → konu tablosu Teknik
+  Destek'i bilir, LLM Bilgi İşlem'in tek kişisini önerdi; "…muhasebeyle görüşmem lazım" → açık birim yerine konu
+  teyidi; bozuk "operatöre" → "bayram" konusu) → önce LLM'e giden sözde konudan tahmin bekletilir (`u.guess`),
+  kurallar bulamazsa son adımda sorulur; LLM "selam" deyip ad / soyad yazdıysa aktar sayılır (D16).
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.
