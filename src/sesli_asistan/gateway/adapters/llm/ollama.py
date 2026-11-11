@@ -69,6 +69,28 @@ class OllamaChat:
             raise LlmError(f"Ollama: {e}") from e
         return LlmMessage(content=msg.get("content") or "", tool_calls=_calls(msg.get("tool_calls")))
 
+    async def chat_json(self, messages: list[dict[str, Any]], max_tokens: int = 160) -> tuple[str, str]:
+        """Yalnız JSON cevap (Ollama `format: json`, araçsız, kısa çıktı): anlama kipi (ADR-037). İkinci değer süre
+        dökümü ("istem 812 token 2310 ms, üretim 41 token 960 ms, yükleme 0 ms"): yavaşlığın istemde mi üretimde mi
+        olduğu görünsün (ölçüm 11.11.2026: çağrı ~4,9 sn)."""
+        body = {"model": self.model, "messages": to_ollama(messages), "stream": False, "think": self.think,
+                "format": "json", "keep_alive": self.keep_alive,
+                "options": {"temperature": 0, "num_predict": max_tokens}}
+        try:
+            r = await self.http.post("/api/chat", json=body)
+            r.raise_for_status()
+            d = r.json()
+            content = d["message"].get("content") or ""
+        except (httpx.HTTPError, KeyError, ValueError) as e:
+            raise LlmError(f"Ollama: {e}") from e
+
+        def ms(key: str) -> int:
+            return round((d.get(key) or 0) / 1e6)
+
+        timing = (f"istem {d.get('prompt_eval_count', 0)} token {ms('prompt_eval_duration')} ms, "
+                  f"üretim {d.get('eval_count', 0)} token {ms('eval_duration')} ms, yükleme {ms('load_duration')} ms")
+        return content, timing
+
     async def warmup(self, timeout_s: float = 120.0, messages: list[dict[str, Any]] | None = None,
                      tools: list[dict[str, Any]] | None = None) -> None:
         """Modeli belleğe yükler (ilk çağrı yavaş olmasın). Yükleme, tur zaman aşımından (5 sn) uzun sürebilir.

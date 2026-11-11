@@ -79,14 +79,36 @@ async def test_kuralin_cozdugu_soz_llme_gitmez():
     assert llm.calls == 0
 
 
-async def test_kuralin_cozemedigi_soz_kalipla_cozulur():
-    said = "o işlere bakan yerle görüşecektim"
+async def test_kaniti_zayif_soz_once_llme_gider_ve_kalipla_cozulur():
+    # kural "muhasebe"yi görüp birim hattına aktarırdı (ölçüm 2, F01); artan sözcükler LLM'e yönlendirir
+    said = "muhasebenin başındaki kişi kimse onunla görüşmek istiyorum"
     a, llm = _agent({said: {"niyet": "aktar", "unvan": "müdür", "birim": "muhasebe"}})
     s = a.new_session("u1")
     s.greeting()
     turn = await s.handle_user(said)
     assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
     assert llm.calls == 1                       # tek "anla" çağrısı; araçlı LLM döngüsü yok
+
+
+def test_uydurma_ve_atlanan_ad_reddedilir():
+    names = frozenset({"merve", "ayse"})
+    invented = Understanding("aktar", birim="Eğitim ve Çocuk Bakımı")
+    assert invented.problem("kreş birimine bağlar mısınız", names)             # ölçüm 2, R18
+    dropped = Understanding("aktar", birim="kalite", hitap="hanım")
+    assert dropped.problem("kaliteden merve hanımla görüşecektim", names)      # ölçüm 2, R10
+    ok = Understanding("aktar", ad="merve", hitap="hanım", birim="kalite")
+    assert ok.problem("kaliteden merve hanımla görüşecektim", names) is None
+    told = Understanding("aktar", unvan="asistan", birim="genel müdür")      # unvan eş anlamlı olabilir
+    assert told.problem("genel müdürün sekreterine bağlar mısınız", names) is None
+    assert Understanding("aktar", dahili="1234").problem("bin dört yüz bire bağlayın", names)
+    assert Understanding("aktar", ad="can").problem("ben ayşe, can beye bağlayın", names) is None
+
+
+def test_artan_sozcuk_olcusu():
+    a, _ = _agent({})
+    assert a.unexplained("muhasebeye bağlar mısınız") == []
+    assert a.unexplained("kaliteden merve hanımla görüşecektim") == []
+    assert len(a.unexplained("muhasebenin başındaki kişi kimse onunla görüşmek istiyorum")) >= 2
 
 
 async def test_hitap_kalipta_korunur():

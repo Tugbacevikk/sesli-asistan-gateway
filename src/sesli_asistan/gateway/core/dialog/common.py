@@ -190,6 +190,7 @@ class _Utterance:
     choice: tuple[Candidate, ...] = ()  # açık "hangisi?" sorusunun adayları (`_step_choice` alır)
     sound: tuple[Candidate, ...] = ()   # ses benzerliği adayı (`_step_mcp` bulur, `_step_sound_alike` kullanır)
     understood: bool = False            # LLM sözü kalıba çevirdi (ADR-037): adımlar kalıpla yeniden, son adım kural
+    asked: bool = False                 # bu söz için LLM'e soruldu (ADR-037): ikinci kez sorulmaz
 
     def reopen(self, s: DialogSession) -> None:
         s.state.confirm, s.state.confirm_suggested = self.confirm, self.suggested if self.confirm else False

@@ -38,7 +38,7 @@ SETS = {  # kısa ad → (set, rehber)
     "genel": ("diyalog_seti.yaml", ""),
 }
 MODES = ("kural", "normal", "anlama")
-_ID = re.compile(r"^\[([^\]]+)\] (anlama .*)$")
+_ID = re.compile(r"^\[([^\]]+)\] (anlama.*)$")
 
 
 class UnderstandingLog(logging.Handler):

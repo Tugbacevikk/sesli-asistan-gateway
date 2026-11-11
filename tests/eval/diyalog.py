@@ -89,6 +89,18 @@ class CountingLlm:
         finally:
             self.times.append(time.perf_counter() - t)
 
+    def __getattr__(self, name):
+        if name == "chat_json" and hasattr(self.inner, "chat_json"):   # anlama kipi (ADR-037): sayılarak geçer
+            async def chat_json(messages, max_tokens=160):
+                self.calls += 1
+                t = time.perf_counter()
+                try:
+                    return await self.inner.chat_json(messages, max_tokens)
+                finally:
+                    self.times.append(time.perf_counter() - t)
+            return chat_json
+        raise AttributeError(name)
+
 
 async def run_scenario(agent, sc: dict[str, Any], allowed: set[str] | None = None) -> dict[str, Any]:
     session = agent.new_session(sc["id"])

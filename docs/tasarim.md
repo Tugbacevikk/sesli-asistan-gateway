@@ -2009,6 +2009,14 @@ ondan bağımsızdır.
   kipte 0. Bilinen sözler kalıpta bozuldu ("muhasebeden merve hanım" hitabını yitirip birim hattına gitti), açık
   soru cevapları LLM'den geçince çözülemedi, çağrıların bir kısmı 5 sn sınırını aştı. Bu yüzden ikinci sürüm:
   kurallar önce, LLM yalnız son adımda; açık soru cevapları kurala; kalıpta hitap korunur; istem kısaltıldı.
+- **Ölçüm 2 (ikinci sürüm):** şirket seti anlama %91,7 (normal kiple eşit), bilinen sözlerde p50 0,03 sn; serbest
+  set kural %45,8, anlama %50. LLM çağrılarının çoğu 5 sn sınırına takıldı (başarılılar da ~4,9 sn); yanlış ama
+  emin kurallar (F01, F07, F09, F17) LLM'e hiç ulaşmadı; LLM bir birim uydurdu (R18 "kreş") ve bir adı atladı (R10).
+  Bu yüzden üçüncü sürüm: (1) **kanıt gücü:** rehberle, istek kalıplarıyla ve dolgu sözcükleriyle açıklanamayan
+  en az 2 sözcük ("artan sözcük", `unexplained`) ya da "değil" varsa söz adımlardan önce LLM'e gider; (2) **uydurma
+  denetimi:** LLM'in ad, soyad, birim ve dahilisi sözde geçmeli, sözdeki rehber adı atlanmamalı
+  (`Understanding.problem`), değilse kural yolu; unvan serbest (tarif, eş anlam); (3) Ollama `format: json`, kısa
+  çıktı sınırı ve süre dökümü (istem / üretim / yükleme) logda; (4) bir söz için en çok bir LLM çağrısı.
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.
