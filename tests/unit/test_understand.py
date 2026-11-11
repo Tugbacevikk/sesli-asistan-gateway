@@ -214,3 +214,28 @@ async def test_hedefsiz_aktar_tahmini_birimle_sorulur():
     turn = await _turn("bilgisayarım açılmıyor yardım edebilecek birini arıyorum",
                        {"niyet": "aktar", "konu": "bilgisayar", "tahmini_birim": "Teknik Destek"})
     assert not turn.actions and "Teknik Destek" in turn.text
+
+
+def test_sozde_olmayan_unvan_atilir_tarifle_kalir():
+    names = frozenset({"zafer"})
+
+    def unit_said(_):
+        return True
+
+    made_up = Understanding("aktar", unvan="müdür", birim="trafik")       # ölçüm 5, D20: uydurma unvan
+    assert made_up.repaired("trafikten zafer geçmiş ile görüşecektim", names, frozenset(), unit_said)[0].unvan == ""
+    described = Understanding("aktar", unvan="müdür", birim="muhasebe")   # tarif sözcüğü: unvan kalır
+    assert described.repaired("muhasebenin başındaki kişi", names, frozenset(), unit_said)[0].unvan == "müdür"
+    synonym = Understanding("aktar", unvan="asistan", birim="genel müdürlük")
+    assert synonym.repaired("genel müdürün sekreterine", names, frozenset(), unit_said)[0].unvan == "asistan"
+
+
+async def test_kural_turu_bulursa_llm_cagrilmaz_bulamazsa_iz_birakmaz():
+    a, llm = _agent({})
+    s = a.new_session("u8")
+    s.greeting()
+    before = s.state.failed_attempts
+    assert a._rule_if_found(s, "zzz qqq") is None
+    assert s.state.failed_attempts == before
+    found = a._rule_if_found(s, "satış müdürü")
+    assert found is not None and llm.calls == 0
