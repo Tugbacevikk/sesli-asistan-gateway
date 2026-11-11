@@ -164,7 +164,8 @@ class DialogConfig:
     prompt_departments: int = 0              # ADR-024: isteme kurumun birim listesi (en çok bu kadar); 0: yok
     few_shot: bool = False                   # ADR-024: isteme örnek konuşmalar (FEW_SHOT)
     small_talk: bool = False                 # ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir
-    # ADR-037 (deneme): "llm" → kuralların çözemediği söz LLM'le kalıba çevrilir (understand.py); "kural": kapalı
+    # ADR-037: "llm" → kuralların çözemediği söz LLM'le kalıba çevrilir (understand.py); "kural": kapalı (eski
+    # araçlı LLM döngüsü). Çekirdek varsayılanı pasif kalır; ürün varsayılanı `GatewaySettings.understand_mode`.
     understand: str = "kural"
     # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
     # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.

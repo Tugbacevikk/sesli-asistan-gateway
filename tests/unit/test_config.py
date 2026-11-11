@@ -36,3 +36,12 @@ def test_metin_ortam_degiskeninden(monkeypatch):
 def test_gecersiz_ayar_servisi_baslatmaz(kw):
     with pytest.raises(ValidationError):
         settings(**kw)
+
+
+def test_anlama_kipi_varsayilan_llm_ve_ajana_gecer():
+    """ADR-037 (ölçüm 7): varsayılan `llm`; `kural` eski araçlı LLM döngüsüne döner."""
+    s = GatewaySettings(_env_file=None)
+    assert s.understand_mode == "llm"
+    assert build_agent(s, build_directory(s), llm=object()).cfg.understand == "llm"
+    kural = GatewaySettings(_env_file=None, understand_mode="kural")
+    assert build_agent(kural, build_directory(kural), llm=object()).cfg.understand == "kural"

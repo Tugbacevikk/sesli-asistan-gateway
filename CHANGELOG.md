@@ -15,7 +15,7 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
-- "LLM gerektiğinde anlar" kipi (ADR-037, deneme, `UNDERSTAND_MODE=llm`; varsayılan kapalı): kuralların çözemediği söz
+- "LLM gerektiğinde anlar" kipi (ADR-037, `UNDERSTAND_MODE`, **varsayılan `llm`**): kuralların çözemediği söz
   araçlı LLM döngüsü yerine tek çağrıyla yapılandırılmış bilgiye çevrilir, karar ve aktarma güvenlik kuralı kodda kalır.
   İlk sürüm (her söz önce LLM'e) ölçümde bilinen sözleri bozdu ve yavaştı; ikinci sürümde kurallar önce. Üçüncü
   sürüm: kanıtı zayıf söz ("artan sözcük", "değil") önce LLM'e; LLM'in uydurduğu ya da atladığı alan reddedilir;
