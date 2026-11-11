@@ -37,11 +37,16 @@ TITLE_SYNONYMS = {"sekreter": "asistan", "mudire": "mudur", "sef": "lider", "pat
 def _title_words(text: str) -> list[str]:
     """Unvan araması için sözcükler: katlanmış, unvan ve rütbe sözcükleri **atılmaz** ("avukat", "uzmanı",
     "astsubayı" makam hattında asıl sözcüktür; ad aramasında hitap gibi atılırlar); kendini tanıtma ve istek sözleri
-    atılır. Eş anlamlı unvan sözde geçerse karşılığı da eklenir ("sekreterine" → "asistan", ölçüm 7 F02)."""
+    atılır. Eş anlamlı unvan (`title_synonym`) sözcüğün yerinde kabul edilir, listeye eklenmez: unvan araması
+    sözcüklerin **sırasına** bakar ("genel müdürün sekreterine" → "genel müdür asistanı")."""
     raw = fold_words(text)
     drop = {raw[i + 1] for i, w in enumerate(raw[:-1]) if w in _SELF}
-    out = [w for w in raw if w not in drop and w not in _SELF and w not in _SOUND_STOP]
-    return out + [v for w in out for k, v in TITLE_SYNONYMS.items() if w.startswith(k) and v not in out]
+    return [w for w in raw if w not in drop and w not in _SELF and w not in _SOUND_STOP]
+
+
+def title_synonym(word: str) -> str:
+    """Arayanın kullandığı unvanın rehberdeki karşılığı; eş anlamlı değilse sözcüğün kendisi."""
+    return next((v for k, v in TITLE_SYNONYMS.items() if word.startswith(k)), word)
 
 
 def _cached(index: DirectoryIndex, name: str, build: Any) -> Any:

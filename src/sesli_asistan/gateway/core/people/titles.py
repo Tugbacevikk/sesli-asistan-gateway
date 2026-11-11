@@ -16,7 +16,14 @@ from .common import (
     _bucket,
     _cached,
     _title_words,
+    title_synonym,
 )
+
+
+def _same(said: str, vocab: set[str]) -> bool:
+    """Söz sözcüğü kayıtta geçiyor mu: kendisi ya da eş anlamlısı ("sekreterine" → Asistanı, ölçüm 7 F02)."""
+    syn = title_synonym(said)
+    return any(same_word(said, v) or (syn != said and same_word(syn, v)) for v in vocab)
 
 
 def _title_table(index: DirectoryIndex) -> list[tuple[Contact, set[str], set[str]]]:
@@ -137,15 +144,17 @@ def _coverage_hits(index: DirectoryIndex, words: list[str], exact_single: bool =
     people = _title_table(index)                       # kişi ve makam hattı
     buckets = _title_buckets(index)
     for i in reversed(range(len(words))):        # Türkçede unvanın başı sonda: "komutan yardımcısı" → yardımcı
-        if not is_role_word(words[i]):
+        if not (is_role_word(words[i]) or is_role_word(title_synonym(words[i]))):
             continue
         for n in range(min(8, i + 1), 0, -1):
             said = words[i - n + 1:i + 1]
             # (unvanında geçen söz sayısı, unvanında sözde geçmeyen sözcük sayısı): "emniyet müdürü" → İl Emniyet
             # Müdürü (emniyet unvanında), Trafik Şube Müdürü değil (emniyet yalnız biriminde)
-            rows = set.intersection(*(buckets.get(_bucket(s), set()) for s in said))   # olası kayıtlar
+            # olası kayıtlar: eş anlamlı sözcük başka kovaya düşer, ikisi de alınır
+            rows = set.intersection(*(buckets.get(_bucket(s), set()) | buckets.get(_bucket(title_synonym(s)), set())
+                                      for s in said))
             raw = [(c, title, vocab) for c, title, vocab in (people[r] for r in sorted(rows))
-                   if all(any(same_word(s, v) for v in vocab) for s in said)]
+                   if all(_same(s, vocab) for s in said)]
             if not raw:
                 continue
             prefix = [w for w in words[:i - n + 1] if len(w) >= 3]
