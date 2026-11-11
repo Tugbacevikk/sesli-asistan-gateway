@@ -6,6 +6,7 @@ from pathlib import Path
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig
 from sesli_asistan.gateway.core.models import Contact
 from sesli_asistan.gateway.core.people import resolve_person, same_title
+from sesli_asistan.gateway.core.people.common import _title_words
 from sesli_asistan.gateway.core.search import DirectoryIndex
 from sesli_asistan.gateway.core.tools import ToolRegistry
 
@@ -30,6 +31,7 @@ async def test_tani(caplog):
         adim = [r.getMessage() for r in caplog.records if "adım" in r.getMessage()]
         st = [f"{c.extension} {c.title} ({c.department})" for c in same_title(idx, said)]
         res = resolve_person(idx, said)
-        rapor.append({"soz": said, "cevap": turn.text, "adim": adim, "same_title": st,
+        rapor.append({"soz": said, "cevap": turn.text, "adim": adim, "same_title_n": len(st),
+                      "title_words": _title_words(said),
                       "resolve": [(x.get("neden"), x["id"]) for x in res["adaylar"]], "kesin": res["kesin"]})
     raise AssertionError(json.dumps(rapor, ensure_ascii=False, indent=1))

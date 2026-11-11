@@ -145,10 +145,10 @@ class StepsMixin:
         return None
 
     def _title_only_lines(self: DialogAgent, text: str, numbers: list[str]) -> bool:
-        """Sözde kesin bir unvan var ("bilgi işlem müdürü") ve unvan sözcükleri atılınca geriye tek hedef kalıyor:
-        öbür "hedef" unvan sözünün bir birim adına benzemesinden ("müdürü" ~ Genel Müdürlük; diyalog seti R12)."""
-        res = resolve_person(self.tools.index, text)
-        if not (res["kesin"] and sum(a.get("neden") == "unvan" for a in res["adaylar"]) == 1):
+        """Sözde unvan var ("bilgi işlem müdürü", "kaliteden sorumlu müdür") ve unvan sözcükleri atılınca geriye tek
+        hedef kalıyor: öbür "hedef" unvan sözünün bir birim adına benzemesinden ("müdürü" ~ Genel Müdürlük; diyalog
+        seti R12, R25). Unvanın tek kişiye uyması gerekmez: "müdür" her birimde var, hedefi söylenen birim belirler."""
+        if not has_role_word(text):
             return False
         core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
         return len(mentioned_targets(self.tools.index, core, numbers).contacts) <= 1
