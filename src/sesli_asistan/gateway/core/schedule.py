@@ -75,7 +75,7 @@ class OfficeHours:
                     raise ValueError(f"saat aralığı eksik: {block!r} (ör. 'pzt-cum 08:30-18:00')")
                 if "-" in head:
                     a, b = (_day(x) for x in head.split("-", 1))
-                    sel = list(range(a, b + 1)) if a <= b else [*range(a, 7), *range(0, b + 1)]
+                    sel = list(range(a, b + 1)) if a <= b else [*range(a, 7), *range(b + 1)]
                 else:
                     sel = [_day(head)]
                 for span in filter(None, (s.strip() for s in spans.split(","))):

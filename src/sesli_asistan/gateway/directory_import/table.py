@@ -82,8 +82,8 @@ def _read_xlsx(data: bytes) -> list[list[str]]:
             raise ValueError("Excel dosyasında ilk sayfa bulunamadı")
         shared: list[str] = []
         if "xl/sharedStrings.xml" in names:
-            for si in _xml(z, "xl/sharedStrings.xml").findall("m:si", _NS):
-                shared.append("".join(t.text or "" for t in si.iter(f"{{{_NS['m']}}}t")))
+            shared.extend("".join(t.text or "" for t in si.iter(f"{{{_NS['m']}}}t"))
+                          for si in _xml(z, "xl/sharedStrings.xml").findall("m:si", _NS))
         rows: list[list[str]] = []
         for row in _xml(z, path).iter(f"{{{_NS['m']}}}row"):
             cells: dict[int, str] = {}

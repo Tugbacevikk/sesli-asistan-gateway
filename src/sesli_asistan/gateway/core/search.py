@@ -28,14 +28,14 @@ from .models import Candidate, Contact, Match, SearchResult
 # Unvanlar ve hitaplar: eşleşmede ad değildir, atılır (Ek C madde 3–4)
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",
            "op", "operator", "muh", "muhendis", "ogr", "gor", "sayin"}
-_HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
+HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
 # Askerî ve emniyet rütbeleri: hitap gibi atılır ("Mehmet Albay", "Albay Mehmet Kaya" → "mehmet kaya"). "Er" yok:
 # soyadı olarak da geçer.
-_RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzbasi", "binbasi",
+RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzbasi", "binbasi",
           "yarbay", "albay", "tuggeneral", "tumgeneral", "korgeneral", "orgeneral", "kurmay", "komiser", "baskomiser"}
 # Genel birim sözcükleri: "satış departmanı", "finans birimi" → "satış", "finans"
 _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
-_STOP = _TITLES | _HONORIFICS | _RANKS | _GENERIC
+_STOP = _TITLES | HONORIFICS | RANKS | _GENERIC
 
 # Çok sözcüklü birim adlarında geçen, tek başına birim anlamına gelmeyen sık sözcükler (katlanmış): "bilgi almak",
 # "insan" (İnsan Kaynakları), "genel" (Genel Müdürlük), "mali" (Mali İşler). "su": katlanınca "şu" ile aynı ("şu kişiyle
@@ -68,6 +68,16 @@ _ROLE_STEMS = ("mudur", "uzman", "sorumlu", "yonetici", "direktor", "asistan", "
                "isletmen", "sofor", "teknisyen", "tekniker", "muhendis", "avukat", "musavir", "memur", "danisman",
                "gorevli", "kontrolor", "analist", "veznedar", "hemsire", "doktor", "tabip", "ogretmen")
 _INSTITUTION = ("lig", "lug", "lik", "luk")
+
+# Birim adlarının ayırt edici olmayan sözcükleri (katlanmış): "Muhasebe Müdürlüğü", "Asayiş Şubesi", "Teftiş Kurulu".
+# Tek liste: unvanla daraltma (people.titles), "rehberde yok" teyidi (dialog.llm), kişi adı sayılmayan sözcükler
+# (directory_import) aynı kümeyi kullanır; önceden dört ayrı listeydi, birine eklenen öbürlerinde eksik kalıyordu.
+UNIT_NOUNS = frozenset({
+    "mudurlugu", "mudurluk", "baskanligi", "baskanlik", "bakanligi", "komutanligi", "komutanlik", "daire", "dairesi",
+    "sube", "subesi", "kurulu", "merkezi", "grup", "kisim", "buro", "burosu", "servisi", "tesis", "tesisi", "makami",
+    "birim", "birimi", "bolum", "bolumu", "departman", "departmani"})
+# yer / kapsam sözcükleri: birim adında geçer ama ayırt etmez ("İl Jandarma", "Genel Müdürlük")
+PLACE_WORDS = frozenset({"il", "ilce", "genel", "merkez", "bolge"})
 
 
 def is_role_word(word: str) -> bool:
@@ -446,9 +456,9 @@ def _extends_word(q: str, k: str) -> bool:
     kws = k.split()
     for w in q.split():
         for kw in kws:
-            if len(kw) >= 3 and len(w) > len(kw) and w.startswith(kw) and w[len(kw):] not in _ENDINGS:
-                if w not in kws:
-                    return True
+            if (len(kw) >= 3 and len(w) > len(kw) and w.startswith(kw) and w[len(kw):] not in _ENDINGS
+                    and w not in kws):
+                return True
     return False
 
 

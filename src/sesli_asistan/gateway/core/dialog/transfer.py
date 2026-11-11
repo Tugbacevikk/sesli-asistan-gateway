@@ -7,13 +7,12 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
 from ..models import Candidate, DialogTurn, OperatorAction
 from ..phrases import (
-    _NEGATION,
-    _YES,
-    _folded_words,
+    NEGATION_WORDS,
+    YES_WORDS,
     asks_operator,
     contact_dative,
     question_particle,
@@ -72,10 +71,10 @@ class TransferMixin:
         rehberde görünmez) yerine "Komutan Yardımcısı"na aktarılıyordu (demo seti D16). Kurumun birim hattına
         (ADR-025) gidilir; o da yoksa teyit sorulur."""
         # yalnız kişisiz makam hattı: kişi adıyla bulunan "Vali Yardımcısı Kemal Bey" bu kurala girmez
-        if contact.kind != "role" or not any(w.startswith("yardimci") for w in _folded_words(contact.title)):
+        if contact.kind != "role" or not any(w.startswith("yardimci") for w in fold_tr_words(contact.title)):
             return None
         text = _last_user(s)
-        if any(w.startswith("yardimci") for w in _folded_words(text)):
+        if any(w.startswith("yardimci") for w in fold_tr_words(text)):
             return None
         log.info("[%s] istenen makam değil yardımcısı bulundu (%s): birim hattına", s.call_id, contact.title)
         pick = self._unit_line(contact)
@@ -87,9 +86,9 @@ class TransferMixin:
         """Belgegeçer / faks hattı istendi ("emniyet faks hattı"): o hat aktarılamaz (rehberde görünmez) ve söz birimin
         genel hattına sessizce aktarılıyordu (demo seti D18). Cümle söylenir, birim hattı teyitle sorulur."""
         text = _last_user(s)
-        if not any(w.startswith(("faks", "fax", "belgegecer", "belge gecer")) for w in _folded_words(text)):
+        if not any(w.startswith(("faks", "fax", "belgegecer", "belge gecer")) for w in fold_tr_words(text)):
             return None
-        if any(w.startswith(("faks", "fax", "belgegecer")) for w in _folded_words(contact.title)):
+        if any(w.startswith(("faks", "fax", "belgegecer")) for w in fold_tr_words(contact.title)):
             return None                 # aktarılabilir bir faks hattı varsa (kurum öyle tanımladıysa) ona gidilir
         log.info("[%s] belgegeçer hattı istendi: %s teyit ediliyor", s.call_id, contact.full_name)
         turn = self._confirm(s, contact, why="belgegeçer hattı")
@@ -110,7 +109,7 @@ class TransferMixin:
 
     def _unsure(self: DialogAgent, s: DialogSession) -> bool:
         c = s.stt_confidence
-        return c is not None and 0 < self.cfg.confirm_below and c < self.cfg.confirm_below
+        return c is not None and self.cfg.confirm_below > 0 and c < self.cfg.confirm_below
 
     def _confirm(self: DialogAgent, s: DialogSession, contact: Any, why: str = "") -> DialogTurn:
         """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar
@@ -128,18 +127,19 @@ class TransferMixin:
                          suggested: bool = False) -> DialogTurn | None:
         """Teyit sorusunun cevabı: evet → aktar; "hayır, Y" → Y aranır; yeni istek (kişi, birim, operatör, kapatma) →
         normal akış; geri kalan her şey (hayır, anlaşılmayan kısa söz) → bulamadım. Açık "evet" olmadan aktarılmaz."""
-        raw = set(_folded_words(text))
-        if raw & _NEGATION or raw & {"yanlis", "degil"}:
+        raw = set(fold_tr_words(text))
+        if raw & NEGATION_WORDS or raw & {"yanlis", "degil"}:
             if not self._mentions_person_or_department(text):
                 # öneri (konudan birim) reddedildi → "Peki, kiminle?"; yanlış duyulan ad → "adını tekrar söyler misiniz"
                 return self._declined(s) if suggested else self._not_found(s)
             # "hayır, Elif Şahin": düzeltme — olumsuzluk atılıp söylenen ad hızlı yolla aranır (yoksa LLM)
-            rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
-                            _NEGATION | {"yanlis", "degil"})
+            rest = " ".join(w for w in text.split() if fold_tr_words(w) and fold_tr_words(w)[0] not in
+                            NEGATION_WORDS | {"yanlis", "degil"})
             return self._fast_path(s, rest) if self.cfg.fast_path and rest else None
         if asks_operator(text) or wants_hangup(text):
             return None                                # yeni bir istek ("operatöre bağlayın"): normal akış
-        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
+        if raw & YES_WORDS or (len(raw) <= 2
+                               and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
             return self._code_transfer(s, cand, confirmed=True)
         if self._mentions_person_or_department(text):
             return None                                # başka bir ad / birim söyledi: normal akış
@@ -159,15 +159,16 @@ class TransferMixin:
 
     def _resolve_operator_confirm(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
         """Evet → operatör; hayır → bulamadım; başka bir istek (ad, birim, kapatma) → normal akış."""
-        raw = set(_folded_words(text))
-        if raw & _YES or (len(raw) <= 2 and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
+        raw = set(fold_tr_words(text))
+        if raw & YES_WORDS or (len(raw) <= 2
+                               and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
             return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
-        if raw & _NEGATION or raw & {"yanlis"}:
+        if raw & NEGATION_WORDS or raw & {"yanlis"}:
             if not self._mentions_person_or_department(text):
                 return self._not_found(s)
             # "hayır, Elif Şahin": olumsuzluk atılıp ad hızlı yolla aranır (yoksa LLM)
-            rest = " ".join(w for w in text.split() if _folded_words(w) and _folded_words(w)[0] not in
-                            _NEGATION | {"yanlis"})
+            rest = " ".join(w for w in text.split() if fold_tr_words(w) and fold_tr_words(w)[0] not in
+                            NEGATION_WORDS | {"yanlis"})
             return self._fast_path(s, rest) if rest else None
         return None
 
@@ -197,7 +198,7 @@ class TransferMixin:
         if not self._unsure(s):
             return False
         user = _last_user(s)
-        return not set(_folded_words(user)) & _YES
+        return not set(fold_tr_words(user)) & YES_WORDS
 
     def _confirm_llm_transfer(self: DialogAgent, s: DialogSession, call: ToolCall) -> DialogTurn | None:
         """LLM düşük güvenli sözle aktarmak istedi: aktarma yerine kodla teyit sorusu. Santral denemesi (02.11.2026):
@@ -236,7 +237,7 @@ class TransferMixin:
         users = [m["content"] for m in s.history if m["role"] == "user" and m.get("content")]
         user = " ".join(users[-1:] if last_only else users)
         said = search_key(user).split()
-        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
+        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(fold_tr_words(user))}:
             return True
         names = (contact.first_name, contact.last_name, *contact.aliases, contact.title, contact.department,
                  *contact.department_aliases)
@@ -266,7 +267,7 @@ class TransferMixin:
         hattında birimin adı, ya da dahili numarası. Birim sözcüğü kişiyi yeniden istemek sayılmaz ("biraz bilgi
         lazım" ≠ Bilgi İşlem'deki Can Öztürk)."""
         user = _last_user(s)
-        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}:
+        if contact.extension in {*re.findall(r"\d{2,6}", user), *spoken_numbers(fold_tr_words(user))}:
             return True
         names = ((contact.department, *contact.department_aliases) if contact.kind == "department"
                  else (contact.first_name, contact.last_name, *contact.aliases, contact.title))
@@ -398,7 +399,7 @@ class TransferMixin:
             return True
         before = next((m.get("content") or "" for m in reversed(s.history[:users[-1]]) if m["role"] == "assistant"),
                       "")
-        return "operatör" in turkish_lower(before) and bool(set(_folded_words(user)) & _YES)
+        return "operatör" in turkish_lower(before) and bool(set(fold_tr_words(user)) & YES_WORDS)
 
     def _operator(self: DialogAgent, s: DialogSession, text: str, reason: str) -> DialogTurn:
         s.state.actions = []

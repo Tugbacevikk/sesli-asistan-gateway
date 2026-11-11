@@ -6,6 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
+from sesli_asistan.libs.text.normalizer import fold_tr_words
 
 from .. import units
 from ..models import Candidate, DialogTurn, Match
@@ -16,19 +17,18 @@ from ..people import (
     resolve_person,
     same_title,
 )
-from ..people.common import _without_self
-from ..people.names import _name_said
+from ..people.common import without_self
+from ..people.names import name_said
 from ..phrases import (
-    _FAST_BLOCK,
-    _NEGATION,
-    _ORDINALS,
-    _YES,
-    _folded_words,
-    _vowel_mask,
+    FAST_BLOCK,
+    NEGATION_WORDS,
+    ORDINALS,
+    YES_WORDS,
     ablative,
     contact_dative,
     question_particle,
     spoken_numbers,
+    vowel_mask,
     wants_anyone,
     which_question,
 )
@@ -90,7 +90,7 @@ class ChoiceMixin:
                 q = (f"{unit} bünyesinde hangi şubedeki {unvan}?" if unit
                      else self.cfg.texts.which_department.format(unvan=unvan))
             else:
-                sub = any(w in _folded_words(unit) for w in ("sube", "subesi", "buro", "kisim"))
+                sub = any(w in fold_tr_words(unit) for w in ("sube", "subesi", "buro", "kisim"))
                 q = (f"{unit} bünyesinde hangi görevli veya unvanla görüşmek istersiniz?" if sub
                      else f"{unit} bünyesinde hangi şube veya görevliyle görüşmek istersiniz?")
             log.info("[%s] aynı unvanlı %d hat (%s): birim soruluyor", s.call_id, len(cands), unvan or unit)
@@ -198,7 +198,7 @@ class ChoiceMixin:
         """Sözde yalnızca birden çok kişiye uyan bir ad var ("ayşe hanım"): LLM beklemeden sorulur. Sözde bir birim,
         unvan ya da olumsuzluk varsa LLM'e bırakılır (birimle birlikte arama gerekir)."""
         words = search_key(text).split()
-        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+        if not words or FAST_BLOCK & set(words) or any(strip_suffix(w) in FAST_BLOCK for w in words):
             return None
         if has_role_word(text) or self._mentions_department(words):
             return None
@@ -233,8 +233,8 @@ class ChoiceMixin:
         """Sorulan adaylardan birini cevaptan seçer: birim ("muhasebedeki"), soyad ("Yılmaz"), tam ad ya da sıra
         ("ilki", "ikincisi"). Tek aday seçilmezse ya da arayan reddederse None: LLM devam eder."""
         words = search_key(text).split()
-        raw = set(_folded_words(text))
-        if raw & {"hicbiri", "hicbirisi", "hicbirine"} or ({"ikisi", "ucu"} & raw and raw & _NEGATION):
+        raw = set(fold_tr_words(text))
+        if raw & {"hicbiri", "hicbirisi", "hicbirine"} or ({"ikisi", "ucu"} & raw and raw & NEGATION_WORDS):
             # "hiçbiri", "ikisi de değil": sorulanlar arasında yok → kodla "bulamadım" (LLM turu beklenmez)
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
@@ -244,11 +244,11 @@ class ChoiceMixin:
             # Soru sözcüğü ("kim") denetiminden önce: o denetim sözü LLM'e bırakıyordu
             log.info("[%s] seçim: herhangi biri (%d aday)", s.call_id, len(choice))
             return self._transfer_in_order(s, choice, text)
-        if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
+        if not raw or FAST_BLOCK & raw or any(strip_suffix(w) in FAST_BLOCK for w in raw):
             return None
         if (turn := self._choice_by_title(s, text, choice)) is not None:
             return turn
-        if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(_ORDINALS)):
+        if any(c.contact.kind == "role" for c in choice) and not (set(words) & set(ORDINALS)):
             decided, turn = self._choice_by_unit(s, text, words, choice)
             if decided:
                 return turn
@@ -286,7 +286,7 @@ class ChoiceMixin:
         Birinciye (dahili sırasıyla) aktarılır; meşgul / cevapsızsa santral sonucuyla sıradakine geçilir
         (`handle_transfer_result`). Hepsi bu çağrıda ulaşılamadıysa operatör. Karar 10.11.2026 (S35)."""
         named = [c for c in cands if c.contact.kind == "person" and c.contact.full_name.strip()]
-        said = [c for c in named if _name_said(c.contact, _without_self(text))]
+        said = [c for c in named if name_said(c.contact, without_self(text))]
         if len(said) == 1 and (picked := self._choice_transfer(s, said[0], cands, text, "unvan + ad")) is not None:
             return picked                     # unvan + ad aynı sözde ("Ar-Ge mühendisi Volkan"): soru sorulmaz
         if named:
@@ -340,7 +340,7 @@ class ChoiceMixin:
                          choice: tuple[Candidate, ...]) -> DialogTurn | None:
         """Ad, soyad, birim ya da sıra sözcüğüyle ("ikincisi") tek aday."""
         picked = {i for i in range(len(choice)) if _choice_said(choice, i, words)}
-        for word, idx in _ORDINALS.items():
+        for word, idx in ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):
                 picked.add(idx % len(choice))
         if not picked:
@@ -384,8 +384,8 @@ class ChoiceMixin:
         sorusunun adaylarından birini söylüyor ya da açık teyide evet / hayır diyor. Arka plan süzgeci (çağrı
         oturumu) yalnız ilgisiz kısık sözleri atar: canlı deneme 10.11.2026'da arayanın ilk sözünden 17 dB kısık
         gelen "satış birimi" cevabı (STT: "satış bizimi", "satış filmi") arka plan sayılıp iki kez atıldı."""
-        ix, words = self.tools.index, _folded_words(text)
-        if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (_YES | _NEGATION):
+        ix, words = self.tools.index, fold_tr_words(text)
+        if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (YES_WORDS | NEGATION_WORDS):
             return True
         if s.state.choice and (any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice)))
                                or wants_anyone(text)):
@@ -421,7 +421,7 @@ class ChoiceMixin:
             sim = max((similarity(v, last) for w in long_words for v in query_variants(w)), default=0.0)
             # aynı sesle biten bozuk duyuş, ünlü uyumu dahil: "yılmaz" → "yaramaz", "duymaz", "yüzmez", "gülmez"
             # (mihu, canlı 03.11.2026)
-            ending = any(len(last) >= 4 and _vowel_mask(w)[-3:] == _vowel_mask(last)[-3:] for w in long_words)
+            ending = any(len(last) >= 4 and vowel_mask(w)[-3:] == vowel_mask(last)[-3:] for w in long_words)
             return round(max(sim, FUZZY_CHOICE_MIN + 5 if ending else 0.0), 1)
 
         scores = [score(search_key(c.contact.last_name)) for c in choice]

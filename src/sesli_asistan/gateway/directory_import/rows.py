@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from ..abbreviations import Abbreviations
-from ..core.search import has_role_word, search_key
+from ..core.search import UNIT_NOUNS, has_role_word, search_key
 from .common import (
     _NO,
     _YES,
@@ -149,11 +149,10 @@ _NOT_NAMES = {"salon", "sorumlusu", "sorumlu", "nobetci", "kulubesi", "kulube", 
               "danisma", "resepsiyon", "guvenlik", "asansor", "toplanti", "salonu", "odasi", "oda", "kantin",
               "yemekhane", "revir", "arsiv", "depo", "atolye", "garaj", "bakanliklar", "giyinme", "sekreterlik",
               "kalem", "kalemi", "belgegecer", "faks", "fax", "makam", "bekleme", "operator", "nizamiye",
-              "komutanligi", "baskanligi", "mudurlugu", "daire", "kurulu", "merkezi",
               "ariza", "berber", "kuafor", "terzi", "marangoz", "bahcivan", "cayci", "ocagi", "pastane",
               "kafeterya", "mutfak", "kiler", "camasirci", "temizlikci", "kaloriferci", "elektrikci", "tesisatci",
               "dosemeci", "jeneratorcu", "kaynakci", "boyaci", "kutuphane", "banka", "sigorta",
-              "itfaiye", "silahlik", "kres", "dershane", "rezervasyon", "sevk", "kita"}
+              "itfaiye", "silahlik", "kres", "dershane", "rezervasyon", "sevk", "kita"} | UNIT_NOUNS
 
 
 _FAX = re.compile(r"\b(belgegecer|faks|fax)\b")

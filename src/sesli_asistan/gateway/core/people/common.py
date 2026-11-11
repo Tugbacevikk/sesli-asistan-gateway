@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from ..search import (
-    _HONORIFICS,
-    _RANKS,
+    HONORIFICS,
+    RANKS,
     DirectoryIndex,
     fold_words,
     search_key,
@@ -19,14 +19,14 @@ MAX_CANDIDATES = MAX_PERSON_CANDIDATES
 _SELF = {"ben", "adim", "ismim", "benim"}
 
 
-_HONORIFIC_WORDS = _HONORIFICS | _RANKS
+_HONORIFIC_WORDS = HONORIFICS | RANKS
 
 
-def _without_self(text: str) -> list[str]:
+def without_self(text: str) -> list[str]:
     """Arama sözcükleri; kendini tanıtma ("ben mehmet", "adım ali") ardındaki sözcük atılır."""
     raw = fold_words(text)
     drop = {raw[i + 1] for i, w in enumerate(raw[:-1]) if w in _SELF}
-    return [w for w in search_key(" ".join(w for w in raw if w not in drop)).split()]
+    return list(search_key(" ".join(w for w in raw if w not in drop)).split())
 
 
 def _title_words(text: str) -> list[str]:

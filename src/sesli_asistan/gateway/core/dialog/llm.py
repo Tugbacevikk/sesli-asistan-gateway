@@ -253,7 +253,8 @@ class LlmMixin:
                      and (m.get("content") or "").strip()), "")
 
 
-# birim adlarında ayırt edici olmayan sözcükler (katlanmış): bunlar eksik diye teyit sorulmaz
+# birim adlarında ayırt edici olmayan sözcükler (katlanmış): bunlar eksik diye teyit sorulmaz. search.UNIT_NOUNS'tan
+# dar: "tesis", "servis", "kurul" burada ayırt edicidir ("jandarma sosyal tesis müdürlüğü" ≠ Jandarma santrali).
 _GENERIC_UNIT_WORDS = {"mudurlugu", "mudurluk", "mudurlugune", "baskanligi", "baskanlik", "komutanligi", "komutanlik",
                        "sube", "subesi", "birim", "birimi", "buro", "burosu", "daire", "dairesi", "il", "ilce", "genel",
                        "merkez", "merkezi", "departman", "departmani", "bolum", "bolumu"}

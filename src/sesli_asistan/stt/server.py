@@ -10,6 +10,7 @@ Sağlık: standart gRPC sağlık protokolü (`grpc.health.v1.Health`). Model yü
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 
@@ -97,10 +98,8 @@ async def serve(s: SttSettings | None = None) -> None:
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGTERM, signal.SIGINT):
-        try:
+        with contextlib.suppress(NotImplementedError):  # Windows
             loop.add_signal_handler(sig, stop.set)
-        except NotImplementedError:  # Windows
-            pass
     try:
         await stop.wait()
     finally:
@@ -112,7 +111,5 @@ def main() -> None:
     from sesli_asistan.libs.obs import setup_logging
 
     setup_logging("stt")
-    try:
+    with contextlib.suppress(KeyboardInterrupt):
         asyncio.run(serve())
-    except KeyboardInterrupt:
-        pass

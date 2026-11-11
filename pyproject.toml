@@ -88,7 +88,7 @@ line-length = 120
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "PERF", "C4", "PIE"]   # SIM…PIE: sadeleştirme (11.11.2026)
 
 # Servis sınırları kodla denetlenir (tasarim.md 4.3, ADR-003):
 #   - libs hiçbir servisi bilmez (ortak, saf kod).
@@ -122,7 +122,10 @@ forbidden_modules = ["sesli_asistan.gateway.adapters", "sesli_asistan.gateway.ap
                      "sesli_asistan.contracts", "fastapi", "uvicorn", "httpx", "grpc"]
 
 [tool.ruff.lint.per-file-ignores]
-"src/sesli_asistan/contracts/**" = ["E", "F", "W", "I", "B", "UP"]   # üretilmiş kod
+"src/sesli_asistan/contracts/**" = ["E", "F", "W", "I", "B", "UP", "SIM", "PERF", "C4", "PIE"]   # üretilmiş kod
+# sadeleştirme kuralları uygulama kodu için; testlerde okunurluk (adım adım döngü, iç içe with) önde
+"tests/**" = ["SIM", "PERF", "C4", "PIE"]
+"tools/**" = ["SIM", "PERF", "C4", "PIE"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
