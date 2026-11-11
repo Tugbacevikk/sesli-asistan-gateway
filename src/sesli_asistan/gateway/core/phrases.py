@@ -152,6 +152,17 @@ def greeting_echo(text: str) -> str | None:
     return next((reply for key, reply in _ECHO if key in said), None)
 
 
+_ANYONE = ("musait", "herhangi", "fark etmez", "farketmez", "kim olursa", "hangisi olursa", "kim varsa", "biri olur",
+           "hepsi olur", "kim bakiyorsa", "ilgilenen")
+
+
+def wants_anyone(text: str) -> bool:
+    """"Hangisi?" sorusuna "kim müsaitse", "fark etmez", "herhangi biri": sorulanlardan biri yeter (deneme 10.11.2026:
+    "Ar-Ge'den kiminle?" → "kim müsaitse" anlaşılmadı, söz LLM'e gitti, isimler sayıldı)."""
+    said = " ".join(_folded_words(text))
+    return any(k in said for k in _ANYONE)
+
+
 def is_small_talk(text: str) -> bool:
     """Selamın ötesinde hal hatır ("günaydın, nasılsınız", "naber"): sohbet açık iken LLM karşılık verir."""
     w = set(_folded_words(text))
@@ -312,6 +323,14 @@ def ablative(word: str) -> str:
     """Ayrılma hâli: Muhasebe → Muhasebeden, Satış → Satıştan, Bilgi İşlem → Bilgi İşlemden,
     İnsan Kaynakları → İnsan Kaynaklarından."""
     w = word.strip()
+    if "-" in w or (w.isupper() and len(w) > 1):
+        # kısaltma / tireli ad ("Ar-Ge", "BT"): ek kesmeyle ("Ar-Ge'den"); okunuşa göre ünlü uyumu. Ünlüsüz kısaltma
+        # harf harf okunur ("be-te"): "BT'den"
+        if not any(ch in "aeıioöuü" for ch in turkish_lower(w)):
+            return f"{w}'den"
+        last = turkish_lower(w)[-1:]
+        hard = last in set("fstkçşhp")
+        return f"{w}'" + ("t" if hard else "d") + ("a" if _last_vowel(w) in "aıou" else "e") + "n"
     last = turkish_lower(w)[-1:]
     # tamlama ("İnsan Kaynakları", "Müşteri Hizmetleri"): iyelik ekinden sonra -n- kaynaştırma → Kaynaklarından
     buffer = "n" if " " in w and last in "ıiuü" else ""

@@ -29,6 +29,7 @@ from ..phrases import (
     contact_dative,
     question_particle,
     spoken_numbers,
+    wants_anyone,
     which_question,
 )
 from ..ports import ToolCall
@@ -238,6 +239,11 @@ class ChoiceMixin:
             if self._mentions_person_or_department(text):
                 return None                            # "hiçbiri, Mehmet Demir'i arıyorum": LLM / arama
             return self._not_found(s)
+        if wants_anyone(text) and not self._mentions_person(search_key(text).split()):
+            # "kim müsaitse", "fark etmez": sorulanlardan birinciye, ulaşılamazsa sıradakine (adlı kişiler de).
+            # Soru sözcüğü ("kim") denetiminden önce: o denetim sözü LLM'e bırakıyordu
+            log.info("[%s] seçim: herhangi biri (%d aday)", s.call_id, len(choice))
+            return self._transfer_in_order(s, choice, text)
         if not raw or _FAST_BLOCK & raw or any(strip_suffix(w) in _FAST_BLOCK for w in raw):
             return None
         if (turn := self._choice_by_title(s, text, choice)) is not None:
@@ -293,13 +299,19 @@ class ChoiceMixin:
             ask = self._reply(s, q)
             ask.fast = True
             return ask
+        return self._transfer_in_order(s, cands, text)
+
+    def _transfer_in_order(self: DialogAgent, s: DialogSession, cands: tuple[Candidate, ...],
+                           text: str) -> DialogTurn:
+        """Adaylardan birinciye (dahili sırasıyla) aktar; meşgul / cevapsızsa `handle_transfer_result` sıradakine
+        geçer. Hepsi bu çağrıda ulaşılamadıysa operatör."""
         order = sorted((c for c in cands if c.contact.extension not in s.state.unreachable),
                        key=lambda c: c.contact.extension)
         if not order:
             return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
-        log.info("[%s] aynı unvanlı %d hat (%s): birinciye, kalanlar yedek", s.call_id, len(order),
-                 order[0].contact.title)
-        turn = self._choice_transfer(s, order[0], cands, text, "birbirinin yerine geçen hat")
+        log.info("[%s] %d hat (%s): birinciye, kalanlar yedek", s.call_id, len(order),
+                 order[0].contact.title or order[0].contact.department)
+        turn = self._choice_transfer(s, order[0], cands, text, "sırayla denenen hat")
         if turn is None:
             return self._operator(s, self.cfg.texts.indistinct, reason="ayirt_edilemedi")
         s.state.alternates = tuple(order[1:])
@@ -375,7 +387,8 @@ class ChoiceMixin:
         ix, words = self.tools.index, _folded_words(text)
         if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (_YES | _NEGATION):
             return True
-        if s.state.choice and any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice))):
+        if s.state.choice and (any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice)))
+                               or wants_anyone(text)):
             return True
         numbers = [*re.findall(r"\d{2,6}", text), *spoken_numbers(words)]
         return (department_said(ix, text) is not None or mentioned_targets(ix, text, numbers).count > 0
