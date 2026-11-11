@@ -52,7 +52,9 @@ def test_metrikler_cagridan_sonra():
     assert lines['calls_total{channel="web",outcome="transferred"}'] == 1
     assert lines['actions_total{type="transfer"}'] == 1
     assert lines['turn_latency_seconds_count{channel="web"}'] == 1
-    assert lines["llm_latency_seconds_count"] >= 1 and lines["tts_latency_seconds_count"] >= 1
+    # ADR-037: "muhasebeden ayşe hanım" kuralla çözülür, LLM hiç çağrılmaz (llm_latency 0). LLM ölçümü:
+    # test_anlama_cagrisi_olculur
+    assert lines["llm_latency_seconds_count"] == 0 and lines["tts_latency_seconds_count"] >= 1
     assert lines['dependency_up{service="stt"}'] == 1 and lines["calls_active"] == 0
     assert lines["directory_entries"] == 10 and lines["transfer_policy_rejections_total"] == 0
 
@@ -85,3 +87,29 @@ def test_gunluk_kurulumu_bicim_duzey_ve_gizli_deger_suzgeci(monkeypatch):
     finally:
         root.handlers[:] = saved[0]
         root.setLevel(saved[1])
+
+
+async def test_anlama_cagrisi_olculur():
+    """ADR-037: anlama kipinin `chat_json` çağrısı da ölçülür ve devre kesiciye girer (sarmalayıcılar
+    `__getattr__` ile iç nesneye geçirseydi görünmez kalırdı)."""
+    from sesli_asistan.gateway.core.resilience import BreakerLlm, CircuitBreaker, supports_json
+    from sesli_asistan.gateway.metrics import GatewayMetrics, TimedLlm
+
+    class Inner:
+        async def chat_json(self, messages, max_tokens=80):
+            return '{"niyet": "operator"}', "istem 1 token 1 ms"
+
+    class Duz:
+        async def chat(self, messages, tools):
+            raise AssertionError("çağrılmamalı")
+
+    m = GatewayMetrics()
+    timed = TimedLlm(Inner(), m)
+    assert supports_json(timed) and not supports_json(TimedLlm(Duz(), m))   # sarmalayıcı içteki adaptöre sorar
+    before = m.registry.get_sample_value("llm_latency_seconds_count") or 0
+    content, _ = await timed.chat_json([{"role": "user", "content": "merhaba"}])
+    assert content.startswith("{")
+    assert m.registry.get_sample_value("llm_latency_seconds_count") == before + 1
+
+    breaker = CircuitBreaker("llm", failures=1, reset_s=60)
+    assert (await BreakerLlm(Inner(), breaker).chat_json([]))[0].startswith("{")

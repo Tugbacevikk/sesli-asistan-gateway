@@ -37,6 +37,7 @@ from ..people.common import without_self
 from ..people.names import sound_alike
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
+from ..resilience import supports_json
 from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
 from ..thresholds import CHOICE_WORD
 from ..words import same_word
@@ -315,7 +316,7 @@ class UnderstandMixin:
         st = s.state
         if turn.actions or turn.ended or st.choice or st.confirm or st.confirm_operator:
             return turn
-        s.state = saved
+        s.state = saved          # miss kaydı da geri alınır: son adımdaki kural turu zaten kaydeder
         del s.history[hist:]
         return None
 
@@ -456,10 +457,11 @@ class UnderstandMixin:
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}, {"role": "user", "content": text}]
         s.llm_calls += 1
         # JSON kipi ve kısa çıktı sınırı (Ollama `format: json`, `num_predict`); adaptör desteklemiyorsa düz sohbet
-        json_chat = getattr(self.llm, "chat_json", None)
         try:
-            if json_chat is not None:
-                content, timing = await asyncio.wait_for(json_chat(messages), timeout=self.cfg.llm_timeout_s)
+            llm: Any = self.llm          # chat_json LlmPort'ta zorunlu değil (ADR-037: adaptöre bağlı)
+            if supports_json(llm):
+                content, timing = await asyncio.wait_for(llm.chat_json(messages),
+                                                         timeout=self.cfg.llm_timeout_s)
             else:
                 content, timing = (await asyncio.wait_for(self.llm.chat(messages, []),
                                                           timeout=self.cfg.llm_timeout_s)).content, ""
