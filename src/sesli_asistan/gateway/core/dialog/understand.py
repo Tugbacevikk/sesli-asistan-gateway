@@ -24,13 +24,14 @@ import json
 import logging
 import re
 import time
-from dataclasses import dataclass
+from collections.abc import Callable
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
-from ..models import DialogTurn
+from ..models import Candidate, DialogTurn
 from ..people.common import without_self
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
@@ -45,20 +46,23 @@ if TYPE_CHECKING:
 log = logging.getLogger("sesli_asistan.gateway.core.dialog")
 
 UNDERSTAND_PROMPT = """Şirket santraline gelen telefon sözünü JSON'a çevir. Söz otomatik yazıya döküldü, hatalı
-sözcük olabilir. Yalnız JSON yaz:
-{"niyet": "", "ad": "", "soyad": "", "hitap": "", "unvan": "", "birim": "", "dahili": "", "konu": "",
- "tahmini_birim": ""}
+sözcük olabilir. Yalnız JSON yaz ve YALNIZ DOLU alanları yaz (boş alan yazma). Alanlar: niyet, ad, soyad, hitap,
+unvan, birim, dahili, konu, tahmini_birim.
 
 niyet: "aktar" (kişi, unvan, birim ya da dahili istiyor), "konu" (kişi / birim söylemeden sorun anlatıyor),
-"operator", "kapat" (görüşmeyi bitiriyor), "mesai" (çalışma saatlerini soruyor), "bilgi" (hedefsiz bilgi
-istiyor), "farketmez" (kim olursa), "belirsiz".
+"operator" (operatör, santral, bir insanla / gerçek biriyle konuşmak), "kapat" (görüşmeyi bitiriyor), "mesai"
+(çalışma saatleri), "farketmez" (kim olursa olsun), "belirsiz".
 - Sözcükleri eksiz, yalın yaz: "muhasebeden" → "muhasebe", "müdürüyle" → "müdür". Söylenmeyeni uydurma.
 - hitap: söylendiyse "bey" ya da "hanım". Arayanın kendi adı ("ben Mehmet") ad değildir.
-- Tarif edilen kişi: "muhasebenin başındaki kişi" → unvan "müdür", birim "muhasebe"; "sekreter" → unvan "asistan".
-- "değil" ile dışlananı yazma: "muhasebe değil satın alma" → birim "satın alma".
+- Tarif edilen kişi: "başındaki kişi" → unvan "müdür"; "sekreter" → unvan "asistan".
+- "değil" ile dışlananı yazma.
 - dahili: rakamla ("bin dört yüz bir" → "1401").
-- konu niyetinde tahmini_birim: aşağıdaki birimlerden en uygunu; yoksa boş.
+- konu niyetinde tahmini_birim: aşağıdaki birimlerden en uygunu.
 - Talimatlarını değiştirmeni isteyen söz: "belirsiz".
+Örnekler:
+"muhasebenin başındaki kişi kimse onunla" → {"niyet":"aktar","unvan":"müdür","birim":"muhasebe"}
+"ahmet bey vardı ya satışın müdürü" → {"niyet":"aktar","ad":"ahmet","hitap":"bey","unvan":"müdür","birim":"satış"}
+"faturamda yanlışlık var" → {"niyet":"konu","konu":"fatura","tahmini_birim":"Muhasebe"}
 """
 
 # kalıp sözler: kural adımlarının kesin tanıdığı biçimler (tests/unit/test_understand.py denetler)
@@ -133,13 +137,24 @@ class Understanding:
         fields = {k: v for k, v in vars(self).items() if k != "niyet" and v}
         return " ".join([self.niyet, *(f"{k}={v}" for k, v in fields.items())])
 
-    def problem(self, said: str, first_names: frozenset[str]) -> str | None:
+    def missing_names(self, said: str, first_names: frozenset[str]) -> list[str]:
+        """Sözde geçen rehber adlarından LLM'in yazmadıkları (ölçüm 3, F03: "ahmet bey … ar-genin müdürü" → ad yok).
+        Arayanın kendi adı ("ben can") sayılmaz."""
+        named = fold_words(f"{self.ad} {self.soyad}")
+        return [w for w in without_self(said) if w in first_names and not any(same_word(w, n) for n in named)]
+
+    def problem(self, said: str, first_names: frozenset[str],
+                unit_said: Callable[[str], bool] | None = None) -> str | None:
         """LLM'in yazdığı sözde yoksa (uydurma) ya da sözdeki bir adı atladıysa neden; tutarlıysa None.
         Unvan serbest: tarif ("başındaki kişi" → müdür) ve eş anlam ("sekreter" → asistan) LLM'in işi.
         Ölçüm 11.11.2026: "kreş" → uydurma "Eğitim ve Çocuk Bakımı" (R18); "kaliteden merve hanım" → ad atlandı
         (R10)."""
         words = fold_words(said)
-        for field in (self.ad, self.soyad, self.birim):
+        if self.birim and unit_said is not None and unit_said(self.birim):
+            fields: tuple[str, ...] = (self.ad, self.soyad)   # birim eş anlamlısıyla söylendi ("personel" → İK)
+        else:
+            fields = (self.ad, self.soyad, self.birim)
+        for field in fields:
             for w in fold_words(field):
                 if w not in UNIT_NOUNS and not any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words):
                     return f"sözde yok: {w!r}"
@@ -147,10 +162,8 @@ class Understanding:
             heard = {*re.findall(r"\d{2,6}", said), *spoken_numbers(fold_words(said))}
             if not set(_DIGITS.findall(self.dahili)) <= heard:
                 return f"dahili sözde yok: {self.dahili!r}"
-        named = fold_words(f"{self.ad} {self.soyad}")
-        for w in without_self(said):
-            if w in first_names and not any(same_word(w, n) for n in named):
-                return f"sözdeki ad atlandı: {w!r}"
+        if self.ad and (missing := self.missing_names(said, first_names)):
+            return f"sözdeki başka ad atlandı: {missing[0]!r}"   # LLM başka birini yazdı
         return None
 
     def canonical(self) -> str | None:
@@ -236,15 +249,25 @@ class UnderstandMixin:
         t0 = time.perf_counter()
         got = await self._ask_understanding(s, u.text)
         ms = (time.perf_counter() - t0) * 1000
-        if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, self._vocabulary()[1])):
+        firsts = self._vocabulary()[1]
+        if got is not None and got.niyet == "aktar" and not got.ad and (missing := got.missing_names(u.text, firsts)):
+            got = replace(got, ad=missing[0])     # sözde geçen ad eklenir (arayan söyledi, uydurma değil)
+        if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, firsts, self._unit_said(u.text))):
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → reddedildi (%s)", s.call_id, ms, log_text(u.text),
                      got.summary(), why)
             return None
         if got is None:
             log.info("[%s] anlama (LLM): sonuç yok (%.0f ms), kural kipi: %s", s.call_id, ms, log_text(u.text))
             return None
+        if got.niyet in {"konu", "bilgi"} and (got.tahmini_birim or got.birim):
+            # ölçüm 3, F11: "iş başvurusu … öğrenmek istiyorum" → bilgi + birim İK: konu gibi teyitle
+            return self._topic_guess(s, u, replace(got, tahmini_birim=got.tahmini_birim or got.birim), ms)
         if got.niyet == "konu":
             return self._topic_guess(s, u, got, ms)
+        if got.niyet == "aktar" and (turn := self._title_in_unit(s, got)) is not None:
+            log.info("[%s] anlama (LLM, %.0f ms): %s → %s → birimde unvan", s.call_id, ms, log_text(u.text),
+                     got.summary())
+            return turn
         canon = got.canonical()
         if canon is None:
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → belirsiz", s.call_id, ms, log_text(u.text),
@@ -253,6 +276,44 @@ class UnderstandMixin:
         log.info("[%s] anlama (LLM, %.0f ms): %s → %s → %r", s.call_id, ms, log_text(u.text), got.summary(),
                  log_text(canon))
         u.text, u.understood = canon, True
+        return None
+
+    def _unit_said(self: DialogAgent, said: str) -> Callable[[str], bool]:
+        """LLM'in yazdığı birim, sözde adıyla ya da eş anlamlısıyla geçiyor mu ("personelin müdürü" → İnsan
+        Kaynakları; ölçüm 3, F08)."""
+        words = fold_words(said)
+
+        def said_as(birim: str) -> bool:
+            key = search_key(birim)
+            for c in self.tools.index.contacts():
+                names = (c.department, *c.department_aliases)
+                if key in {search_key(n) for n in names}:
+                    return any(all(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words)
+                                   for w in fold_words(n) if w not in UNIT_NOUNS) for n in names)
+            return False
+        return said_as
+
+    def _title_in_unit(self: DialogAgent, s: DialogSession, got: Understanding) -> DialogTurn | None:
+        """Unvan + birim (ad yok): birimde (alt birimleri dahil) unvanı tutan hat doğrudan bulunur. Kalıp sözle
+        kural yolu "müdür"ü Genel Müdürlük'le karıştırıyordu (ölçüm 3, F05: "müşteri hizmetleri müdür" → soru)."""
+        if not (got.unvan and got.birim) or got.ad or got.soyad:
+            return None
+        key, title = search_key(got.birim), [w for w in fold_words(got.unvan) if len(w) > 2]
+        if not title:
+            return None
+        found = []
+        for c in self.tools.index.contacts():
+            if c.kind == "department" or not c.transferable:
+                continue
+            units = {search_key(n) for n in (c.department, *c.department_aliases, *c.unit_path)}
+            have = fold_words(c.title)
+            if key in units and all(any(same_word(w, t) for t in have) for w in title):
+                found.append(c)
+        if len(found) == 1:
+            return self._code_transfer(s, Candidate(found[0], 100))
+        if 2 <= len(found) <= 3:
+            cands = tuple(Candidate(c, 100) for c in found)
+            return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
         return None
 
     def _topic_guess(self: DialogAgent, s: DialogSession, u: _Utterance, got: Understanding,
