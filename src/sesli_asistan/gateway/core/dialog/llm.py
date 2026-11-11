@@ -9,6 +9,8 @@ from ..models import DialogTurn
 from ..ports import LlmError, ToolCall
 from ..resilience import supports_stream
 from ..search import (
+    PLACE_WORDS,
+    UNIT_NOUNS,
     search_key,
     similarity,
 )
@@ -253,10 +255,8 @@ class LlmMixin:
                      and (m.get("content") or "").strip()), "")
 
 
-# birim adlarında ayırt edici olmayan sözcükler (katlanmış): bunlar eksik diye teyit sorulmaz
-_GENERIC_UNIT_WORDS = {"mudurlugu", "mudurluk", "mudurlugune", "baskanligi", "baskanlik", "komutanligi", "komutanlik",
-                       "sube", "subesi", "birim", "birimi", "buro", "burosu", "daire", "dairesi", "il", "ilce", "genel",
-                       "merkez", "merkezi", "departman", "departmani", "bolum", "bolumu"}
+# birim adlarında ayırt edici olmayan sözcükler: bunlar eksik diye teyit sorulmaz
+_GENERIC_UNIT_WORDS = UNIT_NOUNS | PLACE_WORDS
 
 
 def _missing_unit_words(query: str, contact: Any) -> list[str]:
@@ -264,7 +264,7 @@ def _missing_unit_words(query: str, contact: Any) -> list[str]:
     geçmeyenler. Boşsa aranan birim bulunmuştur. Yalnız arama bir birim adıysa ("… müdürlüğü", "… şubesi"): konu
     sözcükleri ("arıza kaydı" → Teknik Destek) eksik sayılmaz."""
     every = search_key(query).split()
-    if not set(every) & _GENERIC_UNIT_WORDS - {"il", "ilce", "genel", "merkez", "merkezi"}:
+    if not set(every) & UNIT_NOUNS:
         return []
     words = [w for w in every if len(w) >= 3 and w not in _GENERIC_UNIT_WORDS]
     have = search_key(" ".join([contact.department, *contact.department_aliases, contact.title])).split()

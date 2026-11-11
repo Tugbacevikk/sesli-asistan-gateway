@@ -69,6 +69,16 @@ _ROLE_STEMS = ("mudur", "uzman", "sorumlu", "yonetici", "direktor", "asistan", "
                "gorevli", "kontrolor", "analist", "veznedar", "hemsire", "doktor", "tabip", "ogretmen")
 _INSTITUTION = ("lig", "lug", "lik", "luk")
 
+# Birim adlarının ayırt edici olmayan sözcükleri (katlanmış): "Muhasebe Müdürlüğü", "Asayiş Şubesi", "Teftiş Kurulu".
+# Tek liste: unvanla daraltma (people.titles), "rehberde yok" teyidi (dialog.llm), kişi adı sayılmayan sözcükler
+# (directory_import) aynı kümeyi kullanır; önceden dört ayrı listeydi, birine eklenen öbürlerinde eksik kalıyordu.
+UNIT_NOUNS = frozenset({
+    "mudurlugu", "mudurluk", "baskanligi", "baskanlik", "bakanligi", "komutanligi", "komutanlik", "daire", "dairesi",
+    "sube", "subesi", "kurulu", "merkezi", "grup", "kisim", "buro", "burosu", "servisi", "tesis", "tesisi", "makami",
+    "birim", "birimi", "bolum", "bolumu", "departman", "departmani"})
+# yer / kapsam sözcükleri: birim adında geçer ama ayırt etmez ("İl Jandarma", "Genel Müdürlük")
+PLACE_WORDS = frozenset({"il", "ilce", "genel", "merkez", "bolge"})
+
 
 def is_role_word(word: str) -> bool:
     if word in ROLE_WORDS or strip_suffix(word) in ROLE_WORDS:

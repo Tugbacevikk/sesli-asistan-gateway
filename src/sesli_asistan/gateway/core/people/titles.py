@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from ..models import Contact, Match
 from ..search import (
+    UNIT_NOUNS,
     DirectoryIndex,
     fold_words,
     has_role_word,
@@ -166,10 +167,6 @@ def _coverage_hits(index: DirectoryIndex, words: list[str], exact_single: bool =
     return []
 
 
-_UNIT_WORDS = {"baskanligi", "bakanligi", "komutanligi", "mudurlugu", "daire", "dairesi", "sube", "subesi",
-               "kurulu", "merkezi", "grup", "kisim", "buro", "servisi", "tesis", "tesisi", "makami"}
-
-
 _NARROW_STOP = {"birim", "birimi", "birimdeki", "birimine", "subedeki", "dairedeki", "baskanligindaki", "bolum",
                 "departman", "hatti", "hattina", "baglanmak", "ulasmak"}
 
@@ -181,7 +178,7 @@ def _word_matches(w: str, x: str) -> bool:
 
 
 def _is_unit_word(w: str) -> bool:
-    return not is_role_word(w) and any(_like(w, u) for u in _UNIT_WORDS)
+    return not is_role_word(w) and any(_like(w, u) for u in UNIT_NOUNS)
 
 
 def _unit_prefix_words(c: Contact) -> set[str]:
@@ -218,8 +215,7 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
             return dept_only
         rem_u = []
         for c in top:
-            dept_w = set(fold_words(c.department)) | {"baskanligi", "bakanligi", "komutanligi", "mudurlugu", "sube",
-                                                      "subesi"}
+            dept_w = set(fold_words(c.department)) | UNIT_NOUNS
             u_dist = {x for x in _unit_prefix_words(c) - common - dept_w if len(x) >= 3}
             unm = sum(1 for x in u_dist if not any(_word_matches(w, x) for w in words))
             mat = sum(1 for x in u_dist if any(_word_matches(w, x) for w in words))
@@ -231,7 +227,7 @@ def narrow_candidates(cands: list[Contact] | tuple[Contact, ...], text: str) -> 
     top = _drop_sublines(top)
     rem_r = []
     for c in top:
-        dept_w = set(fold_words(c.department)) | _UNIT_WORDS
+        dept_w = set(fold_words(c.department)) | UNIT_NOUNS
         t_dist = {x for x in set(fold_words(c.title)) - common - dept_w if len(x) >= 3}
         unm = sum(1 for x in t_dist if not any(_word_matches(w, x) for w in words))
         mat = sum(1 for x in t_dist if any(_word_matches(w, x) for w in words))
