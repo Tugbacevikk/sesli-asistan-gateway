@@ -132,7 +132,19 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
     access = ui_access or UiAccess(api_key, None, ui_allowed_ips)
     app = FastAPI(title="Sesli Asistan Gateway", version="1", openapi_url="/v1/openapi.json",
                   docs_url="/v1/docs", redoc_url=None, lifespan=lifespan)
+    _mount_guard(app, access, api_key, allowed_ips, ui_on=web_session is not None)
+    _mount_errors(app)
+    _mount_calls(app, manager)
+    if web_session is not None:
+        mount_ui(app, manager, web_session, health, history=history, settings=settings, access=access, live=live)
+    _mount_ops(app, manager, health, metrics_registry)
+    app.add_middleware(BodyLimit)            # en dışta: kimlik denetiminden önce, her yolda
+    return app
 
+
+def _mount_guard(app: FastAPI, access: UiAccess, api_key: str, allowed_ips: set[str] | None, ui_on: bool) -> None:
+    """Erişim denetimi: santral yolları (IP listesi + anahtar), arayüz / metrikler (UI_ALLOWED_IPS + rol), yerel
+    bakım yolu (yalnız sunucunun kendisi)."""
     @app.middleware("http")
     async def guard(request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         path = request.url.path
@@ -147,7 +159,7 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
             return await call_next(request)
         if path == "/metrics" or path.startswith(UI_PREFIXES):
             # Prometheus ve arayüz: UI_ALLOWED_IPS + anahtar (rol: api/access.py)
-            if path != "/metrics" and web_session is None:
+            if path != "/metrics" and not ui_on:
                 return _error(404, "NOT_FOUND", "arayüz kapalı (UI_ENABLED=false)")
             principal, why = access.check(host, request_key(request))
             if principal is None:
@@ -163,6 +175,10 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
                 return _error(401, "UNAUTHORIZED", "geçersiz ya da eksik anahtar")
         return await call_next(request)
 
+
+
+def _mount_errors(app: FastAPI) -> None:
+    """Hata cevapları tek biçimde (`_error`: {"error": {"code", "message", "call_id"}})."""
     @app.exception_handler(CallError)
     async def call_error(request: Request, e: CallError) -> JSONResponse:
         return _error(e.status, e.code, str(e), e.call_id or request.path_params.get("call_id"))
@@ -172,6 +188,9 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         msg = "; ".join(f"{'.'.join(map(str, x['loc'][1:]))}: {x['msg']}" for x in e.errors())
         return _error(400, "BAD_REQUEST", msg, request.path_params.get("call_id"))
 
+
+def _mount_calls(app: FastAPI, manager: CallManager) -> None:
+    """Santral sözleşmesi (tasarim.md 6): çağrı aç, olay bildir, çağrıyı bitir."""
     @app.post("/v1/calls", status_code=201, response_model=CallCreated)
     async def create_call(body: CreateCall) -> CallCreated:
         remote = (body.rtp_remote.host, body.rtp_remote.port) if body.rtp_remote else None
@@ -196,9 +215,10 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
         await manager.end(call_id, reason)
         return Response(status_code=204)
 
-    if web_session is not None:
-        mount_ui(app, manager, web_session, health, history=history, settings=settings, access=access, live=live)
 
+def _mount_ops(app: FastAPI, manager: CallManager, health: Callable[[], dict[str, Any]],
+               metrics_registry: Any) -> None:
+    """İşletim: sağlık, metrikler, bakım öncesi boşaltma."""
     if metrics_registry is not None:
         from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
@@ -221,6 +241,3 @@ def create_app(manager: CallManager, health: Callable[[], dict[str, Any]], api_k
     async def get_health() -> JSONResponse:
         h = health()
         return JSONResponse(h, status_code=200 if h.get("status") == "ok" else 503)
-
-    app.add_middleware(BodyLimit)            # en dışta: kimlik denetiminden önce, her yolda
-    return app
