@@ -288,9 +288,15 @@ class UnderstandMixin:
             return None    # bozuk duyulmuş ad ("bırakçayı" → Burak Çelik): kuralın ses teyidi (ölçüm 5, D124)
         log.info("[%s] anlama: kanıt zayıf, önce LLM (artan: %s)", s.call_id,
                  log_text(" ".join(self.unexplained(u.text))))
-        return await self._understand(s, u)
+        return await self._understand(s, u, defer_guess=True)
 
     async def _understood_answer(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn:
+        if u.guess is not None:
+            # önce LLM'e soruldu, cevap yalnız konudan tahmindi: kurallar bulamadıysa şimdi o teyitle sorulur
+            if (turn := self._rule_if_found(s, u.text)) is not None:
+                return turn
+            g, u.guess = u.guess, None
+            return self._topic_guess(s, u, g, 0) or self._rule_turn(s, u.text)
         if u.asked or not self.unexplained(u.text):
             return self._rule_turn(s, u.text)    # LLM'e zaten soruldu ya da anlatacak bir şey yok ("evet")
         if (turn := self._rule_if_found(s, u.text)) is not None:
@@ -313,7 +319,8 @@ class UnderstandMixin:
         del s.history[hist:]
         return None
 
-    async def _understand(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+    async def _understand(self: DialogAgent, s: DialogSession, u: _Utterance,
+                          defer_guess: bool = False) -> DialogTurn | None:
         """Sözü anla: kalıp söz `u.text`'e yazılır ve `u.understood` işaretlenir (adımlar onunla sürer); konudan birim
         tahmininde doğrudan teyit sorusu döner. LLM düşerse / belirsizse hiçbir şey değişmez (kural kipi)."""
         u.asked = True
@@ -333,12 +340,24 @@ class UnderstandMixin:
         if got is None:
             log.info("[%s] anlama (LLM): sonuç yok (%.0f ms), kural kipi: %s", s.call_id, ms, log_text(u.text))
             return None
+        target = got.ad or got.soyad or got.unvan or got.birim or got.dahili
+        if got.niyet not in {"aktar", "konu", "bilgi"} and target:
+            got = replace(got, niyet="aktar")    # ölçüm 6, D16: "ali veli lütfen" → selam + ad/soyad
+        guess = None
         if got.niyet in {"konu", "bilgi"} and (got.tahmini_birim or got.birim):
             # ölçüm 3, F11: "iş başvurusu … öğrenmek istiyorum" → bilgi + birim İK: konu gibi teyitle
-            return self._topic_guess(s, u, replace(got, tahmini_birim=got.tahmini_birim or got.birim), ms)
-        target = got.ad or got.soyad or got.unvan or got.birim or got.dahili
-        if got.niyet == "konu" or (got.niyet == "aktar" and not target and got.tahmini_birim):
-            return self._topic_guess(s, u, got, ms)   # ölçüm 4, F09: niyet aktar, hedef yok, tahmini birim var
+            guess = replace(got, tahmini_birim=got.tahmini_birim or got.birim)
+        elif got.niyet == "konu" or (got.niyet == "aktar" and not target and got.tahmini_birim):
+            guess = got                           # ölçüm 4, F09: niyet aktar, hedef yok, tahmini birim var
+        if guess is not None:
+            if defer_guess:
+                # konudan tahmin en zayıf kanıt: önce kurallar (konu tablosu "arıza" → Teknik Destek, sözde açıkça
+                # geçen birim "muhasebeyle"); bulamazlarsa son adımda bu tahmin sorulur (ölçüm 6: D53, D57, D65)
+                log.info("[%s] anlama (LLM, %.0f ms): %s → %s → tahmin bekletildi", s.call_id, ms,
+                         log_text(u.text), got.summary())
+                u.guess = guess
+                return None
+            return self._topic_guess(s, u, guess, ms)
         if got.niyet == "aktar" and (turn := self._title_in_unit(s, got)) is not None:
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → birimde unvan", s.call_id, ms, log_text(u.text),
                      got.summary())

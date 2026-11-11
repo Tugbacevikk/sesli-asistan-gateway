@@ -211,8 +211,9 @@ async def test_yalniz_birim_dogrudan_hatta():
 
 async def test_hedefsiz_aktar_tahmini_birimle_sorulur():
     # ölçüm 4, F09: niyet aktar, hedef yok, tahmini birim var
-    turn = await _turn("bilgisayarım açılmıyor yardım edebilecek birini arıyorum",
-                       {"niyet": "aktar", "konu": "bilgisayar", "tahmini_birim": "Teknik Destek"})
+    # ("yardım" sözcüğü kuralda Teknik Destek'in eş anlamlısı "Yardım Masası"na doğrudan gider: o söz kullanılmaz)
+    turn = await _turn("e-postalarım hiç gelmiyor",
+                       {"niyet": "aktar", "konu": "ekran", "tahmini_birim": "Teknik Destek"})
     assert not turn.actions and "Teknik Destek" in turn.text
 
 
@@ -239,3 +240,17 @@ async def test_kural_turu_bulursa_llm_cagrilmaz_bulamazsa_iz_birakmaz():
     assert s.state.failed_attempts == before
     found = a._rule_if_found(s, "satış müdürü")
     assert found is not None and llm.calls == 0
+
+
+async def test_konu_tahmini_kurallarin_arkasinda_bekler():
+    # ölçüm 6, D57: sözde açıkça geçen birim ("muhasebeyle") LLM'in konu tahmininden önce gelir
+    said = "geçen hafta bir sipariş verdim faturası hala gelmedi muhasebeyle görüşmem lazım"
+    turn = await _turn(said, {"niyet": "konu", "konu": "sipariş", "tahmini_birim": "Müşteri Hizmetleri"})
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1400"]
+
+
+async def test_hedefli_selam_aktar_sayilir():
+    # ölçüm 6, D16: "ali veli lütfen" → LLM selam + ad/soyad dedi, karşılama yinelenmişti
+    turn = await _turn("kolay gelsin selin ekinci hanımı rica edecektim",
+                       {"niyet": "selam", "ad": "selin", "soyad": "ekinci"})
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
