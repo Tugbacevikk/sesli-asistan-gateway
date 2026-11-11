@@ -27,6 +27,7 @@ from ..ports import ToolCall
 from ..search import (
     hard_stem,
     has_role_word,
+    is_role_word,
     query_variants,
     search_key,
     similarity,
@@ -89,7 +90,8 @@ class RulesMixin:
     def _in_said_unit(self: DialogAgent, cands: list[Contact], text: str) -> list[Contact]:
         """Adaylardan, sözde adı (ya da eş anlamlısı) geçen birimde olanlar; birim söylenmediyse ya da hiçbiri o
         birimde değilse boş liste (daraltma yapılmaz)."""
-        depts = self._rule_scan(without_self(text))[1]
+        core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
+        depts = self._rule_scan(without_self(core))[1]   # "müdür" Genel Müdürlük'ü birim saydırmasın
         if not depts:
             return []
         return [c for c in cands
