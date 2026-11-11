@@ -28,14 +28,14 @@ from .models import Candidate, Contact, Match, SearchResult
 # Unvanlar ve hitaplar: eşleşmede ad değildir, atılır (Ek C madde 3–4)
 _TITLES = {"dr", "doktor", "doc", "docent", "prof", "profesor", "av", "avukat", "uzm", "uzman",
            "op", "operator", "muh", "muhendis", "ogr", "gor", "sayin"}
-_HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
+HONORIFICS = {"hanim", "hanimefendi", "bey", "beyefendi", "hoca", "hocam", "abla", "abi"}
 # Askerî ve emniyet rütbeleri: hitap gibi atılır ("Mehmet Albay", "Albay Mehmet Kaya" → "mehmet kaya"). "Er" yok:
 # soyadı olarak da geçer.
-_RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzbasi", "binbasi",
+RANKS = {"onbasi", "cavus", "astsubay", "astegmen", "tegmen", "ustegmen", "yuzbasi", "binbasi",
           "yarbay", "albay", "tuggeneral", "tumgeneral", "korgeneral", "orgeneral", "kurmay", "komiser", "baskomiser"}
 # Genel birim sözcükleri: "satış departmanı", "finans birimi" → "satış", "finans"
 _GENERIC = {"departman", "birim", "bolum", "servis", "ofis", "sube"}
-_STOP = _TITLES | _HONORIFICS | _RANKS | _GENERIC
+_STOP = _TITLES | HONORIFICS | RANKS | _GENERIC
 
 # Çok sözcüklü birim adlarında geçen, tek başına birim anlamına gelmeyen sık sözcükler (katlanmış): "bilgi almak",
 # "insan" (İnsan Kaynakları), "genel" (Genel Müdürlük), "mali" (Mali İşler). "su": katlanınca "şu" ile aynı ("şu kişiyle

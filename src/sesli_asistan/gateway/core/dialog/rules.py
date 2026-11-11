@@ -6,7 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
-from sesli_asistan.libs.text.normalizer import TR_FOLD, turkish_lower
+from sesli_asistan.libs.text.normalizer import TR_FOLD, fold_tr_words, turkish_lower
 
 from ..models import Candidate, DialogTurn, Match, SearchResult
 from ..people import (
@@ -14,13 +14,12 @@ from ..people import (
     said_surely,
     sound_alike,
 )
-from ..people.common import _without_self
+from ..people.common import without_self
 from ..phrases import (
-    _FAST_BLOCK,
-    _FILLER,
-    _OPERATOR_WORDS,
-    _TOPIC_INTENT,
-    _folded_words,
+    FAST_BLOCK,
+    FILLER_WORDS,
+    OPERATOR_WORDS,
+    TOPIC_INTENT,
     asks_operator,
     spoken_numbers,
 )
@@ -63,7 +62,7 @@ class RulesMixin:
 
     def _rule_number(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
         """Sözde rehberdeki bir dahili ("214", "iki yüz on dört") → aktar."""
-        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(_folded_words(text))]:
+        for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(fold_tr_words(text))]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 return self._code_transfer(s, r.candidates[0])
         return None
@@ -84,7 +83,7 @@ class RulesMixin:
 
     def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
         """Sözdeki kişi / birim: tek aday → aktar (yalnız adla söylendiyse teyit), çok aday → soru, yoksa bulamadım."""
-        words = _without_self(text)            # "ben mehmet, …": arayanın kendi adı aday değil (diyalog seti D122)
+        words = without_self(text)            # "ben mehmet, …": arayanın kendi adı aday değil (diyalog seti D122)
         people, depts, more = self._rule_scan(words)
         if depts and (more or len(people) > 1) and (inside := self._named_people(words, depts)):
             # birim + ad, adaşı çok ("muhasebeden Merve Hanım", altı Merve): arama 3 adayla sınırlı, birimdeki Merve
@@ -151,7 +150,7 @@ class RulesMixin:
     def _near_name(self: DialogAgent, text: str) -> Any:
         """Sözün 1–2 sözcüklük ad pencerelerinden yalnız bir kişiye düşük skorla (single_low) uyan; yoksa None.
         Birim, unvan ve dolgu sözcükleri pencereye girmez."""
-        words = [w for w in search_key(text).split() if len(w) >= 3 and strip_suffix(w) not in _FILLER
+        words = [w for w in search_key(text).split() if len(w) >= 3 and strip_suffix(w) not in FILLER_WORDS
                  and not has_role_word(w) and not self._mentions_department([w])]
         found: dict[str, Any] = {}
         for n in (2, 1):
@@ -174,7 +173,7 @@ class RulesMixin:
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
-                if n == 1 and ((len(window) < 3 and window not in short_keys) or strip_suffix(window) in _FILLER):
+                if n == 1 and ((len(window) < 3 and window not in short_keys) or strip_suffix(window) in FILLER_WORDS):
                     continue                  # kısa söz atlanır; birim kısaltması ("it", "ik") hariç
                 dept_hits = [c for c in index.search(department=window).candidates if c.score >= index.high_score]
                 depts |= {search_key(c.contact.department) for c in dept_hits}
@@ -208,7 +207,7 @@ class RulesMixin:
     def _fast_extension(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
         """Sözde rehberdeki bir dahili numara ("214", "iki yüz on dörde"): LLM beklemeden aktarılır (kural modundaki
         gibi; güven düşükse teyit). Canlı deneme 03.11.2026: aynı söz LLM'le 2,8 sn."""
-        raw = _folded_words(text)
+        raw = fold_tr_words(text)
         for digits in [*re.findall(r"\d{2,6}", text), *spoken_numbers(raw)]:
             if (r := self._code_search(s, {"Extension": digits})).match == Match.SINGLE_HIGH:
                 log.info("[%s] dahili numara: %s → %s", s.call_id, log_text(text), digits)
@@ -223,7 +222,7 @@ class RulesMixin:
         İkinci değer ses benzerliğiyle aday: çağıran onu LLM'den hemen önce teyitle kullanır."""
         words = search_key(text).split()
         sound: tuple[Candidate, ...] = ()
-        if words and not (_FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words)):
+        if words and not (FAST_BLOCK & set(words) or any(strip_suffix(w) in FAST_BLOCK for w in words)):
             cands, sure, sound = await self.tools.resolve_person(text)
             if len(cands) == 1:
                 log.info("[%s] kişi (MCP): %s → %s%s", s.call_id, log_text(text), cands[0].contact.extension,
@@ -294,12 +293,12 @@ class RulesMixin:
         sözcük, bir niyet kökü ("arızam", "görüşebilir", "istiyorum") ya da bir birim adı ("ik") varsa girilir. Kökler
         ön ekle eşlenir: eşlemede ek atılmazsa "arızam var" / "ik ile görüşebilir miyim" (D06) konu adımını
         atlıyordu."""
-        words = _folded_words(text)
+        words = fold_tr_words(text)
         if len(words) >= 2:
             return True
         if not words:
             return False
-        return words[0].startswith(_TOPIC_INTENT) or self._mentions_department(search_key(text).split())
+        return words[0].startswith(TOPIC_INTENT) or self._mentions_department(search_key(text).split())
 
     def _mentions_department(self: DialogAgent, words: list[str], only: Any = None) -> bool:
         """Sözde bir birim adı geçiyor mu; `only` verilirse yalnız o kaydın birimi (ve eş anlamlıları)."""
@@ -317,7 +316,7 @@ class RulesMixin:
     def _other_number(self: DialogAgent, s: DialogSession, contact: Any) -> bool:
         """Arayanın son sözünde bir numara var ve bu kişinin dahilisi değil; kişinin adı ya da soyadı da geçmiyor."""
         user = _last_user(s)
-        numbers = {*re.findall(r"\d{2,6}", user), *spoken_numbers(_folded_words(user))}
+        numbers = {*re.findall(r"\d{2,6}", user), *spoken_numbers(fold_tr_words(user))}
         if not numbers or contact.extension in numbers:
             return False
         said = set(search_key(user).split()) | {strip_suffix(w) for w in search_key(user).split()}
@@ -352,7 +351,7 @@ class RulesMixin:
     def _mentions_target(self: DialogAgent, text: str) -> bool:
         """Sözde aranacak biri / bir birim / operatör / dahili numara var mı ("vazgeçtim, Mehmet Kaya'ya bağla")."""
         raw = turkish_lower(text).translate(TR_FOLD).split()
-        if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS or any(ch.isdigit() for ch in text):
+        if ({strip_suffix(w) for w in raw} | set(raw)) & OPERATOR_WORDS or any(ch.isdigit() for ch in text):
             return True
         words = search_key(text).split()
         return bool(words) and (self._mentions_person(words) or self._mentions_department(words))
@@ -372,7 +371,7 @@ class RulesMixin:
         gecikmesinin %60'ı (ölçüm 27.10.2026). Şüphede (olumsuzluk, birden çok aday, yalnız ad, unvan, düşük skor)
         hiçbir şey yapmaz; LLM normal akışla devam eder. Aktarma yine TransferPolicy'den geçer."""
         words = search_key(text).split()
-        if not words or _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+        if not words or FAST_BLOCK & set(words) or any(strip_suffix(w) in FAST_BLOCK for w in words):
             return None
         found = self._fast_matches(text, words)
         persons = [c for c, kind in found.values() if kind in ("name", "alias") and c.kind == "person"]

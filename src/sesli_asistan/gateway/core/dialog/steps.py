@@ -6,6 +6,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from sesli_asistan.libs.obs import log_text
+from sesli_asistan.libs.text.normalizer import fold_tr_words
 
 from .. import units
 from ..models import Candidate, DialogTurn, HangupAction
@@ -20,9 +21,8 @@ from ..people import (
     same_unit,
 )
 from ..phrases import (
-    _FAST_BLOCK,
-    _NEGATION,
-    _folded_words,
+    FAST_BLOCK,
+    NEGATION_WORDS,
     ablative,
     asks_general_help,
     asks_office_hours,
@@ -140,7 +140,7 @@ class StepsMixin:
             # "Muhasebeden kiminle?" → "ayşe hanım": cevap o birimdeki kişi olarak aranır ("muhasebe ayşe hanım")
             u.text = f"{dept} {u.text}"
             return None
-        if not set(_folded_words(u.text)) & (_NEGATION | {"bilmiyorum"}) and not self._mentions_target(u.text):
+        if not set(fold_tr_words(u.text)) & (NEGATION_WORDS | {"bilmiyorum"}) and not self._mentions_target(u.text):
             return self._repeat_choice(s, u.choice)
         return None
 
@@ -165,7 +165,7 @@ class StepsMixin:
         if s.state.choice and units.narrow([c.contact for c in s.state.choice], u.text,
                                            units.unit_names(self.tools.index.contacts())):
             return None                 # açık birim sorusunun cevabı ("emniyet"): seçimde süzülür (ADR-032)
-        numbers = [*re.findall(r"\d{2,6}", u.text), *spoken_numbers(_folded_words(u.text))]
+        numbers = [*re.findall(r"\d{2,6}", u.text), *spoken_numbers(fold_tr_words(u.text))]
         m = mentioned_targets(self.tools.index, u.text, numbers)
         persons = [c for c in m.contacts if c.kind == "person"]
         lines = [c for c in m.contacts if c.kind == "department"]
@@ -280,7 +280,7 @@ class StepsMixin:
         if not self.cfg.clarify_by_code:
             return None
         words = search_key(u.text).split()
-        if _FAST_BLOCK & set(words) or any(strip_suffix(w) in _FAST_BLOCK for w in words):
+        if FAST_BLOCK & set(words) or any(strip_suffix(w) in FAST_BLOCK for w in words):
             return None
         cands = [c for c in same_title(self.tools.index, u.text) if c.transferable]
         from_unit = False
@@ -325,7 +325,7 @@ class StepsMixin:
     async def _step_unknown_target(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Hedef anlaşılmadı ("afiyete bağlanmak istiyorum" = operatöre): operatör teyidi."""
         if (self.cfg.fast_path and (unknown_target(u.text) is not None or maybe_operator(u.text))
-                and not spoken_numbers(_folded_words(u.text)) and not self._mentions_person_or_department(u.text)):
+                and not spoken_numbers(fold_tr_words(u.text)) and not self._mentions_person_or_department(u.text)):
             return self._confirm_operator(s, u.text)
         return None
 

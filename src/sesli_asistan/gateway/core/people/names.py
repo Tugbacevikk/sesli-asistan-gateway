@@ -21,7 +21,7 @@ from .common import (
     _SOUND_STOP,
     _cached,
     _like,
-    _without_self,
+    without_self,
 )
 
 
@@ -39,7 +39,7 @@ def _last_name_said(c: Contact, words: list[str]) -> bool:
     return bool(k) and any(similarity(v, k) >= NAME_SAME for w in words for v in query_variants(w))
 
 
-def _name_said(c: Contact, words: list[str]) -> bool:
+def name_said(c: Contact, words: list[str]) -> bool:
     keys = [k for k in (search_key(c.first_name), search_key(c.last_name)) if k and " " not in k and len(k) >= 3]
     return any(any(similarity(v, k) >= NAME_SAME for v in query_variants(w)) for w in words for k in keys)
 
@@ -96,7 +96,7 @@ def said_surely(index: DirectoryIndex, c: Contact, text: str) -> bool:
     hitap ("Zeynep Hanım") ya da soyad ("Öztürk Bey", "yılmaz") evet; yalnız ad ("zeynep") ve soyadın önünde başka bir
     ad ("murat çelik" → Burak Çelik) hayır, teyit sorulur. Ölçüm 05.11.2026 (sesli set, arkada ikinci konuşan):
     arka plandan gelen tek bir ad ("zeynep …", "mehmet …") ve bozuk duyulan ad doğrudan aktarılıyordu."""
-    words = _without_self(text)
+    words = without_self(text)
     if c.kind != "person" or _full_name_said(c, words):
         return True
     first = search_key(c.first_name).split()

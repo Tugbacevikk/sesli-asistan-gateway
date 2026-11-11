@@ -8,12 +8,11 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from sesli_asistan.libs.text.normalizer import turkish_lower
+from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
 from ..corrections import SttCorrections
 from ..models import Candidate, DialogTurn
 from ..phrases import (
-    _folded_words,
     dative,
 )
 from ..ports import ToolCall
@@ -351,11 +350,11 @@ def _common_unit(cands: tuple[Candidate, ...]) -> str:
 def _spoken_title(text: str, cands: tuple[Candidate, ...] = ()) -> str:
     """Arayanın söylediği unvan (son unvan sözcüğü ve önündeki en çok iki sözcük): "özel kalem müdürü"."""
     words = [w.strip(".,;:!?'’") for w in turkish_lower(text).split()]
-    folded = [_folded_words(w)[0] if _folded_words(w) else "" for w in words]
+    folded = [fold_tr_words(w)[0] if fold_tr_words(w) else "" for w in words]
     i = next((j for j in reversed(range(len(words))) if folded[j] and is_role_word(folded[j])), None)
     if i is None:
         return ""
-    vocab = {w for c in cands for w in _folded_words(c.contact.title)} if cands else set()
+    vocab = {w for c in cands for w in fold_tr_words(c.contact.title)} if cands else set()
     picked = [words[i]]
     for j in (i - 1, i - 2):
         if j >= 0 and folded[j] and (not vocab or any(w.startswith(folded[j][:4]) or folded[j].startswith(w[:4])

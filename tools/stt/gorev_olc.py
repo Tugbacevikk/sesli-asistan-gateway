@@ -31,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 from sesli_asistan.gateway.composition import load_topics  # noqa: E402
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
 from sesli_asistan.gateway.core.models import Candidate, Contact  # noqa: E402
-from sesli_asistan.gateway.core.phrases import _folded_words  # noqa: E402
+from sesli_asistan.libs.text.normalizer import fold_tr_words  # noqa: E402
 from sesli_asistan.gateway.core.search import DirectoryIndex  # noqa: E402
 from sesli_asistan.gateway.core.tools import ToolRegistry  # noqa: E402
 
@@ -55,7 +55,7 @@ class Judge:
 
     @staticmethod
     def context(ref: str) -> str:
-        w = set(_folded_words(ref))
+        w = set(fold_tr_words(ref))
         return "teyit" if w & {"evet", "hayir"} else "secim" if "hicbiri" in w else ""
 
     async def outcome(self, text: str, conf: float | None, context: str) -> str:

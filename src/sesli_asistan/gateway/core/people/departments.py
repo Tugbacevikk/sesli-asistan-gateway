@@ -15,13 +15,13 @@ from .common import (
     _SOUND_STOP,
     _cached,
     _like,
-    _without_self,
+    without_self,
 )
 
 
 def department_said(index: DirectoryIndex, text: str) -> str | None:
     """Sözde tam olarak geçen tek birim ("muhasebe", "personel başkanlığından"); yoksa ya da birden çoksa None."""
-    depts = _mentioned_departments(index, _without_self(text))
+    depts = _mentioned_departments(index, without_self(text))
     return next(iter(depts)) if len(depts) == 1 else None
 
 

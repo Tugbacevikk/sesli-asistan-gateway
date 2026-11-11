@@ -13,7 +13,7 @@ from .search import search_key, similarity, strip_suffix
 from .thresholds import OPERATOR_LIKE, OPERATOR_MAYBE
 
 # Bu sözcüklerden biri geçerse hızlı yol kapalı: arayan düzeltiyor, reddediyor ya da başka bir şey istiyor olabilir
-_FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
+FAST_BLOCK = {"degil", "hayir", "yok", "istemiyorum", "olmasin", "baska", "yerine", "operator", "iptal", "vazgectim",
                "ama", "veya", "ya", "kim", "hangi", "nerede", "numara", "numarasi", "dahili",
                "ne", "neden", "niye", "nasil", "alaka", "alakasi", "yanlis", "diyorsun", "dedin", "mu"}
 
@@ -71,7 +71,7 @@ def contact_dative(c: Any) -> str:
 def asks_general_help(text: str) -> bool:
     """Hedefsiz genel istek: "bilgi almak istiyorum", "bir sorum var", "bir şey soracaktım", "yardım istiyorum"
     (canlı 05.11.2026: "bilgi almak istiyorum" Bilgi İşlem'e aktarıldı). Kişi / birim / konu ayrıca denetlenir."""
-    w = _folded_words(text)
+    w = fold_tr_words(text)
     joined = " ".join(w)
     if any(a == "bilgi" and b.startswith("al") for a, b in zip(w, w[1:], strict=False)):
         return True
@@ -82,18 +82,18 @@ def asks_general_help(text: str) -> bool:
 
 def strip_fillers(text: str) -> str:
     """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
-    return " ".join(w for w in text.split() if not (_folded_words(w) and _folded_words(w)[0] in _FILLERS
-                                                     and len(_folded_words(w)) == 1))
+    return " ".join(w for w in text.split() if not (fold_tr_words(w) and fold_tr_words(w)[0] in _FILLERS
+                                                     and len(fold_tr_words(w)) == 1))
 
 
 
 # arayan görüşmeyi bitirmek istiyor (kök başları; "kapatmayın" gibi olumsuzlar hariç)
 _HANGUP_STEMS = ("sonlandir", "kapat", "vazgec", "gorusuruz", "hoscakal", "hoscak")
-_YES = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
+YES_WORDS = {"evet", "evt", "aynen", "dogru", "tamam", "olur", "lutfen", "he", "hi", "kesinlikle", "baglayin",
         "baglayabilirsiniz"}
-_NEGATION = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
+NEGATION_WORDS = {"degil", "yok", "istemiyorum", "istemem", "olmasin", "gerekmez", "hayir"}
 # tek sözcüklü sözde konu adımına girmek için niyet kökleri (katlanmış, ön ekle eşlenir: "arizam", "gorusebilir")
-_TOPIC_INTENT = ("icin", "ilgili", "sorun", "problem", "hakkinda", "konu", "ariza", "sikayet", "bagla", "gorus",
+TOPIC_INTENT = ("icin", "ilgili", "sorun", "problem", "hakkinda", "konu", "ariza", "sikayet", "bagla", "gorus",
                  "aktar", "yardim", "iste", "isti", "bilgi", "fatura", "odeme", "sifre", "siparis", "basvuru")
 _NEGATIVE = re.compile(r"(kapatma|sonlandirma|vazgecme)(y|z|d|n|s|$)")
 # kurallı kapatma fiilleri (katlanmış): düşük güvende yalnız bunlar
@@ -103,7 +103,6 @@ _HANGUP_PHRASES = ("gorusmeyi bitir", "hosca kal", "gerek yok", "bu kadar yeter"
                    "kimseyle gorusmeyecegim", "kimseyle gorusmek istemiyorum")
 
 
-_folded_words = fold_tr_words      # kısa ad (diyalog modüllerinde çok kullanılır)
 
 
 _GREETING_WORDS = {"selam", "selamlar", "merhaba", "merhabalar", "alo", "iyi", "gunler", "gunaydin", "aksamlar",
@@ -120,7 +119,7 @@ _HOURS_WORDS = {"acik", "aciliyor", "acilir", "aciyorsunuz", "kapaniyor", "kapan
 def asks_office_hours(text: str) -> bool:
     """Arayan mesai / çalışma saatini soruyor mu: "mesai saatleri ne", "saat kaça kadar açıksınız", "kaçta açılıyor",
     "çalışma saatleriniz", "açık mısınız"."""
-    words = _folded_words(text)
+    words = fold_tr_words(text)
     joined = " ".join(words)
     if "mesai" in joined or "calisma saat" in joined:
         return True
@@ -148,7 +147,7 @@ _ECHO = (("gunaydin", "Günaydın"), ("iyi aksamlar", "İyi akşamlar"), ("hayir
 
 def greeting_echo(text: str) -> str | None:
     """Arayanın selamına aynı sözle karşılık ("günaydın" → "Günaydın"); bilinen bir selam yoksa None."""
-    said = " ".join(_folded_words(text))
+    said = " ".join(fold_tr_words(text))
     return next((reply for key, reply in _ECHO if key in said), None)
 
 
@@ -159,13 +158,13 @@ _ANYONE = ("musait", "herhangi", "fark etmez", "farketmez", "kim olursa", "hangi
 def wants_anyone(text: str) -> bool:
     """"Hangisi?" sorusuna "kim müsaitse", "fark etmez", "herhangi biri": sorulanlardan biri yeter (deneme 10.11.2026:
     "Ar-Ge'den kiminle?" → "kim müsaitse" anlaşılmadı, söz LLM'e gitti, isimler sayıldı)."""
-    said = " ".join(_folded_words(text))
+    said = " ".join(fold_tr_words(text))
     return any(k in said for k in _ANYONE)
 
 
 def is_small_talk(text: str) -> bool:
     """Selamın ötesinde hal hatır ("günaydın, nasılsınız", "naber"): sohbet açık iken LLM karşılık verir."""
-    w = set(_folded_words(text))
+    w = set(fold_tr_words(text))
     return bool(w & (_HOW_ARE_YOU - {"ne", "haber"})) or {"ne", "haber"} <= w
 
 
@@ -174,7 +173,7 @@ def is_greeting_only(text: str, noise: int = 0) -> bool:
     Sonu kesilmiş selam ("merhab") selam sayılır. `noise`: tanınmayan en çok kaç sözcüğe izin verilir (STT kırıntısı:
     "bakalımızı merhaba iyi günler", canlı 09.11.2026); çağıran sözün rehberde bir hedef içermediğini ayrıca bakar.
     Kesmeden sonraki ek atılır: "denem'e" iki tanınmayan sözcük ("denem", "e") sayılıyordu."""
-    raw = _folded_words(re.sub(r"['’]\w*", "", text))
+    raw = fold_tr_words(re.sub(r"['’]\w*", "", text))
 
     def known(w: str) -> bool:
         return w in _GREETING_WORDS or (len(w) >= 4 and any(g.startswith(w) for g in _GREETING_CORE))
@@ -183,7 +182,7 @@ def is_greeting_only(text: str, noise: int = 0) -> bool:
     return bool(raw) and core and sum(not known(w) for w in raw) <= noise
 
 
-def _vowel_mask(word: str) -> str:
+def vowel_mask(word: str) -> str:
     """Ünlüleri tek işarete indirir ("yılmaz", "yüzmez" → "y?lm?z"): ünlü uyumuyla bozulan sonlar için."""
     return re.sub(r"[aeıioöuü]", "?", word)
 
@@ -196,7 +195,7 @@ def unknown_target(text: str) -> str | None:
     """Sözde tek bir (dolgu dışı) hedef kelime + bağlanma fiili var mı: "afiyete bağlanmak istiyorum" → "afiyete".
     Hedefin rehberde olup olmadığına çağıran bakar. İki kelimelik hedef (ad soyad: "Selin Aydın'a") ya da kısa söz
     ("ona") sayılmaz."""
-    raw = _folded_words(text)
+    raw = fold_tr_words(text)
     idx = next((i for i, w in enumerate(raw) if _CONNECT_VERB.match(w)), None)
     if not idx:
         return None
@@ -204,7 +203,7 @@ def unknown_target(text: str) -> str | None:
     for w in raw[:idx]:                        # kesme işaretiyle ayrılan ek ("Hakan'a" → hakan + a) öncekine katılır
         if before and len(w) <= 3 and _DATIVE_END.fullmatch(w):
             before[-1] += w
-        elif w not in _FILLER:
+        elif w not in FILLER_WORDS:
             before.append(w)
     if len(before) > 1 and all(len(w) <= 2 for w in before[:-1]):
         # harf harf bölünmüş söz: "o pt'ye", "o p t'ye" (canlı 03.11.2026, mihu "operatöre"yi böyle duydu)
@@ -218,17 +217,17 @@ def maybe_operator(text: str) -> bool:
     """"operatör"e yakın ama `asks_operator`'ın doğrudan aktarma eşiğine (85) varmayan söz ("aparator", 75): teyitle
     sorulur. Canlı deneme 03.11.2026: "aparator ev bayranmak istiyorum" LLM'e gitmiş, "bulamadım" denmişti."""
     return any(len(w) >= 6 and max(similarity(w, k) for k in ("operator", "operatore", "operatorle")) >= OPERATOR_MAYBE
-               for w in _folded_words(text))
+               for w in fold_tr_words(text))
 
 
 def asks_operator(text: str) -> bool:
     """Sözde operatör isteği var mı: "operatöre bağlayın", "santral", "bir yetkiliyle"; STT'nin harf hatalarına
     karşı "operatör"e çok benzeyen kelimeler de ("oparatöre", "operetör"). Olumsuzsa ("operatöre gerek yok",
     "operatör istemiyorum") hayır."""
-    raw = _folded_words(text)
-    if not raw or set(raw) & _NEGATION:
+    raw = fold_tr_words(text)
+    if not raw or set(raw) & NEGATION_WORDS:
         return False
-    if ({strip_suffix(w) for w in raw} | set(raw)) & _OPERATOR_WORDS:
+    if ({strip_suffix(w) for w in raw} | set(raw)) & OPERATOR_WORDS:
         return True
     joined = f" {' '.join(raw)} "
     if any(f" {p} " in joined for p in _OPERATOR_PHRASES):
@@ -251,7 +250,7 @@ def wants_hangup(text: str, strict: bool = False) -> bool:
 # Kaynakları'na eşleniyordu)
 _OPERATOR_PHRASES = ("insanla", "gercek biri", "gercek biriyle", "gercek bir kisi", "gercek bir kisiyle", "canli biri",
                      "canli biriyle", "temsilci", "temsilciyle", "musteri temsilcisi", "musteri temsilcisiyle")
-_OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
+OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
 _DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
                 "dokuz": 9}
 _TENS = {"on": 10, "yirmi": 20, "otuz": 30, "kirk": 40, "elli": 50, "altmis": 60, "yetmis": 70, "seksen": 80,
@@ -301,11 +300,11 @@ def spoken_numbers(words: list[str]) -> list[str]:
                 out.append(str(total + cur))
         run = []
     return [n for n in out if 2 <= len(n) <= 6]
-_FILLER = {"ist", "istiyor", "istiyoru", "istiyorum", "lutfen", "baglar", "baglarmis", "baglayin", "baglayabilir",
+FILLER_WORDS = {"ist", "istiyor", "istiyoru", "istiyorum", "lutfen", "baglar", "baglarmis", "baglayin", "baglayabilir",
            "gorus", "gorusmek", "gorusebilir", "konus", "konusmak", "merhaba", "selam", "iyi", "gunler", "musunuz",
            "misiniz", "mi", "mu", "ile", "icin", "bir", "acaba", "rica", "ederim", "aktar", "aktarir", "aktarin",
            "orada", "var", "yok", "sey", "hani", "evet", "tamam", "beni", "bana", "kim", "kimle", "lazim"}
-_ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
+ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
              "ikinciye": 1, "ucuncu": 2, "ucuncusu": 2, "son": -1, "sonuncu": -1, "sonuncusu": -1, "sonuncuya": -1}
 _VOWELS = "aıoueiöü"
 

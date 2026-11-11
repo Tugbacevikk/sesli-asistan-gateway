@@ -13,7 +13,7 @@ from ..search import (
 from .common import (
     MAX_CANDIDATES,
     _title_words,
-    _without_self,
+    without_self,
 )
 from .departments import (
     _department_tails,
@@ -23,9 +23,9 @@ from .names import (
     _full_name_keys_said,
     _has_honorific,
     _last_name_said,
-    _name_said,
     _other_given_name,
     _person_keys,
+    name_said,
     sound_alike,
 )
 from .titles import (
@@ -44,20 +44,20 @@ def resolve_person(index: DirectoryIndex, text: str) -> dict[str, Any]:
 
 
 def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
-    words = _without_self(text)
+    words = without_self(text)
     if not words:
         return _out([], "", False)
     persons = [c for c in index.contacts() if c.kind == "person"]
     tw = _title_words(text)
     if any(is_role_word(w) for w in tw) and (hit := _by_title(index, tw)):
-        if len(hit) >= 2 and len(named := [c for c in hit if _name_said(c, words)]) == 1:
+        if len(hit) >= 2 and len(named := [c for c in hit if name_said(c, words)]) == 1:
             # unvan + ad ("vali yardımcısı Kemal Bey"; üç vali yardımcısından biri Kemal): o kişi, kesin (S18)
             return _out(named, "unvan", True)
         if len(hit) == 1 and (rivals := title_rivals(index, hit[0], text)):
             return _out([*hit, *rivals], "unvan", False)          # aynı birimde başka unvanlı hat: sorulur
         return _out(hit, "unvan", len(hit) == 1)
     depts = _mentioned_departments(index, words)
-    named = [c for c in persons if _name_said(c, words)]
+    named = [c for c in persons if name_said(c, words)]
     if depts and named:
         # birim yolunun üst seviyesi de birimdir: "satıştaki Merve" → Yurt İçi / Yurt Dışı Satış'taki Merve'ler
         # (canlı deneme 10.11.2026, şirket rehberi: yalnız kendi birimine bakılıyordu, altı Merve soruldu)
@@ -104,7 +104,7 @@ class Mentions:
 
 def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> Mentions:
     """`numbers`: sözde geçen sayılar (dahili olabilir; çağıran çıkarır)."""
-    words = _without_self(text)
+    words = without_self(text)
     if not words:
         return Mentions((), (), ())
     keys = _person_keys(index)
@@ -112,7 +112,7 @@ def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> M
     named = [c for c, first, last in keys if _full_name_keys_said(first, last, words)]
     by_id: dict[str, Contact] = {c.id: c for c in named if c.transferable}
     # aktarılamayan kişi (yönetim) adıyla ya da soyadıyla da sayılır ("hakan bey"): azdır, karışma riski düşük
-    others = tuple(c for c in persons if not c.transferable and (c in named or _name_said(c, words)))
+    others = tuple(c for c in persons if not c.transferable and (c in named or name_said(c, words)))
     for n in numbers:
         owner = next((c for c in index.contacts() if c.extension == n), None)
         if owner is not None and not any(c.id == owner.id for c in named):
