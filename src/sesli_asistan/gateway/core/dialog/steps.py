@@ -287,14 +287,6 @@ class StepsMixin:
         if not cands and not has_role_word(u.text) and not self._mentions_person(words):
             cands = same_unit(self.tools.index, u.text)
             from_unit = bool(cands)
-        if len(cands) >= 2 and (narrowed := narrow_candidates(cands, u.text)) and len(narrowed) < len(cands):
-            # sözün kendisindeki ayırt edici sözcük ("kaliteden sorumlu müdür" → Kalite): `same_title` kapsamaya
-            # bakar, birim sözcüğünü ayırt edici saymaz (ölçüm 7, F07: "Genel Müdürlük mü, Kalite mi?")
-            cands = narrowed
-            if len(cands) == 1:
-                log.info("[%s] söylenen birim / unvanla daraltıldı: %s → %s", s.call_id, log_text(u.text),
-                         cands[0].extension)
-                return self._code_transfer(s, Candidate(cands[0], 100))
         if (len(cands) >= 2 and (prior := self._prior_user_text(s))
                 and (narrowed := narrow_candidates(cands, prior))):
             cands = narrowed
