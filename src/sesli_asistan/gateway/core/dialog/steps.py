@@ -145,10 +145,10 @@ class StepsMixin:
         return None
 
     def _title_only_lines(self: DialogAgent, text: str, numbers: list[str]) -> bool:
-        """Sözde kesin bir unvan var ("bilgi işlem müdürü") ve unvan sözcükleri atılınca geriye tek hedef kalıyor:
-        öbür "hedef" unvan sözünün bir birim adına benzemesinden ("müdürü" ~ Genel Müdürlük; diyalog seti R12)."""
-        res = resolve_person(self.tools.index, text)
-        if not (res["kesin"] and sum(a.get("neden") == "unvan" for a in res["adaylar"]) == 1):
+        """Sözde unvan var ("bilgi işlem müdürü", "kaliteden sorumlu müdür") ve unvan sözcükleri atılınca geriye tek
+        hedef kalıyor: öbür "hedef" unvan sözünün bir birim adına benzemesinden ("müdürü" ~ Genel Müdürlük; diyalog
+        seti R12, R25). Unvanın tek kişiye uyması gerekmez: "müdür" her birimde var, hedefi söylenen birim belirler."""
+        if not has_role_word(text):
             return False
         core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
         return len(mentioned_targets(self.tools.index, core, numbers).contacts) <= 1
@@ -287,6 +287,12 @@ class StepsMixin:
         if not cands and not has_role_word(u.text) and not self._mentions_person(words):
             cands = same_unit(self.tools.index, u.text)
             from_unit = bool(cands)
+        if len(cands) >= 2 and len(inside := self._in_said_unit(cands, u.text)) == 1:
+            # unvan her birimde var ("müdür") ama birim de söylendi ("kaliteden sorumlu müdür"): tek hedef kalır.
+            # Yalnız tek adayda müdahale: daraltılmış adaylarla sorulan sorunun cevabı tanınmıyordu (D26)
+            log.info("[%s] söylenen birimle daraltıldı: %s → %s", s.call_id, log_text(u.text),
+                     inside[0].extension)
+            return self._code_transfer(s, Candidate(inside[0], 100))
         if (len(cands) >= 2 and (prior := self._prior_user_text(s))
                 and (narrowed := narrow_candidates(cands, prior))):
             cands = narrowed

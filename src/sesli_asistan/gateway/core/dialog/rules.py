@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import TR_FOLD, fold_tr_words, turkish_lower
 
-from ..models import Candidate, DialogTurn, Match, SearchResult
+from ..models import Candidate, Contact, DialogTurn, Match, SearchResult
 from ..people import (
     resolve_person,
     said_surely,
@@ -27,6 +27,7 @@ from ..ports import ToolCall
 from ..search import (
     hard_stem,
     has_role_word,
+    is_role_word,
     query_variants,
     search_key,
     similarity,
@@ -74,12 +75,27 @@ class RulesMixin:
         res = resolve_person(self.tools.index, text)
         titled = [c for a in res["adaylar"] if a.get("neden") == "unvan"
                   if (c := self.tools.index.get(a["id"])) is not None]
-        if len(titled) == 1 and res["kesin"]:
+        sure = res["kesin"]
+        if len(titled) > 1 and (inside := self._in_said_unit(titled, text)):
+            # unvan birden çok birimde ("müdür") ama birim de söylendi ("kaliteden sorumlu müdür"): o birime daralt
+            # (ölçüm 7, F07: "Genel Müdürlük mü, Kalite mi?" soruluyordu). Birim + unvan: "birim + ad" kadar güçlü
+            titled, sure = inside, len(inside) == 1
+        if len(titled) == 1 and sure:
             return self._code_transfer(s, Candidate(titled[0], 100))
         if 2 <= len(titled) <= 3:
             cands = tuple(Candidate(c, 100) for c in titled)
             return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
         return None
+
+    def _in_said_unit(self: DialogAgent, cands: list[Contact], text: str) -> list[Contact]:
+        """Adaylardan, sözde adı (ya da eş anlamlısı) geçen birimde olanlar; birim söylenmediyse ya da hiçbiri o
+        birimde değilse boş liste (daraltma yapılmaz)."""
+        core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
+        depts = self._rule_scan(without_self(core))[1]   # "müdür" Genel Müdürlük'ü birim saydırmasın
+        if not depts:
+            return []
+        return [c for c in cands
+                if depts & {search_key(n) for n in (c.department, *c.department_aliases, *c.unit_path)}]
 
     def _rule_people(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
         """Sözdeki kişi / birim: tek aday → aktar (yalnız adla söylendiyse teyit), çok aday → soru, yoksa bulamadım."""

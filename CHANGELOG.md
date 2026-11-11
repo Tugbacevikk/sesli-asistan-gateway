@@ -106,6 +106,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   yanıtında (`version`).
 
 ### Düzeltildi
+- Unvan birden çok birimde geçerken birim de söylendiyse ("kaliteden sorumlu müdür") adaylar o birime daraltılır;
+  eskiden birimler arasında soru soruluyordu. Eş anlamlı unvan sözde geçerse karşılığı da aranır ("sekreterine" →
+  Asistan; `people.common.TITLE_SYNONYMS`, anlama kipiyle ortak). Senaryolar: R25, R26.
 - Beklenmedik hatayla çöken çağrı da çağrı geçmişine ve kayıt dosyasına yazılır (o ana kadarki turlarla); önceden
   yazılmıyordu. Hiç bitmeyen çağrı kimliklerinin (santralin reddettiği çağrı) kayıt satırları bellekte birikmez.
 - "Hangisi?" sorusuna "kim müsaitse", "fark etmez", "herhangi biri": sorulanlardan birinciye aktarılır, meşgul /

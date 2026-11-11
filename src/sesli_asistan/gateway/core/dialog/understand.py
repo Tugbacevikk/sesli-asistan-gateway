@@ -33,7 +33,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from ..models import Candidate, DialogTurn
-from ..people.common import without_self
+from ..people.common import TITLE_SYNONYMS, without_self
 from ..people.names import sound_alike
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
@@ -100,12 +100,6 @@ def grounded(field: str, said: str) -> bool:
     words = fold_words(said)
     return all(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words)
                for w in fold_words(field) if w not in UNIT_NOUNS)
-
-
-# arayanın kullandığı unvan → rehberdeki unvan sözcüğü (katlanmış). LLM'e de söylenir; yine de "sekreter" yazabiliyor
-# (ölçüm 4, F02).
-TITLE_SYNONYMS = {"sekreter": "asistan", "sekreteri": "asistan", "mudire": "mudur", "mudiresi": "mudur",
-                  "sef": "lider", "sefi": "lider"}
 
 
 # sözde unvan geçmeden LLM'in unvan yazabileceği tarif sözcükleri (katlanmış, ön ekle): "muhasebenin başındaki kişi"
@@ -400,7 +394,9 @@ class UnderstandMixin:
         if not (got.unvan and got.birim) or got.ad or got.soyad:
             return None
         key = search_key(got.birim)
-        title = [TITLE_SYNONYMS.get(w, w) for w in fold_words(got.unvan) if len(w) > 2]
+        # her unvan sözcüğü kendisi ya da eş anlamlısıyla eşleşebilir ("sekreter" → "asistan")
+        title = [(w, next((v for k, v in TITLE_SYNONYMS.items() if w.startswith(k)), w))
+                 for w in fold_words(got.unvan) if len(w) > 2]
         if not title:
             return None
         found = []
@@ -409,7 +405,7 @@ class UnderstandMixin:
                 continue
             units = {search_key(n) for n in (c.department, *c.department_aliases, *c.unit_path)}
             have = fold_words(c.title)
-            if key in units and all(any(same_word(w, t) for t in have) for w in title):
+            if key in units and all(any(same_word(w, t) or same_word(syn, t) for t in have) for w, syn in title):
                 found.append(c)
         if len(found) == 1:
             return self._code_transfer(s, Candidate(found[0], 100))
