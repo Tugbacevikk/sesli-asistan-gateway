@@ -2017,6 +2017,12 @@ ondan bağımsızdır.
   denetimi:** LLM'in ad, soyad, birim ve dahilisi sözde geçmeli, sözdeki rehber adı atlanmamalı
   (`Understanding.problem`), değilse kural yolu; unvan serbest (tarif, eş anlam); (3) Ollama `format: json`, kısa
   çıktı sınırı ve süre dökümü (istem / üretim / yükleme) logda; (4) bir söz için en çok bir LLM çağrısı.
+- **Ölçüm 3 (üçüncü sürüm):** şirket seti anlama %100 (kural kipiyle eşit; 24 sözden 5'i LLM'e gitti); serbest set
+  %50. Süre dökümü: istem ~540 token ~0,7 sn, üretim ~60 token ~4 sn (~15 token/sn): yavaşlık üretimde, boş alanlı
+  JSON şablonunu yazmaktan. Dördüncü sürüm: yalnız dolu alanlar yazılır (örnekli istem, en çok 80 token); sözde
+  geçen ama LLM'in atladığı ad eklenir (F03); birim eş anlamlısıyla söylendiyse uydurma sayılmaz (F08, "personel");
+  unvan + birim kalıp söze çevrilmeden birimde (alt birimler dahil) unvanla bulunur (F05); "bilgi" + birim konu gibi
+  teyitle sorulur (F11); "bir insanla konuşmak" operatör (F18).
 - **Ölçüt:** `tests/eval/anlama_karsilastir.py` aynı setleri üç kipte koşar (kural / normal / anlama). Varsayılan
   yapılma ölçütü: izinsiz aktarma 0; başarı her sette kural kipinden düşük değil, serbest sette belirgin yüksek;
   tur gecikmesi p95 normal kipten kötü değil.

@@ -69,7 +69,7 @@ class OllamaChat:
             raise LlmError(f"Ollama: {e}") from e
         return LlmMessage(content=msg.get("content") or "", tool_calls=_calls(msg.get("tool_calls")))
 
-    async def chat_json(self, messages: list[dict[str, Any]], max_tokens: int = 160) -> tuple[str, str]:
+    async def chat_json(self, messages: list[dict[str, Any]], max_tokens: int = 80) -> tuple[str, str]:
         """Yalnız JSON cevap (Ollama `format: json`, araçsız, kısa çıktı): anlama kipi (ADR-037). İkinci değer süre
         dökümü ("istem 812 token 2310 ms, üretim 41 token 960 ms, yükleme 0 ms"): yavaşlığın istemde mi üretimde mi
         olduğu görünsün (ölçüm 11.11.2026: çağrı ~4,9 sn)."""

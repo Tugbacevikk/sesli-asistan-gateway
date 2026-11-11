@@ -94,8 +94,10 @@ def test_uydurma_ve_atlanan_ad_reddedilir():
     names = frozenset({"merve", "ayse"})
     invented = Understanding("aktar", birim="Eğitim ve Çocuk Bakımı")
     assert invented.problem("kreş birimine bağlar mısınız", names)             # ölçüm 2, R18
-    dropped = Understanding("aktar", birim="kalite", hitap="hanım")
-    assert dropped.problem("kaliteden merve hanımla görüşecektim", names)      # ölçüm 2, R10
+    dropped = Understanding("aktar", birim="kalite", hitap="hanım")              # ölçüm 2, R10: ad atlandı
+    assert dropped.missing_names("kaliteden merve hanımla görüşecektim", names) == ["merve"]
+    other = Understanding("aktar", ad="ayşe", birim="kalite")                    # başka ad: reddedilir
+    assert other.problem("kaliteden merve hanımla görüşecektim", names)
     ok = Understanding("aktar", ad="merve", hitap="hanım", birim="kalite")
     assert ok.problem("kaliteden merve hanımla görüşecektim", names) is None
     told = Understanding("aktar", unvan="asistan", birim="genel müdür")      # unvan eş anlamlı olabilir
@@ -157,3 +159,22 @@ async def test_kip_kapaliyken_llm_anlama_cagrilmaz():
     s.greeting()
     await s.handle_user("muhasebeye bağlar mısınız")
     assert llm.calls == 0
+
+
+async def test_birimde_unvan_dogrudan_bulunur():
+    # ölçüm 3, F05: kalıp "müşteri hizmetleri müdür" kural yolunda Genel Müdürlük'le karışıyordu
+    said = "müşteri temsilcisi değil, müşteri hizmetlerinin müdürüyle görüşmek istiyorum"
+    a, _ = _agent({said: {"niyet": "aktar", "unvan": "müdür", "birim": "müşteri hizmetleri"}})
+    s = a.new_session("u6")
+    s.greeting()
+    turn = await s.handle_user(said)
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["2301"]
+
+
+def test_birim_es_anlamlisiyla_soylenmis_sayilir():
+    # ölçüm 3, F08: "personelin müdürü" → LLM "insan kaynakları" yazdı, uydurma sayılmamalı
+    a, _ = _agent({})
+    said = "personelin müdürü yusuf bey miydi, ona bağlanabilir miyim"
+    got = Understanding("aktar", ad="yusuf", hitap="bey", unvan="müdür", birim="insan kaynakları")
+    assert got.problem(said, a._vocabulary()[1], a._unit_said(said)) is None
+    assert got.problem(said, a._vocabulary()[1]) is not None
