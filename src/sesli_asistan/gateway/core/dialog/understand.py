@@ -266,21 +266,22 @@ class UnderstandMixin:
 
         return _cached(self.tools.index, "anlama_sozlugu", build)
 
-    def unexplained(self: DialogAgent, text: str) -> list[str]:
-        """Rehberle, istek kalıplarıyla ve dolgu sözcükleriyle açıklanamayan sözcükler ("artan sözcük"). Kural
-        bu sözcükleri yok sayarak karar verir; çoksa kararın kanıtı zayıftır ("muhasebenin başındaki kişi")."""
-        vocab = self._vocabulary()
+    def content_words(self: DialogAgent, text: str) -> list[str]:
+        """İstek kalıbı, dolgu, hitap, evet / hayır ve sayı olmayan sözcükler: sözde "anlatılacak bir şey" var mı
+        ("evet", "iki yüz on dört" → yok; "yurt dışı bm" → var)."""
         known = FILLER_WORDS | YES_WORDS | NEGATION_WORDS | HONORIFICS | UNIT_NOUNS | PLACE_WORDS | OPERATOR_WORDS
-        out = []
-        for w in without_self(text):
-            # rehber taraması yalnız aynı kovada (`same_word` ancak ilk 4 harfi aynı sözcükler arasında doğru):
-            # büyük rehberde bütün sözcükleri taramak söz başına yüz milisaniyeler yerdi
-            if (len(w) <= 2 or w.isdigit() or w in known or w in _GENERIC or w.startswith(_GENERIC_STEMS)
-                    or w.startswith(_HONORIFIC_STEMS) or spoken_numbers([w]) or w in vocab.words
-                    or any(same_word(w, v) for v in vocab.buckets.get(_bucket(w), ()))):
-                continue
-            out.append(w)
-        return out
+        return [w for w in without_self(text)
+                if not (len(w) <= 2 or w.isdigit() or w in known or w in _GENERIC or w.startswith(_GENERIC_STEMS)
+                        or w.startswith(_HONORIFIC_STEMS) or spoken_numbers([w]))]
+
+    def unexplained(self: DialogAgent, text: str) -> list[str]:
+        """Rehberle de açıklanamayan sözcükler ("artan sözcük"). Kural bu sözcükleri yok sayarak karar verir; çoksa
+        kararın kanıtı zayıftır ("muhasebenin başındaki kişi")."""
+        vocab = self._vocabulary()
+        # rehber taraması yalnız aynı kovada (`same_word` ancak ilk 4 harfi aynı sözcükler arasında doğru): büyük
+        # rehberde bütün sözcükleri taramak söz başına yüz milisaniyeler yerdi
+        return [w for w in self.content_words(text)
+                if w not in vocab.words and not any(same_word(w, v) for v in vocab.buckets.get(_bucket(w), ()))]
 
     async def _understand_first(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Kanıtı zayıf söz (ölçüm 2: F01, F07, F09, F17 kural yanlış ama emin): adımlardan önce LLM. Anlarsa kalıp
@@ -302,8 +303,10 @@ class UnderstandMixin:
                 return turn
             g, u.guess = u.guess, None
             return self._topic_guess(s, u, g, 0) or self._rule_turn(s, u.text)
-        if u.asked or not self.unexplained(u.text):
-            return self._rule_turn(s, u.text)    # LLM'e zaten soruldu ya da anlatacak bir şey yok ("evet")
+        if u.asked or not self.content_words(u.text):
+            return self._rule_turn(s, u.text)    # LLM'e zaten soruldu ya da anlatacak bir şey yok ("evet", sayı)
+        # not: sözcüklerin hepsi rehberde geçse de kural bulamamış olabilir ("yurt dışı bm" → Yurt Dışı Satış;
+        # canlı deneme 12.11): LLM'e yine sorulur
         if (turn := self._rule_if_found(s, u.text)) is not None:
             return turn                          # kural turu buldu (ölçüm 5, K01: LLM unvanı atıp birim hattı demişti)
         if (turn := await self._understand(s, u)) is not None:

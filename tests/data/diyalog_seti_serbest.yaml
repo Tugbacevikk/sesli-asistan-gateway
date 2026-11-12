@@ -129,3 +129,8 @@
   aciklama: "Arayan kendi adını söyler: aday değil"
   konusma: ["merhaba ben can, lojistikle görüşecektim"]
   beklenen: {eylem: transfer, dahili: "2200"}
+
+- id: F25
+  aciklama: "Canlı deneme 12.11: STT 'bölüm'ü 'bm' yaptı; sözcüklerin hepsi rehberde ama kural bulamıyor → LLM"
+  konusma: ["yurt dışı bm ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "1240"}
