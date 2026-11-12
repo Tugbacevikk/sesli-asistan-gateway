@@ -34,7 +34,7 @@ from sesli_asistan.libs.text.normalizer import turkish_lower
 from ..models import Candidate, DialogTurn
 from ..people.common import TITLE_SYNONYMS, _bucket, _cached, without_self
 from ..people.names import sound_alike
-from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
+from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, number_word, spoken_numbers
 from ..ports import LlmError
 from ..resilience import supports_json
 from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
@@ -272,7 +272,7 @@ class UnderstandMixin:
         known = FILLER_WORDS | YES_WORDS | NEGATION_WORDS | HONORIFICS | UNIT_NOUNS | PLACE_WORDS | OPERATOR_WORDS
         return [w for w in without_self(text)
                 if not (len(w) <= 2 or w.isdigit() or w in known or w in _GENERIC or w.startswith(_GENERIC_STEMS)
-                        or w.startswith(_HONORIFIC_STEMS) or spoken_numbers([w]))]
+                        or w.startswith(_HONORIFIC_STEMS) or number_word(w, True) is not None)]
 
     def unexplained(self: DialogAgent, text: str) -> list[str]:
         """Rehberle de açıklanamayan sözcükler ("artan sözcük"). Kural bu sözcükleri yok sayarak karar verir; çoksa
@@ -391,8 +391,9 @@ class UnderstandMixin:
         return None
 
     def _unit_said(self: DialogAgent, said: str) -> Callable[[str], bool]:
-        """LLM'in yazdığı birim, sözde adıyla ya da eş anlamlısıyla geçiyor mu ("personelin müdürü" → İnsan
-        Kaynakları; ölçüm 3, F08)."""
+        """LLM'in yazdığı birim rehberde var ve adının ya da eş anlamlısının ayırt edici bir sözcüğü sözde geçiyor
+        ("personelin müdürü" → İnsan Kaynakları, ölçüm 3 F08; "yurt dışı bm" → Yurt Dışı Satış, canlı deneme 12.11).
+        Rehberde olmayan birim ("Eğitim ve Çocuk Bakımı", R18) yine reddedilir."""
         words = fold_words(said)
 
         def said_as(birim: str) -> bool:
@@ -400,8 +401,8 @@ class UnderstandMixin:
             for c in self.tools.index.contacts():
                 names = (c.department, *c.department_aliases)
                 if key in {search_key(n) for n in names}:
-                    return any(all(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words)
-                                   for w in fold_words(n) if w not in UNIT_NOUNS) for n in names)
+                    return any(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words)
+                               for n in names for w in fold_words(n) if w not in UNIT_NOUNS | PLACE_WORDS)
             return False
         return said_as
 

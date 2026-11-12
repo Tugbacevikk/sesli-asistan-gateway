@@ -262,7 +262,7 @@ _NUM_SOFT = {"dort": "dord"}                     # ünsüz yumuşaması: dört �
 _NUM_SUFFIX = {"e", "a", "ye", "ya", "i", "u", "yi", "yu", "de", "da", "te", "ta", "den", "dan", "ten", "tan"}
 
 
-def _number_word(w: str, in_run: bool) -> str | None:
+def number_word(w: str, in_run: bool) -> str | None:
     """Sayı sözcüğünün kökü; çekim ekli hâller de ("dörde", "dördü", "ikiye", "yüze"). "on" / "bir" ekli tek başına
     sayı sayılmaz ("ona bağlar mısınız", "biri"); sayının içindeyse sayılır ("iki yüz ona")."""
     if w in _DIGIT_WORDS or w in _TENS or w in ("yuz", "bin"):
@@ -283,7 +283,7 @@ def spoken_numbers(words: list[str]) -> list[str]:
     out: list[str] = []
     run: list[str] = []
     for w in [*words, ""]:
-        if w and (base := _number_word(w, bool(run))) is not None:
+        if w and (base := number_word(w, bool(run))) is not None:
             run.append(base)
             continue
         if len(run) >= 2 or (len(run) == 1 and run[0] in _TENS | {"yuz": 0}):
