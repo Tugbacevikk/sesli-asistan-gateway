@@ -7,7 +7,7 @@ import pytest
 
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig
 from sesli_asistan.gateway.core.dialog.understand import CANONICAL, Understanding
-from sesli_asistan.gateway.core.models import Contact
+from sesli_asistan.gateway.core.models import Candidate, Contact
 from sesli_asistan.gateway.core.phrases import (
     asks_general_help,
     asks_office_hours,
@@ -254,3 +254,29 @@ async def test_hedefli_selam_aktar_sayilir():
     turn = await _turn("kolay gelsin selin ekinci hanımı rica edecektim",
                        {"niyet": "selam", "ad": "selin", "soyad": "ekinci"})
     assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1401"]
+
+
+def test_sozluk_rehberde_saklanir_ve_rehber_degisince_tazelenir():
+    a, _ = _agent({})
+    idx = a.tools.index
+    assert a.unexplained("muhasebeye bağlar mısınız") == []
+    assert "anlama_sozlugu" in idx.derived                    # rehberden türetilen tablo (her sözde kurulmaz)
+    assert a._vocabulary() is a._vocabulary()
+    assert "zuhal" in a.unexplained("zuhal hanımla görüşecektim")
+    idx.rebuild([*idx.contacts(), Contact.from_api(
+        {"id": "x-1", "kind": "person", "first_name": "Zuhal", "last_name": "Pekkan", "department": "Muhasebe",
+         "department_aliases": [], "title": "Uzman", "aliases": [], "extension": "1499", "transferable": True,
+         "birim_yolu": ["Muhasebe"], "kategori": "kişi", "updated_at": "2026-11-12T00:00:00Z", "deleted": False})])
+    assert "anlama_sozlugu" not in idx.derived               # rehber yenilendi: tablo boşaldı
+    assert "zuhal" not in a.unexplained("zuhal hanımla görüşecektim")
+
+
+def test_kural_turu_geri_alinirken_rehber_kayitlari_kopyalanmaz():
+    a, _ = _agent({})
+    s = a.new_session("u9")
+    s.greeting()
+    s.state.last_results = tuple(Candidate(c, 90) for c in a.tools.index.contacts()[:3])
+    before = [c.contact for c in s.state.last_results]
+    assert a._rule_if_found(s, "zzz qqq") is None            # bulamaz: durum geri alınır
+    assert [c.contact for c in s.state.last_results] == before
+    assert all(x is y for x, y in zip([c.contact for c in s.state.last_results], before, strict=True))
