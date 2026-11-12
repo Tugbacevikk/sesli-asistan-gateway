@@ -325,9 +325,10 @@ def _mount_try_call(app: FastAPI, manager: CallManager, web_session: WebSessionF
         call_id = f"web-{secrets.token_hex(3)}"
         text_mode = websocket.query_params.get("mod") == "metin"
         office = websocket.query_params.get("mesai") or None     # deneme: acik | mesai_disi | tatil
-        media, pbx = WsMedia(out, text_mode=text_mode), WebPbx(out)
+        codec = "pcma" if websocket.query_params.get("hat") == "dar" else "g722"   # dar: 8 kHz G.711 (karşılaştırma)
+        media, pbx = WsMedia(out, codec=codec, text_mode=text_mode), WebPbx(out)
         session = web_session(call_id, media, pbx, lambda kind, data: out.put({**data, "type": kind}),
-                              text_mode=text_mode, office=office)
+                              text_mode=text_mode, office=office, codec=codec)
         try:
             task = manager.attach(session)
         except CallError as e:

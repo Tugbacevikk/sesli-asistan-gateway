@@ -15,8 +15,9 @@ from fastapi import WebSocket
 
 from sesli_asistan.libs.audio import g711
 
-FRAME = 160                          # 20 ms @ 8 kHz
+FRAME = 160                          # 20 ms @ 8 kHz (çalma yönü her zaman 8 kHz)
 PLAY_LEAD_S = 0.12                   # tarayıcıya bu kadar önden gönder (ağ titremesinde boşluk olmasın)
+CODECS = ("pcma", "g722")            # g722: tarayıcı 16 kHz PCM16 gönderir, RTP alıcısının çözdüğü G.722 gibi geçer
 
 
 class Outbox:
@@ -45,24 +46,28 @@ class Outbox:
 
 
 class WsMedia:
-    """Tarayıcının ses yolu → çekirdeğin `MediaPort`'u (RTP'nin yerine)."""
+    """Tarayıcının ses yolu → çekirdeğin `MediaPort`'u (RTP'nin yerine). codec: pcma (tarayıcı 8 kHz gönderir, G.711'e
+    kodlanır) ya da g722 (16 kHz PCM16 olduğu gibi geçer; oturum G.722 çağrısı gibi açılır, ADR-027)."""
 
     def __init__(self, outbox: Outbox, codec: str = "pcma", max_queue: int = 500, text_mode: bool = False):
+        if codec not in CODECS:
+            raise ValueError(f"desteklenmeyen arayüz kodeği: {codec}")
         self.out, self.codec, self.text_mode = outbox, codec, text_mode
         self.q: asyncio.Queue[bytes | None] = asyncio.Queue(maxsize=max_queue)
         self._buf = bytearray()
+        self._in = (FRAME * 2 if codec == "g722" else FRAME) * 2    # 20 ms'lik gelen PCM16 karesinin bayt sayısı
         self.opened_at = self.last = time.monotonic()
         self.received = self.sent = self.dropped = 0
 
     def feed(self, data: bytes) -> None:
-        """Tarayıcıdan gelen PCM16 → 20 ms'lik G.711 kareleri."""
+        """Tarayıcıdan gelen PCM16 → 20 ms'lik kareler (G.711 baytı ya da 16 kHz PCM16)."""
         self._buf += data
         self.last = time.monotonic()
-        while len(self._buf) >= FRAME * 2:
-            pcm = np.frombuffer(bytes(self._buf[:FRAME * 2]), "<i2")
-            del self._buf[:FRAME * 2]
+        while len(self._buf) >= self._in:
+            raw = bytes(self._buf[:self._in])
+            del self._buf[:self._in]
             self.received += 1
-            frame = g711.encode_int16(pcm, self.codec)
+            frame = raw if self.codec == "g722" else g711.encode_int16(np.frombuffer(raw, "<i2"), self.codec)
             if self.q.full():
                 self.q.get_nowait()
                 self.dropped += 1

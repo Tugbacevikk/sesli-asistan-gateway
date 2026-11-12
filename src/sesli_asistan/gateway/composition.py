@@ -268,14 +268,15 @@ class GatewayRuntime:
                           after_hours_mode=self.after_hours_mode)
 
     def web_session(self, call_id: str, media: MediaPort, pbx: PbxPort, observer: Observer, text_mode: bool = False,
-                    office: str | None = None) -> CallSession:
+                    office: str | None = None, codec: str = "g722") -> CallSession:
         """Arayüzden deneme çağrısı: santral çağrısıyla aynı oturum, ses WebSocket'ten, eylemler arayüze.
         text_mode: arayan yazarak konuşur; sessizlik uyarısı kapalı (yazmak konuşmaktan uzun sürer).
-        office: mesai durumunu denemek için zorla (acik | mesai_disi | tatil); None: saate göre."""
+        office: mesai durumunu denemek için zorla (acik | mesai_disi | tatil); None: saate göre.
+        codec: g722 (16 kHz geniş bant, varsayılan) ya da pcma (8 kHz G.711), `api/web_call.WsMedia` ile aynı."""
         cfg = self._call_config()
         if text_mode:
             cfg = replace(cfg, no_input_s=cfg.max_call_duration_s * 2)
-        return self._session(call_id, "pcma", media, pbx, cfg, "web-metin" if text_mode else "web", observer,
+        return self._session(call_id, codec, media, pbx, cfg, "web-metin" if text_mode else "web", observer,
                              office if office in (OPEN, AFTER_HOURS, HOLIDAY) else None)
 
     def _hotwords(self) -> list[str]:

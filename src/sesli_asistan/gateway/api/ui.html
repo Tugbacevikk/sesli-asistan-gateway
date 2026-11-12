@@ -411,14 +411,15 @@ $("tab-settings").onclick = () => show("settings");
 $("tab-directory").onclick = () => show("directory");
 
 /* ---------- deneme çağrısı ---------- */
-// Mikrofon → 8 kHz: tarayıcının hızından (44,1 / 48 kHz) telefon hızına. Önce 3,6 kHz alçak geçiren süzgeç
-// (Blackman pencereli sinc), sonra doğrusal ara değerle örnekleme. Süzgeçsiz seyreltme 4 kHz üstündeki sesi konuşma
-// bandına katlar (aliasing) ve Whisper'ın doğruluğunu düşürür (27.10.2026 deneme: kutu süzgeci yetersizdi).
+// Mikrofon → hat hızı: tarayıcının hızından (44,1 / 48 kHz) 16 kHz geniş banda (G.722 hattı, varsayılan; ADR-027:
+// temiz seste WER yarıya iniyor) ya da 8 kHz telefon hızına (?hat=dar, G.711). Önce alçak geçiren süzgeç (Blackman
+// pencereli sinc; 8 kHz'de 3,6 kHz, 16 kHz'de 7 kHz), sonra doğrusal ara değerle örnekleme. Süzgeçsiz seyreltme üst
+// bandı konuşma bandına katlar (aliasing) ve tanımayı bozar (27.10.2026 deneme: kutu süzgeci yetersizdi).
 const DSP = `
 class Resampler {
-  constructor(inRate, outRate = 8000, cutoff = 3600) {
+  constructor(inRate, outRate = 8000, cutoff = outRate === 8000 ? 3600 : 7000) {
     this.step = inRate / outRate;
-    const n = (Math.max(15, Math.ceil(this.step) * 16)) | 1, m = (n - 1) / 2, fc = cutoff / inRate;
+    const n = (Math.max(15, Math.ceil(inRate / 8000) * 16)) | 1, m = (n - 1) / 2, fc = cutoff / inRate;
     this.h = new Float32Array(n);
     let sum = 0;
     for (let i = 0; i < n; i++) {
@@ -449,8 +450,10 @@ class Resampler {
 }`;
 const WORKLET = DSP + `
 class Down extends AudioWorkletProcessor {
-  constructor() { super(); this.rs = new Resampler(sampleRate); this.tmp = [];
-    this.out = new Int16Array(160); this.k = 0; this.peak = 0; }
+  constructor(options) { super();
+    const rate = (options && options.processorOptions && options.processorOptions.rate) || 8000;
+    this.rs = new Resampler(sampleRate, rate); this.tmp = [];
+    this.out = new Int16Array(rate / 50); this.k = 0; this.peak = 0; }   // 20 ms kare
   process(inputs) {
     const ch = inputs[0][0];
     if (!ch) return true;
@@ -460,7 +463,7 @@ class Down extends AudioWorkletProcessor {
       const v = Math.max(-1, Math.min(1, v0));
       this.peak = Math.max(this.peak, Math.abs(v));
       this.out[this.k++] = v * 32767;
-      if (this.k === 160) {
+      if (this.k === this.out.length) {
         this.port.postMessage({ pcm: this.out.buffer.slice(0), peak: this.peak });
         this.k = 0; this.peak = 0;
       }
@@ -603,15 +606,18 @@ async function startCall(text = false, firstMessage = "") {
       return;
     }
   }
+  // ?hat=dar: 8 kHz G.711 telefon hattı (karşılaştırma için); varsayılan 16 kHz geniş bant (G.722 hattıyla aynı yol)
+  const narrow = new URLSearchParams(location.search).get("hat") === "dar";
   ctx = new AudioContext();
   if (!text) {
     await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" })));
-    node = new AudioWorkletNode(ctx, "down8k");
+    node = new AudioWorkletNode(ctx, "down8k", { processorOptions: { rate: narrow ? 8000 : 16000 } });
     ctx.createMediaStreamSource(micStream).connect(node);
   }
   const proto = location.protocol === "https:" ? "wss" : "ws";
   const q = new URLSearchParams();
   if (text) q.set("mod", "metin");
+  q.set("hat", narrow ? "dar" : "genis");
   if ($("office").value) q.set("mesai", $("office").value);
   ws = new WebSocket(`${proto}://${location.host}/v1/ui/ws?${q}`);
   ws.binaryType = "arraybuffer";
