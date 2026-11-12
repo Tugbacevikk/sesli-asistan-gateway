@@ -21,6 +21,7 @@ from ..phrases import (
     OPERATOR_WORDS,
     TOPIC_INTENT,
     asks_operator,
+    number_word,
     spoken_numbers,
 )
 from ..ports import ToolCall
@@ -166,8 +167,11 @@ class RulesMixin:
     def _near_name(self: DialogAgent, text: str) -> Any:
         """Sözün 1–2 sözcüklük ad pencerelerinden yalnız bir kişiye düşük skorla (single_low) uyan; yoksa None.
         Birim, unvan ve dolgu sözcükleri pencereye girmez."""
+        # sayı sözcükleri ve "numara" pencereye girmez: "bin bir numaraya bağ" Volkan Keskin'e benzetilip teyit
+        # soruluyordu (canlı 12.11); dahili isteyen söz ad adayı değildir
         words = [w for w in search_key(text).split() if len(w) >= 3 and strip_suffix(w) not in FILLER_WORDS
-                 and not has_role_word(w) and not self._mentions_department([w])]
+                 and not has_role_word(w) and not self._mentions_department([w])
+                 and number_word(w, True) is None and not w.startswith("numara")]
         found: dict[str, Any] = {}
         for n in (2, 1):
             for i in range(len(words) - n + 1):

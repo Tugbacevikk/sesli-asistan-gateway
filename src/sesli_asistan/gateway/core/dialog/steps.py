@@ -382,5 +382,9 @@ class StepsMixin:
         if not self.cfg.llm_enabled or u.understood:   # anlaşılan söz (ADR-037): ikinci LLM turu yok
             return self._rule_turn(s, u.text)
         if self.cfg.understand == "llm" and not (u.confirm or u.op_confirm or u.choice):
+            if self.cfg.small_talk and is_small_talk(u.text) and self.pending_question(s) is None:
+                # hal hatır (ADR-035): sıcak karşılık araçlı döngüden gelir; anlama çağrısı "selam"a indirgeyip
+                # düz karşılama veriyordu (canlı 12.11: "merhaba nasılsınız" → "Merhaba, kiminle…")
+                return await self._run(s)
             return await self._understood_answer(s, u)  # ADR-037: araçlı döngü yerine tek "anla" çağrısı
         return await self._run(s)

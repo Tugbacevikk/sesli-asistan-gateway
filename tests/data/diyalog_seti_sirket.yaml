@@ -143,3 +143,8 @@
   aciklama: "Canlı deneme 12.11: sekreter eş anlamı, -iyle ekiyle ve 'görüşeceğim' ile (R26'nın söyleyiş çeşidi)"
   konusma: ["genel müdürün sekreteriyle görüşeceğim"]
   beklenen: {eylem: transfer, dahili: "1104"}
+
+- id: R28
+  aciklama: "Canlı 12.11: sayı sözcükleri ad adayı değil ('bin bir numaraya bağ' Volkan Keskin'e benzetiliyordu)"
+  konusma: ["bin bir numaraya bağ"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["1743"]}
