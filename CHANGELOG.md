@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Arayüzden deneme çağrısı geniş bantta (ADR-027): mikrofon sesi 8 kHz G.711 yerine 16 kHz PCM16 olarak gider, oturum
+  G.722 çağrısı gibi açılır; sesli sette temiz seste WER yarıya inmişti. `?hat=dar` eski yolu verir (karşılaştırma).
 - "LLM gerektiğinde anlar" kipi (ADR-037, `UNDERSTAND_MODE`, **varsayılan `llm`**): kuralların çözemediği söz
   araçlı LLM döngüsü yerine tek çağrıyla yapılandırılmış bilgiye çevrilir, karar ve aktarma güvenlik kuralı kodda kalır.
   İlk sürüm (her söz önce LLM'e) ölçümde bilinen sözleri bozdu ve yavaştı; ikinci sürümde kurallar önce. Üçüncü

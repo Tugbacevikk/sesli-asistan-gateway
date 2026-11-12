@@ -163,8 +163,8 @@ TTS_URL=http://127.0.0.1:5600 python -m sesli_asistan.gateway
 
 Gateway çalışırken **http://127.0.0.1:8000/ui**:
 
-- **Deneme çağrısı:** mikrofona konuşursunuz, asistan sesli cevap verir. Sesiniz telefon kalitesine indirilip santral
-  çağrısıyla aynı yoldan geçer. Ekranda duyulan metin, cevap, aktarma isteği ve ilk ses süresi görünür; aktarma
+- **Deneme çağrısı:** mikrofona konuşursunuz, asistan sesli cevap verir. Sesiniz geniş bant telefon kalitesine (16 kHz,
+  G.722 hattı gibi; `?hat=dar` ile 8 kHz G.711) indirilip santral çağrısıyla aynı yoldan geçer. Ekranda duyulan metin, cevap, aktarma isteği ve ilk ses süresi görünür; aktarma
   sonucunu (cevaplandı / meşgul / cevap yok) siz seçersiniz.
 - **İzleme:** servis durumu, süren ve son çağrılar (tur tur), rehberde bulunamayan aramalar.
 

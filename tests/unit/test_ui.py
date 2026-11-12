@@ -22,18 +22,22 @@ class Stt:
 
     def __init__(self, said: str = SAID):
         self.said = said
+        self.opened: list[str] = []       # açılan akışların kodeği
 
     async def open(self, call_id, codec, hotwords):
-        return Stream(self.said)
+        self.opened.append(codec)
+        return Stream(self.said, codec)
 
 
 class Stream:
-    def __init__(self, said: str = SAID):
-        self.said = said
+    def __init__(self, said: str = SAID, codec: str = "g722"):
+        self.said, self.codec = said, codec
         self.n, self.q = 0, asyncio.Queue()
 
     async def send(self, frame):
-        assert len(frame) == 160          # 20 ms G.711: tarayıcının PCM16'sı telefon kalitesine indirildi
+        # 20 ms kare: geniş bantta 16 kHz PCM16 (640 bayt) olduğu gibi; dar hatta tarayıcının 8 kHz PCM16'sı G.711'e
+        # kodlanmış (160 bayt)
+        assert len(frame) == (640 if self.codec == "g722" else 160)
         self.n += 1
         if self.n == 30:
             self.q.put_nowait(SttEvent("speech_started"))
@@ -91,7 +95,7 @@ def test_tarayicidan_deneme_cagrisi_bastan_sona():
         call, _ = recv_until(ws, "call")
         assert call["call_id"].startswith("web-")
         for _ in range(40):
-            ws.send_bytes(np.zeros(160, "<i2").tobytes())
+            ws.send_bytes(np.zeros(320, "<i2").tobytes())       # tarayıcı 16 kHz gönderir (geniş bant)
         act, seen = recv_until(ws, "pbx_action")
         assert act["action"] == "transfer" and act["extension"] == "214"
         kinds = [e["type"] for e in seen]
@@ -109,6 +113,21 @@ def test_tarayicidan_deneme_cagrisi_bastan_sona():
         assert tc.get("/v1/admin/health").json()["status"] == "ok"
         page = tc.get("/ui")
         assert page.status_code == 200 and "Deneme çağrısı" in page.text
+    assert rt.stt.opened == ["g722"]            # oturum G.722 çağrısı gibi: STT'ye 16 kHz PCM16 (ADR-027)
+
+
+def test_dar_hat_8khz_g711():
+    # ?hat=dar: eski yol — tarayıcı 8 kHz gönderir, G.711'e kodlanır (geniş bantla karşılaştırmak için)
+    tc, rt = client()
+    with tc, tc.websocket_connect("/v1/ui/ws?hat=dar") as ws:
+        recv_until(ws, "call")
+        for _ in range(40):
+            ws.send_bytes(np.zeros(160, "<i2").tobytes())
+        act, _ = recv_until(ws, "pbx_action")
+        assert act["extension"] == "214"
+        ws.send_text(json.dumps({"type": "hangup"}))
+        recv_until(ws, "summary")
+    assert rt.stt.opened == ["pcma"]
 
 
 def test_arayuz_kapali_ve_erisim_kurallari():
@@ -139,7 +158,7 @@ def test_bulunamayan_aramalar_listelenir():
     with tc, tc.websocket_connect("/v1/ui/ws") as ws:
         recv_until(ws, "call")
         for _ in range(40):
-            ws.send_bytes(np.zeros(160, "<i2").tobytes())
+            ws.send_bytes(np.zeros(320, "<i2").tobytes())
         recv_until(ws, "turn")
         ws.send_text(json.dumps({"type": "hangup"}))
         recv_until(ws, "summary")

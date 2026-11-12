@@ -41,7 +41,7 @@ def test_metrikler_cagridan_sonra():
     with TestClient(app) as tc, tc.websocket_connect("/v1/ui/ws") as ws:
         recv_until(ws, "call")
         for _ in range(40):
-            ws.send_bytes(np.zeros(160, "<i2").tobytes())
+            ws.send_bytes(np.zeros(320, "<i2").tobytes())       # tarayıcı 16 kHz gönderir (geniş bant)
         recv_until(ws, "pbx_action")
         ws.send_text(json.dumps({"type": "transfer_result", "status": "answered"}))
         recv_until(ws, "state", state="handed_off")

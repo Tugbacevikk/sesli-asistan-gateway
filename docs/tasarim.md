@@ -1787,6 +1787,9 @@ karşılamanın kaybolması (→ `rtp_remote` olayı).
   santral Gateway'e `codec: "g722"` ile çağrı açar; dahili telefonlarda G.722 öncelikli. Sesli sette (olcumler.md,
   5 Kasım) temiz seste WER %11,4 → %6,8, karışık seste yanlış eylem aynı; ölçümler bundan sonra G.722 ile esas alınır.
   G.711 (`pcma` / `pcmu`) dar bantlı uçlar için desteklenmeye devam eder.
+- **Arayüz (12.11.2026):** tarayıcıdan deneme çağrısı da varsayılan olarak bu yolu kullanır: mikrofon sesi 16 kHz'e
+  indirilir (7 kHz süzgeç), WebSocket'ten PCM16 gider, oturum `g722` çağrısı gibi açılır (STT'ye 16 kHz PCM16).
+  `?hat=dar` eski 8 kHz G.711 yolunu verir (karşılaştırma). Asistanın sesi tarayıcıda yine 8 kHz çalınır.
 
 ### ADR-026 — STT'nin bozduğu adlar için ses benzerliği (yalnız teyitle)
 - **Bağlam:** Ölçüm (04.11.2026, mihu, 16 ve 8 kHz): asıl kayıp adlarda ve iki bantta da: "Ayşe Yılmaz" → "ağlayamaz",
