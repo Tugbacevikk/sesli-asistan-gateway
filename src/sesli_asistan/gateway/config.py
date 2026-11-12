@@ -5,6 +5,7 @@ Geçersiz ayarda servis açıklayıcı hatayla başlamaz (pydantic doğrulaması
 """
 from __future__ import annotations
 
+import os
 from dataclasses import fields, replace
 from typing import Literal
 
@@ -191,6 +192,9 @@ class GatewaySettings(BaseSettings):
     call_history_texts: bool = True             # false: konuşma metinleri yazılmaz (yalnız sonuç, süre, eylem)
     # her konuşma bitince o çağrının log satırları + özeti: <klasör>/<gün>/<saat>_<call_id>.log; boş: kapalı.
     # Saklama CALL_HISTORY_DAYS kadar. Üretimde /var/lib/sesli-asistan/cagri_kayitlari
+    log_texts: bool = True          # false: konuşma metinleri loglara yazılmaz, yalnız uzunluk (KVKK)
+    log_level: str = "INFO"         # konuşma satırları INFO: daha kısıtlı düzeyde çağrı kaydı boş kalır
+    log_format: str = "text"        # json: satırlar JSON (journald / toplayıcı)
     call_log_dir: str = "cagri_kayitlari"
 
     # Arayüz (ADR-014): tarayıcıdan deneme çağrısı + izleme, http://<gateway>:8000/ui
@@ -209,6 +213,15 @@ class GatewaySettings(BaseSettings):
 
     # STT servisi (Gateway tarafı)
     stt_grpc_addr: str = "127.0.0.1:50051"
+
+    def apply_log_env(self) -> None:
+        """Log ayarlarını sürecin ortamına yansıtır. `libs.obs` bunları `os.environ`'dan okur (katman kuralı:
+        kitaplık gateway ayarlarını bilmez); systemd `EnvironmentFile` ile zaten ortama koyar, ama `.env` dosyası
+        yalnız buraya okunur — yansıtılmazsa `LOG_TEXTS=false` elle kurulumda ve geliştirmede etkisiz kalırdı
+        (konuşma metinleri loglara yazılırdı)."""
+        os.environ.setdefault("LOG_TEXTS", "true" if self.log_texts else "false")
+        os.environ.setdefault("LOG_LEVEL", self.log_level)
+        os.environ.setdefault("LOG_FORMAT", self.log_format)
 
     def dialog_texts(self) -> DialogTexts:
         """Ayardan verilen metinler varsayılanların üzerine yazılır."""
