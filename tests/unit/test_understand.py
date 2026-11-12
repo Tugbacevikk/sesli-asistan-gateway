@@ -297,3 +297,24 @@ def test_kurumun_unvan_es_anlamlari_eklenir(tmp_path):
         assert "iki" not in TITLE_SYNONYMS                  # tek sözcük olmayan atlanır
     finally:
         TITLE_SYNONYMS.pop("danisman", None)
+
+
+async def test_sozcukler_rehberde_olsa_da_kural_bulamazsa_llme_sorulur():
+    # canlı deneme 12.11: "yurt dışı bm ile görüşmek istiyorum" (STT "bölüm" → "bm"): artan sözcük yok, kural da
+    # bulamadı; LLM'e hiç sorulmadan "bulamadım" deniyordu
+    said = "yurt dışı bm ile görüşmek istiyorum"
+    a, llm = _agent({said: {"niyet": "aktar", "birim": "Yurt Dışı Satış"}})
+    assert a.unexplained(said) == [] and a.content_words(said)
+    s = a.new_session("u10")
+    s.greeting()
+    turn = await s.handle_user(said)
+    assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1240"]
+    assert llm.calls == 1
+
+
+async def test_yalniz_sayi_ya_da_evet_llme_gitmez():
+    a, llm = _agent({})
+    s = a.new_session("u11")
+    s.greeting()
+    await s.handle_user("iki yüz kırk dört")        # rehberde yok: bulamadım, LLM'e sorulmaz
+    assert llm.calls == 0 and not a.content_words("iki yüz kırk dört") and not a.content_words("evet")
