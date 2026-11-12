@@ -318,3 +318,21 @@ async def test_yalniz_sayi_ya_da_evet_llme_gitmez():
     s.greeting()
     await s.handle_user("iki yüz kırk dört")        # rehberde yok: bulamadım, LLM'e sorulmaz
     assert llm.calls == 0 and not a.content_words("iki yüz kırk dört") and not a.content_words("evet")
+
+
+async def test_hal_hatir_sohbet_acikken_aracli_donguye_gider():
+    # ADR-035 + ADR-037: anlama çağrısı "merhaba nasılsınız"ı "selam"a indirgeyip düz karşılama veriyordu
+    class Warm:
+        def __init__(self):
+            self.calls = 0
+
+        async def chat(self, messages, tools):
+            self.calls += 1
+            return LlmMessage("İyiyim, teşekkür ederim. Kiminle görüşmek istersiniz?")
+
+    llm = Warm()
+    a = DialogAgent(llm, ToolRegistry(_index()), DialogConfig(understand="llm", small_talk=True))
+    s = a.new_session("u12")
+    s.greeting()
+    turn = await s.handle_user("merhaba nasılsınız")
+    assert "İyiyim" in turn.text and llm.calls == 1 and not turn.actions
