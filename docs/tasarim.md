@@ -1138,11 +1138,12 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_PROMPT_DEPARTMENTS` | 0 | ADR-024: isteme kurumun birim listesi (en çok N birim, rehberden); 0: yok |
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
 | `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
+| `UNDERSTAND_TIMEOUT_S` | 5 | Anlama çağrısının süre sınırı (sn); araçlı döngü `LLM_TIMEOUT_S` kullanır. HTTP sınırı ikisinin büyüğü |
 | `UNDERSTAND_MODE` | llm | ADR-037: kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda. `kural`: kapalı (eski araçlı LLM döngüsü) |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
-| `ABBREVIATIONS_PATH` | (boş: genel liste) | Kurumun kısaltma sözlüğü (JSON, `gateway/kisaltmalar.json` biçiminde); rehber yüklenirken açılır (ADR-030) |
+| `ABBREVIATIONS_PATH` | (boş: genel liste) | Kurumun dosyası (JSON): `kisaltmalar` (ADR-030, rehber yüklenirken açılır), `stt_duzeltmeleri` (ADR-033), `unvan_es_anlam` ({"sekreter": "asistan"}: arayanın dediği → rehberdeki unvan) |
 | `REPEAT_BELOW` | 0.5 | STT güveni bunun altındaki söz (hızlı yol, seçim, teyit cevabı, operatör / kapatma isteği tutmadıysa) LLM'e verilmez; kodla "anlayamadım, tekrar söyler misiniz" (deneme sayılır). Santral denemelerinde 0,45 altı her söz anlamsızdı, doğrular 0,57+; 0: kapalı |
 | `CONFIRM_BELOW` | 0.75 | STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlamamı istersiniz?" (evet → aktar, hayır → bulamadım, başka ad → o aranır); LLM'in aktarması da bu kapıdan geçer (düşük güvenli sözle aktarmak isterse kodla teyit); 0: kapalı. Santral denemesinde (02.11.2026) dar bantlı seste rehberde olmayan ad rehberdekine benzetildi |
 | `CONFIRM_TEXT`, `CONFIRM_OPERATOR_TEXT`, `NO_INPUT_QUESTION_TEXT`, `GREETING_REPLY_TEXT`, `GOODBYE_TEXT` | — | teyit sorusu (`{ad}` / `{ad_e}` / `{mi}`), hedef anlaşılmayınca "operatöre mi bağlayayım?" sorusu ve arayan kapatmak isteyince veda cümlesi |

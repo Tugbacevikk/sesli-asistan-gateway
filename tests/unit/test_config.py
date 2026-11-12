@@ -59,3 +59,13 @@ def test_log_ayarlari_ortama_yansir(monkeypatch):
     assert os.environ["LOG_TEXTS"] == "false"
     said = "muhasebeden ayşe hanım"
     assert log_text(said) == f"<{len(said)} harf>"
+
+
+def test_anlama_suresi_ajana_ve_llm_istemcisine_gecer():
+    """UNDERSTAND_TIMEOUT_S anlama çağrısını sınırlar; HTTP istemcisinin sınırı ikisinin büyüğü olmalı, yoksa
+    8 sn'lik anlama çağrısı 5 sn'de HTTP tarafından kesilirdi."""
+    from sesli_asistan.gateway.composition import build_llm
+
+    s = GatewaySettings(_env_file=None, understand_timeout_s=8, llm_timeout_s=5)
+    assert build_agent(s, build_directory(s), llm=object()).cfg.understand_timeout_s == 8
+    assert build_llm(s).http.timeout.read == 8

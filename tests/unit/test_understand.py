@@ -280,3 +280,20 @@ def test_kural_turu_geri_alinirken_rehber_kayitlari_kopyalanmaz():
     assert a._rule_if_found(s, "zzz qqq") is None            # bulamaz: durum geri alınır
     assert [c.contact for c in s.state.last_results] == before
     assert all(x is y for x, y in zip([c.contact for c in s.state.last_results], before, strict=True))
+
+
+def test_kurumun_unvan_es_anlamlari_eklenir(tmp_path):
+    from sesli_asistan.gateway.abbreviations import load_title_synonyms
+    from sesli_asistan.gateway.core.people.common import TITLE_SYNONYMS, add_title_synonyms, title_synonym
+
+    f = tmp_path / "kurum.json"
+    f.write_text(json.dumps({"unvan_es_anlam": {"Danışman": "Uzman", "iki sözcük": "olmaz"}}, ensure_ascii=False),
+                 encoding="utf-8")
+    assert load_title_synonyms("") == {}
+    add_title_synonyms(load_title_synonyms(str(f)))
+    try:
+        assert title_synonym("danismanina") == "uzman"      # katlanmış, ön ekle
+        assert title_synonym("sekreter") == "asistan"       # genel liste durur
+        assert "iki" not in TITLE_SYNONYMS                  # tek sözcük olmayan atlanır
+    finally:
+        TITLE_SYNONYMS.pop("danisman", None)

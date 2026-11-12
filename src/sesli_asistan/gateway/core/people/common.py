@@ -30,8 +30,19 @@ def without_self(text: str) -> list[str]:
 
 
 # Arayanın kullandığı unvan → rehberde geçen karşılığı (katlanmış, ön ekle eşlenir: "sekreterine"). Söz
-# **genişletilir**, değiştirilmez: "şef" gerçek bir unvansa o da aranmaya devam eder.
-TITLE_SYNONYMS = {"sekreter": "asistan", "mudire": "mudur", "sef": "lider", "patron": "mudur"}
+# **genişletilir**, değiştirilmez: "şef" gerçek bir unvansa o da aranmaya devam eder. Burada yalnız genel Türkçe
+# karşılıklar; kurumun kendi unvanları kurum dosyasından eklenir (`add_title_synonyms`, ABBREVIATIONS_PATH
+# `unvan_es_anlam`), üründe kuruma özgü sözcük tutulmaz (ADR-033).
+TITLE_SYNONYMS: dict[str, str] = {"sekreter": "asistan", "mudire": "mudur", "sef": "lider", "patron": "mudur"}
+
+
+def add_title_synonyms(mapping: dict[str, str]) -> None:
+    """Kurumun unvan eş anlamlarını ekler ({"danışman": "uzman"}); anahtar ve değer katlanır, kurumunki genel
+    listeyi ezer. Açılışta bir kez çağrılır (composition)."""
+    for said, meant in mapping.items():
+        k, v = fold_words(said), fold_words(meant)
+        if len(k) == 1 and len(v) == 1:
+            TITLE_SYNONYMS[k[0]] = v[0]
 
 
 def _title_words(text: str) -> list[str]:
