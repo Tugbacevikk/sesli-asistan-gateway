@@ -67,6 +67,8 @@ class GatewaySettings(BaseSettings):
     llm_few_shot: bool = False                           # isteme örnek konuşmalar
     small_talk: bool = False                             # ADR-035: hal hatıra LLM karşılık verir, sonra yönlendirir
     understand_mode: Literal["kural", "llm"] = "llm"    # ADR-037: çözülemeyen söz LLM'le anlaşılır; kural: kapalı
+    understand_timeout_s: float = 5.0   # anlama çağrısının süre sınırı (sn); LLM yavaşsa (model kısmen CPU'da)
+                                        # yükseltilir, yalnız kuralın çözemediği sözleri bekletir
 
     # Rehber (ADR-008)
     directory_source: Literal["json", "sentra"] = "json"

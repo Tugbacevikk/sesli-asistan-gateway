@@ -471,10 +471,10 @@ class UnderstandMixin:
             llm: Any = self.llm          # chat_json LlmPort'ta zorunlu değil (ADR-037: adaptöre bağlı)
             if supports_json(llm):
                 content, timing = await asyncio.wait_for(llm.chat_json(messages),
-                                                         timeout=self.cfg.llm_timeout_s)
+                                                         timeout=self.cfg.understand_timeout_s)
             else:
                 content, timing = (await asyncio.wait_for(self.llm.chat(messages, []),
-                                                          timeout=self.cfg.llm_timeout_s)).content, ""
+                                                          timeout=self.cfg.understand_timeout_s)).content, ""
         except (TimeoutError, LlmError) as e:
             log.warning("[%s] anlama (LLM) hatası: %s %s", s.call_id, type(e).__name__, e)
             return None

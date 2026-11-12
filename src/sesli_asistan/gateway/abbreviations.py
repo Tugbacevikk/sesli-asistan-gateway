@@ -7,6 +7,10 @@ aynı biçim; aynı anahtar kurumunkini kullanır). Biçim: {"kisaltmalar": {"B�
 Anahtar noktasıyla yazılır; büyük / küçük harf ve Türkçe harfler duyarsızdır. Sözlükte olmayan kısaltma olduğu gibi
 kalır ve yüklemede raporlanır (kurum sözlüğe ekler). Kuruma özgü kısaltmalar tahmin edilmez: yanlış açılım arayanı
 yanlış hatta götürür.
+
+Aynı dosyanın öbür bölümleri: `stt_duzeltmeleri` (ADR-033, `core/corrections.py`), `sozcuk_kisaltmalari`,
+`ad_olmayan_sozcukler` ve `unvan_es_anlam` ({"sekreter": "asistan"}: arayanın dediği → rehberdeki unvan sözcüğü;
+`people.common.add_title_synonyms`).
 """
 from __future__ import annotations
 
@@ -100,6 +104,14 @@ def load_abbreviations(path: str = "", extra: bool = False) -> Abbreviations:
         words = {**words, **ext.get("sozcuk_kisaltmalari", {})}
         not_names = list(ext.get("ad_olmayan_sozcukler", []))
     return Abbreviations(base, words, not_names)
+
+
+def load_title_synonyms(path: str = "") -> dict[str, str]:
+    """Kurum dosyasındaki `unvan_es_anlam` ({"arayanın dediği": "rehberdeki unvan sözcüğü"}; yoksa boş)."""
+    if not path:
+        return {}
+    got = json.loads(Path(path).read_text(encoding="utf-8")).get("unvan_es_anlam", {})
+    return {str(k): str(v) for k, v in got.items()} if isinstance(got, dict) else {}
 
 
 def load_stt_corrections(path: str = "") -> SttCorrections:

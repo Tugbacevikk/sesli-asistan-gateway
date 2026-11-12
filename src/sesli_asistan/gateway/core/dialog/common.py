@@ -167,6 +167,7 @@ class DialogConfig:
     # ADR-037: "llm" → kuralların çözemediği söz LLM'le kalıba çevrilir (understand.py); "kural": kapalı (eski
     # araçlı LLM döngüsü). Çekirdek varsayılanı pasif kalır; ürün varsayılanı `GatewaySettings.understand_mode`.
     understand: str = "kural"
+    understand_timeout_s: float = 5.0        # anlama çağrısının süre sınırı (araçlı döngü `llm_timeout_s` kullanır)
     # STT güveni bunun altındaysa kodla aktarmadan önce "X'e mi bağlayayım?" diye sorulur (0: hiç sorulmaz).
     # Ölçüm (27.10.2026): doğru çıktılarda güven ~0,90, hatalılarda 0,64–0,68.
     confirm_below: float = 0.75

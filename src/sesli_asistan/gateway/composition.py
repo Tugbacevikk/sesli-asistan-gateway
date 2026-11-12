@@ -16,7 +16,7 @@ import httpx
 
 from sesli_asistan import __version__
 
-from .abbreviations import load_abbreviations, load_stt_corrections
+from .abbreviations import load_abbreviations, load_stt_corrections, load_title_synonyms
 from .adapters.directory.json_dir import JsonDirectory
 from .adapters.llm.ollama import OllamaChat
 from .adapters.llm.openai_compat import OpenAiCompatChat
@@ -30,6 +30,7 @@ from .core.call import CallConfig, CallSession
 from .core.dialog import DialogAgent, DialogConfig
 from .core.directory import DirectoryCache
 from .core.manager import CallManager, NewCall, PortPool
+from .core.people.common import add_title_synonyms
 from .core.ports import LlmPort, MediaPort, PbxPort, TtsPort
 from .core.schedule import AFTER_HOURS, HOLIDAY, OPEN, OfficeHours
 from .core.search import DirectoryIndex
@@ -46,9 +47,11 @@ _WARMUP_S = 120.0                    # LLM ısıtması en çok (model diskten y�
 
 
 def build_llm(s: GatewaySettings) -> LlmPort:
+    # HTTP süre sınırı iki çağrı türünün uzun olanı: anlama çağrısı (ADR-037) daha uzun bekleyebilir
+    timeout = max(s.llm_timeout_s, s.understand_timeout_s)
     if s.llm_backend == "ollama":
-        return OllamaChat(s.llm_base_url, s.llm_model, s.llm_temperature, s.llm_timeout_s)
-    return OpenAiCompatChat(s.llm_base_url, s.llm_model, s.llm_temperature, s.llm_timeout_s)
+        return OllamaChat(s.llm_base_url, s.llm_model, s.llm_temperature, timeout)
+    return OpenAiCompatChat(s.llm_base_url, s.llm_model, s.llm_temperature, timeout)
 
 
 def build_directory(s: GatewaySettings) -> DirectoryCache:
@@ -84,6 +87,7 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        prompt_template=load_prompt(s.llm_prompt_path),
                        prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot,
                        small_talk=s.small_talk, understand=s.understand_mode,
+                       understand_timeout_s=s.understand_timeout_s,
                        stt_corrections=load_stt_corrections(s.abbreviations_path.strip()))
     remote = None
     if s.llm_tools == "mcp" or s.mcp_step:
@@ -145,6 +149,7 @@ class GatewayRuntime:
         self.live = LiveFeed(keep_texts=s.call_history_texts)    # İzleme: süren çağrıların canlı akışı
         self.directory = build_directory(s)
         self.abbreviations = load_abbreviations(s.abbreviations_path.strip(), extra=True)   # rehber yüklemede (ADR-030)
+        add_title_synonyms(load_title_synonyms(s.abbreviations_path.strip()))   # kurumun unvan eş anlamları
         from .core.resilience import BreakerLlm, BreakerStt, CircuitBreaker
 
         self.breakers = {n: CircuitBreaker(n, s.breaker_failures, s.breaker_reset_s) for n in ("llm", "tts", "stt")}
