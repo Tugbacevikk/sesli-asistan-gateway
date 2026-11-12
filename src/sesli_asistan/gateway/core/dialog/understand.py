@@ -20,7 +20,6 @@ Karşılaştırma: tests/eval/anlama_karsilastir.py (aynı setler kural / normal
 from __future__ import annotations
 
 import asyncio
-import copy
 import json
 import logging
 import re
@@ -33,7 +32,7 @@ from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from ..models import Candidate, DialogTurn
-from ..people.common import TITLE_SYNONYMS, without_self
+from ..people.common import TITLE_SYNONYMS, _bucket, _cached, without_self
 from ..people.names import sound_alike
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, spoken_numbers
 from ..ports import LlmError
@@ -115,6 +114,16 @@ def title_said(unvan: str, said: str) -> bool:
     if all(any(x.startswith(w) or same_word(w, x, CHOICE_WORD) for x in words) for w in fold_words(unvan)):
         return True
     return any(x.startswith(TITLE_CUES) for x in words)
+
+
+@dataclass(frozen=True)
+class _Vocabulary:
+    """Rehberden türetilen sözcük tabloları (`index.derived`)."""
+
+    words: frozenset[str]
+    firsts: frozenset[str]
+    lasts: frozenset[str]
+    buckets: dict[str, set[str]]        # ilk 4 harf → o kovadaki sözcükler
 
 
 @dataclass(frozen=True)
@@ -236,53 +245,54 @@ class UnderstandMixin:
     """İki giriş: `_understand_first` (kanıtı zayıf söz: adımlardan önce, `_handle_user`) ve `_understood_answer`
     (kuralların çözemediği söz: son adım, `_step_answer`). İkisi de en çok bir LLM çağrısı yapar (`u.asked`)."""
 
-    _vocab_cache: tuple[int, int, frozenset[str], frozenset[str], frozenset[str]] | None = None
+    def _vocabulary(self: DialogAgent) -> _Vocabulary:
+        """Rehberin sözcükleri (ad, soyad, birim, eş anlamlı, unvan; katlanmış), adlar, soyadlar ve ilk-4-harf
+        kovaları. Rehberin kendisinde saklanır (`index.derived`): her sözde yeniden kurulmaz, rehber yenilenince
+        kendiliğinden boşalır (büyük rehberde `contacts()` listesini kurmak bile pahalı)."""
 
-    def _vocabulary(self: DialogAgent) -> tuple[frozenset[str], frozenset[str], frozenset[str]]:
-        """Rehberin sözcükleri (ad, soyad, birim, eş anlamlı, unvan; katlanmış) ve yalnız adlar. Rehber
-        yenilenince (nesne ya da kayıt sayısı değişince) yeniden kurulur."""
-        index = self.tools.index
-        contacts = index.contacts()
-        key = (id(index), len(contacts))
-        if self._vocab_cache is None or self._vocab_cache[:2] != key:
+        def build() -> _Vocabulary:
             words: set[str] = set()
             firsts: set[str] = set()
             lasts: set[str] = set()
-            for c in contacts:
+            for c in self.tools.index.contacts():
                 firsts.update(fold_words(c.first_name))
                 lasts.update(fold_words(c.last_name))
                 for t in (c.first_name, c.last_name, c.department, c.title, *c.department_aliases, *c.aliases):
                     words.update(fold_words(t))
-            self._vocab_cache = (*key, frozenset(words), frozenset(firsts), frozenset(lasts))
-        return self._vocab_cache[2], self._vocab_cache[3], self._vocab_cache[4]
+            buckets: dict[str, set[str]] = {}
+            for w in words:
+                buckets.setdefault(_bucket(w), set()).add(w)
+            return _Vocabulary(frozenset(words), frozenset(firsts), frozenset(lasts), buckets)
+
+        return _cached(self.tools.index, "anlama_sozlugu", build)
 
     def unexplained(self: DialogAgent, text: str) -> list[str]:
         """Rehberle, istek kalıplarıyla ve dolgu sözcükleriyle açıklanamayan sözcükler ("artan sözcük"). Kural
         bu sözcükleri yok sayarak karar verir; çoksa kararın kanıtı zayıftır ("muhasebenin başındaki kişi")."""
-        vocab = self._vocabulary()[0]
+        vocab = self._vocabulary()
         known = FILLER_WORDS | YES_WORDS | NEGATION_WORDS | HONORIFICS | UNIT_NOUNS | PLACE_WORDS | OPERATOR_WORDS
         out = []
         for w in without_self(text):
+            # rehber taraması yalnız aynı kovada (`same_word` ancak ilk 4 harfi aynı sözcükler arasında doğru):
+            # büyük rehberde bütün sözcükleri taramak söz başına yüz milisaniyeler yerdi
             if (len(w) <= 2 or w.isdigit() or w in known or w in _GENERIC or w.startswith(_GENERIC_STEMS)
-                    or w.startswith(_HONORIFIC_STEMS)
-                    or spoken_numbers([w]) or w in vocab or any(same_word(w, v) for v in vocab)):
+                    or w.startswith(_HONORIFIC_STEMS) or spoken_numbers([w]) or w in vocab.words
+                    or any(same_word(w, v) for v in vocab.buckets.get(_bucket(w), ()))):
                 continue
             out.append(w)
         return out
 
-    def _weak_evidence(self: DialogAgent, u: _Utterance) -> bool:
-        words = fold_words(u.text)
-        return bool(NEGATION & set(words)) or len(self.unexplained(u.text)) >= COMPLEX_MIN
-
     async def _understand_first(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Kanıtı zayıf söz (ölçüm 2: F01, F07, F09, F17 kural yanlış ama emin): adımlardan önce LLM. Anlarsa kalıp
         sözle, anlamazsa özgün sözle adımlar sürer; son adımda ikinci LLM çağrısı yapılmaz."""
-        if u.confirm or u.op_confirm or u.choice or not self._weak_evidence(u):
+        if u.confirm or u.op_confirm or u.choice:
+            return None
+        extra = self.unexplained(u.text)
+        if not (NEGATION & set(fold_words(u.text)) or len(extra) >= COMPLEX_MIN):
             return None
         if sound_alike(self.tools.index, u.text):
             return None    # bozuk duyulmuş ad ("bırakçayı" → Burak Çelik): kuralın ses teyidi (ölçüm 5, D124)
-        log.info("[%s] anlama: kanıt zayıf, önce LLM (artan: %s)", s.call_id,
-                 log_text(" ".join(self.unexplained(u.text))))
+        log.info("[%s] anlama: kanıt zayıf, önce LLM (artan: %s)", s.call_id, log_text(" ".join(extra)))
         return await self._understand(s, u, defer_guess=True)
 
     async def _understood_answer(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn:
@@ -305,7 +315,11 @@ class UnderstandMixin:
     def _rule_if_found(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
         """Kural turu bir şey bulursa (aktarma, soru) onu döner; bulamazsa ("bulamadım") turun izleri (deneme sayacı,
         geçmiş) geri alınır ve None: söz LLM'e gider."""
-        saved, hist = copy.deepcopy(s.state), len(s.history)
+        # sığ kopya + değişken alanlar: `deepcopy` rehber kayıtlarını da kopyalardı (30 adayda pahalı; kopya
+        # kayıtlar kimlik karşılaştırmasını da bozardı)
+        saved = replace(s.state, unreachable=set(s.state.unreachable), actions=list(s.state.actions),
+                        misses=list(s.state.misses))
+        hist = len(s.history)
         turn = self._rule_turn(s, text)
         st = s.state
         if turn.actions or turn.ended or st.choice or st.confirm or st.confirm_operator:
@@ -322,13 +336,13 @@ class UnderstandMixin:
         t0 = time.perf_counter()
         got = await self._ask_understanding(s, u.text)
         ms = (time.perf_counter() - t0) * 1000
-        _, firsts, lasts = self._vocabulary()
+        vocab = self._vocabulary()
         unit_said = self._unit_said(u.text)
         if got is not None and got.niyet == "aktar":
-            got, notes = got.repaired(u.text, firsts, lasts, unit_said)
+            got, notes = got.repaired(u.text, vocab.firsts, vocab.lasts, unit_said)
             if notes:
                 log.info("[%s] anlama onarımı: %s", s.call_id, "; ".join(notes))
-        if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, firsts, unit_said)):
+        if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, vocab.firsts, unit_said)):
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → reddedildi (%s)", s.call_id, ms, log_text(u.text),
                      got.summary(), why)
             return None

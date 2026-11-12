@@ -74,8 +74,9 @@ def security_warnings(s: GatewaySettings) -> list[str]:
 
 
 def main() -> None:
-    setup_logging("gateway")
     s = GatewaySettings()
+    s.apply_log_env()               # .env'deki LOG_* ayarları libs.obs'a da geçsin
+    setup_logging("gateway")
     from sesli_asistan import __version__
 
     logging.getLogger(__name__).info("sesli asistan Gateway %s", __version__)

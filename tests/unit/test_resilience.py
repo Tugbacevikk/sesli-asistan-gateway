@@ -124,6 +124,7 @@ async def test_devre_aciksa_yeni_cagri_alinmaz():
         # LLM zorunlu değil (ADR-020): çağrı alınır, diyalog kural tabanlı
         h = rt.health()
         assert rt.ready and h["components"]["llm"] == "devre_acik" and h["mode"] == "kural"
+        assert h["anlama"] == "kural"      # LLM yokken anlama kipi de kapalı görünür (ADR-037)
         for _ in range(3):
             rt.breakers["tts"].failure()
         assert not rt.ready and rt.health()["status"] == "degraded"     # TTS zorunlu

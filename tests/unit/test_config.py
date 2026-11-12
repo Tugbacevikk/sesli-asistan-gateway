@@ -1,4 +1,6 @@
 """Gateway ayarları: metinler ve doğrulama (tasarim.md 13)."""
+import os
+
 import pytest
 from pydantic import ValidationError
 
@@ -45,3 +47,15 @@ def test_anlama_kipi_varsayilan_llm_ve_ajana_gecer():
     assert build_agent(s, build_directory(s), llm=object()).cfg.understand == "llm"
     kural = GatewaySettings(_env_file=None, understand_mode="kural")
     assert build_agent(kural, build_directory(kural), llm=object()).cfg.understand == "kural"
+
+
+def test_log_ayarlari_ortama_yansir(monkeypatch):
+    """libs.obs LOG_* değerlerini os.environ'dan okur; .env yalnız ayarlara okunduğu için yansıtılmalı (KVKK)."""
+    from sesli_asistan.libs.obs import log_text
+
+    for k in ("LOG_TEXTS", "LOG_LEVEL", "LOG_FORMAT"):
+        monkeypatch.delenv(k, raising=False)
+    GatewaySettings(_env_file=None, log_texts=False).apply_log_env()
+    assert os.environ["LOG_TEXTS"] == "false"
+    said = "muhasebeden ayşe hanım"
+    assert log_text(said) == f"<{len(said)} harf>"

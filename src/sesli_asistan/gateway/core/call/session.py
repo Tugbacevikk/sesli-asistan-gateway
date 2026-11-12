@@ -334,7 +334,6 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
         await self._update_hints()
         self._start_speech(turn, heard_at=inputs[0].at, heard=heard, dialog_s=dialog_s)
 
-
     def _route(self, turn: DialogTurn) -> DialogTurn:
         if self.office != OPEN and any(isinstance(a, OperatorAction) for a in turn.actions):
             # mesai dışı: operatör yok — "operatöre bağlıyorum" yerine bilgi verip kapat

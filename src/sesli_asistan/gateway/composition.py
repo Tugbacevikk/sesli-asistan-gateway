@@ -226,7 +226,9 @@ class GatewayRuntime:
         comps = self.effective_components()
         status = "draining" if self.manager.draining else "ok" if self.ready else "degraded"
         mode = "kural" if not self.s.llm_enabled or comps.get("llm", "ok") != "ok" else "llm"
-        return {"status": status, "version": __version__, "mode": mode, "components": comps,
+        # `mode`: LLM kullanılabiliyor mu. `anlama`: çözülemeyen sözün LLM'le anlaşılıp anlaşılmadığı (ADR-037)
+        anlama = self.s.understand_mode if mode == "llm" else "kural"
+        return {"status": status, "version": __version__, "mode": mode, "anlama": anlama, "components": comps,
                 "active_calls": self.manager.active, "capacity": self.s.max_concurrent_calls,
                 "office": self.office_status()}
 
