@@ -176,8 +176,8 @@ def test_birim_es_anlamlisiyla_soylenmis_sayilir():
     a, _ = _agent({})
     said = "personelin müdürü yusuf bey miydi, ona bağlanabilir miyim"
     got = Understanding("aktar", ad="yusuf", hitap="bey", unvan="müdür", birim="insan kaynakları")
-    assert got.problem(said, a._vocabulary()[1], a._unit_said(said)) is None
-    assert got.problem(said, a._vocabulary()[1]) is not None
+    assert got.problem(said, a._vocabulary().firsts, a._unit_said(said)) is None
+    assert got.problem(said, a._vocabulary().firsts) is not None
 
 
 async def _turn(said, answer):

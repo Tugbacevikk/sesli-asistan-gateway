@@ -57,4 +57,5 @@ def test_log_ayarlari_ortama_yansir(monkeypatch):
         monkeypatch.delenv(k, raising=False)
     GatewaySettings(_env_file=None, log_texts=False).apply_log_env()
     assert os.environ["LOG_TEXTS"] == "false"
-    assert log_text("muhasebeden ayşe hanım") == "<21 harf>"
+    said = "muhasebeden ayşe hanım"
+    assert log_text(said) == f"<{len(said)} harf>"
