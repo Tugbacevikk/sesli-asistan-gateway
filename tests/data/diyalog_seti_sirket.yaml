@@ -138,3 +138,8 @@
   aciklama: "Eş anlamlı unvan: sekreter → asistan (ölçüm 7, F02)"
   konusma: ["genel müdürün sekreterine bağlar mısınız"]
   beklenen: {eylem: transfer, dahili: "1104"}
+
+- id: R27
+  aciklama: "Canlı deneme 12.11: sekreter eş anlamı, -iyle ekiyle ve 'görüşeceğim' ile (R26'nın söyleyiş çeşidi)"
+  konusma: ["genel müdürün sekreteriyle görüşeceğim"]
+  beklenen: {eylem: transfer, dahili: "1104"}
