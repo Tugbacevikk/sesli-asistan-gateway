@@ -281,6 +281,85 @@ def konu_ornekleri(index: DirectoryIndex, rng: random.Random) -> list[tuple[str,
     return out
 
 
+# --- "birimin müdürü" kalıbı (tamlama + iyelik): "muhasebenin müdürüyle", "ar-genin müdürü ahmet bey" ---
+IYELIK_UNVAN = {"müdürü": "müdür", "amiri": "amir", "sorumlusu": "sorumlu", "başkanı": "başkan", "şefi": "şef",
+                "yöneticisi": "yönetici", "komutanı": "komutan", "koordinatörü": "koordinatör"}
+BASKA_UNVAN = ["müşteri temsilcisi", "sekreter", "uzman", "memur", "stajyer"]
+
+
+def _kisa_birim(c: Contact) -> str:
+    adlar = [turkish_lower(x) for x in (c.department, *c.department_aliases) if x]
+    return min(adlar, key=len) if adlar else ""
+
+
+def iyelik_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
+    son = turkish_lower(c.title).split()[-1] if c.title else ""
+    if son not in IYELIK_UNVAN or not c.department:
+        return []
+    u, b = IYELIK_UNVAN[son], _kisa_birim(c)
+    bg = tamlayan(b)
+    out = [
+        (f"{bg} {birliktelik(son)} görüşmek istiyorum", etiket(niyet="aktar", unvan=u, birim=b), c.extension,
+         "birim_iyelik"),
+        (f"{bg} {son} kimse ona bağlar mısınız", etiket(niyet="aktar", unvan=u, birim=b), c.extension,
+         "birim_iyelik"),
+        (f"{rng.choice(BASKA_UNVAN)} değil {bg} {birliktelik(son)} görüşecektim",
+         etiket(niyet="aktar", unvan=u, birim=b), c.extension, "birim_iyelik_dislama"),
+    ]
+    hitap = hitap_bul(c.first_name) if c.kind == "person" and c.first_name else ""
+    if hitap:
+        ad = turkish_lower(c.first_name)
+        e = etiket(niyet="aktar", ad=ad, hitap=hitap, unvan=u, birim=b)
+        out += [(f"{ad} {hitap} vardı ya {bg} {son} olan onunla görüşecektim", e, c.extension, "ad_birim_iyelik"),
+                (f"{bg} {son} {ad} {hitap} miydi ona bağlanabilir miyim", e, c.extension, "ad_birim_iyelik")]
+    return out
+
+
+# --- konu tarifleri: arayan anahtar sözcük değil derdini anlatır ("yazıcı kağıt sıkıştırıyor") ---
+# (birim adında aranacak sözcükler, konu etiketi, sözler). Birim rehberde yoksa atlanır.
+KONU_TARIFLERI = [
+    (("bilgi işlem", "teknik destek"), "bilgisayar arızası",
+     ["ekranım kararıyor bilgisayar çalışmıyor kime söylemeliyim", "bilgisayarım çok yavaş bakabilecek biri var mı"]),
+    (("bilgi işlem", "teknik destek"), "yazıcı arızası", ["yazıcı kağıt sıkıştırıyor ilgilenecek biri var mı"]),
+    (("bilgi işlem", "teknik destek"), "şifre sorunu", ["şifremi unuttum sisteme giremiyorum"]),
+    (("bilgi işlem", "teknik destek"), "internet sorunu", ["internetim sürekli kopuyor kimi aramalıyım"]),
+    (("bilgi işlem", "teknik destek"), "program hatası", ["kullandığım program hata veriyor yardım lazım"]),
+    (("insan kaynakları", "personel"), "staj başvurusu", ["staj başvurumun sonucunu öğrenmek istiyorum"]),
+    (("insan kaynakları", "personel"), "açık pozisyon", ["açık pozisyonlarınız var mı özgeçmiş göndermek istiyorum"]),
+    (("insan kaynakları", "personel"), "mülakat", ["mülakata çağrıldım bilgi alabilir miyim"]),
+    (("insan kaynakları", "personel"), "yıllık izin", ["yıllık izin hakkımı sormak istiyorum"]),
+    (("kalite",), "hatalı ürün", ["gelen malzemede çatlak var bunu bildirmek istiyorum",
+                                 "teslim aldığımız ürünün ölçüleri tutmuyor kime söyleyeyim"]),
+    (("kalite",), "kalite belgesi", ["ürünleriniz için kalite sertifikası istiyoruz"]),
+    (("muhasebe", "finans"), "ödeme", ["ödememiz hesabınıza geçmiş mi kontrol etmek istiyorum",
+                                      "hakedişimiz ne zaman yatacak öğrenebilir miyim"]),
+    (("muhasebe", "finans"), "fatura hatası", ["faturada tutar yanlış yazılmış düzeltilmesi lazım"]),
+    (("satın alma", "satınalma"), "teklif", ["size ürün satmak istiyoruz teklif vermek için kimle görüşmeliyim",
+                                            "tedarikçiniz olmak istiyoruz"]),
+    (("lojistik", "sevkiyat"), "sevkiyat", ["siparişimiz hala gelmedi araç nerede kaldı",
+                                           "teslimat adresini değiştirmemiz gerekiyor"]),
+    (("müşteri hizmetleri",), "şikayet", ["aldığım hizmetten memnun kalmadım şikayetimi iletmek istiyorum"]),
+    (("nüfus",), "kimlik kartı", ["kimlik kartımı kaybettim yenisini nasıl alırım"]),
+    (("nüfus",), "doğum kaydı", ["bebeğimin doğum kaydını yaptırmak istiyorum"]),
+    (("trafik",), "çekilen araç", ["aracımı çekmişler nereden alabilirim"]),
+    (("trafik",), "trafik cezası", ["gelen ceza tutanağına itiraz etmek istiyorum"]),
+    (("aile", "sosyal"), "bakım desteği", ["yaşlı annem için bakım desteği almak istiyorum"]),
+    (("milli eğitim",), "okul nakli", ["çocuğumun okulunu değiştirmek istiyoruz kime başvuracağız"]),
+    (("hukuk",), "ihtarname", ["bize gelen ihtarname hakkında görüşmek istiyorum"]),
+    (("sağlık",), "sağlık raporu", ["sağlık raporu için nereye başvurmalıyım"]),
+]
+
+
+def konu_tarif_ornekleri(index: DirectoryIndex) -> list[tuple[str, str, str | None, str]]:
+    birimler = sorted({c.department for c in index.contacts() if c.department and c.transferable}, key=len)
+    out = []
+    for anahtarlar, konu, sozler in KONU_TARIFLERI:
+        hedef = next((b for b in birimler if any(a in turkish_lower(b) for a in anahtarlar)), "")
+        if hedef:
+            out += [(s, etiket(niyet="konu", konu=konu, tahmini_birim=hedef), None, "konu_tarif") for s in sozler]
+    return out
+
+
 SABIT = {
     "operator": ["operatöre bağlar mısınız", "bir insanla görüşmek istiyorum", "gerçek biriyle konuşabilir miyim",
                  "santral memuruna verin beni", "makineyle konuşmak istemiyorum bir yetkili lütfen",
@@ -380,10 +459,10 @@ async def rehber_ornekleri(adi: str, yol: str, rng: random.Random, tekrar: int,
             elif c.kind == "department":
                 ham += birim_ornekleri(c, rng)
             if c.title:
-                ham += unvan_ornekleri(c, rng)
+                ham += unvan_ornekleri(c, rng) + iyelik_ornekleri(c, rng)
             if rng.random() < 0.3:
                 ham += dahili_ornekleri(c, rng)
-        ham += konu_ornekleri(index, rng) + dislama_ornekleri(index, rng)
+        ham += konu_ornekleri(index, rng) + dislama_ornekleri(index, rng) + konu_tarif_ornekleri(index)
     ham += sabit_ornekler()
     sayac: Counter = Counter()
     out, gorulen = [], set()
@@ -406,6 +485,23 @@ async def rehber_ornekleri(adi: str, yol: str, rng: random.Random, tekrar: int,
     return out, sayac
 
 
+def diyalog_sozleri() -> set[str]:
+    """tests/data/diyalog_seti*.yaml'daki bütün arayan sözleri: eğitime girmez (sızıntı olmasın; o setler modelin
+    hiç görmediği sınav olarak kalır). Karşılaştırma noktalamasız, küçük harfle."""
+    import yaml
+
+    out: set[str] = set()
+    for f in sorted((ROOT / "tests/data").glob("diyalog_seti*.yaml")):
+        d = yaml.safe_load(f.read_text(encoding="utf-8"))
+        for sc in d if isinstance(d, list) else d.get("senaryolar", []):
+            out.update(_sade(x) for x in sc.get("konusma", []) if isinstance(x, str))
+    return out
+
+
+def _sade(x: str) -> str:
+    return " ".join(re.findall(r"[a-zçğıöşüâîû0-9]+", turkish_lower(x)))
+
+
 async def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--cikti", default=str(ROOT / "tools/egitim/veri"))
@@ -417,8 +513,13 @@ async def main(argv: list[str] | None = None) -> int:
     rng = random.Random(a.tohum)
     egitim, dogrulama, test = [], [], []
     toplam: Counter = Counter()
+    yasak = diyalog_sozleri()
     for adi, yol in REHBERLER.items():
         ornekler, sayac = await rehber_ornekleri(adi, yol, rng, a.tekrar, a.tur_siniri)
+        sizan = [o for o in ornekler if _sade(o["messages"][1]["content"]) in yasak]
+        if sizan:
+            print(f"  {adi}: diyalog setlerinde geçen {len(sizan)} söz çıkarıldı")
+            ornekler = [o for o in ornekler if o not in sizan]
         toplam.update(sayac)
         print(f"{adi:8} {len(ornekler):5} örnek   atılan {sum(v for k, v in sayac.items() if k.startswith('atildi'))}")
         if adi == a.test_rehber:
