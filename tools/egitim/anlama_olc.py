@@ -26,7 +26,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from anlama_veri import REHBERLER, EtiketLlm, dogrula  # noqa: E402
+from anlama_veri import REHBERLER, EtiketLlm, dogrula, yer_adlarini_degistir  # noqa: E402
 
 from sesli_asistan.gateway.adapters.llm.ollama import OllamaChat  # noqa: E402
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
@@ -59,8 +59,8 @@ async def main(argv: list[str] | None = None) -> int:
     for adi in {r["rehber"] for r in rows}:
         data = json.loads((ROOT / REHBERLER[adi]).read_text(encoding="utf-8"))
         llm = EtiketLlm()
-        agents[adi] = (DialogAgent(llm, ToolRegistry(DirectoryIndex(Contact.from_api(c) for c in data["contacts"])),
-                                   DialogConfig(understand="llm")), llm)
+        contacts, _ = yer_adlarini_degistir([Contact.from_api(c) for c in data["contacts"]])   # veriyle aynı rehber
+        agents[adi] = (DialogAgent(llm, ToolRegistry(DirectoryIndex(contacts)), DialogConfig(understand="llm")), llm)
 
     rapor = {"test": a.test, "n": len(rows), "sonuclar": []}
     print(f"{len(rows)} örnek\n{'model':22} {'json %':>7} {'niyet %':>8} {'tam %':>6} {'uçtan uca %':>12} "

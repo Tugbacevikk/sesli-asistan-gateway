@@ -18,6 +18,7 @@ onu ölçer.
 | # | Nerede | Ne |
 |---|--------|----|
 | 1 | kendi makinen | `python tools/egitim/anlama_veri.py` → `tools/egitim/veri/*.jsonl` (~3 dk, GPU gerekmez) |
+| 1b | kendi makinen | **özel isim denetimi:** `python tools/egitim/ozel_isim_denetim.py --katı` → "BULGU YOK" görmeden eğitime başlama |
 | 2 | kendi makinen | **eğitimden önce taban ölçüm:** `python tools/egitim/anlama_olc.py --model qwen3.5:4b --model gemma3:1b` |
 | 3 | Colab (T4) | `egit_gemma.ipynb`'yi aç, `MODEL` seç, `anlama_egitim.jsonl` + `anlama_dogrulama.jsonl` yükle, sırayla çalıştır |
 | 4 | kendi makinen | `bash tools/egitim/ollama_yukle.sh gemma-santral.Q8_0.gguf gemma-santral gemma3:1b` |
@@ -40,6 +41,11 @@ etiket yanlış kişiye aktarıyorsa ya da hiçbir yere varmıyorsa örnek atıl
 - STT bozulmaları: Türkçe harf kaybı (`ayse hanim`), "alo / eee / iyi günler" başı, "lütfen" sonu.
 - Dengeleme: bir rehberde bir türden en çok `--tur-siniri` (250) örnek.
 - Sistem istemi üretimdekiyle birebir aynı (`UNDERSTAND_PROMPT` + rehberin birim listesi).
+- Özel isimler: bütün kişi adları sentetik rehber üreticilerinin ortak Türkçe ad havuzundan gelir (gerçek kişi
+  değil). Rehberlerde geçen gerçek yer adları (kamu test rehberindeki ilçe kaymakamlıkları) veri üretilirken
+  sabit bir eşlemeyle uydurma adlara çevrilir. `ozel_isim_denetim.py` her üretimden sonra veriyi tarar: gerçek
+  il / ilçe adı, şirket adı (`YASAKLI`, `--yasakli dosya.txt` ile ek liste), telefon / e-posta / T.C. kimlik /
+  IBAN kalıbı ve havuz dışı ad arar.
 
 İstem (`understand.py`) değişirse veri yeniden üretilmeli ve model yeniden eğitilmelidir: model istemin
 biçimine alışır.

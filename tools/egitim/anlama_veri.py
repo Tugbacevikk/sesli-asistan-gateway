@@ -20,8 +20,10 @@ import argparse
 import asyncio
 import json
 import random
+import re
 import sys
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +56,39 @@ KADIN = {"aslı", "ayşe", "bahar", "burcu", "büşra", "ceren", "damla", "derya
          "havva", "hilal", "hülya", "melike", "melis", "merve", "meryem", "oya", "pelin", "pınar", "seda", "selin",
          "sevgi", "sevil", "sinem", "sultan", "tuğba", "yasemin", "zehra", "zeynep", "özlem", "irem", "şerife"}
 CINSIYETSIZ = {"deniz", "umut"}       # hitap tahmin edilmez
+
+# Gerçek yer adı geçen kayıtlar (ör. kamu test rehberindeki ilçe kaymakamlıkları) eğitime uydurma adla girer:
+# eğitim verisinde gerçek kurum / yer adı kalmaz (ozel_isim_denetim.py denetler). Eşleme sabit: aynı gerçek ad hep
+# aynı uydurma ada döner, rehberin iç tutarlılığı (birim ↔ unvan ↔ eş anlamlı) bozulmaz.
+UYDURMA_YERLER = ["Kuşpınarı", "Yazıbaşı", "Çamlıyurt", "Karaağıl", "Sarıgöl Yaylası", "Akpınarlı", "Gökçeören",
+                  "Bozdere", "Aşağıova", "Kızılkaya"]
+
+
+def _yer_eslemesi(contacts: list[Contact]) -> dict[str, str]:
+    from ozel_isim_denetim import ILCELER, ILLER, kelimeler
+
+    gercek = set(ILLER) | set(ILCELER)
+    kisi = {w for c in contacts for w in kelimeler(f"{c.first_name} {c.last_name}")}   # "Aydın" soyadı yer değil
+    bulunan = sorted({w for c in contacts for x in (c.department, *c.department_aliases, c.title, *c.aliases)
+                      for w in kelimeler(x) if w in gercek and w not in kisi})
+    if len(bulunan) > len(UYDURMA_YERLER):
+        raise SystemExit(f"uydurma yer havuzu yetmiyor: {bulunan}")
+    return dict(zip(bulunan, UYDURMA_YERLER, strict=False))
+
+
+def yer_adlarini_degistir(contacts: list[Contact]) -> tuple[list[Contact], dict[str, str]]:
+    esle = _yer_eslemesi(contacts)
+    if not esle:
+        return contacts, {}
+    rx = re.compile(r"(?<![\wçğıöşüÇĞİÖŞÜ])(" + "|".join(map(re.escape, esle)) + r")(?![\wçğıöşüÇĞİÖŞÜ])", re.I)
+
+    def d(x: str) -> str:
+        return rx.sub(lambda m: esle[turkish_lower(m.group(1))], x)
+
+    out = [replace(c, department=d(c.department), department_aliases=tuple(map(d, c.department_aliases)),
+                   title=d(c.title), aliases=tuple(map(d, c.aliases))) for c in contacts]
+    return out, esle
+
 
 # --- Türkçe ekler (ünlü uyumu; sözler küçük harf, noktalamasız: STT çıktısı gibi) ---
 _KALIN, _INCE = set("aıou"), set("eiöü")
@@ -327,7 +362,9 @@ async def dogrula(agent: DialogAgent, llm: EtiketLlm, soz: str, cevap: str, dahi
 async def rehber_ornekleri(adi: str, yol: str, rng: random.Random, tekrar: int,
                            tur_siniri: int) -> tuple[list[dict], Counter]:
     data = json.loads((ROOT / yol).read_text(encoding="utf-8"))
-    contacts = [Contact.from_api(c) for c in data["contacts"]]
+    contacts, esle = yer_adlarini_degistir([Contact.from_api(c) for c in data["contacts"]])
+    if esle:
+        print(f"  {adi}: gerçek yer adları değiştirildi: " + ", ".join(f"{k} → {v}" for k, v in esle.items()))
     index = DirectoryIndex(contacts)
     llm = EtiketLlm()
     agent = DialogAgent(llm, ToolRegistry(index), DialogConfig(understand="llm"))
