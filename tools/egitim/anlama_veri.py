@@ -46,6 +46,7 @@ REHBERLER = {
     "kamu": "tests/data/kamu_rehber.json",
     "makam": "tests/data/makam_rehber.json",
     "ornek": "data/rehber_ornek.json",
+    "rutbe": "tools/egitim/rutbe_rehber.json",     # jandarma / emniyet rütbeleri (onbaşı … albay, komiser …)
     "demo": "data/demo_rehber.json",
 }
 KONULAR = ROOT / "src/sesli_asistan/gateway/konular.json"
@@ -191,6 +192,10 @@ def hitap_bul(ad: str) -> str:
 
 # --- örnek üreticiler: (söz, etiket, beklenen dahili ya da None, tür) ---
 
+RUTBE_HITAP = {"onbaşı", "çavuş", "başçavuş", "astsubay", "asteğmen", "teğmen", "üsteğmen", "yüzbaşı", "binbaşı",
+               "yarbay", "albay", "komiser", "başkomiser", "amiri"}
+
+
 def kisi_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
     ad, soyad = turkish_lower(c.first_name), turkish_lower(c.last_name)
     birim = turkish_lower(c.department) if c.department else ""
@@ -215,6 +220,13 @@ def kisi_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str |
             (f"{ad} {hitap} {ayrilma(b)} kendisiyle görüşmem lazım",
              etiket(niyet="aktar", ad=ad, hitap=hitap, birim=b), c.extension, "birim_ad"),
         ]
+    rutbe = turkish_lower(c.title).split()[-1] if c.title else ""
+    if rutbe in RUTBE_HITAP:
+        u = turkish_lower(c.title)
+        out += [(f"{ad} {birliktelik(rutbe)} görüşecektim", etiket(niyet="aktar", ad=ad, unvan=u), c.extension,
+                 "ad_rutbe"),
+                (f"{ad} {rutbe} vardı ona bağlar mısınız", etiket(niyet="aktar", ad=ad, unvan=u), c.extension,
+                 "ad_rutbe")]
     if c.title and len(c.title.split()) <= 3 and hitap:
         u = turkish_lower(c.title)
         out.append((f"{ad} {hitap} vardı ya {u} olan", etiket(niyet="aktar", ad=ad, hitap=hitap, unvan=u),
