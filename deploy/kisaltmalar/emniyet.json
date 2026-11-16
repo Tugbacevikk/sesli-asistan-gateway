@@ -1,0 +1,8 @@
+{
+  "_aciklama": "Emniyet rehberleri için kurum kısaltma dosyası örneği (ADR-030, ABBREVIATIONS_PATH). Genel listede 'Kom.' = 'Komutanı' (jandarma / askeri birim adları); emniyet rehberinde aynı kısaltma 'Komiser' demektir. Bu yüzden genel listeye değil kurum dosyasına yazılır. Kurum kendi kısaltmalarını bu dosyanın kopyasına ekler.",
+  "kisaltmalar": {
+    "Kom.": "Komiser",
+    "Kom.Yrd.": "Komiser Yardımcısı",
+    "Kd.Kom.Yrd.": "Kıdemli Komiser Yardımcısı"
+  }
+}
