@@ -1,4 +1,4 @@
-# Gemma 4 E4B ince ayarı (anlama modeli)
+# Gemma ince ayarı (anlama modeli): Gemma 3 1B / Gemma 4 E4B
 
 Neyi eğitiyoruz: **anlama kipi** (`UNDERSTAND_MODE=llm`, ADR-037). Kuralların çözemediği söz LLM'e gider,
 LLM sözü JSON'a çevirir (`{"niyet":"aktar","unvan":"müdür","birim":"muhasebe"}`), karar ve aktarma yine kodda kalır.
@@ -18,14 +18,14 @@ onu ölçer.
 | # | Nerede | Ne |
 |---|--------|----|
 | 1 | kendi makinen | `python tools/egitim/anlama_veri.py` → `tools/egitim/veri/*.jsonl` (~3 dk, GPU gerekmez) |
-| 2 | kendi makinen | **eğitimden önce taban ölçüm:** `python tools/egitim/anlama_olc.py --model qwen3.5:4b --model gemma4:e4b` |
-| 3 | Colab (T4) | `egit_gemma4_e4b.ipynb`'yi aç, `anlama_egitim.jsonl` + `anlama_dogrulama.jsonl` yükle, sırayla çalıştır |
-| 4 | kendi makinen | `bash tools/egitim/ollama_yukle.sh gemma4-santral.Q4_K_M.gguf` |
-| 5 | kendi makinen | `python tools/egitim/anlama_olc.py --model gemma4:e4b --model gemma4-santral` |
-| 6 | kendi makinen | uçtan uca: `python tests/eval/diyalog.py --anlama --model gemma4-santral --set tests/data/diyalog_seti_serbest.yaml --rehber data/sirket_rehber.json` |
+| 2 | kendi makinen | **eğitimden önce taban ölçüm:** `python tools/egitim/anlama_olc.py --model qwen3.5:4b --model gemma3:1b` |
+| 3 | Colab (T4) | `egit_gemma.ipynb`'yi aç, `MODEL` seç, `anlama_egitim.jsonl` + `anlama_dogrulama.jsonl` yükle, sırayla çalıştır |
+| 4 | kendi makinen | `bash tools/egitim/ollama_yukle.sh gemma-santral.Q8_0.gguf gemma-santral gemma3:1b` |
+| 5 | kendi makinen | `python tools/egitim/anlama_olc.py --model gemma3:1b --model gemma-santral` |
+| 6 | kendi makinen | uçtan uca: `python tests/eval/diyalog.py --anlama --model gemma-santral --set tests/data/diyalog_seti_serbest.yaml --rehber data/sirket_rehber.json` |
 
-Laptop GPU'su (4 GB) eğitime yetmez; E2B bile 8 GB ister. Eğitim Colab'da ya da GPU'lu sunucuda yapılır.
-Ölçüm (adım 2, 5, 6) laptopta çalışır: E4B Q4 ~5 GB, kısmen CPU'ya taşar, yavaş ama doğru sonuç verir.
+Eğitim Colab'da ya da GPU'lu sunucuda yapılır (laptop GPU'su 4 GB). Ölçüm (adım 2, 5, 6) laptopta çalışır:
+Gemma 3 1B Q8 ~1 GB, GPU'ya sığar; E4B Q4 ~5 GB, kısmen CPU'ya taşar, yavaş ama doğru sonuç verir.
 Gecikme kararı sunucu donanımında ölçülmelidir.
 
 ## Veri
@@ -61,4 +61,10 @@ diyalog setlerinde (adım 6) izinsiz aktarma 0.
   veriye sohbet turları eklemek ya da anlama için ayrı model adı (koda küçük bir ayar).
 - Şablon: GGUF Ollama'ya ana modelin (`gemma4:e4b`) şablonuyla yüklenir (`ollama_yukle.sh`). Eğitilmiş model
   Colab'da iyi, Ollama'da kötüyse ilk şüpheli şablon farkıdır.
-- Lisans: Gemma 4 Apache 2.0. Eğitilmiş ağırlıkları dağıtırken `THIRD_PARTY_LICENSES.md`'ye eklenmeli.
+- **Gemma 3 1B ve araçlar:** Ollama, araç şablonu olmayan modele `tools` alanlı isteği reddedebilir. Gateway'in
+  araçlı LLM turları (`LlmMixin._run`) bu modelle hata verirse kural tabanlı tura düşer (`llm_fallback`).
+  Adım 6'da `LLM hatası` sütununa bakın; sıfır değilse araçlı turlar için ayrı model gerekir.
+- **Gemma 3 1B ve Türkçe:** model kartı 1B'nin çok dilli puanlarını düşük veriyor; ince ayar dar görevde bunu
+  kapatabilir ama ölçmeden varsayılmamalı (adım 2 → 5 farkı).
+- Lisans: Gemma 3 "Gemma Terms of Use" (yasaklı kullanım politikası var; Apache değil), Gemma 4 Apache 2.0.
+  Eğitilmiş ağırlıkları dağıtırken `THIRD_PARTY_LICENSES.md`'ye eklenmeli.
