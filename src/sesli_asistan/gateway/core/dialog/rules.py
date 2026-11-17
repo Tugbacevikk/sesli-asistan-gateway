@@ -26,6 +26,7 @@ from ..phrases import (
 )
 from ..ports import ToolCall
 from ..search import (
+    fold_words,
     hard_stem,
     has_role_word,
     is_role_word,
@@ -415,9 +416,48 @@ class RulesMixin:
             # söylenen birim kişinin birimi değil ("satıştan Burak Çelik"; Burak muhasebede): aktarılmaz, sorulur
             log.info("[%s] hızlı yol: %s başka birimle söylendi — sorulacak", s.call_id, contact.full_name)
             return self._confirm(s, contact)
+        if kind == "department" and (other := self._more_specific(text, contact)) is not None:
+            # "jandarmanın nizamiyesine": sözde birimin adı geçiyor ama unvanı da tam söylenen tek bir hat var
+            # (Nizamiye): birim hattına değil o hatta (şive + jandarma seti J07; önceden Komutanlık hattına gidiyordu)
+            log.info("[%s] hızlı yol: birim hattı yerine sözde açıkça söylenen hat: %s → %s", s.call_id,
+                     other.title or other.department, other.extension)
+            return self._code_transfer(s, Candidate(other, 100))
         if self._unsure(s):
             return self._confirm(s, contact)
         return self._fast_transfer(s, text, contact, kind)
+
+    def _more_specific(self: DialogAgent, text: str, department: Any) -> Any | None:
+        """Sözün tamamıyla aramada bu birim hattından başka tek bir aktarılabilir hat çıkıyor ve o hat sözde açıkça
+        söylenmişse o hat; yoksa None. Söylenmiş: rol / kişi hattının unvanının bütün sözcükleri ("nizamiyesine" →
+        Nizamiye) ya da başka bir birimin en az iki sözcüklü adının / eş adının bütün sözcükleri ("jandarma
+        personele" → Jandarma Personel; yalnız "jandarma" geçen genel hat daha az özel)."""
+        words = search_key(text).split()
+        for n in (3, 2):               # "jandarma personele": iki sözcüklü pencerede başka birim açık farkla önde
+            for i in range(len(words) - n + 1):
+                cands = self.tools.index.search(department=" ".join(words[i:i + n])).candidates
+                if not cands:
+                    continue
+                top = cands[0]
+                if (top.contact.kind == "department" and top.contact.id != department.id and top.contact.transferable
+                        and top.score >= self.cfg.fast_path_min_score
+                        and (len(cands) == 1 or top.score > cands[1].score)):
+                    return top.contact
+        res = self.tools.index.search(text)
+        if res.match not in (Match.SINGLE_HIGH, Match.SINGLE_LOW) or not res.candidates:
+            return None
+        c = res.candidates[0].contact
+        if c.id == department.id or not c.transferable:
+            return None
+        said = fold_words(text)
+
+        def in_said(t: str) -> bool:   # "nizamiye" ⊂ "nizamiyesine"; ek kökü kısaltabilir ("nizamiye" → "nizami")
+            return any(w.startswith(t) or strip_suffix(w) == strip_suffix(t) for w in said)
+
+        if c.kind == "department":
+            names = [fold_words(n) for n in (c.department, *c.department_aliases)]
+            return c if any(len(n) >= 2 and all(in_said(t) for t in n) for n in names) else None
+        need = fold_words(c.title) if c.title else []
+        return c if need and all(in_said(t) for t in need) else None
 
     def _fast_matches(self: DialogAgent, text: str, words: list[str]) -> dict[str, tuple[Any, str]]:
         """Hızlı yolun adayları: kimlik → (kayıt, "alias" | "name" | "department"). Kişi yalnız takma adının tam hâli
