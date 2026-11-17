@@ -177,6 +177,39 @@ def stt_gurultu(soz: str, rng: random.Random) -> str:
     return " ".join(soz.split())
 
 
+# --- şive: yöresel söyleyiş (STT şiveyi standart yazıma çevirmeyebilir). Etiket aynı kalır, model yalın biçimi
+# yazmayı öğrenir ("hanumla" → hitap "hanım"). Kod etiketi kabul etmezse (dogrula) örnek zaten atılır.
+SIVE_FIIL = [  # (kalıp, yöresel karşılıklar); tam sözcük öbeği olarak değiştirilir
+    ("görüşmek istiyorum", ["görüşmek istirem", "görüşmek isterem", "görüşmek isteyrum", "görüşmek istiyrum"]),
+    ("görüşecektim", ["görüşcektim", "görüşecaktım", "görüşeceğudum", "görüşcem"]),
+    ("görüşmem lazım", ["görüşmem lazum", "görüşmem gerek"]),
+    ("görüşmem gerekiyor", ["görüşmem gerekir", "görüşmem lazım"]),
+    ("bağlar mısınız", ["bağlayıverin", "bağlayıversene", "bağlayasun", "bi bağlayın", "bağlayıvesene"]),
+    ("bağlayın", ["bağlayıverin", "bağlayasunuz", "bağlayın gari", "bağlayıver"]),
+    ("arıyorum", ["arayrum", "arıyrum", "arayrem"]),
+    ("istiyorum", ["istirem", "isterem", "isteyrum"]),
+    ("aktarabilir misiniz", ["aktarıverin", "aktarasunuz"]),
+    ("ile", ["ilen", "inen"]),
+]
+SIVE_HITAP = [("hanımla", ["hanumla", "hanımnan"]), ("beyle", ["beynen", "beyinen"]), ("hanım", ["hanum"])]
+SIVE_ONEK = ["uşağum ", "gardaş ", "bacım ", "efem ", "abe ", "hele bi ", "yavrum ", "komutanım ", "kardeşim "]
+SIVE_SONEK = [" gari", " da", " hele", " bi zahmet"]
+SIVE_ORANI = 0.2
+
+
+def sive_uygula(soz: str, rng: random.Random) -> str:
+    if rng.random() >= SIVE_ORANI:
+        return soz
+    for kalip, yerel in (*SIVE_FIIL, *SIVE_HITAP):
+        if re.search(rf"(?<![\wçğıöşü]){kalip}(?![\wçğıöşü])", soz) and rng.random() < 0.7:
+            soz = re.sub(rf"(?<![\wçğıöşü]){kalip}(?![\wçğıöşü])", rng.choice(yerel), soz, count=1)
+    if rng.random() < 0.4:
+        soz = rng.choice(SIVE_ONEK) + soz
+    if rng.random() < 0.25:
+        soz += rng.choice(SIVE_SONEK)
+    return soz
+
+
 def etiket(**alanlar: str) -> str:
     """Yalnız dolu alanlar, sabit sırada, boşluksuz JSON (istemdeki örnekler gibi)."""
     d = {k: alanlar[k] for k in ALAN_SIRASI if alanlar.get(k)}
@@ -482,7 +515,7 @@ async def rehber_ornekleri(adi: str, yol: str, rng: random.Random, tekrar: int,
     for soz, cevap, dahili, tur in ham:
         if sayac[tur] >= tur_siniri:             # dengeleme: büyük rehber ve sık kalıplar baskın olmasın
             continue
-        soz = stt_gurultu(soz, rng)
+        soz = stt_gurultu(sive_uygula(soz, rng), rng)
         if soz in gorulen:
             continue
         gorulen.add(soz)
