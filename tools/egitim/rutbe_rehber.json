@@ -1,0 +1,305 @@
+{
+ "aciklama": "Sentetik rütbe rehberi (jandarma / emniyet rütbeleri; ince ayar verisi için; gerçek kişi değil)",
+ "server_time": "2026-11-16T00:00:00+03:00",
+ "contacts": [
+  {
+   "id": "r-7100",
+   "kind": "department",
+   "department": "İl Jandarma Komutanlığı",
+   "department_aliases": [
+    "jandarma komutanlığı",
+    "il jandarma"
+   ],
+   "extension": "7100",
+   "transferable": true
+  },
+  {
+   "id": "r-7101",
+   "first_name": "Okan",
+   "last_name": "Sevim",
+   "department": "İl Jandarma Komutanlığı",
+   "department_aliases": [
+    "jandarma komutanlığı",
+    "il jandarma"
+   ],
+   "title": "Albay",
+   "extension": "7101"
+  },
+  {
+   "id": "r-7102",
+   "first_name": "Gamze",
+   "last_name": "Ekinci",
+   "department": "İl Jandarma Komutanlığı",
+   "department_aliases": [
+    "jandarma komutanlığı",
+    "il jandarma"
+   ],
+   "title": "Yarbay",
+   "extension": "7102"
+  },
+  {
+   "id": "r-7103",
+   "first_name": "Okan",
+   "last_name": "Koç",
+   "department": "İl Jandarma Komutanlığı",
+   "department_aliases": [
+    "jandarma komutanlığı",
+    "il jandarma"
+   ],
+   "title": "Binbaşı",
+   "extension": "7103"
+  },
+  {
+   "id": "r-7104",
+   "kind": "department",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "extension": "7104",
+   "transferable": true
+  },
+  {
+   "id": "r-7105",
+   "first_name": "Ömer",
+   "last_name": "Keskin",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Yüzbaşı",
+   "extension": "7105"
+  },
+  {
+   "id": "r-7106",
+   "first_name": "Okan",
+   "last_name": "Acar",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Üsteğmen",
+   "extension": "7106"
+  },
+  {
+   "id": "r-7107",
+   "first_name": "Gizem",
+   "last_name": "Aksoy",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Kıdemli Başçavuş",
+   "extension": "7107"
+  },
+  {
+   "id": "r-7108",
+   "first_name": "Selin",
+   "last_name": "Doğan",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Başçavuş",
+   "extension": "7108"
+  },
+  {
+   "id": "r-7109",
+   "kind": "department",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "extension": "7109",
+   "transferable": true
+  },
+  {
+   "id": "r-7110",
+   "first_name": "Ebru",
+   "last_name": "Polat",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Teğmen",
+   "extension": "7110"
+  },
+  {
+   "id": "r-7111",
+   "first_name": "Elif",
+   "last_name": "Kaya",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Asteğmen",
+   "extension": "7111"
+  },
+  {
+   "id": "r-7112",
+   "first_name": "İrem",
+   "last_name": "Arslan",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Kıdemli Çavuş",
+   "extension": "7112"
+  },
+  {
+   "id": "r-7113",
+   "first_name": "Deniz",
+   "last_name": "Akın",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Uzman Çavuş",
+   "extension": "7113"
+  },
+  {
+   "id": "r-7114",
+   "first_name": "Seda",
+   "last_name": "Koç",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Onbaşı",
+   "extension": "7114"
+  },
+  {
+   "id": "r-7115",
+   "kind": "department",
+   "department": "Jandarma Trafik Timi",
+   "department_aliases": [
+    "jandarma trafik"
+   ],
+   "extension": "7115",
+   "transferable": true
+  },
+  {
+   "id": "r-7116",
+   "first_name": "Fatma",
+   "last_name": "Aydın",
+   "department": "Jandarma Trafik Timi",
+   "department_aliases": [
+    "jandarma trafik"
+   ],
+   "title": "Astsubay Çavuş",
+   "extension": "7116"
+  },
+  {
+   "id": "r-7117",
+   "first_name": "Mustafa",
+   "last_name": "Çetin",
+   "department": "Jandarma Trafik Timi",
+   "department_aliases": [
+    "jandarma trafik"
+   ],
+   "title": "Uzman Jandarma",
+   "extension": "7117"
+  },
+  {
+   "id": "r-7118",
+   "first_name": "Derya",
+   "last_name": "Aksoy",
+   "department": "Jandarma Trafik Timi",
+   "department_aliases": [
+    "jandarma trafik"
+   ],
+   "title": "Jandarma Onbaşı",
+   "extension": "7118"
+  },
+  {
+   "id": "r-7119",
+   "kind": "department",
+   "department": "Emniyet Asayiş Şube",
+   "department_aliases": [
+    "emniyet asayiş",
+    "asayiş şube"
+   ],
+   "extension": "7119",
+   "transferable": true
+  },
+  {
+   "id": "r-7120",
+   "first_name": "Deniz",
+   "last_name": "Bozkurt",
+   "department": "Emniyet Asayiş Şube",
+   "department_aliases": [
+    "emniyet asayiş",
+    "asayiş şube"
+   ],
+   "title": "Emniyet Amiri",
+   "extension": "7120"
+  },
+  {
+   "id": "r-7121",
+   "first_name": "Ebru",
+   "last_name": "Erdem",
+   "department": "Emniyet Asayiş Şube",
+   "department_aliases": [
+    "emniyet asayiş",
+    "asayiş şube"
+   ],
+   "title": "Başkomiser",
+   "extension": "7121"
+  },
+  {
+   "id": "r-7122",
+   "first_name": "Büşra",
+   "last_name": "Keskin",
+   "department": "Emniyet Asayiş Şube",
+   "department_aliases": [
+    "emniyet asayiş",
+    "asayiş şube"
+   ],
+   "title": "Komiser",
+   "extension": "7122"
+  },
+  {
+   "id": "r-7123",
+   "kind": "department",
+   "department": "Emniyet Trafik Denetleme Şube",
+   "department_aliases": [
+    "trafik denetleme"
+   ],
+   "extension": "7123",
+   "transferable": true
+  },
+  {
+   "id": "r-7124",
+   "first_name": "Mehmet",
+   "last_name": "Kaplan",
+   "department": "Emniyet Trafik Denetleme Şube",
+   "department_aliases": [
+    "trafik denetleme"
+   ],
+   "title": "Komiser Yardımcısı",
+   "extension": "7124"
+  },
+  {
+   "id": "r-7125",
+   "first_name": "Ali",
+   "last_name": "Erdem",
+   "department": "Emniyet Trafik Denetleme Şube",
+   "department_aliases": [
+    "trafik denetleme"
+   ],
+   "title": "Polis Memuru",
+   "extension": "7125"
+  },
+  {
+   "id": "r-7126",
+   "first_name": "Seda",
+   "last_name": "Arslan",
+   "department": "Emniyet Trafik Denetleme Şube",
+   "department_aliases": [
+    "trafik denetleme"
+   ],
+   "title": "Kıdemli Polis Memuru",
+   "extension": "7126"
+  }
+ ]
+}

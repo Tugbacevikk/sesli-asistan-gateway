@@ -1,0 +1,116 @@
+# Şive seti: yöresel söyleyiş metin olarak (STT'nin şiveyi standart yazıma çevirmediği durum). Rehber:
+# data/sirket_rehber.json. Eğitim verisine GİRMEZ (anlama_veri.py diyalog setlerindeki sözleri dışlar).
+# Asıl şive sınavı sesle yapılır (STT); bu set yalnız LLM'in yöresel sözcük ve ekleri anlamasını ölçer.
+# CI'da koşmaz (LLM gerekir):
+#   python tests/eval/diyalog.py --anlama --set tests/data/diyalog_seti_sive.yaml --rehber data/sirket_rehber.json
+# Yazım: STT çıktısı gibi küçük harf, noktalamasız. "he" evet sayılır (phrases.YES_WORDS).
+
+# --- KARADENİZ: -um / -sun ekleri, "uşağum", "yanluş" ---
+- id: S01
+  aciklama: "Karadeniz: görüşeceğum, hanumla"
+  konusma: ["uşağum muhasebeden selin hanumla görüşeceğum"]
+  beklenen: {eylem: transfer, dahili: "1401"}
+
+- id: S02
+  aciklama: "Karadeniz: bağlayasun, lojistiğun müdürü"
+  konusma: ["lojistiğun müdürüne bağlayasun beni"]
+  beklenen: {eylem: transfer, dahili: "2201"}
+
+- id: S03
+  aciklama: "Karadeniz: vereceksun, hukukçi"
+  konusma: ["hukukçi ali beye vereceksun beni da"]
+  beklenen: {eylem: transfer, dahili: "2401"}
+
+# --- EGE: "gari", "-ıver", "efem", "hele" ---
+- id: S04
+  aciklama: "Ege: bağlayıver gari"
+  konusma: ["gari şu satın almanın müdürüne bağlayıver"]
+  beklenen: {eylem: transfer, dahili: "2101"}
+
+- id: S05
+  aciklama: "Ege: efem, bağlayıverin hele"
+  konusma: ["efem muhasebeye bağlayıverin hele"]
+  beklenen: {eylem: transfer, dahili: "1400"}
+
+# --- İÇ ANADOLU: "bacım", "-ıvesene", "görüşcem", "ürütüm" ---
+- id: S06
+  aciklama: "İç Anadolu: bacım, bağlayıvesene"
+  konusma: ["bacım kaliteden merve hanımı bağlayıvesene"]
+  beklenen: {eylem: transfer, dahili: "1901"}
+
+- id: S07
+  aciklama: "İç Anadolu: görüşcem, ünlü düşmesi"
+  konusma: ["ben üretimden elif hanımla görüşcem"]
+  beklenen: {eylem: transfer, dahili: "1801"}
+
+- id: S08
+  aciklama: "İç Anadolu: hitap olarak abi, birim sonda"
+  konusma: ["murat abi vardı ya insan kaynaklarında ona bi bağla"]
+  beklenen: {eylem: transfer, dahili: "1604"}
+
+# --- DOĞU / GÜNEYDOĞU: "gardaş", "istirem", "isterem", "hele bi" ---
+- id: S09
+  aciklama: "Doğu: gardaş, istirem"
+  konusma: ["gardaş insan kaynaklarının müdürü yusuf beyi istirem"]
+  beklenen: {eylem: transfer, dahili: "1601"}
+
+- id: S10
+  aciklama: "Doğu: lojistikteki, isterem"
+  konusma: ["lojistikteki onur beyle görüşmek isterem"]
+  beklenen: {eylem: transfer, dahili: "2201"}
+
+- id: S11
+  aciklama: "Güneydoğu: hele bi ver"
+  konusma: ["hele bi satın almaya ver beni"]
+  beklenen: {eylem: transfer, dahili: "2100"}
+
+# --- AKDENİZ / ADANA: "abe", "gari" ---
+- id: S12
+  aciklama: "Adana: abe, teknik desteği bağla"
+  konusma: ["abe bana teknik desteği bağla gari"]
+  beklenen: {eylem: transfer, dahili: "1760"}
+
+# --- TRAKYA / BALKAN: "yavrum", "bi" ---
+- id: S13
+  aciklama: "Trakya: yavrum, muhasebeyi bi bağlayın"
+  konusma: ["yavrum muhasebeyi bi bağlayın"]
+  beklenen: {eylem: transfer, dahili: "1400"}
+
+# --- HİTAP OLARAK ABLA / ABİ / HOCAM (aranan kişi için) ---
+- id: S14
+  aciklama: "Aranan kişiye abla"
+  konusma: ["selin ablayla görüşecektim muhasebeden"]
+  beklenen: {eylem: transfer, dahili: "1401"}
+
+- id: S15
+  aciklama: "Aranan kişiye hocam"
+  konusma: ["hukuktan ali hocama bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "2401"}
+
+# --- ŞİVELİ TEYİT: konu → birim önerisi → "he" ---
+- id: S16
+  aciklama: "Karadeniz konu + he teyidi"
+  konusma: ["faturalar yanluş gelmiş kime söyleyeyum", "he"]
+  beklenen: {eylem: transfer, dahili: "1400"}
+
+- id: S17
+  aciklama: "Doğu konu + he teyidi"
+  konusma: ["gardaş malın bi kısmı bozuk geldi kaliteye vereceğiz bunu", "he"]
+  beklenen: {eylem: transfer, dahili: "1900"}
+
+# --- OPERATÖR / KAPAT ŞİVELİ ---
+- id: S18
+  aciklama: "Şiveli operatör isteği"
+  konusma: ["ben bu makineynen konuşamayrum bi adam verun"]
+  beklenen: {eylem: operator}
+
+- id: S19
+  aciklama: "Şiveli kapatma: aktarma olmamalı"
+  konusma: ["tamam gari sonra ararım sağ olasın"]
+  beklenen: {eylem: kapat}
+
+# --- AĞIR ŞİVE + STT HARF KAYBI ---
+- id: S20
+  aciklama: "Karadeniz + Türkçe harf kaybı"
+  konusma: ["usagum kaliteden merve hanumi verusun"]
+  beklenen: {eylem: transfer, dahili: "1901"}

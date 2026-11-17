@@ -1198,7 +1198,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | (ipuçları) | — | Rehber adları akış başında `StreamConfig.hotwords`, aramadan sonra `HotwordUpdate` ile gelir |
 | `LLM_BACKEND` | ollama | `ollama` / `openai` (llama.cpp) |
 | `LLM_BASE_URL` | http://127.0.0.1:11434 | openai için ör. http://127.0.0.1:8080/v1 |
-| `LLM_MODEL` | qwen3.5:4b | Alternatif: qwen3.5:9b |
+| `LLM_MODEL` | qwen3.5:4b (kurulum şablonunda gemma-santral) | ADR-038: ince ayarlı anlama modeli `gemma-santral` (araç desteklemez; araçlı turlar kural tabanlı). Alternatif: qwen3.5:4b / 9b |
 | `LLM_TIMEOUT_S` | 5 | |
 | `TTS_URL` | http://127.0.0.1:5500 | Piper |
 | `TTS_PATH` | /synthesize | Mevcut servise göre |
@@ -2080,6 +2080,31 @@ ondan bağımsızdır.
   (`people.common.title_synonym`), listeye eklenmez: unvan araması sözcük sırasına bakar ("genel müdürün
   sekreterine" → Genel Müdür Asistanı). Söyleyiş kalıplarından
   yalnız LLM'in güvenle karşıladıkları ölçülerek silinir. Hızlı yol (tam ad, birim adı) her durumda kalır.
+
+
+### ADR-038 — Anlama modeli: ince ayarlı gemma-3-1b-it (`gemma-santral`)
+
+- **Bağlam:** ADR-037'nin anlama çağrısı (söz → JSON) qwen3.5:4b ile dizüstünde ~2–5 sn sürüyordu (ölçüm 4: p95
+  4,0 sn; çağrıların bir kısmı 5 sn sınırını aştı). Görev dar ve çıktısı kısa: küçük bir modelin bu iş için
+  eğitilmesi istendi (mentor kararı, 16.11.2026: google/gemma-3-1b-it, sıfırdan ince ayar).
+- **Karar:** `gemma-santral` = gemma-3-1b-it + LoRA (Unsloth, 4-bit QLoRA, r=16, 2 tur), yalnız anlama görevi
+  üzerine. Veri `tools/egitim/anlama_veri.py` ile sentetik rehberlerden kuralla üretilir (sistem istemi üretimdekinin
+  aynısı); her örnek gerçek diyalog ajanından geçirilip etiketi doğru yere götürmüyorsa atılır. Rehberin kendisi
+  modele gömülmez (her kurum kendi rehberiyle). Eğitim verisinde gerçek kişi / kurum / yer adı yok
+  (`ozel_isim_denetim.py`); diyalog setlerindeki sözler eğitime girmez (sızıntı filtresi); test rehberi (demo)
+  eğitimde görülmez. Model `q8_0` GGUF; şirket dosya sunucusundan (`models.yaml` mirror, SHA256) indirilir,
+  `deploy/modelfiles/gemma-santral.Modelfile` ile Ollama'ya kurulur (şablon ve lisans ana modelden).
+- **Araçlı turlar:** gemma-3-1b araç çağrısı desteklemez (Ollama: "does not support tools"). Karar (17.11.2026):
+  bu turlar kural tabanlı sürer; adaptör ilk retten sonra araçlı istek göndermez, ısıtma araçsız yapılır. Kısa
+  sohbet (ADR-035) bu modelle yok.
+- **Ölçüm (17.11.2026, RTX 3050 Ti 4 GB dizüstü; ayrıntı `docs/olcumler.md`):** anlama testi (demo rehberi, 1.642
+  söz) uçtan uca %98,8, tam alan %88,4, p50 0,23 sn / p95 0,36 sn (qwen3.5:4b ~2–4 sn); yedi kalıp setinde izinsiz
+  aktarma 0, altısında %100; serbest set %80 (qwen %88; kalan hataların çoğu iki modelde ortak ve kodda); şive seti
+  %80 (qwen %70), şive + jandarma seti %60 (qwen %53).
+- **Sınırlar:** test cümleleri ve eğitim kalıpları aynı elden: sonuçlar iyimser olabilir; veriyi görmemiş birinin
+  yazdığı kör set ve gerçek ses (STT) ölçümü yapılmalı. Lisans Gemma Terms of Use (Apache değil): yasaklı kullanım
+  politikası ve lisans metni modelle verilir. `understand.py` istemi değişirse veri yeniden üretilir ve model
+  yeniden eğitilir.
 
 ## 17. Riskler
 
