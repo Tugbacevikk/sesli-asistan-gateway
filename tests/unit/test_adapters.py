@@ -170,3 +170,62 @@ async def test_santral_istemcisi_yeniden_dener_4xx_denemez():
                       client=httpx.AsyncClient(transport=httpx.MockTransport(make([500, 500, 500])), base_url="http://p"))
     with pytest.raises(PbxError):
         await c.send_action("c1", {"action_id": "a-3", "type": "hangup"})
+
+
+# --- araç desteklemeyen model (ince ayarlı gemma-3-1b): ilk retten sonra araçlı istek Ollama'ya gitmez ---
+
+_NO_TOOLS = {"error": "registry.ollama.ai/library/gemma-santral:latest does not support tools"}
+
+
+def _arac_reddeden(calls: list[dict]):
+    def handler(req: httpx.Request):
+        body = json.loads(req.content)
+        calls.append(body)
+        if body.get("tools"):
+            return httpx.Response(400, json=_NO_TOOLS)
+        return httpx.Response(200, json={"message": {"role": "assistant", "content": "tamam"}})
+    return handler
+
+
+async def test_ollama_arac_desteklemeyen_model_bir_kez_sorulur():
+    calls: list[dict] = []
+    llm = OllamaChat(model="gemma-santral",
+                     client=httpx.AsyncClient(transport=httpx.MockTransport(_arac_reddeden(calls)), base_url="http://x"))
+    with pytest.raises(LlmError, match="does not support tools"):
+        await llm.chat(HISTORY, [{"type": "function"}])
+    assert llm.tools_supported is False and len(calls) == 1
+    with pytest.raises(LlmError, match="önceden öğrenildi"):
+        await llm.chat(HISTORY, [{"type": "function"}])
+    with pytest.raises(LlmError, match="önceden öğrenildi"):
+        async for _ in llm.chat_stream(HISTORY, [{"type": "function"}]):
+            pass
+    assert len(calls) == 1                     # ikinci ve üçüncü çağrı ağa çıkmadı
+    assert (await llm.chat(HISTORY, [])).content == "tamam"   # araçsız çağrı yine çalışır
+
+
+async def test_ollama_akista_arac_reddi_ogrenilir():
+    calls: list[dict] = []
+    llm = OllamaChat(client=httpx.AsyncClient(transport=httpx.MockTransport(_arac_reddeden(calls)), base_url="http://x"))
+    with pytest.raises(LlmError, match="does not support tools"):
+        async for _ in llm.chat_stream(HISTORY, [{"type": "function"}]):
+            pass
+    assert llm.tools_supported is False
+
+
+async def test_ollama_isitma_arac_reddinde_aracsiz_yeniden_dener():
+    calls: list[dict] = []
+    llm = OllamaChat(client=httpx.AsyncClient(transport=httpx.MockTransport(_arac_reddeden(calls)), base_url="http://x"))
+    await llm.warmup(messages=HISTORY[:2], tools=[{"type": "function"}])     # hata yükseltmez
+    assert [("tools" in c) for c in calls] == [True, False] and llm.tools_supported is False
+    await llm.warmup(messages=HISTORY[:2], tools=[{"type": "function"}])     # artık doğrudan araçsız
+    assert [("tools" in c) for c in calls] == [True, False, False]
+
+
+async def test_ollama_baska_400_hatasi_arac_desteğini_kapatmaz():
+    def handler(req: httpx.Request):
+        return httpx.Response(400, json={"error": "model 'yok' not found"})
+
+    llm = OllamaChat(client=httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://x"))
+    with pytest.raises(LlmError):
+        await llm.chat(HISTORY, [{"type": "function"}])
+    assert llm.tools_supported is True
