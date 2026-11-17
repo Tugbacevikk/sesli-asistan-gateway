@@ -7,10 +7,16 @@ yalnızca `LlmPort` arayüzünü bilir, değişmez.
 
 Mesaj biçimi: çekirdek OpenAI biçiminde geçmiş tutar (tool_calls[].function.arguments = JSON metni,
 araç sonucu tool_call_id ile). Burada Ollama biçimine çevrilir (arguments = nesne, araç sonucu tool_name ile).
+
+Araç desteklemeyen model (ince ayarlı gemma-3-1b, anlama kipi için): Ollama `tools` alanlı isteği 400 ile
+reddeder ("does not support tools"). İlk retten sonra adaptör bunu hatırlar: araçlı çağrılar Ollama'ya hiç gitmeden
+LlmError olur (tur kural tabanlı sürer, ADR-037), ısıtma araçsız yapılır. Anlama çağrısı (`chat_json`) araçsızdır,
+etkilenmez.
 """
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator
 from typing import Any
@@ -18,6 +24,9 @@ from typing import Any
 import httpx
 
 from sesli_asistan.gateway.core.ports import LlmDelta, LlmError, LlmMessage, ToolCall
+
+log = logging.getLogger(__name__)
+NO_TOOLS = "does not support tools"     # Ollama'nın araç şablonu olmayan modele verdiği ret
 
 
 class OllamaChat:
@@ -27,6 +36,20 @@ class OllamaChat:
                  keep_alive: str = "30m", client: httpx.AsyncClient | None = None):
         self.model, self.temperature, self.think, self.keep_alive = model, temperature, think, keep_alive
         self.http = client or httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout_s)
+        self.tools_supported = True        # ilk "does not support tools" retinde False (bkz. modül açıklaması)
+
+    def _no_tools_seen(self, detail: str) -> bool:
+        """Ret metni araç desteği yok diyorsa bunu hatırlar (bir kez uyarır) ve True döner."""
+        if NO_TOOLS not in detail:
+            return False
+        if self.tools_supported:
+            log.warning("LLM modeli araç desteklemiyor (%s): araçlı turlar kural tabanlı sürecek", self.model)
+        self.tools_supported = False
+        return True
+
+    def _check_tools(self, tools: list[dict[str, Any]]) -> None:
+        if tools and not self.tools_supported:
+            raise LlmError(f"Ollama: {self.model} {NO_TOOLS} (önceden öğrenildi)")
 
     async def aclose(self) -> None:
         await self.http.aclose()
@@ -38,9 +61,12 @@ class OllamaChat:
     async def chat_stream(self, messages: list[dict[str, Any]],
                           tools: list[dict[str, Any]]) -> AsyncIterator[LlmDelta]:
         """Akışlı cevap (ADR-018): metin parçaları geldikçe; sonunda bütün mesaj (araç çağrıları dahil)."""
+        self._check_tools(tools)
         content, calls = "", []
         try:
             async with self.http.stream("POST", "/api/chat", json=self._body(messages, tools, True)) as r:
+                if r.status_code == 400 and self._no_tools_seen((await r.aread()).decode(errors="replace")):
+                    raise LlmError(f"Ollama: {self.model} {NO_TOOLS}")
                 r.raise_for_status()
                 async for line in r.aiter_lines():
                     if not line.strip():
@@ -60,9 +86,12 @@ class OllamaChat:
         yield LlmDelta(message=LlmMessage(content=content, tool_calls=calls))
 
     async def chat(self, messages: list[dict[str, Any]], tools: list[dict[str, Any]]) -> LlmMessage:
+        self._check_tools(tools)
         body = self._body(messages, tools, False)
         try:
             r = await self.http.post("/api/chat", json=body)
+            if r.status_code == 400 and self._no_tools_seen(r.text):
+                raise LlmError(f"Ollama: {self.model} {NO_TOOLS}")
             r.raise_for_status()
             msg = r.json()["message"]
         except (httpx.HTTPError, KeyError, ValueError) as e:
@@ -99,9 +128,12 @@ class OllamaChat:
         msgs = to_ollama(messages) if messages else [{"role": "user", "content": "merhaba"}]
         body: dict[str, Any] = {"model": self.model, "messages": msgs, "stream": False, "think": self.think,
                                 "keep_alive": self.keep_alive, "options": {"num_predict": 1}}
-        if tools:
+        if tools and self.tools_supported:
             body["tools"] = tools
         r = await self.http.post("/api/chat", timeout=timeout_s, json=body)
+        if r.status_code == 400 and "tools" in body and self._no_tools_seen(r.text):
+            del body["tools"]                  # araçsız ısıt: model yine belleğe alınsın (ilk tur beklemesin)
+            r = await self.http.post("/api/chat", timeout=timeout_s, json=body)
         r.raise_for_status()
 
 
