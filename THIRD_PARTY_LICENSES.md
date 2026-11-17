@@ -12,6 +12,7 @@ elle değiştirmeyin. Lisans metinleri dağıtım paketinde `lisanslar/` klasör
 | faster-whisper-medium (Systran, CTranslate2 dönüşümü) | STT modeli | MIT | https://huggingface.co/Systran/faster-whisper-medium |
 | Whisper medium ağırlıkları (OpenAI) | STT modeli | MIT | https://github.com/openai/whisper |
 | Silero VAD (ONNX) | Konuşma algılama | MIT | https://github.com/snakers4/silero-vad |
+| gemma-santral (Gemma 3 1B IT, ince ayarlı; ADR-038) | Dil modeli (anlama, varsayılan) | Gemma Terms of Use + Gemma Prohibited Use Policy (Modelfile'daki LICENSE) | https://ai.google.dev/gemma/terms |
 | Qwen3.5 4B (Ollama) | Dil modeli | Apache-2.0 (model kartında teyit edilir) | https://ollama.com/library/qwen3.5 |
 | Ollama | LLM çalıştırıcı (ayrı servis) | MIT | https://github.com/ollama/ollama |
 | Piper (piper1-gpl) + espeak-ng | TTS (ayrı süreç, mevcut servis) | ⚠ GPL-3.0 — yalnızca ayrı süreç (C-05) | https://github.com/OHF-Voice/piper1-gpl |

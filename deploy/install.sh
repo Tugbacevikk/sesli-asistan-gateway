@@ -347,8 +347,21 @@ fi
 if has gateway && [[ $OLLAMA -eq 1 ]]; then
     MODEL=$(grep -h '^LLM_MODEL=' "$AYAR/gateway.env" 2>/dev/null | cut -d= -f2 || true)
     MODEL=${MODEL:-qwen3.5:4b}
-    if ollama list 2>/dev/null | awk 'NR>1{print $1}' | grep -qx "$MODEL"; then
+    MF="$HEDEF/deploy/modelfiles/$MODEL.Modelfile"   # ince ayarlı model (ADR-038): GGUF şirket dosya sunucusunda
+    if ollama list 2>/dev/null | awk 'NR>1{print $1 ; sub(/:latest$/, "", $1); print $1}' | grep -qx "$MODEL"; then
         echo "  ✓ Ollama modeli var: $MODEL"
+    elif [[ -f "$MF" ]]; then
+        bilgi "Ollama modeli GGUF'tan kuruluyor: $MODEL"
+        if [[ -n "$PAKET" ]]; then ARG=(--dogrula); else ARG=(); fi
+        if "$HEDEF/venv/araclar/bin/python" "$HEDEF/tools/models/indir.py" --hedef "$ONEK/models" --model "$MODEL" "${ARG[@]}"; then
+            GGUF=$(find "$ONEK/models/$MODEL" -maxdepth 1 -name '*.gguf' | head -1)
+            MFT=$(mktemp)
+            sed "s|^FROM .*|FROM $GGUF|" "$MF" > "$MFT"
+            ollama create "$MODEL" -f "$MFT" && echo "  ✓ Ollama modeli kuruldu: $MODEL"
+            rm -f "$MFT"
+        else
+            uyari "$MODEL indirilemedi / doğrulanamadı: deploy/models.yaml'da mirror tanımlayın ya da GGUF'u $ONEK/models/$MODEL/ altına koyup kurulumu yineleyin. Bu arada LLM adımları kural tabanlı sürer."
+        fi
     elif [[ -n "$PAKET" ]]; then
         uyari "Ollama modeli $MODEL yok. İnternetli makinede 'ollama pull $MODEL' yapıp ~/.ollama/models klasörünü taşıyın"
     else

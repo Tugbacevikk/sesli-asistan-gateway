@@ -74,3 +74,12 @@ diyalog setlerinde (adım 6) izinsiz aktarma 0.
   kapatabilir ama ölçmeden varsayılmamalı (adım 2 → 5 farkı).
 - Lisans: Gemma 3 "Gemma Terms of Use" (yasaklı kullanım politikası var; Apache değil), Gemma 4 Apache 2.0.
   Eğitilmiş ağırlıkları dağıtırken `THIRD_PARTY_LICENSES.md`'ye eklenmeli.
+
+## Dağıtım (ADR-038)
+
+1. GGUF'u şirketin dosya sunucusuna koy: `<mirror>/gemma-santral/gemma-santral.Q8_0.gguf`; `deploy/models.yaml`'da
+   `mirror` adresini ve yeni modelin `sha256`'sını güncelle.
+2. `bash tools/egitim/modelfile_uret.sh` → `deploy/modelfiles/gemma-santral.Modelfile` (şablon + Gemma lisans metni
+   `gemma3:1b`'den). Commit et; GGUF repoya girmez.
+3. `deploy/ayar/gateway.env`: `LLM_MODEL=gemma-santral`. `install.sh` GGUF'u indirir, özeti doğrular, `ollama create`
+   ile kurar; indiremezse uyarır, LLM adımları kural tabanlı sürer. İnternetsiz paket (`paket.sh`) GGUF'u da içerir.

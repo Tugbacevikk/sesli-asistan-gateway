@@ -1307,3 +1307,40 @@ Windows dizüstü, RTX 3050 Ti 4 GB, Ollama, qwen3.5:4b (%50 CPU / %50 GPU, bağ
   sabitlendi), dördü testlerin kodlamasız dosya okumasından (UTF-8'e çevrildi). Kalanlar Windows'a özgü: sembolik bağ
   yetkisi, ortam değişkeni / yol uzunluğu, Windows soketinde 1 sn bağlanma zaman aşımı, yol ayracı.
 - Windows'a özgü başarısızlıklar (yol ayracı, UTF-8 varsayılanı) CI'da (Ubuntu) görülmez.
+
+## Anlama modeli ince ayarı: gemma-santral (gemma-3-1b-it) v1–v3 (16–17 Kasım 2026, ADR-038)
+
+**Ölçen:** Antigravity (Tuğba'nın bilgisayarı, Windows + WSL). **Donanım:** RTX 3050 Ti Laptop (4 GB), eğitim ve
+çıkarım aynı makinede. **Doğrulama:** yok; sonuçlar Antigravity'nin raporundan. Eğitim: Unsloth 4-bit QLoRA, r=16,
+etkin parti 16, 2 tur, `q8_0` GGUF. Araç: `tools/egitim/anlama_olc.py` (anlama), `tests/eval/diyalog.py --anlama`.
+
+| sürüm | veri (eğitim) | eğitim süresi | son eval_loss |
+|---|---|---|---|
+| v1 | 4.474 (kalıp sözler) | 78 dk | 0,0030 |
+| v2 | 5.819 (+ "birimin müdürü", konu tarifleri, rütbeler, sızıntı filtresi) | 105 dk | 0,0061 |
+| v3 | 6.064 (+ şive dönüşümü ~%15) | 100 dk | 0,0040 |
+
+**Anlama testi** (demo rehberi, eğitimde görülmez; v3 için 1.642 söz):
+
+| model | JSON % | niyet % | tam % | uçtan uca % | p50 sn | p95 sn |
+|---|---|---|---|---|---|---|
+| gemma3:1b (eğitilmemiş, 300 söz) | 89,0 | 40,7 | 0,7 | 76,7 | 0,42 | 0,68 |
+| qwen3.5:4b (300 söz, v1 verisi) | 100 | 95,3 | 34,7 | 92,3 | 2,25 | 4,12 |
+| gemma-santral v2 | 100 | 99,3 | 83,1 | 98,1 | 0,23 | 0,36 |
+| gemma-santral v3 | 100 | 99,5 | 88,4 | 98,8 | 0,23 | 0,36 |
+
+**Diyalog setleri, v3, anlama kipi:**
+
+| set | kural | qwen3.5:4b | gemma-santral v3 | not |
+|---|---|---|---|---|
+| diyalog_seti (142), kamu (23), makam (14), sentetik (47), sirket (28) | — | — | %100 | izinsiz / yanlış aktarma 0 |
+| demo (30) | — | — | %96,7 | D20: silinmiş kayıt, teyitte kaldı |
+| serbest (25) | %52 | %88 | %80 | F08, F09, F13 qwen'de de başarısız; F25 STT bozulması |
+| şive (20) | %65 | %70 | **%80** | S17 iki seçenekli soruya "he"; S19 vedalaşma selam sanıldı |
+| şive + jandarma (15) | %40 | %53 | **%60** | yanlış aktarma kural 2, qwen 2, v3 1 (J07, hızlı yol; ayrıca düzeltildi) |
+
+- Gecikme: gemma-santral p95 0,26–0,40 sn; qwen3.5:4b p95 3,1–3,8 sn. Model 4 GB kartta tümüyle GPU'da.
+- Uydurma denetimi (`Understanding.problem`) gemma'nın başarısız çıktılarında hiçbir şeyi reddetmedi; hatalar
+  atlanan alan (kurum, "-deki" ekli birim) ya da yanlış niyet. Ayrıntı: oturum raporu, 17.11.2026.
+- Araç: "does not support tools" 2 senaryoda (D26, D112) görüldü; kural tabanlı tur doğru sonuçlandı.
+- **Sınır:** test cümleleri ve eğitim kalıpları aynı elden; kör set ve sesli (STT) ölçüm yapılmadı.

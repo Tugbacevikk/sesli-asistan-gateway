@@ -74,3 +74,16 @@ models:
     hedef: silero_vad.onnx
     sha256:   # 26.10.2026'da kaynaktan indirilen dosyanın özeti
       silero_vad.onnx: 9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6
+
+  gemma-santral:
+    rol: llm                     # anlama modeli (ADR-038): ince ayarlı gemma-3-1b-it, Ollama'ya GGUF'tan kurulur
+    varsayilan: false            # yalnız LLM_MODEL=gemma-santral iken install.sh indirir (deploy/modelfiles/)
+    # Gemma Terms of Use: türev model dağıtılabilir; lisans metni ve yasaklı kullanım politikası modelle verilir
+    # (Modelfile'daki LICENSE bloğu, THIRD_PARTY_LICENSES.md). Eğitim: tools/egitim/ (v3, 17.11.2026).
+    lisans: Gemma Terms of Use
+    yalniz_mirror: true          # asıl kaynak yok: yalnız şirketin dosya sunucusunda (mirror)
+    hedef: gemma-santral
+    dosyalar: [gemma-santral.Q8_0.gguf]
+    # 17.11.2026: Colab yerine yerel eğitim (WSL, RTX 3050 Ti), q8_0; boyut 1.069.306.304 bayt
+    sha256:
+      gemma-santral.Q8_0.gguf: 5726c59481b0175e236d5807f95e3be778e496d61179572a6225e07248eb0bc7

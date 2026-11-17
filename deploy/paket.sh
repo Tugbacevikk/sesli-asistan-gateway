@@ -62,6 +62,11 @@ echo "==> modeller"
 python3 -m venv "$IS/araclar"
 "$IS/araclar/bin/pip" install -q --require-hashes -r deploy/kilit/araclar.txt
 "$IS/araclar/bin/python" tools/models/indir.py --hedef "$P/models"
+# ince ayarlı LLM (ADR-038): şablondaki LLM_MODEL için Modelfile varsa GGUF'u da pakete koy (şirket dosya sunucusundan)
+LLM=$(grep -h '^LLM_MODEL=' deploy/ayar/gateway.env | cut -d= -f2)
+if [[ -f "deploy/modelfiles/$LLM.Modelfile" ]]; then
+    "$IS/araclar/bin/python" tools/models/indir.py --hedef "$P/models" --model "$LLM"
+fi
 
 echo "==> lisans metinleri"
 python3 - "$P/tekerlek" "$P/lisanslar" <<'PY'

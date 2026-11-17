@@ -42,7 +42,7 @@ def fetch(name: str, spec: dict, dest: Path, mirror: str | None) -> Path:
         return out
     if mirror:
         url_base = f"{mirror.rstrip('/')}/{spec['hedef']}"
-        if "hf_repo" in spec:
+        if "dosyalar" in spec:
             out.mkdir(parents=True)
             for fn in spec["dosyalar"]:
                 print(f"indiriliyor (mirror): {spec['hedef']}/{fn}")
@@ -51,6 +51,9 @@ def fetch(name: str, spec: dict, dest: Path, mirror: str | None) -> Path:
             print(f"indiriliyor (mirror): {spec['hedef']}")
             urllib.request.urlretrieve(url_base, out)  # nosec B310
         return out
+    if spec.get("yalniz_mirror"):
+        raise SystemExit(f"HATA {name}: yalnız şirketin dosya sunucusunda; deploy/models.yaml'da `mirror` tanımlayın "
+                         f"ya da dosyaları elle {out}/ altına koyun ({', '.join(spec.get('dosyalar', []))})")
     if "hf_repo" in spec:
         from huggingface_hub import snapshot_download
 
@@ -108,7 +111,8 @@ def main(argv=None) -> int:
             out = fetch(n, spec, dest, cat.get("mirror"))
         elif not out.exists():
             raise SystemExit(f"HATA {n}: {out} yok")
-        manifest[n] = {"lisans": spec["lisans"], "kaynak": spec.get("hf_repo") or spec.get("url"),
+        manifest[n] = {"lisans": spec["lisans"],
+                       "kaynak": spec.get("hf_repo") or spec.get("url") or "şirket dosya sunucusu (mirror)",
                        "revizyon": spec.get("hf_revision"), "sha256": verify(n, spec, out)}
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"MANIFEST: {manifest_path}")
