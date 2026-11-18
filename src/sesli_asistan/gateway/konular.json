@@ -14,6 +14,8 @@
      "birimler": ["bilgi işlem", "bilgi teknolojileri", "it", "bt"]},
     {"sozler": ["şikayet", "şikâyet", "öneri", "memnuniyet"],
      "birimler": ["müşteri hizmetleri", "müşteri ilişkileri", "halkla ilişkiler", "kalite"]},
+    {"sozler": ["kusurlu", "kusur", "defolu", "hatalı ürün", "ürün kalitesi", "kalite kontrol", "numune"],
+     "birimler": ["kalite", "kalite güvence", "kalite kontrol"]},
     {"sozler": ["kargo", "teslimat", "sevkiyat", "gönderi"],
      "birimler": ["lojistik", "sevkiyat", "kargo", "depo"]},
     {"sozler": ["tedarikçi", "satın alma", "satınalma", "ihale"],

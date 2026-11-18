@@ -20,6 +20,7 @@ from .departments import (
     _mentioned_departments,
 )
 from .names import (
+    _first_name_said,
     _full_name_keys_said,
     _has_honorific,
     _last_name_said,
@@ -66,6 +67,10 @@ def _rules(index: DirectoryIndex, text: str) -> dict[str, Any]:
             return _out(in_dept, "birim_ad", len(in_dept) == 1)
         # söylenen birimde o ad yok ("satıştan Burak Bey"; Burak muhasebede): aktarılmaz, teyit sorulur
         return _out(named, "ad", False)
+    if len(named) >= 2 and len(both := [c for c in named if _first_name_said(c, words)
+                                         and _last_name_said(c, words)]) == 1:
+        # ad ve soyad aynı sözde ama bitişik değil ("selin hanımla konuşmuştum, soyadı ekinci miydi": F04): tek kişi
+        return _out(both, "ad", True)
     if len(named) > MAX_CANDIDATES and all(c.unit_path for c in named):
         # adaşı çok ("Volkan Bey", dört Volkan) ama birim yolu var: hepsi döner, Gateway birim yoluyla sorar (ADR-032).
         # Kesilince dördüncü aday hiç sorulmuyordu (canlı deneme 10.11.2026)

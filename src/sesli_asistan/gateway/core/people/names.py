@@ -39,6 +39,11 @@ def _last_name_said(c: Contact, words: list[str]) -> bool:
     return bool(k) and any(similarity(v, k) >= NAME_SAME for w in words for v in query_variants(w))
 
 
+def _first_name_said(c: Contact, words: list[str]) -> bool:
+    k = search_key(c.first_name)
+    return bool(k) and any(similarity(v, k) >= NAME_SAME for w in words for v in query_variants(w))
+
+
 def name_said(c: Contact, words: list[str]) -> bool:
     keys = [k for k in (search_key(c.first_name), search_key(c.last_name)) if k and " " not in k and len(k) >= 3]
     return any(any(similarity(v, k) >= NAME_SAME for v in query_variants(w)) for w in words for k in keys)

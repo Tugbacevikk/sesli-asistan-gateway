@@ -27,6 +27,7 @@ def check_texts(t: DialogTexts) -> None:
     checks = [("GREETING_TEXT", t.greeting, ()), ("TRANSFERRING_DEPARTMENT_TEXT", t.transferring_department,
                                                    ("{birim}",)), ("OFFICE_HOURS_TEXT", t.office_hours, ("{saatler}",)),
               ("WHICH_DEPARTMENT_TEXT", t.which_department, ("{unvan}",)),
+              ("WHICH_ONE_TEXT", t.which_one, ("{soru}",)),
               ("ASK_PERSON_IN_DEPARTMENT_TEXT", t.ask_person_in_department, ("{birimden}",)),
               ("NEXT_LINE_TEXT", t.next_line, ("{unvan}",))]
     checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
@@ -35,7 +36,7 @@ def check_texts(t: DialogTexts) -> None:
     for name, text, needs in checks:
         try:
             text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B", mi="mı", saatler="S", unvan="U",
-                        birimden="Bden")
+                        soru="S", birimden="Bden")
         except (KeyError, IndexError, ValueError) as e:
             raise ValueError(f"{name}: geçersiz yer tutucu {e} (kullanılabilir: {{kurum}} {{kurum_e}} "
                              "{ad} {ad_e} {birim}, teyitte {mi})") from None
@@ -43,7 +44,7 @@ def check_texts(t: DialogTexts) -> None:
             shown = ["{ad} ya da {ad_e}" if n == "{ad" else n for n in needs]
             raise ValueError(f"{name} şunu içermeli: {', '.join(shown)}")
     for f in TEXT_FIELDS:
-        if (f not in ("greeting", "transferring_department", "office_hours", "which_department",
+        if (f not in ("greeting", "transferring_department", "office_hours", "which_department", "which_one",
                       "ask_person_in_department", "next_line", *_NAMED)
                 and "{" in getattr(t, f)):
             raise ValueError(f"{f.upper()}_TEXT yer tutucu almaz: {getattr(t, f)!r}")
@@ -182,6 +183,7 @@ class GatewaySettings(BaseSettings):
     office_hours_text: str = ""               # mesai sorusunun cevabı; {saatler} zorunlu
     office_hours_unknown_text: str = ""       # OFFICE_HOURS tanımlı değilken mesai sorusu
     ask_target_text: str = ""                 # bilgi verildikten sonra "Kiminle görüşmek istersiniz?"
+    which_one_text: str = ""                  # iki seçenekli soruya "evet" denince "Hangisini istersiniz: ..."
     which_department_text: str = ""           # aynı unvanlı çok hat: "Hangi birimdeki {unvan}?" (ADR-030)
     indistinct_text: str = ""                 # aynı unvan, aynı birim: ayırt edilemedi → operatör
     ask_topic_text: str = ""                  # hedefsiz genel istek ("bilgi almak istiyorum") cevabı

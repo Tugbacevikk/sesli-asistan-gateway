@@ -205,6 +205,9 @@ class ChoiceMixin:
         index = self.tools.index
         if any(index.search(name=" ".join(words[i:i + 2])).match == Match.SINGLE_HIGH for i in range(len(words) - 1)):
             return None                                 # sözde bir tam ad da var ("Ayşe Yılmaz mı Ayşe Kaya mı")
+        if any(index.search(name=f"{words[i]} {words[j]}").match == Match.SINGLE_HIGH
+               for i in range(len(words)) for j in range(i + 2, min(i + 6, len(words)))):
+            return None          # ad ile soyad bitişik değil ("selin hanımla konuşmuştum, soyadı ekinci": F04)
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
@@ -394,7 +397,8 @@ class ChoiceMixin:
         return (department_said(ix, text) is not None or mentioned_targets(ix, text, numbers).count > 0
                 or bool(resolve_person(ix, text)["adaylar"]))
 
-    def _repeat_choice(self: DialogAgent, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
+    def _repeat_choice(self: DialogAgent, s: DialogSession, choice: tuple[Candidate, ...],
+                       yes: bool = False) -> DialogTurn:
         """"Hangisi?" sorusunun cevabı anlaşılmadı (başka bir istek de yok): soru kodla yeniden sorulur, açık kalır.
         Canlı deneme 03.11.2026: anlaşılmayan cevap LLM'e gidince soru kapanıyor, sonraki "Yılmaz"a yakın cevap
         eşlenemiyordu. Deneme sayılır (sonunda operatör)."""
@@ -402,6 +406,10 @@ class ChoiceMixin:
             return turn
         q = s.state.choice_question or which_question([c.contact for c in choice])
         s.state.choice = choice
+        if yes and q:
+            # "evet" seçim değil: soru "Hangisini istersiniz: X mi, Y mi?" diye açılır (aynı cümle döngü gibi duyulur)
+            s.state.choice_question = q
+            q = self.cfg.texts.which_one.format(soru=q)
         turn = self._reply(s, q or self.cfg.texts.not_understood)
         turn.fast = True
         return turn

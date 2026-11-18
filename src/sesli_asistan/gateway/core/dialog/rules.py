@@ -15,6 +15,7 @@ from ..people import (
     sound_alike,
 )
 from ..people.common import without_self
+from ..people.names import _first_name_said, _last_name_said
 from ..phrases import (
     FAST_BLOCK,
     FILLER_WORDS,
@@ -114,6 +115,11 @@ class RulesMixin:
                 # sorulur (diyalog seti D29: kural modunda birim yok sayılıp aktarılıyordu)
                 return self._confirm(s, next(iter(people.values())).contact)
             people = narrowed or people
+        if not depts and (len(people) > 1 or more) and len(both := [
+                c for c in self._named_people(words) if _first_name_said(c.contact, words)
+                and _last_name_said(c.contact, words)]) == 1:
+            # ad ile soyad aynı sözde ama bitişik değil ("selin hanımla konuşmuştum, soyadı ekinci miydi": F04)
+            people, more = {both[0].contact.id: both[0]}, False
         cands = sorted(people.values(), key=lambda c: -c.score)
         if not cands and len(depts) == 1:
             pick, cands = self._department_target(next(iter(depts)))

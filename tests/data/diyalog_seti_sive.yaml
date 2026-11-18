@@ -94,8 +94,8 @@
   beklenen: {eylem: transfer, dahili: "1400"}
 
 - id: S17
-  aciklama: "Doğu konu + he teyidi"
-  konusma: ["gardaş malın bi kısmı bozuk geldi kaliteye vereceğiz bunu", "he"]
+  aciklama: "Doğu konu + iki seçenekli soru: he → hangisi → kalite"
+  konusma: ["gardaş malın bi kısmı bozuk geldi kaliteye vereceğiz bunu", "he", "kalite"]
   beklenen: {eylem: transfer, dahili: "1900"}
 
 # --- OPERATÖR / KAPAT ŞİVELİ ---

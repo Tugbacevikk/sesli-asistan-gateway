@@ -54,7 +54,7 @@
 
 - id: J10
   aciklama: "Ad soyad, Karadeniz eki"
-  konusma: ["yasemin polat ile görüşeceğum jandarmadan"]
+  konusma: ["yasemin polat ile görüşeceğum jandarmadan", "he"]
   beklenen: {eylem: transfer, dahili: "30103"}
 
 - id: J11
@@ -64,7 +64,7 @@
 
 - id: J12
   aciklama: "Ad + şef + şube, iki Hüseyin var: soyadla ayrılır"
-  konusma: ["hele bi asayişin şefi hüseyin kılıç beye ver beni"]
+  konusma: ["hele bi asayişin şefi hüseyin kılıç beye ver beni", "he"]
   beklenen: {eylem: transfer, dahili: "30116"}
 
 - id: J13

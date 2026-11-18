@@ -122,6 +122,9 @@ class DialogTexts:
     office_hours: str = "Mesai saatlerimiz {saatler}."      # arayan mesai saatini sordu ({saatler}: OFFICE_HOURS'tan)
     office_hours_unknown: str = "Mesai saatleri konusunda bilgi veremiyorum."   # OFFICE_HOURS tanımlı değil
     ask_target: str = "Kiminle görüşmek istersiniz?"
+    # "X mı, Y mi?" sorusuna yalnız "evet" / "he" (şive seti S17, serbest F09): aynı soru kelimesi kelimesine
+    # yinelenmez; seçimin istendiği açıkça söylenir
+    which_one: str = "Hangisini istersiniz: {soru}"
     ask_topic: str = ("Hangi konuda bilgi almak istersiniz? Görüşmek istediğiniz kişiyi ya da birimi de "
                       "söyleyebilirsiniz.")
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
