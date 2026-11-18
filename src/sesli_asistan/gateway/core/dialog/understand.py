@@ -330,14 +330,12 @@ class UnderstandMixin:
     async def _narrowed(self: DialogAgent, s: DialogSession, u: _Utterance, turn: DialogTurn,
                         snap: tuple[Any, int]) -> DialogTurn:
         """Adım soru sorduysa (birden çok aday) ve LLM adaylardan tek birini gösteriyorsa kuralın sorusu geri alınır:
-        teyit ("X'e mi bağlayayım?") ya da aktarma (ADR-039). Aksi halde adımın turu olduğu gibi."""
+        teyit ("X'e mi bağlayayım?"; LLM önerisi teyitsiz aktarılmaz, ADR-039). Aksi halde adımın turu olduğu gibi."""
         if not s.state.choice or turn.actions or turn.ended:
             return turn
         if (pick := await self._narrow_choice(s, u)) is None:
             return turn
         self._restore(s, snap)
-        if self.cfg.understand_narrow == "aktar":
-            return self._code_transfer(s, pick)
         return self._confirm(s, pick.contact, "LLM adayları daralttı")
 
     async def _narrow_choice(self: DialogAgent, s: DialogSession, u: _Utterance) -> Candidate | None:
@@ -345,7 +343,7 @@ class UnderstandMixin:
         LLM'e de sorulur. LLM'in yazdığı alanlar (birim, unvan, soyad) sözde gerçekten geçiyor ve adaylardan tam
         birini gösteriyorsa o aday; yoksa None (kuralın sorusu sorulur). LLM rehberde olmayan birini seçemez: yalnız
         kuralın adayları arasından."""
-        if (self.cfg.understand_narrow not in {"teyit", "aktar"} or self.cfg.understand != "llm" or u.asked
+        if (self.cfg.understand_narrow != "teyit" or self.cfg.understand != "llm" or u.asked
                 or u.confirm or u.op_confirm or u.choice):
             return None                          # arayan bir soruyu cevaplıyorsa daraltılmaz
         cands = list(s.state.choice)
