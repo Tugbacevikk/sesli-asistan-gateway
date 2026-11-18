@@ -107,9 +107,14 @@ def _yumusat(w: str) -> str:
     return w
 
 
+YALIN_IUU = {"tapu", "kredi", "toplu", "ütü", "bilgi"}   # ı/i/u/ü ile biten ama iyeliksiz sözcükler
+
+
 def _tamlama(w: str) -> bool:
-    """İyelik ekli tamlama ("insan kaynakları", "müşteri hizmetleri"): ekten önce -n- gelir."""
-    return " " in w and w[-1] in "ıiuü"
+    """İyelik ekli sözcük: tamlama ("insan kaynakları", "işlemler astsubayı") ya da iyelikli tek sözcük
+    ("müdürlüğü", "valiliği"): ekten önce -n- gelir ("müdürlüğüne", "valiliğinde")."""
+    # birim / unvan adında ünsüzden sonra ı/i/u/ü ile biten sözcük hemen hep iyeliklidir (makamı, kurulu, merkezi)
+    return w[-1] in "ıiuü" and (" " in w or bool(re.search(r"[^aeıioöuü][ıiuü]$", w))) and w not in YALIN_IUU
 
 
 def yonelme(w: str) -> str:              # -(y)a / -(y)e / -na
@@ -138,6 +143,31 @@ def tamlayan(w: str) -> str:             # -(n)ın: muhasebenin, satışın
 
 def ayrilma(w: str) -> str:
     return turkish_lower(ablative(w))
+
+
+_SERT = set("çfhkpsşt")
+_DORTLU = {"a": "ı", "ı": "ı", "o": "u", "u": "u", "e": "i", "i": "i", "ö": "ü", "ü": "ü"}
+
+
+def bulunma(w: str) -> str:              # -da / -te / -nda: asayişte, muhasebede, insan kaynaklarında
+    e = "a" if _son_unlu(w) in _KALIN else "e"
+    if _tamlama(w):                      # valiliği → valiliğinde
+        return w + "nd" + e
+    return w + ("t" if w[-1] in _SERT else "d") + e
+
+
+def iyelik3(w: str) -> str:              # -(s)ı: nizamiye → nizamiyesi, santral → santrali
+    e = _DORTLU[_son_unlu(w)]
+    return w + "s" + e if w[-1] in _UNLU else _yumusat(w) + e
+
+
+def iyelik_yonelme(w: str) -> str:       # nizamiye → nizamiyesine (iyelikten sonra hâl eki -n- alır)
+    return iyelik3(w) + "n" + ("a" if _son_unlu(w) in _KALIN else "e")
+
+
+def meslek(w: str) -> str:               # -cı / -çu: muhasebeci, hukukçu, lojistikçi
+    e = _DORTLU[_son_unlu(w)]
+    return w + ("ç" if w[-1] in _SERT else "c") + e
 
 
 _BIRLER = ["", "bir", "iki", "üç", "dört", "beş", "altı", "yedi", "sekiz", "dokuz"]
@@ -405,17 +435,115 @@ def konu_tarif_ornekleri(index: DirectoryIndex) -> list[tuple[str, str, str | No
     return out
 
 
+# --- v4: kurum + birim zincirleri, "-deki" ekli birim, iyelik ekli rol adı, meslek adından birim, "başındaki" ---
+# (v3'ün şive + jandarma setinde atladığı alanlar: J03, J06, J07, J09; serbest F06; şive S03)
+
+KURUM_SOZCUKLERI = {"jandarma", "emniyet", "polis", "valilik", "kaymakamlık", "belediye", "karakol"}
+MESLEK_BIRIMLERI = {"hukuk", "muhasebe", "lojistik", "satış", "pazarlama", "finans", "kalite", "personel", "arşiv"}
+YONETICI_SOZCUKLERI = ("müdür", "şef", "amir", "lider", "başkan", "komutan", "sorumlu", "koordinatör", "yönetici")
+
+
+def _zincir_adlari(c: Contact) -> list[tuple[str, str, str]]:
+    """Birimin iki+ sözcüklü eş adlarından (kurum sözcüğü, geri kalan, tam ad): "jandarma asayiş" → ("jandarma",
+    "asayiş", "jandarma asayiş")."""
+    out = []
+    for a in (c.department, *c.department_aliases):
+        w = turkish_lower(a).split()
+        if 2 <= len(w) <= 3 and w[0] in KURUM_SOZCUKLERI:
+            out.append((w[0], " ".join(w[1:]), " ".join(w)))
+    return out
+
+
+def zincir_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
+    out: list[tuple[str, str, str | None, str]] = []
+    adlar = _zincir_adlari(c)
+    if not adlar or not c.transferable:
+        return out
+    kurum, geri, tam = rng.choice(adlar)
+    kg = tamlayan(kurum)
+    if c.kind == "department":
+        e = etiket(niyet="aktar", birim=tam)
+        out += [(f"{kg} {yonelme(geri)} bağlar mısınız", e, c.extension, "kurum_birim"),
+                (f"{kurum} {yonelme(geri)} bağlayın", e, c.extension, "kurum_birim"),
+                (f"{kg} {geri} şubesine aktarır mısınız", e, c.extension, "kurum_birim")]
+    elif c.title and len(c.title.split()) <= 3:
+        u = turkish_lower(c.title)
+        out.append((f"{kg} {belirtme(u)} istiyorum", etiket(niyet="aktar", unvan=u, birim=kurum), c.extension,
+                    "kurum_unvan"))
+        if not _tamlama(geri):           # "jandarmanın asayiş şube müdürüne"; "jandarmanın komutanlığı albaya" değil
+            out.append((f"{kg} {geri} {yonelme(u)} bağlar mısınız", etiket(niyet="aktar", unvan=u, birim=tam),
+                        c.extension, "kurum_birim_unvan"))
+        if c.kind == "role":   # "jandarmanın nizamiyesine", "jandarmanın nöbetçi amirine": iyelikli rol adı
+            *bas, son = u.split()
+            if son in IYELIK_UNVAN or _tamlama(u):     # zaten iyelikli: amiri → amirine, astsubayı → astsubayına
+                ek = son + "n" + ("a" if _son_unlu(son) in _KALIN else "e")
+            else:
+                ek = iyelik_yonelme(son)
+            out.append((f"{kg} {' '.join([*bas, ek])} bağlayın", etiket(niyet="aktar", unvan=u, birim=kurum),
+                        c.extension, "kurum_rol_iyelik"))
+    return out
+
+
+def bulunma_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
+    """ "asayişteki uğur astsubay", "muhasebedeki ayşe hanım": birim "-deki" ekiyle."""
+    if c.kind != "person" or not c.first_name or not c.department or not c.transferable:
+        return []
+    ad = turkish_lower(c.first_name)
+    adlar = [x[1] for x in _zincir_adlari(c)] or [_kisa_birim(c)]
+    b = rng.choice(adlar)
+    if len(b.split()) > 2:
+        return []
+    rutbe = turkish_lower(c.title).split()[-1] if c.title else ""
+    if rutbe in RUTBE_HITAP:
+        e = etiket(niyet="aktar", ad=ad, unvan=turkish_lower(c.title), birim=b)
+        ek = rutbe
+    elif (hitap := hitap_bul(ad)):
+        e = etiket(niyet="aktar", ad=ad, hitap=hitap, birim=b)
+        ek = hitap
+    else:
+        return []
+    return [(f"{bulunma(b)}ki {ad} {birliktelik(ek)} görüşecektim", e, c.extension, "bulunma"),
+            (f"{bulunma(b)}ki {ad} {ek} vardı ona bağlar mısınız", e, c.extension, "bulunma")]
+
+
+def meslek_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
+    """ "hukukçu ali bey", "muhasebeci ayşe hanım": birim meslek adıyla; etiket birimin yalın adı."""
+    if c.kind != "person" or not c.first_name or not c.department or not c.transferable:
+        return []
+    b = turkish_lower(c.department)
+    if b not in MESLEK_BIRIMLERI or not (hitap := hitap_bul(c.first_name)):
+        return []
+    ad = turkish_lower(c.first_name)
+    return [(f"{meslek(b)} {ad} {yonelme(hitap)} bağlar mısınız",
+             etiket(niyet="aktar", ad=ad, hitap=hitap, birim=b), c.extension, "meslek_birim")]
+
+
+def basindaki_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
+    """ "yazılımın başındaki ekip lideri kimse": "başındaki" unvana katılmaz (F06: "baş ekip lideri")."""
+    if not c.title or not c.department or not c.transferable or len(c.title.split()) > 3:
+        return []
+    u, b = turkish_lower(c.title), _kisa_birim(c)
+    if u in b or b in u or not any(y in u for y in YONETICI_SOZCUKLERI):
+        return []
+    return [(f"{tamlayan(b)} başındaki {u} kimse ona bağlayın", etiket(niyet="aktar", unvan=u, birim=b),
+             c.extension, "basindaki")]
+
+
 SABIT = {
     "operator": ["operatöre bağlar mısınız", "bir insanla görüşmek istiyorum", "gerçek biriyle konuşabilir miyim",
                  "santral memuruna verin beni", "makineyle konuşmak istemiyorum bir yetkili lütfen",
                  "beni operatöre aktarın", "canlı biriyle görüşebilir miyim", "santrale bağlayın",
                  "robotla değil insanla konuşmak istiyorum", "operatör", "sıfıra basıyorum operatör lütfen",
                  "bir görevliyle konuşabilir miyim", "danışmadaki arkadaşa verir misiniz",
-                 "siz anlamıyorsunuz beni birine bağlayın", "yetkili biriyle görüşeyim"],
+                 "siz anlamıyorsunuz beni birine bağlayın", "yetkili biriyle görüşeyim",
+                 "bi insan verun bana", "makineyle olmaz bi adam bağlayın", "canlı biri yok mu gardaş",
+                 "insanla konuşcam ben"],
     "kapat": ["tamam teşekkürler kapatıyorum", "görüşmeyi sonlandırmak istiyorum", "vazgeçtim sağ olun",
               "peki iyi günler kapatıyorum", "gerek kalmadı teşekkür ederim", "sonra ararım",
               "tamam o zaman kapatıyorum hoşça kalın", "boş verin iyi günler", "yanlış aradım kusura bakmayın",
-              "işimi hallettim teşekkürler", "şimdilik bu kadar sağ olun"],
+              "işimi hallettim teşekkürler", "şimdilik bu kadar sağ olun",
+              "sağ olasın kardeşim kapatıyorum", "eyvallah sağ ol", "hadi kolay gelsun sonra ararum",
+              "tamam o zaman sonra ararım eyvallah", "sağ olun hadi hayırlı işler"],
     "mesai": ["mesai saatleriniz nedir", "kaça kadar açıksınız", "cumartesi açık mısınız",
               "sabah kaçta açılıyorsunuz", "öğle arası var mı", "çalışma saatleriniz ne",
               "bugün kaça kadar çalışıyorsunuz", "pazar günü açık mısınız", "akşam kaçta kapanıyorsunuz",
@@ -504,7 +632,8 @@ async def rehber_ornekleri(adi: str, yol: str, rng: random.Random, tekrar: int,
             elif c.kind == "department":
                 ham += birim_ornekleri(c, rng)
             if c.title:
-                ham += unvan_ornekleri(c, rng) + iyelik_ornekleri(c, rng)
+                ham += unvan_ornekleri(c, rng) + iyelik_ornekleri(c, rng) + basindaki_ornekleri(c, rng)
+            ham += zincir_ornekleri(c, rng) + bulunma_ornekleri(c, rng) + meslek_ornekleri(c, rng)
             if rng.random() < 0.3:
                 ham += dahili_ornekleri(c, rng)
         ham += konu_ornekleri(index, rng) + dislama_ornekleri(index, rng) + konu_tarif_ornekleri(index)
