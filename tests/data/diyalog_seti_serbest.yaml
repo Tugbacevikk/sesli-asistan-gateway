@@ -49,7 +49,7 @@
 # --- 2. KONUDAN BİRİM (teyitle) ---
 - id: F09
   aciklama: "Arıza → Teknik Destek"
-  konusma: ["bilgisayarım açılmıyor yardım edebilecek birini arıyorum", "evet"]
+  konusma: ["bilgisayarım açılmıyor yardım edebilecek birini arıyorum", "evet", "destek"]
   beklenen: {eylem: transfer, dahili: "1760"}
 
 - id: F10
