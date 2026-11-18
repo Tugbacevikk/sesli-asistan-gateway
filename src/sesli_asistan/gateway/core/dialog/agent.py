@@ -114,9 +114,13 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin, 
 
     async def _run_steps(self, s: DialogSession, u: _Utterance) -> DialogTurn:
         """Söz adımlardan sırayla geçer (STEPS); cevap veren ilk adım turu bitirir."""
+        narrow = self.cfg.understand == "llm" and self.cfg.understand_narrow in {"teyit", "aktar"}
         for name in STEPS:
+            snap = self._snapshot(s) if narrow else None
             if (turn := await getattr(self, name)(s, u)) is not None:
                 log.debug("[%s] cevap veren adım: %s", s.call_id, name)
+                if snap is not None:
+                    turn = await self._narrowed(s, u, turn, snap)    # ADR-039: soru yerine LLM'le daraltma
                 return turn
         raise AssertionError("son adım (_step_answer) her zaman cevap verir")
 

@@ -32,8 +32,8 @@
   beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30002"]}
 
 - id: J06
-  aciklama: "Doğu: jandarmanın asayiş şube müdürü, istirem"
-  konusma: ["jandarmanın asayiş şube müdürünü istirem"]
+  aciklama: "Doğu: jandarmanın asayiş şube müdürü, istirem (ADR-039: LLM daraltır, teyit → he)"
+  konusma: ["jandarmanın asayiş şube müdürünü istirem", "he"]
   beklenen: {eylem: transfer, dahili: "30101"}
 
 - id: J07
@@ -48,8 +48,8 @@
 
 # --- KİŞİ: ad + rütbe / unvan + şube ---
 - id: J09
-  aciklama: "Ad + rütbe hitap gibi, şube belli"
-  konusma: ["asayişteki uğur astsubayla görüşcem"]
+  aciklama: "Ad + rütbe hitap gibi, şube belli (ADR-039: LLM daraltır, teyit → he)"
+  konusma: ["asayişteki uğur astsubayla görüşcem", "he"]
   beklenen: {eylem: transfer, dahili: "30131"}
 
 - id: J10

@@ -315,6 +315,91 @@ class UnderstandMixin:
             return await self._run_steps(s, u)   # kalıp sözle adımlar yeniden; son adım kural turu (LLM yok)
         return self._rule_turn(s, u.text)        # LLM anlamadı / düştü: kural cevabı (bulunamadı, tekrar sor)
 
+    @staticmethod
+    def _snapshot(s: DialogSession) -> tuple[Any, int]:
+        # sığ kopya + değişken alanlar: `deepcopy` rehber kayıtlarını da kopyalardı (30 adayda pahalı; kopya
+        # kayıtlar kimlik karşılaştırmasını da bozardı)
+        return replace(s.state, unreachable=set(s.state.unreachable), actions=list(s.state.actions),
+                       misses=list(s.state.misses)), len(s.history)
+
+    @staticmethod
+    def _restore(s: DialogSession, snap: tuple[Any, int]) -> None:
+        s.state = snap[0]
+        del s.history[snap[1]:]
+
+    async def _narrowed(self: DialogAgent, s: DialogSession, u: _Utterance, turn: DialogTurn,
+                        snap: tuple[Any, int]) -> DialogTurn:
+        """Adım soru sorduysa (birden çok aday) ve LLM adaylardan tek birini gösteriyorsa kuralın sorusu geri alınır:
+        teyit ("X'e mi bağlayayım?") ya da aktarma (ADR-039). Aksi halde adımın turu olduğu gibi."""
+        if not s.state.choice or turn.actions or turn.ended:
+            return turn
+        if (pick := await self._narrow_choice(s, u)) is None:
+            return turn
+        self._restore(s, snap)
+        if self.cfg.understand_narrow == "aktar":
+            return self._code_transfer(s, pick)
+        return self._confirm(s, pick.contact, "LLM adayları daralttı")
+
+    async def _narrow_choice(self: DialogAgent, s: DialogSession, u: _Utterance) -> Candidate | None:
+        """ADR-039: kural birden çok aday bulup soracakken ("hukukçi ali beye" → Satış mı, Pazarlama mı, Hukuk mu?)
+        LLM'e de sorulur. LLM'in yazdığı alanlar (birim, unvan, soyad) sözde gerçekten geçiyor ve adaylardan tam
+        birini gösteriyorsa o aday; yoksa None (kuralın sorusu sorulur). LLM rehberde olmayan birini seçemez: yalnız
+        kuralın adayları arasından."""
+        if (self.cfg.understand_narrow not in {"teyit", "aktar"} or self.cfg.understand != "llm" or u.asked
+                or u.confirm or u.op_confirm or u.choice):
+            return None                          # arayan bir soruyu cevaplıyorsa daraltılmaz
+        cands = list(s.state.choice)
+        u.asked = True
+        t0 = time.perf_counter()
+        got = await self._ask_understanding(s, u.text)
+        ms = (time.perf_counter() - t0) * 1000
+        if got is None or got.niyet != "aktar":
+            return None
+        vocab = self._vocabulary()
+        unit_said = self._unit_said(u.text)
+        got, _ = got.repaired(u.text, vocab.firsts, vocab.lasts, unit_said)
+        if got.problem(u.text, vocab.firsts, unit_said):
+            return None
+        if not (got.birim or got.unvan or got.soyad):
+            return None                          # ayırt edici alan yok: daraltma kanıtı yok
+
+        def fits(c: Any) -> bool:
+            if got.ad and not any(same_word(w, x, CHOICE_WORD) for w in fold_words(got.ad)
+                                  for x in fold_words(c.first_name)):
+                return False
+            if got.soyad and not any(same_word(w, x, CHOICE_WORD) for w in fold_words(got.soyad)
+                                     for x in fold_words(c.last_name)):
+                return False
+            if got.birim:
+                key = search_key(got.birim)
+                names = [search_key(n) for n in (c.department, *c.department_aliases) if n]
+                if not any(f" {key} " in f" {n} " or n.startswith(key) for n in names):
+                    return False                 # "jandarma asayiş" ⊂ "il jandarma asayiş şube müdürlüğü"
+            # birim hattı adayında unvan aranmaz: birim seçilir, unvan sonra o birimde aranır
+            return c.kind == "department" or not got.unvan or title_fits(c)
+
+        def title_fits(c: Any) -> bool:
+            return all(any(x.startswith(w[:5]) for x in fold_words(c.title))
+                       for w in fold_words(got.unvan) if len(w) > 2)
+
+        kept = [x for x in cands if fits(x.contact)]
+        log.info("[%s] anlama (LLM, %.0f ms): seçim daraltma %s → %s → %d/%d aday", s.call_id, ms,
+                 log_text(u.text), got.summary(), len(kept), len(cands))
+        if len(kept) != 1:
+            return None
+        pick = kept[0]
+        if pick.contact.kind == "department" and got.unvan:
+            # "jandarmanın asayiş şube müdürü": birim seçildi, unvanı o birimde tutan tek hat varsa o
+            dept = pick.contact.department
+            holders = [c for c in self.tools.index.contacts()
+                       if c.department == dept and c.kind != "department" and c.transferable and not c.deleted
+                       and c.title and title_fits(c)]
+            if len(holders) == 1:
+                log.info("[%s] seçim daraltma: %s biriminde %s → %s", s.call_id, dept, got.unvan,
+                         holders[0].extension)
+                return Candidate(holders[0], 100)
+        return pick
+
     def _rule_if_found(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn | None:
         """Kural turu bir şey bulursa (aktarma, soru) onu döner; bulamazsa ("bulamadım") turun izleri (deneme sayacı,
         geçmiş) geri alınır ve None: söz LLM'e gider."""
