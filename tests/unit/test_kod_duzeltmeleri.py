@@ -1,4 +1,4 @@
-"""Kural modunda küçük düzeltmeler: birim hattı (J04), "personelin" (F08), ad + soyad bitişik değil (F04), "he" (S17)."""
+"""Kural modunda küçük düzeltmeler: birim hattı (J04), "personelin" (F08), ad + soyad (F04), "he" (S17)."""
 from __future__ import annotations
 
 import asyncio
