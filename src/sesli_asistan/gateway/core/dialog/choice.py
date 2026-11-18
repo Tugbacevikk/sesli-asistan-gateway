@@ -394,7 +394,8 @@ class ChoiceMixin:
         return (department_said(ix, text) is not None or mentioned_targets(ix, text, numbers).count > 0
                 or bool(resolve_person(ix, text)["adaylar"]))
 
-    def _repeat_choice(self: DialogAgent, s: DialogSession, choice: tuple[Candidate, ...]) -> DialogTurn:
+    def _repeat_choice(self: DialogAgent, s: DialogSession, choice: tuple[Candidate, ...],
+                       yes: bool = False) -> DialogTurn:
         """"Hangisi?" sorusunun cevabı anlaşılmadı (başka bir istek de yok): soru kodla yeniden sorulur, açık kalır.
         Canlı deneme 03.11.2026: anlaşılmayan cevap LLM'e gidince soru kapanıyor, sonraki "Yılmaz"a yakın cevap
         eşlenemiyordu. Deneme sayılır (sonunda operatör)."""
@@ -402,6 +403,10 @@ class ChoiceMixin:
             return turn
         q = s.state.choice_question or which_question([c.contact for c in choice])
         s.state.choice = choice
+        if yes and q:
+            # "evet" seçim değil: soru "Hangisini istersiniz: X mi, Y mi?" diye açılır (aynı cümle döngü gibi duyulur)
+            s.state.choice_question = q
+            q = self.cfg.texts.which_one.format(soru=q)
         turn = self._reply(s, q or self.cfg.texts.not_understood)
         turn.fast = True
         return turn

@@ -22,7 +22,9 @@ from ..people import (
 )
 from ..phrases import (
     FAST_BLOCK,
+    FILLER_WORDS,
     NEGATION_WORDS,
+    YES_WORDS,
     ablative,
     asks_general_help,
     asks_office_hours,
@@ -141,7 +143,8 @@ class StepsMixin:
             u.text = f"{dept} {u.text}"
             return None
         if not set(fold_tr_words(u.text)) & (NEGATION_WORDS | {"bilmiyorum"}) and not self._mentions_target(u.text):
-            return self._repeat_choice(s, u.choice)
+            only_yes = bool(words := fold_tr_words(u.text)) and set(words) <= YES_WORDS | FILLER_WORDS
+            return self._repeat_choice(s, u.choice, yes=only_yes and len(u.choice) >= 2)
         return None
 
     def _title_only_lines(self: DialogAgent, text: str, numbers: list[str]) -> bool:

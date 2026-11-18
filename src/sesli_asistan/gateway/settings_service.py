@@ -56,6 +56,7 @@ TEXT_LABELS = {
     "office_hours": ("Mesai sorusunun cevabı", "{saatler}"),
     "office_hours_unknown": ("Mesai sorusu (saatler tanımlı değil)", ""),
     "ask_target": ("Bilgiden sonra yönlendirme sorusu", ""),
+    "which_one": ("İki seçenekli soruya evet denince", ""),
     "which_department": ("Aynı unvanlı çok hat: hangi birim sorusu", "{unvan}"),
     "indistinct": ("Aynı unvan, aynı birim: operatöre aktarma", ""),
     "ask_person_in_department": ("Birim belli, kişi değil: kiminle sorusu", "{birimden}"),
