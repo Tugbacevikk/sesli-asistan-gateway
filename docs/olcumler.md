@@ -1344,3 +1344,27 @@ etkin parti 16, 2 tur, `q8_0` GGUF. Araç: `tools/egitim/anlama_olc.py` (anlama)
   atlanan alan (kurum, "-deki" ekli birim) ya da yanlış niyet. Ayrıntı: oturum raporu, 17.11.2026.
 - Araç: "does not support tools" 2 senaryoda (D26, D112) görüldü; kural tabanlı tur doğru sonuçlandı.
 - **Sınır:** test cümleleri ve eğitim kalıpları aynı elden; kör set ve sesli (STT) ölçüm yapılmadı.
+
+### v4 (18 Kasım 2026): kurum zinciri, "-deki", iyelikli rol, meslek adı, "başındaki", şiveli vedalaşma
+
+**Ölçen:** Antigravity (aynı makine). Veri 7.100 eğitim / 370 doğrulama, 888 adım, son eval_loss 0,0080. Anlama
+testi v4 verisinin test seti (demo rehberi, 2.074 söz; yeni türler eklendiği için v3'ün önceki %98,8'iyle
+kıyaslanmaz). Daraltma (ADR-039) bu ölçümde yok.
+
+| model | JSON % | niyet % | tam % | uçtan uca % | p50 sn | p95 sn |
+|---|---|---|---|---|---|---|
+| gemma-santral v3 | 99,9 | 98,9 | 78,8 | 96,8 | 0,24 | 0,36 |
+| gemma-santral v4 | 99,9 | 99,4 | 86,1 | 97,9 | 0,25 | 0,35 |
+
+Türe göre (uçtan uca, v3 → v4): basindaki 73,3 → 97,8; kapat 80,0 → 97,5; kurum_birim 86,2 → 94,8; konu_tarif
+85,0 → 95,0; kurum_birim_unvan 86,8 → **82,4** (gerileme); operator 91,9 → 91,9.
+
+| set | v3 | v4 | v4'ün başarısızları |
+|---|---|---|---|
+| şive (20) | %80 | %85 | S03, S07 (daraltma yok), S17 (iki seçenekli soruya "he") |
+| şive + jandarma (15) | %60 | %66,7 | J04 (birim yerine kişi seçimi), J06, J09, J10 / J12 (teyit; test beklentisi) |
+| serbest (25) | %80 | %80 | F04 (v3'te geçiyordu: kararsız), F08, F09, F13 (yanlış aktarma), F25 |
+| diyalog_seti, demo, kamu, makam, sentetik, sirket | %100 | %100 | izinsiz / yanlış aktarma 0 |
+
+- Hızlı denemede STT'nin "şey"i "sey" yazdığı sözlerde dolgu unvana katıldı ("sey satış müdürü"): veri / onarım işi.
+- Karar: v4 dağıtıma (models.yaml özeti güncellendi).
