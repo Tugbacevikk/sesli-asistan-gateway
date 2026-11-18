@@ -17,8 +17,8 @@
   beklenen: {eylem: transfer, dahili: "2201"}
 
 - id: S03
-  aciklama: "Karadeniz: vereceksun, hukukçi"
-  konusma: ["hukukçi ali beye vereceksun beni da"]
+  aciklama: "Karadeniz: vereceksun, hukukçi (ADR-039: LLM daraltır, teyit → he)"
+  konusma: ["hukukçi ali beye vereceksun beni da", "he"]
   beklenen: {eylem: transfer, dahili: "2401"}
 
 # --- EGE: "gari", "-ıver", "efem", "hele" ---
@@ -39,8 +39,8 @@
   beklenen: {eylem: transfer, dahili: "1901"}
 
 - id: S07
-  aciklama: "İç Anadolu: görüşcem, ünlü düşmesi"
-  konusma: ["ben üretimden elif hanımla görüşcem"]
+  aciklama: "İç Anadolu: görüşcem, ünlü düşmesi (ADR-039: LLM daraltır, teyit → he)"
+  konusma: ["ben üretimden elif hanımla görüşcem", "he"]
   beklenen: {eylem: transfer, dahili: "1801"}
 
 - id: S08

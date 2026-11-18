@@ -1368,3 +1368,22 @@ Türe göre (uçtan uca, v3 → v4): basindaki 73,3 → 97,8; kapat 80,0 → 97,
 
 - Hızlı denemede STT'nin "şey"i "sey" yazdığı sözlerde dolgu unvana katıldı ("sey satış müdürü"): veri / onarım işi.
 - Karar: v4 dağıtıma (models.yaml özeti güncellendi).
+
+## Seçim daraltma (ADR-039): kapali / teyit, gemma-santral v4 (18 Kasım 2026)
+
+**Ölçen:** Antigravity (aynı makine, RTX 3050 Ti 4 GB). `tests/eval/diyalog.py --anlama --daralt kapali|teyit`.
+
+| set | kapali | teyit | izinsiz | yanlış aktarma | p95 sn (kapali → teyit) |
+|---|---|---|---|---|---|
+| şive (20) | %85,0 | **%95,0** | 0 | 0 | 0,37 → 0,36 |
+| şive + jandarma (15) | %66,7 | **%80,0** | 0 | 0 | 0,28 → 0,32 |
+| serbest (25) | %84,0 | %80,0 | 0 | 1 (F13, iki kipte) | 0,36 → 0,38 |
+| diyalog_seti, demo, kamu, makam, sentetik, sirket | %100 | %100 | 0 | 0 | ≤ 0,36 |
+
+- Düzelen: S03, S07, J06 (birim seçilip unvan o birimde), J09: teyit → "he" → doğru hat.
+- F04 ("selin hanım … soyadı ekinci miydi neydi"): kapalıda geçti, teyitte "Satış mı, Muhasebe mi?". Daraltmasız v4
+  ölçümünde de aynı cevapla başarısızdı (v3'te geçiyordu): modelin belirsiz söylenen soyadı bazen atması; daraltmaya
+  bağlı değil (tekrar ölçümü: oturum raporu).
+- Kalan: S17 / F09 (iki seçenekli soruya "evet"), J04 (birim yerine kişi seçimi), J10 / J12 (teyit; test
+  beklentisi), F08 ("personel" eş adı), F13 (konu eşlemesi), F25 (STT).
+- Karar: `UNDERSTAND_NARROW=teyit` kurulum varsayılanı.

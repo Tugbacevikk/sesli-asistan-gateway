@@ -1140,6 +1140,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
 | `UNDERSTAND_TIMEOUT_S` | 5 | Anlama çağrısının süre sınırı (sn); araçlı döngü `LLM_TIMEOUT_S` kullanır. HTTP sınırı ikisinin büyüğü |
 | `UNDERSTAND_MODE` | llm | ADR-037: kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda. `kural`: kapalı (eski araçlı LLM döngüsü) |
+| `UNDERSTAND_NARROW` | teyit | ADR-039: kural birden çok aday bulup soracakken LLM'e de sorulur; LLM adaylardan tam birini gösterirse `teyit` ("X'e mi bağlayayım?") ya da `aktar`; `kapali`: kuralın sorusu |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
@@ -2105,6 +2106,27 @@ ondan bağımsızdır.
   yazdığı kör set ve gerçek ses (STT) ölçümü yapılmalı. Lisans Gemma Terms of Use (Apache değil): yasaklı kullanım
   politikası ve lisans metni modelle verilir. `understand.py` istemi değişirse veri yeniden üretilir ve model
   yeniden eğitilir.
+
+
+### ADR-039 — Kural soracakken LLM'le aday daraltma (teyitle)
+
+- **Bağlam:** ADR-037'de LLM yalnız kanıt zayıfken (olumsuzluk ya da ≥2 artan sözcük) ya da kural bulamayınca
+  çağrılır; kuralın "birden çok aday, soru sorayım" sonucu çözüm sayılır. Şive setinde (S03 "hukukçi ali beye
+  vereceksun", S07 "ben üretimden elif hanımla görüşcem") LLM birimi doğru yazıyordu (gemma-santral v3) ama
+  hiç çağrılmıyordu: arayan "Satış mı, Pazarlama mı, Hukuk mu?" sorusunu gereksiz yere duyuyordu. ADR-037
+  yazılırken LLM çağrısı 2–5 sn sürüyordu (qwen3.5:4b); gemma-santral ile ~0,25 sn (ADR-038): hesap değişti.
+- **Karar:** kural birden çok aday bulup soracakken (`st.choice`) LLM'e de sorulur. LLM'in yazdığı ayırt edici alanlar
+  (birim, unvan, soyad) sözde gerçekten geçiyor (`Understanding.problem`, `_unit_said`) ve kuralın adaylarından
+  **tam birini** gösteriyorsa: `UNDERSTAND_NARROW=teyit` (varsayılan, 18.11.2026 kararı) "X'e mi bağlamamı
+  istersiniz?", `aktar` doğrudan aktarma. Aksi halde kuralın sorusu sorulur. LLM rehberde olmayan birini seçemez
+  (yalnız kuralın adayları); ayırt edici alan yoksa ("ali beye bağlayın") daraltma denenmez. Hangi adım sorarsa
+  sorsun denenir (`_run_steps`: çakışma, kişi seçimi …); arayan bir soruyu cevaplıyorsa denenmez. Adaylar birim
+  hattıysa birim seçilir, LLM unvan da yazdıysa o birimde unvanı tutan tek hat alınır ("jandarmanın asayiş şube
+  müdürü" → Jandarma Asayiş'in Şube Müdürü; kurum söylenmezse "Jandarma mı, Emniyet mi?" kalır).
+- **Maliyet:** yalnız kuralın soru soracağı sözlerde bir anlama çağrısı (~0,25 sn). `kapali`: ADR-037 davranışı.
+- **Ölçüm:** sahte LLM'le (gemma-santral'ın gerçek çıktıları) S03 / S07 / J06 / J09 teyitle doğru hatta;
+  uydurma birim, adaylara uymayan birim ve "belirsiz" cevapta kuralın sorusu (`tests/unit/test_secim_daraltma.py`).
+  Kural kipindeki dokuz diyalog setinde değişiklik yok. Gerçek modelle ölçüm: `diyalog.py --anlama --daralt`.
 
 ## 17. Riskler
 

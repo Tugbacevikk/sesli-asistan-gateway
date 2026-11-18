@@ -87,7 +87,7 @@ def build_agent(s: GatewaySettings, directory: DirectoryCache, llm: LlmPort | No
                        prompt_template=load_prompt(s.llm_prompt_path),
                        prompt_departments=s.llm_prompt_departments, few_shot=s.llm_few_shot,
                        small_talk=s.small_talk, understand=s.understand_mode,
-                       understand_timeout_s=s.understand_timeout_s,
+                       understand_narrow=s.understand_narrow, understand_timeout_s=s.understand_timeout_s,
                        stt_corrections=load_stt_corrections(s.abbreviations_path.strip()))
     remote = None
     if s.llm_tools == "mcp" or s.mcp_step:
