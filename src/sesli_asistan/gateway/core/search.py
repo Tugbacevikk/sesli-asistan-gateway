@@ -127,9 +127,15 @@ _SUFFIXES = ("ndaki", "ndeki", "daki", "deki", "taki", "teki",
              "yi", "yu", "da", "de", "ta", "te", "i", "u", "a", "e")
 
 
+_GENITIVE = ("in", "un")   # "personelin", "müdürün" (ünlü uyumu katlanmış): yalnız uzun köklerde, "yasemin" bozulmasın
+
+
 def strip_suffix(word: str) -> str:
     for suf in _SUFFIXES:
         if word.endswith(suf) and len(word) - len(suf) >= 4:
+            return word[: -len(suf)]
+    for suf in _GENITIVE:
+        if word.endswith(suf) and len(word) - len(suf) >= 6:
             return word[: -len(suf)]
     return word
 

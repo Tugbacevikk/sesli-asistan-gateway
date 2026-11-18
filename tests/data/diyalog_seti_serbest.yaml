@@ -23,7 +23,7 @@
 
 - id: F04
   aciklama: "Belirsiz soyad hatırlama"
-  konusma: ["geçen hafta selin hanımla konuşmuştum, soyadı ekinci miydi neydi, ona bağlayın"]
+  konusma: ["geçen hafta selin hanımla konuşmuştum, soyadı ekinci miydi neydi, ona bağlayın", "he"]
   beklenen: {eylem: transfer, dahili: "1401"}
 
 - id: F05

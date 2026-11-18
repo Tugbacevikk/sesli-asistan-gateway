@@ -205,6 +205,9 @@ class ChoiceMixin:
         index = self.tools.index
         if any(index.search(name=" ".join(words[i:i + 2])).match == Match.SINGLE_HIGH for i in range(len(words) - 1)):
             return None                                 # sözde bir tam ad da var ("Ayşe Yılmaz mı Ayşe Kaya mı")
+        if any(index.search(name=f"{words[i]} {words[j]}").match == Match.SINGLE_HIGH
+               for i in range(len(words)) for j in range(i + 2, min(i + 6, len(words)))):
+            return None          # ad ile soyad bitişik değil ("selin hanımla konuşmuştum, soyadı ekinci": F04)
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])

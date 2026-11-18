@@ -303,6 +303,14 @@ class StepsMixin:
                 log.info("[%s] önceki turlarla daraltıldı: %s → %s", s.call_id, log_text(u.text),
                          cands[0].extension)
                 return self._code_transfer(s, Candidate(cands[0], 100))
+        if from_unit and len(cands) >= 2 and len(units := {search_key(c.department) for c in cands}) == 1:
+            # yalnız birim söylendi ("jandarma lojistik"), birimin kendi hattı da var: kişi seçtirilmez, birim
+            # hattına aktarılır (şive + jandarma seti J04)
+            line = [c for c in self.tools.index.contacts() if c.kind == "department" and c.transferable
+                    and search_key(c.department) in units]
+            if len(line) == 1:
+                log.info("[%s] yalnız birim söylendi: birim hattı %s", s.call_id, line[0].extension)
+                return self._code_transfer(s, Candidate(line[0], 100))
         if len(cands) == 1 and from_unit:
             log.info("[%s] birimden tek makam: %s → %s", s.call_id, log_text(u.text), cands[0].extension)
             return self._code_transfer(s, Candidate(cands[0], 100))
