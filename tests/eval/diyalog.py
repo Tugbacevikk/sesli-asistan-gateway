@@ -165,7 +165,7 @@ async def run_model(model: str, scenarios: list[dict], repeat: int, timeout_s: f
     s.llm_model = model
     s.llm_enabled = not rules
     s.understand_mode = "llm" if understand else "kural"
-    s.understand_narrow = narrow                          # ADR-039: seçim daraltma (teyit / aktar / kapali)
+    s.understand_narrow = narrow                          # ADR-039: seçim daraltma (teyit / kapali)
     s.llm_tools = tools  # type: ignore[assignment]
     s.mcp_step = mcp_step
     s.llm_prompt_path, s.llm_prompt_departments, s.llm_few_shot = prompt, departments, few_shot
@@ -267,7 +267,7 @@ async def main(argv=None) -> int:
                     help="akış rehber → MCP (konu_ara) → LLM (ADR-023); MCP sunucusu çalışıyor olmalı")
     ap.add_argument("--anlama", action="store_true",
                     help="LLM önce anlar kipi (ADR-037, UNDERSTAND_MODE=llm): söz LLM'le kalıba çevrilir")
-    ap.add_argument("--daralt", choices=["teyit", "aktar", "kapali"], default="teyit",
+    ap.add_argument("--daralt", choices=["teyit", "kapali"], default="teyit",
                     help="ADR-039: kural birden çok aday bulunca LLM'le daraltma (varsayılan: teyit, ürün gibi)")
     ap.add_argument("-v", action="store_true", help="başarısız senaryoların konuşmasını yaz")
     a = ap.parse_args(argv)

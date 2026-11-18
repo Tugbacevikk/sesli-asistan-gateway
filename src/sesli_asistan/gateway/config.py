@@ -68,8 +68,8 @@ class GatewaySettings(BaseSettings):
     small_talk: bool = False                             # ADR-035: hal hatıra LLM karşılık verir, sonra yönlendirir
     understand_mode: Literal["kural", "llm"] = "llm"    # ADR-037: çözülemeyen söz LLM'le anlaşılır; kural: kapalı
     # ADR-039: kural birden çok aday bulup soracakken LLM'e de sorulur; LLM adaylardan tek birini gösterirse
-    # "teyit": "X'e mi bağlayayım?" (kurulum varsayılanı), "aktar": doğrudan, "kapali": kural sorusu (ADR-037)
-    understand_narrow: Literal["teyit", "aktar", "kapali"] = "teyit"
+    # "teyit": "X'e mi bağlayayım?" (kurulum varsayılanı), "kapali": kural sorusu (ADR-037). Teyitsiz aktarma yok
+    understand_narrow: Literal["teyit", "kapali"] = "teyit"
     understand_timeout_s: float = 5.0   # anlama çağrısının süre sınırı (sn); LLM yavaşsa (model kısmen CPU'da)
                                         # yükseltilir, yalnız kuralın çözemediği sözleri bekletir
 

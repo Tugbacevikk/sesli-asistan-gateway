@@ -58,9 +58,10 @@ def test_teyit_sonra_aktarma(index: DirectoryIndex, soz: str, dahili: str) -> No
     assert _aktarilan(ikinci) == [dahili]
 
 
-def test_aktar_kipi_dogrudan(index: DirectoryIndex) -> None:
-    (turn,), _, _ = _konus(index, "aktar", "hukukçi ali beye vereceksun beni da")
-    assert _aktarilan(turn) == ["2401"]
+def test_teyitsiz_aktarma_kipi_yok() -> None:
+    from sesli_asistan.gateway.config import GatewaySettings
+    with pytest.raises(ValueError):
+        GatewaySettings(understand_narrow="aktar")
 
 
 def test_kapali_kipte_kural_sorusu_ve_llm_yok(index: DirectoryIndex) -> None:

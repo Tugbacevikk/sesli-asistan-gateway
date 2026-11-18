@@ -1386,4 +1386,4 @@ Türe göre (uçtan uca, v3 → v4): basindaki 73,3 → 97,8; kapat 80,0 → 97,
   bağlı değil (tekrar ölçümü: oturum raporu).
 - Kalan: S17 / F09 (iki seçenekli soruya "evet"), J04 (birim yerine kişi seçimi), J10 / J12 (teyit; test
   beklentisi), F08 ("personel" eş adı), F13 (konu eşlemesi), F25 (STT).
-- Karar: `UNDERSTAND_NARROW=teyit` kurulum varsayılanı.
+- Karar: `UNDERSTAND_NARROW=teyit` kurulum varsayılanı. Teyitsiz aktarma (`aktar`) kasten kaldırıldı: LLM önerisi arayan onaylamadan uygulanmaz.

@@ -1140,7 +1140,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
 | `UNDERSTAND_TIMEOUT_S` | 5 | Anlama çağrısının süre sınırı (sn); araçlı döngü `LLM_TIMEOUT_S` kullanır. HTTP sınırı ikisinin büyüğü |
 | `UNDERSTAND_MODE` | llm | ADR-037: kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda. `kural`: kapalı (eski araçlı LLM döngüsü) |
-| `UNDERSTAND_NARROW` | teyit | ADR-039: kural birden çok aday bulup soracakken LLM'e de sorulur; LLM adaylardan tam birini gösterirse `teyit` ("X'e mi bağlayayım?") ya da `aktar`; `kapali`: kuralın sorusu |
+| `UNDERSTAND_NARROW` | teyit | ADR-039: kural birden çok aday bulup soracakken LLM'e de sorulur; LLM adaylardan tam birini gösterirse `teyit` ("X'e mi bağlayayım?"; teyitsiz aktarma kasten yok); `kapali`: kuralın sorusu |
 | `MCP_STEP` | false (kurulum şablonunda true) | ADR-023: akış rehber → MCP (`konu_ara`) → LLM. MCP ulaşılamazsa adım atlanır |
 | `TOPIC_CONFIRM` | true | Konudan bulunan birime aktarmadan önce teyit ("Muhasebe'ye mi bağlamamı istersiniz?") |
 | `MCP_TOPICS_PATH` | (boş: genel liste) | Kurumun konu listesi (JSON, `gateway/konular.json` biçiminde); MCP sunucusu ve Gateway okur |
