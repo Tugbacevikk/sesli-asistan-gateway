@@ -39,3 +39,17 @@ def test_ust_birim_soylenince_alt_birimler_sorulur_bulamadim_denmez() -> None:
     soru, secim = _konus("satışa bağlayın", "kurumsal")
     assert "Kurumsal Satış" in soru[0] and "Yurt İçi Satış" in soru[0] and soru[1] == []
     assert secim[1] == ["1260"]
+
+
+def test_arkadan_duyulan_tek_birim_sozu_dogrudan_aktarmaz() -> None:
+    # sesli set 19.11.2026: "personel" arkadan duyuldu, sözün kalanı başka bir soru → teyit, aktarma yok
+    async def run() -> tuple[str, list[str]]:
+        s = GatewaySettings(llm_enabled=False, understand_mode="kural", directory_path="data/rehber_ornek.json")
+        d = build_directory(s)
+        await d.refresh()
+        ses = build_agent(s, d).new_session("t")
+        ses.greeting()
+        tr = await ses.handle_user("personel akşam kaça kadar telefonlara bakıyorsunuz")
+        return tr.text, [a.extension for a in tr.actions if a.type == "transfer"]
+    metin, aktarma = asyncio.run(run())
+    assert not aktarma and "bağlamamı istersiniz" in metin

@@ -322,7 +322,7 @@ class RulesMixin:
                 asked = self._confirm(s, cands[0].contact, why="konudan çıkarılan hedef")
                 s.state.confirm_suggested = True
                 return asked
-            return self._code_transfer(s, cands[0])
+            return self._code_transfer(s, cands[0], by_topic=True)    # kanıt konu: rehber sözcüğü beklenmez
         if 2 <= len(cands) <= 3:
             s.state.last_results, s.state.truncated = cands, False
             if (turn := self._clarify(s, cands)) is not None:
