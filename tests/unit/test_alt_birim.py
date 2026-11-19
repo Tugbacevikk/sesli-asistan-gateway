@@ -18,3 +18,24 @@ def test_stt_bm_bozulmasi_alt_birime_aktarilir() -> None:
         tr = await ses.handle_user("yurt dışı bm ile görüşmek istiyorum")
         return [a.extension for a in tr.actions if a.type == "transfer"]
     assert asyncio.run(run()) == ["1240"]
+
+
+def _konus(*sozler: str) -> list[tuple[str, list[str]]]:
+    async def run() -> list[tuple[str, list[str]]]:
+        s = GatewaySettings(llm_enabled=False, understand_mode="kural", directory_path="data/sirket_rehber.json")
+        d = build_directory(s)
+        await d.refresh()
+        ses = build_agent(s, d).new_session("t")
+        ses.greeting()
+        out = []
+        for t in sozler:
+            tr = await ses.handle_user(t)
+            out.append((tr.text, [a.extension for a in tr.actions if a.type == "transfer"]))
+        return out
+    return asyncio.run(run())
+
+
+def test_ust_birim_soylenince_alt_birimler_sorulur_bulamadim_denmez() -> None:
+    soru, secim = _konus("satışa bağlayın", "kurumsal")
+    assert "Kurumsal Satış" in soru[0] and "Yurt İçi Satış" in soru[0] and soru[1] == []
+    assert secim[1] == ["1260"]
