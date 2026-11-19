@@ -309,7 +309,8 @@ async def test_sozcukler_rehberde_olsa_da_kural_bulamazsa_llme_sorulur():
     s.greeting()
     turn = await s.handle_user(said)
     assert [x.extension for x in turn.actions if x.type == "transfer"] == ["1240"]
-    assert llm.calls == 1
+    # alt birim tam uyunca üst birim ("Satış") yakın aday sayılmaz: kural kendisi bulur, LLM'e gerek kalmaz
+    assert llm.calls == 0
 
 
 async def test_yalniz_sayi_ya_da_evet_llme_gitmez():
