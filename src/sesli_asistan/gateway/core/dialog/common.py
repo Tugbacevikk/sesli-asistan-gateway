@@ -115,6 +115,9 @@ class DialogTexts:
     not_found_again: str = ("Yine bulamadım. Adı ya da birimi tekrar söyleyebilirsiniz, "
                             "isterseniz sizi operatöre de bağlayabilirim.")
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
+    abuse_warning: str = ("Lütfen saygılı bir dille konuşalım. Size yardımcı olabilmem için kiminle ya da hangi "
+                          "birimle görüşmek istediğinizi söyler misiniz?")
+    abuse_close: str = "Saygılı bir görüşme yapamadığımız için görüşmeyi sonlandırıyorum. İyi günler dileriz."
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
     confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
     confirm_operator: str = "Sizi operatöre mi bağlamamı istersiniz?"
@@ -219,6 +222,7 @@ class _Run:
 
 
 STEPS = (
+    "_step_abuse",             # küfür / hakaret: önce uyarı, ısrarda görüşme kapatılır
     "_step_greeting",           # yalnız selam: açık soru yinelenir
     "_step_office_hours",       # mesai sorusu: kodla cevap
     "_step_general_help",       # "bilgi almak istiyorum": hangi konu / kim sorulur
