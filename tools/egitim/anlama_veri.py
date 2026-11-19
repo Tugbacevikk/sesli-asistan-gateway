@@ -202,6 +202,11 @@ def stt_gurultu(soz: str, rng: random.Random) -> str:
         soz = rng.choice(["alo ", "eee ", "iyi günler ", "merhaba ", "kolay gelsin ", "şey "]) + soz
     if rng.random() < 0.1 and not soz.endswith("lütfen"):
         soz += " lütfen"
+    kelimeler = soz.split()
+    if rng.random() < 0.12 and len(kelimeler) >= 3:
+        # söz ortasında dolgu ("satış şey müdürü"): model etikete katmaz (v4 ölçümü: "sey satış müdürü")
+        kelimeler.insert(rng.randrange(1, len(kelimeler)), rng.choice(["şey", "yani", "hani", "ııı", "eee"]))
+        soz = " ".join(kelimeler)
     if rng.random() < 0.25:
         soz = soz.translate(_STT_HARF)
     return " ".join(soz.split())
@@ -273,6 +278,19 @@ def kisi_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str |
             (f"{soyad} {hitap or 'bey'} vardı {ad} {soyad} onu arıyorum",
              etiket(niyet="aktar", ad=ad, soyad=soyad), c.extension, "ad_soyad"),
         ]
+    if soyad:
+        # soyadı sonradan hatırlanan söz ("selin hanımla konuşmuştum, soyadı ekinci miydi neydi"): ad ve soyad yan yana
+        # değil, "miydi neydi" belirsizlik dolgusu; etikette ad + soyad (v4 ölçümü F04: model soyadı birim saydı)
+        h = f" {hitap}" if hitap else ""
+        hl = f" {birliktelik(hitap)}" if hitap else ""
+        out += [
+            (f"geçen hafta {ad}{hl} konuşmuştum soyadı {soyad} miydi neydi ona bağlayın",
+             etiket(niyet="aktar", ad=ad, hitap=hitap, soyad=soyad), c.extension, "soyadi_hatirlama"),
+            (f"soyadı {soyad} olan {ad}{h} vardı ya onunla görüşmem lazım",
+             etiket(niyet="aktar", ad=ad, hitap=hitap, soyad=soyad), c.extension, "soyadi_hatirlama"),
+            (f"{ad}{h} soyadı {soyad} miydi ona bağlar mısınız",
+             etiket(niyet="aktar", ad=ad, hitap=hitap, soyad=soyad), c.extension, "soyadi_hatirlama"),
+        ]
     if birim and hitap:
         b = rng.choice([birim, *[turkish_lower(x) for x in c.department_aliases]])
         out += [
@@ -304,6 +322,10 @@ def birim_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str 
         (f"{yonelme(b)} bağlar mısınız", etiket(niyet="aktar", birim=b), c.extension, "birim"),
         (f"{ayrilma(b)} biriyle görüşmek istiyorum", etiket(niyet="aktar", birim=b), c.extension, "birim"),
         (f"{b} birimine aktarabilir misiniz acaba", etiket(niyet="aktar", birim=b), c.extension, "birim"),
+        # STT "bölüm" / "bölümü"yü "bm" yazabiliyor (canlı deneme 12.11, F25: "yurt dışı bm ile görüşmek istiyorum")
+        *[(s.format(b=b), etiket(niyet="aktar", birim=b), c.extension, "birim_bm") for s in rng.sample([
+            "{b} bm ile görüşmek istiyorum", "{b} bm bağlar mısınız", "{b} bm den biriyle görüşecektim",
+            "{b} bm yi arıyorum", "bm {b} ile görüşebilir miyim"], 2)],
     ]
 
 
