@@ -339,6 +339,12 @@ class DirectoryIndex:
             scored.sort(key=lambda x: (-x.score, x.contact.full_name))
         top = scored[0].score
         close = [x for x in scored if x.score >= top - self.margin]
+        if len(close) > 1 and scored[0].contact.kind == "department" and scored[0].score >= self.high_score:
+            # alt birim tam uydu ("yurt dışı satış"): onun üst birimi ("Satış", yolun öneki) yakın aday sayılmaz
+            yol = scored[0].contact.unit_path
+            close = [x for x in close if x is scored[0] or x.score >= scored[0].score or not (
+                x.contact.kind == "department" and x.contact.unit_path != yol
+                and tuple(yol[:len(x.contact.unit_path)]) == tuple(x.contact.unit_path))]
         if len(close) > 1:
             keep = close if limit is None else close[: self.limit if limit == -1 else limit]
             return SearchResult(tuple(keep), Match.MULTIPLE, total=len(close))
