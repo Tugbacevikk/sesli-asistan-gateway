@@ -44,8 +44,12 @@ if TYPE_CHECKING:
 log = logging.getLogger("sesli_asistan.gateway.core.dialog")   # adı değişmez (log süzgeçleri)
 
 
+WEAK_EXTRA = 3        # bu kadar açıklanamayan sözcük ve sözün yarısından çoğu: kod doğrudan aktarmaz, sorar
+
+
 class TransferMixin:
-    def _code_transfer(self: DialogAgent, s: DialogSession, cand: Candidate, confirmed: bool = False) -> DialogTurn:
+    def _code_transfer(self: DialogAgent, s: DialogSession, cand: Candidate, confirmed: bool = False,
+                       by_topic: bool = False) -> DialogTurn:
         if not confirmed and (turn := self._deputy_guard(s, cand.contact)) is not None:
             return turn
         if not confirmed and (turn := self._fax_guard(s, cand.contact)) is not None:
@@ -54,7 +58,7 @@ class TransferMixin:
             return turn
         if not confirmed and (turn := self._topic_clash(s, cand.contact)) is not None:
             return turn
-        if not confirmed and self._unsure(s):
+        if not confirmed and (self._unsure(s) or (not by_topic and self._weak_evidence(s))):
             return self._confirm(s, cand.contact)
         s.state.last_results = (cand,)
         action = self.tools.transfer(cand.contact.extension, s.state)
@@ -65,6 +69,16 @@ class TransferMixin:
         turn = self._reply(s, self._transfer_text(action.contact_id))
         turn.fast = True
         return turn
+
+    def _weak_evidence(self: DialogAgent, s: DialogSession) -> bool:
+        """Hedef sözün küçük bir parçasını açıklıyor: sözcüklerin çoğu rehberle açıklanamıyor (en az üç). Sesli set
+        19.11.2026: arkadan duyulan tek birim sözü ("personel akşam kaça kadar telefonlara bakıyorsunuz") o birime
+        aktarıyordu. Doğrudan aktarılmaz, teyit sorulur: yanlış aktarma yerine en kötü ihtimal bir "hayır"."""
+        user = _last_user(s)
+        if not user or self.cfg.understand == "llm":
+            return False             # anlama kipinde zayıf kanıtlı söz zaten önce LLM'e gider (ADR-037)
+        extra, content = self.unexplained(user), self.content_words(user)
+        return len(extra) >= WEAK_EXTRA and 2 * len(extra) > len(content)
 
     def _deputy_guard(self: DialogAgent, s: DialogSession, contact: Any) -> DialogTurn | None:
         """Arayan asıl makamı istedi, bulunan hat yardımcısı: "il jandarma komutanına" → Komutan (aktarılamaz,

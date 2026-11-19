@@ -24,6 +24,7 @@ from ..phrases import (
     asks_operator,
     number_word,
     spoken_numbers,
+    which_question,
 )
 from ..ports import ToolCall
 from ..search import (
@@ -125,6 +126,8 @@ class RulesMixin:
             pick, cands = self._department_target(next(iter(depts)))
             if pick is not None:
                 return self._code_transfer(s, Candidate(pick, 100))
+        if not cands and 2 <= len(depts) <= 4 and not more and (turn := self._ask_department_lines(s, depts)):
+            return turn                      # "satışa bağlayın": Satış ve alt birimleri; "bulamadım" yerine sorulur
         if len(cands) == 1 and not more:
             if not said_surely(self.tools.index, cands[0].contact, text):
                 return self._confirm(s, cands[0].contact, why="yalnız ad ya da başka bir adla söylendi")
@@ -217,6 +220,20 @@ class RulesMixin:
                         people.setdefault(c.contact.id, c)
         return people, depts, more
 
+    def _ask_department_lines(self: DialogAgent, s: DialogSession, depts: set[str]) -> DialogTurn | None:
+        """Sözde birden çok birim (üst birim ve alt birimleri): hepsinin kendi hattı varsa "Satış mı, Kurumsal
+        Satış mı, yoksa Yurt Dışı Satış mı?" diye sorulur; cevap seçim adımında çözülür. Hat eksikse sorulmaz."""
+        lines: dict[str, Any] = {}
+        for c in self.tools.index.contacts():
+            if (c.kind == "department" and c.transferable and not c.deleted
+                    and (search_key(c.department) in depts or {search_key(p) for p in c.unit_path} & depts)):
+                lines.setdefault(search_key(c.department), c)      # söylenen birim ve altındaki bütün hatlar
+        if not depts <= set(lines) or not 2 <= len(lines) <= 4 or (q := which_question(list(lines.values()))) is None:
+            return None
+        s.state.choice, s.state.choice_question = tuple(Candidate(c, 100) for c in lines.values()), ""
+        s.state.failed_attempts = 0
+        return self._reply(s, q)
+
     def _department_target(self: DialogAgent, dept: str) -> tuple[Any, list[Candidate]]:
         """Yalnız birim söylendi: birimin hattı, yoksa tek kişisi (aktarılacak); birden çok kişi → adaylar."""
         index = self.tools.index
@@ -305,7 +322,7 @@ class RulesMixin:
                 asked = self._confirm(s, cands[0].contact, why="konudan çıkarılan hedef")
                 s.state.confirm_suggested = True
                 return asked
-            return self._code_transfer(s, cands[0])
+            return self._code_transfer(s, cands[0], by_topic=True)    # kanıt konu: rehber sözcüğü beklenmez
         if 2 <= len(cands) <= 3:
             s.state.last_results, s.state.truncated = cands, False
             if (turn := self._clarify(s, cands)) is not None:
