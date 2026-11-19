@@ -30,6 +30,7 @@ from ..phrases import (
     asks_office_hours,
     asks_operator,
     greeting_echo,
+    is_abusive,
     is_greeting_only,
     is_small_talk,
     maybe_operator,
@@ -116,6 +117,19 @@ class StepsMixin:
             return None
         log.info("[%s] arayan operatör istedi: %s", s.call_id, log_text(u.text))
         return self._operator(s, self.cfg.texts.to_operator, reason="arayan_istedi")
+
+    async def _step_abuse(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """Küfür / hakaret: ilkinde nazik uyarı ve istek sorusu, tekrarında görüşme kapatılır. Aynı sözde geçerli bir
+        istek de olsa aktarma yapılmaz (uyarı önce). LLM'e bağlı değil: kural ve LLM kipinde aynı davranır."""
+        if not is_abusive(u.text):
+            return None
+        s.state.abuse_count += 1
+        log.info("[%s] küfür / hakaret (%d. kez): %s", s.call_id, s.state.abuse_count, log_text(u.text))
+        if s.state.abuse_count >= 2:
+            s.state.actions = []
+            s.history.append({"role": "assistant", "content": self.cfg.texts.abuse_close})
+            return DialogTurn(self.cfg.texts.abuse_close, [HangupAction("hakaret")])
+        return self._reply(s, self.cfg.texts.abuse_warning)
 
     async def _step_hangup(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Kapatma isteği. Çok düşük güvenle yalnız kurallı kapatma sözü ("kapatın", "sonlandırmak istiyorum");

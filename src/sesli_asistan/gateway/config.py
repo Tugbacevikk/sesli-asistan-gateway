@@ -176,6 +176,8 @@ class GatewaySettings(BaseSettings):
     busy_text: str = ""                       # {ad} {ad_e}
     no_answer_text: str = ""
     transfer_failed_text: str = ""
+    abuse_warning_text: str = ""              # küfür / hakaret ilk kez: nazik uyarı
+    abuse_close_text: str = ""                # küfür / hakaret tekrarlandı: veda, sonra kapatılır
     goodbye_text: str = ""                    # arayan görüşmeyi bitirmek istedi (veda, sonra kapatılır)
     confirm_text: str = ""                    # {ad} {ad_e}: STT güveni düşükken aktarmadan önce teyit sorusu
     confirm_operator_text: str = ""           # hedef anlaşılmadığında "operatöre mi bağlayayım?" sorusu

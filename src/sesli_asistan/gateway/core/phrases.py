@@ -251,6 +251,23 @@ def wants_hangup(text: str, strict: bool = False) -> bool:
 # Kaynakları'na eşleniyordu)
 _OPERATOR_PHRASES = ("insanla", "gercek biri", "gercek biriyle", "gercek bir kisi", "gercek bir kisiyle", "canli biri",
                      "canli biriyle", "temsilci", "temsilciyle", "musteri temsilcisi", "musteri temsilcisiyle")
+# Küfür / hakaret (katlanmış, tam sözcük; ekli biçim strip_suffix ile). "mal", "it" gibi günlük anlamı olan sözcükler
+# kasten yok ("malın bir kısmı bozuk geldi"). Liste kısa tutulur: asıl amaç belirgin küfürde uyarıp ısrarda kapatmak.
+ABUSE_WORDS = {
+    "siktir", "sikeyim", "sikim", "sikik", "sikerim", "sikicem", "amk", "aq", "amina", "amuna", "aminakoyim",
+    "orospu", "orospunun", "pic", "yarrak", "yarak", "got", "gotveren", "gotunu", "bok", "boktan", "ibne", "pezevenk",
+    "kahpe", "kaltak", "pust", "gavat", "dangalak", "gerizekali", "salak", "aptal", "embesil", "beyinsiz", "serefsiz",
+    "haysiyetsiz", "ahlaksiz", "pislik", "rezil", "geber", "defol", "lanet", "avanak", "ananı", "anani", "ananin",
+}
+_ABUSE_STEMS = tuple(w for w in ABUSE_WORDS if len(w) >= 5)     # "salaksınız", "aptallar": kısa kökler ek almaz
+
+
+def is_abusive(text: str) -> bool:
+    """Sözde küfür / hakaret sözcüğü var mı (tam sözcük ya da ekli biçimi: "salaksınız", "orospunun")."""
+    return any(w in ABUSE_WORDS or strip_suffix(w) in ABUSE_WORDS or any(
+        w.startswith(a) and len(w) <= len(a) + 5 for a in _ABUSE_STEMS) for w in fold_tr_words(text))
+
+
 OPERATOR_WORDS = {"operator", "operatore", "santral", "santrale", "danisma", "resepsiyon", "yetkili"}
 _DIGIT_WORDS = {"sifir": 0, "bir": 1, "iki": 2, "uc": 3, "dort": 4, "bes": 5, "alti": 6, "yedi": 7, "sekiz": 8,
                 "dokuz": 9}

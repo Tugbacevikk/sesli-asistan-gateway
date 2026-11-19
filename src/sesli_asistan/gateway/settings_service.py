@@ -50,6 +50,8 @@ TEXT_LABELS = {
     "no_answer": ("Aranan cevap vermiyor", "{ad} {ad_e}"),
     "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
     "goodbye": ("Arayan kapatmak istedi (veda)", ""),
+    "abuse_warning": ("Küfür / hakaret: ilk uyarı", ""),
+    "abuse_close": ("Küfür / hakaret tekrarı: veda ve kapatma", ""),
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
     "declined": ("Teyide \"hayır\" (öneri reddedildi)", ""),

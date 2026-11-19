@@ -83,6 +83,7 @@ class CallToolState:
     alternates: tuple[Candidate, ...] = ()  # birbirinin yerine geçen hatlardan henüz denenmeyenler (sırayla)
     unreachable: set[str] = field(default_factory=set)   # bu çağrıda ulaşılamayan dahililer (meşgul, cevapsız, hata)
     failed_attempts: int = 0
+    abuse_count: int = 0                    # küfür / hakaret uyarısı sayısı (bu çağrıda)
     barge_repeats: int = 0                  # söze girme anlaşılmadı, yarıda kalan cümle üst üste yinelendi
     actions: list[TransferAction | OperatorAction] = field(default_factory=list)
     misses: list[str] = field(default_factory=list)   # bulunamayan aramalar (rehbere takma ad eklemek için)
