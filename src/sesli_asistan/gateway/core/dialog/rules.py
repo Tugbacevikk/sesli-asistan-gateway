@@ -223,7 +223,7 @@ class RulesMixin:
     def _ask_department_lines(self: DialogAgent, s: DialogSession, depts: set[str]) -> DialogTurn | None:
         """Sözde birden çok birim (üst birim ve alt birimleri): hepsinin kendi hattı varsa "Satış mı, Kurumsal
         Satış mı, yoksa Yurt Dışı Satış mı?" diye sorulur; cevap seçim adımında çözülür. Hat eksikse sorulmaz."""
-        lines = {}
+        lines: dict[str, Any] = {}
         for c in self.tools.index.contacts():
             if (c.kind == "department" and c.transferable and not c.deleted
                     and (search_key(c.department) in depts or {search_key(p) for p in c.unit_path} & depts)):
