@@ -422,7 +422,8 @@ class RulesMixin:
             # söylenen birim kişinin birimi değil ("satıştan Burak Çelik"; Burak muhasebede): aktarılmaz, sorulur
             log.info("[%s] hızlı yol: %s başka birimle söylendi — sorulacak", s.call_id, contact.full_name)
             return self._confirm(s, contact)
-        if kind == "department" and (other := self._more_specific(text, contact)) is not None:
+        if kind == "department" and (other := self._more_specific(text, contact)) is not None and (
+                tuple(contact.unit_path[:len(other.unit_path)]) != tuple(other.unit_path)):   # üst birime dönülmez
             # "jandarmanın nizamiyesine": sözde birimin adı geçiyor ama unvanı da tam söylenen tek bir hat var
             # (Nizamiye): birim hattına değil o hatta (şive + jandarma seti J07; önceden Komutanlık hattına gidiyordu)
             log.info("[%s] hızlı yol: birim hattı yerine sözde açıkça söylenen hat: %s → %s", s.call_id,
@@ -486,6 +487,14 @@ class RulesMixin:
                                                  or self._mentions_person(words)):
                         continue                       # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
                     found.setdefault(c.id, (c, kind))
+        if len(found) > 1:
+            # sözde hem üst birim hem onun alt birimi ("jandarma" + "jandarma personele"): alt birim kalır
+            depts = [c for c, k in found.values() if k == "department"]
+            if len(depts) == len(found):
+                for c in depts:
+                    if any(len(o.unit_path) > len(c.unit_path) and tuple(o.unit_path[:len(c.unit_path)])
+                           == tuple(c.unit_path) for o in depts):
+                        found.pop(c.id, None)
         return found
 
     def _full_name_said(self: DialogAgent, c: Any, window: str) -> bool:
