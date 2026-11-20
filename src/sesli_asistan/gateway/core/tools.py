@@ -76,6 +76,7 @@ class CallToolState:
     choice: tuple[Candidate, ...] = ()      # arayana "X mı, Y mi?" diye soruldu: cevabı bu adaylardan biri
     choice_question: str = ""               # o soru "X mı, Y mi?" değilse ("Hangi birimdeki müfettiş?")
     confirm: Candidate | None = None        # arayana "X'e mi bağlayayım?" diye soruldu (STT güveni düşüktü)
+    confirm_again: bool = False             # teyit sorusu anlaşılmayan cevap yüzünden bir kez yinelendi
     confirm_suggested: bool = False         # o teyit bir öneriydi (konudan çıkarılan birim): "hayır" → "Peki, kiminle?"
     confirm_operator: bool = False          # arayana "operatöre mi bağlayayım?" diye soruldu (hedef anlaşılmadı)
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı

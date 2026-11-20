@@ -119,6 +119,7 @@ class DialogTexts:
                           "birimle görüşmek istediğinizi söyler misiniz?")
     abuse_close: str = "Saygılı bir görüşme yapamadığımız için görüşmeyi sonlandırıyorum. İyi günler dileriz."
     goodbye: str = "Anlaşıldı. Aradığınız için teşekkür ederiz, iyi günler dileriz."
+    confirm_again: str = "Anlayamadım. {ad_e} {mi} bağlamamı istersiniz? Evet ya da hayır diyebilirsiniz."
     confirm: str = "{ad_e} {mi} bağlamamı istersiniz?"      # {mi}: soru eki, ünlü uyumuyla (Yılmaz'a mı)
     confirm_operator: str = "Sizi operatöre mi bağlamamı istersiniz?"
     declined: str = "Peki. Kiminle ya da hangi birimle görüşmek istersiniz?"   # teyit sorusuna "hayır"
@@ -196,6 +197,7 @@ class _Utterance:
     suggested: bool                     # o teyit bir öneriydi (konudan birim)
     op_confirm: bool                    # açık "operatöre mi?" sorusu
     low: bool                           # STT güveni tekrar eşiğinin altında
+    again: bool = False                 # teyit sorusu zaten bir kez yinelendi (ikinci anlaşılmazlıkta bırakılır)
     choice: tuple[Candidate, ...] = ()  # açık "hangisi?" sorusunun adayları (`_step_choice` alır)
     sound: tuple[Candidate, ...] = ()   # ses benzerliği adayı (`_step_mcp` bulur, `_step_sound_alike` kullanır)
     understood: bool = False            # LLM sözü kalıba çevirdi (ADR-037): adımlar kalıpla yeniden, son adım kural
@@ -204,6 +206,7 @@ class _Utterance:
 
     def reopen(self, s: DialogSession) -> None:
         s.state.confirm, s.state.confirm_suggested = self.confirm, self.suggested if self.confirm else False
+        s.state.confirm_again = self.again if self.confirm else False
         s.state.confirm_operator = self.op_confirm
 
 

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 from sesli_asistan.libs.obs import log_text
 from sesli_asistan.libs.text.normalizer import fold_tr_words, turkish_lower
 
-from ..models import Candidate, DialogTurn, OperatorAction
+from ..models import Candidate, DialogTurn, Match, OperatorAction
 from ..phrases import (
     NEGATION_WORDS,
     YES_WORDS,
@@ -45,6 +45,9 @@ log = logging.getLogger("sesli_asistan.gateway.core.dialog")   # adı değişmez
 
 
 WEAK_EXTRA = 3        # bu kadar açıklanamayan sözcük ve sözün yarısından çoğu: kod doğrudan aktarmaz, sorar
+
+
+NO_LIKE = 65.0     # teyit cevabında "hayır"a bu kadar benzeyen kısa söz hayır sayılır (yinelenmez; aktarma yok)
 
 
 class TransferMixin:
@@ -128,7 +131,7 @@ class TransferMixin:
     def _confirm(self: DialogAgent, s: DialogSession, contact: Any, why: str = "") -> DialogTurn:
         """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar
         bantlı seste "burak çelik" duyuldu), yalnız adla söylendi ya da hedef konudan çıkarıldı (`why`)."""
-        s.state.confirm = Candidate(contact, 100)
+        s.state.confirm, s.state.confirm_again = Candidate(contact, 100), False
         name = contact.full_name if contact.kind != "department" else contact.department
         log.info("[%s] %s: %s teyit ediliyor", s.call_id,
                  why or f"düşük STT güveni ({s.stt_confidence or 0:.2f})", name)
@@ -138,7 +141,7 @@ class TransferMixin:
         return turn
 
     def _resolve_confirm(self: DialogAgent, s: DialogSession, text: str, cand: Candidate,
-                         suggested: bool = False) -> DialogTurn | None:
+                         suggested: bool = False, again: bool = False) -> DialogTurn | None:
         """Teyit sorusunun cevabı: evet → aktar; "hayır, Y" → Y aranır; yeni istek (kişi, birim, operatör, kapatma) →
         normal akış; geri kalan her şey (hayır, anlaşılmayan kısa söz) → bulamadım. Açık "evet" olmadan aktarılmaz."""
         raw = set(fold_tr_words(text))
@@ -155,11 +158,37 @@ class TransferMixin:
         if raw & YES_WORDS or (len(raw) <= 2
                                and any(3 <= len(w) <= 6 and similarity(w, "evet") >= YES_LIKE for w in raw)):
             return self._code_transfer(s, cand, confirmed=True)
+        if self._names_target_again(text, cand):
+            # "Selin Ekinci'ye mi?" → "selin abi": arayan önerilen kişinin adını yineledi, başka biri söylenmedi
+            return self._code_transfer(s, cand, confirmed=True)
         if self._mentions_person_or_department(text):
             return None                                # başka bir ad / birim söyledi: normal akış
+        no_like = raw & {"bilmem", "bilmiyorum"} or (len(raw) <= 2 and any(
+            4 <= len(w) <= 6 and similarity(w, "hayir") >= NO_LIKE for w in raw))     # "hayat": bozuk duyulan "hayır"
+        if not again and not no_like and not self._mentions_target(text):
+            # Anlaşılmayan cevap (sesli set 20.11.2026, arkada konuşan: "he" → "geçen ay aş"): soru bir kez,
+            # kodla ve beklemeden yinelenir; arayan baştan anlatmak zorunda kalmaz. İkincisinde bırakılır.
+            s.state.confirm, s.state.confirm_suggested, s.state.confirm_again = cand, suggested, True
+            to = contact_dative(cand.contact)
+            name = cand.contact.full_name if cand.contact.kind != "department" else cand.contact.department
+            log.info("[%s] teyit cevabı anlaşılmadı, yineleniyor: %s", s.call_id, log_text(text))
+            turn = self._reply(s, self.cfg.texts.confirm_again.format(ad=name, ad_e=to, mi=question_particle(to)))
+            turn.fast = True
+            return turn
         # Açık bir "evet" yoksa aktarılmaz. Santral denemesi (02.11.2026): "hayır" → STT "hayat" (güven 0,41) LLM'e
         # gitmiş, 8,5 sn sonra "bulamadım" denmişti. Kısa ve anlaşılmayan cevap = hayır: kodla, beklemeden.
         return self._not_found(s)
+
+    def _names_target_again(self: DialogAgent, text: str, cand: Candidate) -> bool:
+        """Teyit sorusunun cevabında yalnız önerilen kişi(ler) anılıyor: arama adayların arasında önerileni buluyor ve
+        sözde başka bir kişiye tam uyan bir ad yok ("selin kaya" önerilen Selin Ekinci değilse hayır sayılır)."""
+        if cand.contact.kind != "person":
+            return False
+        res = self.tools.index.search(text)
+        ids = {c.contact.id for c in res.candidates if c.score >= self.tools.index.high_score}
+        if cand.contact.id not in ids:
+            return False
+        return not (res.match == Match.SINGLE_HIGH and res.candidates[0].contact.id != cand.contact.id)
 
     def _confirm_operator(self: DialogAgent, s: DialogSession, text: str) -> DialogTurn:
         """Tek, rehberde karşılığı olmayan bir hedefe bağlanmak istendi ("afiyete bağlanmak istiyorum"):

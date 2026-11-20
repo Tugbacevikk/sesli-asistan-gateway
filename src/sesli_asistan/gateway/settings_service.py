@@ -53,6 +53,7 @@ TEXT_LABELS = {
     "abuse_warning": ("Küfür / hakaret: ilk uyarı", ""),
     "abuse_close": ("Küfür / hakaret tekrarı: veda ve kapatma", ""),
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
+    "confirm_again": ("Teyit cevabı anlaşılmadı: soru yinelenir", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
     "declined": ("Teyide \"hayır\" (öneri reddedildi)", ""),
     "office_hours": ("Mesai sorusunun cevabı", "{saatler}"),

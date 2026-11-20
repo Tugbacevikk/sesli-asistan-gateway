@@ -97,10 +97,11 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin, 
         c = s.stt_confidence
         u = _Utterance(text=text, lenient=s.after_barge_in, confirm=s.state.confirm,
                        suggested=s.state.confirm_suggested, op_confirm=s.state.confirm_operator,
-                       low=c is not None and 0 < c < self.cfg.repeat_below)
+                       low=c is not None and 0 < c < self.cfg.repeat_below, again=s.state.confirm_again)
         # açık sorular bu sözle kapanır; cevaplamayan adımlar (selam, mesai) `u.reopen` ile geri açar
         s.after_barge_in = False
         s.state.confirm, s.state.confirm_suggested, s.state.confirm_operator = None, False, False
+        s.state.confirm_again = False
         if not text:
             return self._empty_turn(s, u, only_fillers)
         s.history.append({"role": "user", "content": text})
