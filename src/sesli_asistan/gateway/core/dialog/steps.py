@@ -104,7 +104,7 @@ class StepsMixin:
         """Açık teyit sorusunun ("X'e mi bağlamamı istersiniz?") cevabı."""
         if u.confirm is None:
             return None
-        return self._resolve_confirm(s, u.text, u.confirm, u.suggested)
+        return self._resolve_confirm(s, u.text, u.confirm, u.suggested, again=u.again)
 
     async def _step_operator_confirm(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Açık "operatöre mi bağlamamı istersiniz?" sorusunun cevabı."""

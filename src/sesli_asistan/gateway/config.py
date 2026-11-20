@@ -19,7 +19,8 @@ from .core.schedule import OfficeHours
 # burada `<ad>_text` ayar alanı ve settings_service.TEXT_LABELS'ta etiketi gerekir (test_metin_alanlari denetler).
 _INTERNAL_TEXTS = {"offer_operator_suffix", "offer_operator_note"}        # LLM'e not / cümle eki: ayarda yok
 TEXT_FIELDS = tuple(f.name for f in fields(DialogTexts) if f.name not in _INTERNAL_TEXTS)
-_NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm")      # {ad} / {ad_e} alan cümleler
+_NAMED = ("transferring", "busy", "no_answer", "transfer_failed", "confirm",
+          "confirm_again")      # {ad} / {ad_e} alan cümleler
 
 
 def check_texts(t: DialogTexts) -> None:
@@ -31,8 +32,8 @@ def check_texts(t: DialogTexts) -> None:
               ("ASK_PERSON_IN_DEPARTMENT_TEXT", t.ask_person_in_department, ("{birimden}",)),
               ("NEXT_LINE_TEXT", t.next_line, ("{unvan}",))]
     checks += [(f"{f.upper()}_TEXT", getattr(t, f), ("{ad",)) for f in _NAMED]
-    if "{mi}" in "".join(getattr(t, f) for f in _NAMED if f != "confirm"):
-        raise ValueError("{mi} (soru eki) yalnız CONFIRM_TEXT'te kullanılabilir")
+    if "{mi}" in "".join(getattr(t, f) for f in _NAMED if f not in ("confirm", "confirm_again")):
+        raise ValueError("{mi} (soru eki) yalnız CONFIRM_TEXT ve CONFIRM_AGAIN_TEXT'te kullanılabilir")
     for name, text, needs in checks:
         try:
             text.format(kurum="K", kurum_e="K'ye", ad="A", ad_e="A'ya", birim="B", mi="mı", saatler="S", unvan="U",
@@ -177,6 +178,7 @@ class GatewaySettings(BaseSettings):
     no_answer_text: str = ""
     transfer_failed_text: str = ""
     goodbye_text: str = ""                    # arayan görüşmeyi bitirmek istedi (veda, sonra kapatılır)
+    confirm_again_text: str = ""              # {ad} {ad_e} {mi}: teyit cevabı anlaşılmadı, soru bir kez yinelenir
     confirm_text: str = ""                    # {ad} {ad_e}: STT güveni düşükken aktarmadan önce teyit sorusu
     confirm_operator_text: str = ""           # hedef anlaşılmadığında "operatöre mi bağlayayım?" sorusu
     declined_text: str = ""                   # teyit sorusuna "hayır" denince ("Peki. Kiminle … ?")

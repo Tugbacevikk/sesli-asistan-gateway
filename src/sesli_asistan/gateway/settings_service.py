@@ -51,6 +51,7 @@ TEXT_LABELS = {
     "transfer_failed": ("Aktarma başarısız", "{ad} {ad_e}"),
     "goodbye": ("Arayan kapatmak istedi (veda)", ""),
     "confirm": ("Teyit sorusu (düşük STT güveni)", "{ad} {ad_e} {mi}"),
+    "confirm_again": ("Teyit cevabı anlaşılmadı: soru yinelenir", "{ad} {ad_e} {mi}"),
     "confirm_operator": ("Operatör teyidi (hedef anlaşılmadı)", ""),
     "declined": ("Teyide \"hayır\" (öneri reddedildi)", ""),
     "office_hours": ("Mesai sorusunun cevabı", "{saatler}"),
