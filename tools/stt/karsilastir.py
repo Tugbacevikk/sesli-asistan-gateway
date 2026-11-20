@@ -114,6 +114,21 @@ class SherpaService:
         return r.text
 
 
+class Gated:
+    """Servisteki seviye kapısı (stt/denoiser.py `level_gate`, STT_LEVEL_GATE_DB) uygulanıp aynı motorla çözülür."""
+
+    def __init__(self, eng: SherpaService, margin_db: float):
+        self.eng, self.margin_db = eng, margin_db
+        self.last_conf: float | None = None
+
+    def __call__(self, x: np.ndarray, hotwords: list[str] | None) -> str:
+        from sesli_asistan.stt.denoiser import level_gate
+
+        text = self.eng(level_gate(x, SR, self.margin_db), hotwords)
+        self.last_conf = self.eng.last_conf
+        return text
+
+
 class Sherpa:
     """Akışlı transducer (Zipformer): ses 0,1 sn'lik parçalarla verilir (santraldeki gibi), sonda 0,5 sn sessizlik.
     `hotwords` verilirse sherpa-onnx bağlam yanlılığı (contextual biasing) açılır: bpe.model'den kelime listesi
@@ -196,6 +211,8 @@ def main(argv: list[str] | None = None) -> int:
                     help="dil modeli ağırlığı; her biri ayrı koşu (ör. --lm-olcek 0.2 --lm-olcek 0.4); varsayılan 0.3")
     ap.add_argument("--device", default="auto")
     ap.add_argument("--threads", type=int, default=2)
+    ap.add_argument("--seviye-kapisi", type=float, action="append", default=[], metavar="DB",
+                    help="servisteki seviye kapısıyla (STT_LEVEL_GATE_DB) ayrıca ölç; tekrar verilebilir")
     ap.add_argument("--json", type=Path, help="ayrıntılı sonuç dosyası")
     a = ap.parse_args(argv)
     if not a.whisper and not a.sherpa:
@@ -240,6 +257,8 @@ def main(argv: list[str] | None = None) -> int:
                 except ImportError:
                     print("not: sentencepiece yok, sherpa ipuçlu koşu atlandı (pip install sentencepiece)")
                     break
+        for gdb in a.seviye_kapisi:
+            engines.append((f"{sp.name}+kapi{gdb:g}", Gated(sp, gdb), None))
         if a.bas_sessizlik > 0:
             shb = Sherpa(m, a.threads, lead_s=a.bas_sessizlik)
             engines.append((shb.name, shb, None))

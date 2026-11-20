@@ -55,6 +55,9 @@ class SttSettings(BaseSettings):
     pre_roll_ms: int = Field(500, ge=0, le=2000)
     # alçak frekans uğultusu süzgeci (stt/denoiser.py); 0: kapalı. Etkisi henüz ölçülmedi (olcumler.md 09.11.2026)
     highpass_hz: float = Field(100.0, ge=0, le=300)
+    # Seviye kapısı (stt/denoiser.py `level_gate`): cümlenin en yüksek sesli kısmından bu kadar dB kısık sesler
+    # STT'ye verilmeden sessize alınır (arkadaki ikinci konuşan). 0: kapalı. Ölçüm: karsilastir.py --seviye-kapisi
+    level_gate_db: float = Field(0.0, ge=0, le=40)
     metrics_port: int = Field(9101, ge=0)   # Prometheus (yalnız 127.0.0.1); 0: kapalı
     debug_dir: str = ""    # teşhis: cümle sesleri + sonuçları + çağrının bütün sesi (ses kaydı! üretimde boş bırakın)
     max_utterance_s: float = Field(12.0, gt=1)

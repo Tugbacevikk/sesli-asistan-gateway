@@ -44,7 +44,8 @@ def build_service(s: SttSettings, engine: Engine | None) -> SpeechToTextService:
                           pre_roll_ms=s.pre_roll_ms)
     return SpeechToTextService(engine, lambda: make_detector(s.vad, s.vad_model, s.vad_threshold), seg,
                                max_streams=s.max_streams, timeout_s=s.timeout_s, debug_dir=s.debug_dir or None,
-                               use_hotwords=s.hotwords, highpass_hz=s.highpass_hz)
+                               use_hotwords=s.hotwords, highpass_hz=s.highpass_hz,
+                               level_gate_db=s.level_gate_db)
 
 
 async def start_server(s: SttSettings, engine: Engine | None = None,
