@@ -51,3 +51,10 @@ def test_emniyet_kurum_dosyasi() -> None:
     assert a.expand("Kom.Yrd.") == "Komiser Yardımcısı"
     assert a.expand("Kom.") == "Komiser"
     assert a.expand("Asayiş Şb. Kom.") == "Asayiş Şube Komiser"
+
+
+def test_vhki_acilir() -> None:
+    # okunuş denetimi 20.11.2026: demo rehberinde unvan "VHKİ" kalmış, TTS harf harf okuyordu
+    from sesli_asistan.gateway.abbreviations import load_abbreviations
+
+    assert load_abbreviations(extra=True).expand("VHKİ") == "Veri Hazırlama ve Kontrol İşletmeni"
