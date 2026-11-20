@@ -34,7 +34,7 @@ from sesli_asistan.libs.audio import g711
 from sesli_asistan.libs.audio.resample import StreamUpsampler
 from sesli_asistan.libs.obs import log_text
 
-from .denoiser import GentleAudioFilter
+from .denoiser import GentleAudioFilter, level_gate
 from .engine import SttResult
 from .vad import Segmenter, SegmenterConfig, SpeechDetector, SpeechStarted, Utterance
 
@@ -83,9 +83,11 @@ class Engine(Protocol):
 class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
     def __init__(self, engine: Engine | None, detector_factory: Callable[[], SpeechDetector],
                  segmenter_config: SegmenterConfig | None = None, max_streams: int = 64, timeout_s: float = 3.0,
-                 debug_dir: str | None = None, use_hotwords: bool = False, highpass_hz: float = 100.0):
+                 debug_dir: str | None = None, use_hotwords: bool = False, highpass_hz: float = 100.0,
+                 level_gate_db: float = 0.0):
         self.engine, self.detector_factory = engine, detector_factory
         self.highpass_hz = highpass_hz          # 0: süzgeç yok (stt/denoiser.py)
+        self.level_gate_db = level_gate_db      # 0: seviye kapısı yok (stt/denoiser.py level_gate)
         # STT_HOTWORDS=false: Gateway'in ad ipuçları motora verilmez (okuma ölçümü 03.11.2026: bozuk seste ipucu
         # duyulmayan rehber adlarını yazdırıyordu — "evet" → "yılmaz burak çelik"; tools/stt/gorev_olc.py)
         self.use_hotwords = use_hotwords
@@ -198,7 +200,8 @@ class SpeechToTextService(stt_pb2_grpc.SpeechToTextServicer):
                 reason = ""
                 hotwords = hints["words"] if self.use_hotwords else []
                 assert self.engine is not None               # Stream() motor yokken akış açmaz
-                job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, u.audio, hotwords or None))
+                audio = level_gate(u.audio, STT_RATE, self.level_gate_db) if self.level_gate_db > 0 else u.audio
+                job = asyncio.ensure_future(asyncio.to_thread(self.engine.transcribe, audio, hotwords or None))
                 try:
                     r = await asyncio.wait_for(asyncio.shield(job), timeout=self.timeout_s)
                 except TimeoutError:

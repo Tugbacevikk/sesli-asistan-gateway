@@ -15,7 +15,7 @@ from ..people import (
     sound_alike,
 )
 from ..people.common import without_self
-from ..people.names import _first_name_said, _last_name_said
+from ..people.names import _first_name_said, _last_name_said, says_first_name
 from ..phrases import (
     FAST_BLOCK,
     FILLER_WORDS,
@@ -446,6 +446,11 @@ class RulesMixin:
             log.info("[%s] hızlı yol: birim hattı yerine sözde açıkça söylenen hat: %s → %s", s.call_id,
                      other.title or other.department, other.extension)
             return self._code_transfer(s, Candidate(other, 100))
+        if kind == "department" and (self._mentions_person(words) or says_first_name(text)):
+            # birim adının yanında bir kişi adı da var ("selin hava ile görüşecektim muhasebeden": "abla" STT'de
+            # "hava" duyuldu; sesli set 20.11.2026): arayan birimi değil bir kişiyi istiyor, birim hattına gidilmez
+            log.info("[%s] hızlı yol: %s yanında kişi adı — kurallara bırakıldı", s.call_id, contact.department)
+            return None
         if self._unsure(s):
             return self._confirm(s, contact)
         return self._fast_transfer(s, text, contact, kind)
