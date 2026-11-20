@@ -300,6 +300,26 @@
    ],
    "title": "Kıdemli Polis Memuru",
    "extension": "7126"
+  },
+  {
+   "id": "r-7127",
+   "kind": "department",
+   "department": "Jandarma Personel Şube",
+   "department_aliases": [
+    "jandarma personel"
+   ],
+   "extension": "7127",
+   "transferable": true
+  },
+  {
+   "id": "r-7128",
+   "kind": "department",
+   "department": "Jandarma Lojistik Şube",
+   "department_aliases": [
+    "jandarma lojistik"
+   ],
+   "extension": "7128",
+   "transferable": true
   }
  ]
 }
