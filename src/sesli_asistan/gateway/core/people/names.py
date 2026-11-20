@@ -29,6 +29,32 @@ def has_honorific(text: str) -> bool:
     return _has_honorific(text)
 
 
+# Yaygın Türkçe adlar (katlanmış). Rehberde olmayan bir kişi istendiğini anlamak için: "murat vardı ya insan
+# kaynaklarında" (sesli set 20.11.2026: "murat abi" STT'de "murata ve" duyuldu, hitap kayboldu; asistan birimin tek
+# kişisine, başka birine aktardı). Günlük sözcük de olan adlar kasten yok (deniz, umut, can, su, ay, bahar, barış,
+# derya, güneş, ümit, nur, onur, bayram, yıldız, dilek, hale, emir; yer adı da olan nilüfer): "deniz kenarındaki
+# şube" bir kişi istemek değildir.
+_NAMES = """
+ahmet mehmet mustafa ali huseyin hasan ibrahim ismail osman yusuf murat omer ramazan halil suleyman abdullah mahmut
+recep salih fatih kadir emre hakan adem kemal yasar serkan burak orhan ercan erkan erdal gokhan volkan tolga sinan
+levent serdar cengiz tuncay tamer erol bulent selcuk koray kerem kaan mert enes furkan yasin tayfun taner okan ozan
+oguz oguzhan berkay batuhan cem cenk emrah ersin metin nihat necati nevzat sedat sefa semih selim sezgin tarik
+tevfik turgay ugur yavuz gurkan hamza halit hikmet ilhan irfan kursat mesut muammer musa nazim necmettin rifat sait
+seyfettin sukru tahsin talat yunus zeki ayhan baris berk bilal bora egemen eren fatma ayse emine hatice zeynep elif
+meryem sevim hulya leyla zehra merve esra ozlem yasemin selin gamze tugba derya ebru seda sibel pinar burcu gulsen
+songul sevda serap filiz nermin nurten nurcan oya hande didem asli aysel aysegul aynur ayten belgin berna betul
+buket busra canan cigdem damla demet dilara duygu ece eda ela elcin emel esin esma feride figen gizem gonca gulay
+gulizar hacer hilal ilknur irem kubra melike meltem mine muge nalan nazan neslihan nesrin nilay nuray nurhan ozge
+pelin rabia reyhan sena serpil sevil sinem sule tulay tuba tulin ulku yeliz yesim zuhal zerrin esen gulten sermin
+"""
+COMMON_FIRST_NAMES = frozenset(_NAMES.split())
+
+
+def says_first_name(text: str) -> bool:
+    """Sözde yaygın bir Türkçe ad geçiyor mu (ekli biçimiyle: "murata", "selinle"). Rehberde olup olmaması bakılmaz."""
+    return any(v in COMMON_FIRST_NAMES for w in fold_words(text) for v in query_variants(w))
+
+
 def _has_honorific(text: str) -> bool:
     """Hitap ya da rütbe, ekli biçimleriyle ("beyi", "hanımla", "albayı")."""
     return any(w.startswith(h) and len(w) - len(h) <= 3 for w in fold_words(text) for h in _HONORIFIC_WORDS)

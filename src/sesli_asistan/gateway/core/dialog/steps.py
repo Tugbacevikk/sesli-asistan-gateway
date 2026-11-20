@@ -20,6 +20,7 @@ from ..people import (
     same_title,
     same_unit,
 )
+from ..people.names import says_first_name
 from ..phrases import (
     FAST_BLOCK,
     FILLER_WORDS,
@@ -237,7 +238,8 @@ class StepsMixin:
         members = [c for c in ix.contacts() if c.kind != "department" and search_key(c.department) == key]
         has_line = any(c.kind == "department" and search_key(c.department) == key for c in ix.contacts())
         nobody = not resolve_person(ix, u.text)["adaylar"] and not self._mentions_person(search_key(u.text).split())
-        unknown_person = nobody and has_honorific(u.text)
+        # rehberde olmayan biri: hitapla ("Murat Bey") ya da yaygın bir adla ("murat vardı ya insan kaynaklarında")
+        unknown_person = nobody and (has_honorific(u.text) or says_first_name(u.text))
         only_department = nobody and not has_line and len(members) >= 2 and not has_role_word(u.text)
         if not members or not (unknown_person or only_department):
             return None
