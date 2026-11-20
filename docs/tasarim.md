@@ -443,7 +443,8 @@ Bu ölçümlerden çıkan tasarım kuralları:
 - Ollama yerel API: `http://127.0.0.1:11434/api/chat`. Düşünme modu `think: false` ile kapatılır (Ollama bunu yerel API'de belgeliyor; OpenAI uyumlu uçta aynı kontrol belgelenmemiş). Yedek: llama.cpp `llama-server` (OpenAI uyumlu).
 - Model: `qwen3.5:4b` (q4_K_M). Alternatif: `qwen3.5:9b` (ADR-005; sunucu GPU'sunda yeniden değerlendirilir).
 - Düşünme modu kapalı; `temperature = 0.2`; `keep_alive` ile model bellekte tutulur. Sızan `<think>` blokları cevaptan yine de temizlenir.
-- Paralel istek sayısı `OLLAMA_NUM_PARALLEL` ile yük testine göre ayarlanır.
+- Paralel istek sayısı `OLLAMA_NUM_PARALLEL` ile yük testine göre ayarlanır. Kurulum (`deploy/install.sh`) Ollama
+  servisine 4 yazar (drop-in `ollama.service.d/sesli-asistan.conf`); ölçüm: docs/olcumler.md, 20.11.2026.
 - Model, Gateway'deki ayardan seçilir; dosya sistemine veya ağa doğrudan erişimi yoktur.
 
 ### 5.4 TTS Service

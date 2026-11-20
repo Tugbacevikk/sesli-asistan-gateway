@@ -343,6 +343,25 @@ if has stt; then
     chmod -R a+rX "$ONEK/models"
 fi
 
+# --- Ollama paralel istek sayısı ----------------------------------------------------------------------------------
+# Ollama varsayılanı istekleri sırayla işleyebilir: aynı anda konuşan arayanlar birbirini bekler. Yük ölçümü
+# (20.11.2026, işlemci, 6 çekirdek, gemma-santral q8): 4 eşzamanlı çağrıda p50 3,41 sn → NUM_PARALLEL=4 ile 2,06 sn,
+# doğruluk değişmedi. Kendi drop-in dosyamız yazılır; kurumun başka Ollama ayarlarına dokunulmaz.
+# Değiştirmek: OLLAMA_NUM_PARALLEL=8 ./install.sh  (0: dokunma)
+if has gateway && [[ $OLLAMA -eq 1 ]] && [[ "${OLLAMA_NUM_PARALLEL:-4}" != "0" ]] \
+        && systemctl cat ollama.service >/dev/null 2>&1; then
+    DROPIN=/etc/systemd/system/ollama.service.d/sesli-asistan.conf
+    YENI=$(printf '[Service]\nEnvironment="OLLAMA_NUM_PARALLEL=%s"\n' "${OLLAMA_NUM_PARALLEL:-4}")
+    if [[ "$(cat "$DROPIN" 2>/dev/null)" != "$YENI" ]]; then
+        mkdir -p "$(dirname "$DROPIN")"
+        printf '%s\n' "$YENI" > "$DROPIN"
+        systemctl daemon-reload
+        systemctl restart ollama && echo "  ✓ Ollama paralel istek: ${OLLAMA_NUM_PARALLEL:-4} ($DROPIN)"
+    else
+        echo "  ✓ Ollama paralel istek: ${OLLAMA_NUM_PARALLEL:-4}"
+    fi
+fi
+
 # --- Ollama modeli ---------------------------------------------------------------------------------------------
 if has gateway && [[ $OLLAMA -eq 1 ]]; then
     MODEL=$(grep -h '^LLM_MODEL=' "$AYAR/gateway.env" 2>/dev/null | cut -d= -f2 || true)

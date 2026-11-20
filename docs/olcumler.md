@@ -1404,3 +1404,21 @@ Görev ölçümü `tools/stt/gorev_olc.py` (`rehber_ornek.json`, kural kipi, her
   Karar: kurulumda 9 dB. Risk: en iyi değer test verisinin 10 dB arka planına uymuş olabilir; gerçek sesle doğrulanacak.
 - TTS okunuş denetimi (`tools/tts/okunus_denetim.py`, 609 cümle): ortalama CER 0,070, 46 cümle > 0,2 (çoğu kısa
   soyadlı aktarma cümlesi; bir kısmı STT'nin kendi hatası). Dinleme sürüyor. "VHKİ" açıldı.
+
+## 20.11.2026 — LLM işlemcide, eşzamanlı çağrı
+
+i5-11400H (6 çekirdek), GPU kapalı, gemma-santral (v4). `anlama_olc.py`, her söz LLM'e gider (en kötü durum).
+
+| Model | NUM_PARALLEL | Eşzamanlı | p50 | p95 |
+|---|---|---|---|---|
+| q8_0 | 1 | 1 | 0,90 sn | 1,29 sn |
+| q8_0 | 1 | 4 | 3,41 sn | 4,34 sn |
+| q8_0 | 4 | 4 | 2,06 sn | 2,73 sn |
+| q4_K_M | 4 | 4 | 1,68 sn | 2,42 sn |
+
+- Diyalog setleri (işlemci, q8): üç set %100; tur p95 1,0–1,2 sn (turların yarısından çoğu LLM'siz).
+- Karar: kurulum Ollama'ya `OLLAMA_NUM_PARALLEL=4` yazar. q4_K_M yok: q8'den yeniden nicemlendi (f16 yoktu) ve iki
+  diyalog senaryosu düştü (F06, J09); kazanç 0,4 sn.
+- Açık: gerçek eşzamanlı çağrı sayısı (kurumdan), sunucu çekirdek sayısı, STT ile aynı işlemciyi paylaşma.
+- TTS okunuş denetimi dinlendi: en şüpheli kayıtlarda okunuş doğru, hata STT'nin geri dinlemesinde (kısa / nadir
+  soyadlar: "Burak Şen", "Oya Su"). TTS'e düzeltme gerekmiyor; STT'de ad tanıma ayrı iş.
