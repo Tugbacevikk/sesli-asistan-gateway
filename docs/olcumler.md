@@ -1387,3 +1387,20 @@ Türe göre (uçtan uca, v3 → v4): basindaki 73,3 → 97,8; kapat 80,0 → 97,
 - Kalan: S17 / F09 (iki seçenekli soruya "evet"), J04 (birim yerine kişi seçimi), J10 / J12 (teyit; test
   beklentisi), F08 ("personel" eş adı), F13 (konu eşlemesi), F25 (STT).
 - Karar: `UNDERSTAND_NARROW=teyit` kurulum varsayılanı. Teyitsiz aktarma (`aktar`) kasten kaldırıldı: LLM önerisi arayan onaylamadan uygulanmaz.
+
+## 20.11.2026 — STT işlemcide: Whisper karşılaştırması, seviye kapısı, diyalog korumaları
+
+Sesli set: 77 cümle × 2 hız (0,9 / 1,1) × 3 arka plan (temiz, uğultu 15 dB, arkada konuşma 10 dB), G.711 = 462 kayıt.
+Görev ölçümü `tools/stt/gorev_olc.py` (`rehber_ornek.json`, kural kipi, her kayıt tek başına).
+
+- Model (işlemci, i5-11400H, int8): sherpa turkish-stt-66m-v2 görev %89,0, 3 sn söz 0,24 sn; whisper-small + ipucu
+  %80,5, ~2 sn (ipucusuz bazı kayıtlarda 80 sn'ye varan takılma); whisper-base %71,9. GPU'da whisper large-v3-turbo
+  %91,6 (RTF 0,16). Karar: GPU yoksa sherpa; Whisper ince ayarı işlemcide gecikmeye değmez. Sherpa ipucu kapalı
+  kalır (arkada konuşmada yanlış eylem 3 → 5).
+- Diyalog korumaları (kural kipi): hedef sözün küçük bir parçasını açıklıyorsa teyit (yanlış eylem 6 → 1); teyit
+  sorusuna anlaşılmayan cevapta soru bir kez yinelenir; birim + kişi adı (hitap kaybolmuş) → "kiminle?".
+- Seviye kapısı (`STT_LEVEL_GATE_DB`): kapısız %89,8 / yanlış eylem 1; 6 dB %87,9 / 1; **9 dB %90,7 / 0**;
+  12 dB %89,6 / 1; 15 dB %89,8 / 1. Arkada konuşma varken 9 dB %83,8 → %87,7; temiz ve uğultuda birer kaçırma.
+  Karar: kurulumda 9 dB. Risk: en iyi değer test verisinin 10 dB arka planına uymuş olabilir; gerçek sesle doğrulanacak.
+- TTS okunuş denetimi (`tools/tts/okunus_denetim.py`, 609 cümle): ortalama CER 0,070, 46 cümle > 0,2 (çoğu kısa
+  soyadlı aktarma cümlesi; bir kısmı STT'nin kendi hatası). Dinleme sürüyor. "VHKİ" açıldı.
