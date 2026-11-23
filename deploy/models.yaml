@@ -84,7 +84,8 @@ models:
     yalniz_mirror: true          # asıl kaynak yok: yalnız şirketin dosya sunucusunda (mirror)
     hedef: gemma-santral
     dosyalar: [gemma-santral.Q8_0.gguf]
-    # v4 (18.11.2026): yerel eğitim (WSL, RTX 3050 Ti), q8_0; boyut 1.069.306.304 bayt. Dosya sunucusuna
-    # gemma-santral.Q8_0.gguf adıyla konur (eğitim çıktısı gemma-santral-v4.Q8_0.gguf). v3: 5726c594…0bc7
+    # v7 (23.11.2026): yerel eğitim (WSL, RTX 3050 Ti), q8_0; boyut 1.069.306.304 bayt. Dosya sunucusuna
+    # gemma-santral.Q8_0.gguf adıyla konur (eğitim çıktısı gemma-santral-v7.Q8_0.gguf; f16 GGUF ayrıca saklanır).
+    # Önceki: v4 fff31128…d1f2, v3 5726c594…0bc7. Seçim: docs/olcumler.md, 23.11.2026.
     sha256:
-      gemma-santral.Q8_0.gguf: fff3112894f4917286f5bf96f6b3f14b94060296969dc3b78b2b5d7870b7d1f2
+      gemma-santral.Q8_0.gguf: 4c12bcebfd843757ebd3c5662224d2d61e94b528856ba9df4b8a32fe9ae907e7
