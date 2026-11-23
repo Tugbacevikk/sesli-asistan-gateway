@@ -33,6 +33,7 @@ from sesli_asistan.libs.text.normalizer import turkish_lower
 
 from ..models import Candidate, DialogTurn
 from ..people.common import TITLE_SYNONYMS, _bucket, _cached, without_self
+from ..people.departments import department_said
 from ..people.names import sound_alike
 from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, number_word, spoken_numbers
 from ..ports import LlmError
@@ -126,6 +127,28 @@ class _Vocabulary:
     buckets: dict[str, set[str]]        # ilk 4 harf → o kovadaki sözcükler
 
 
+_SELF_INTRO = ("adim", "ismim")
+
+
+def _self_introduced(said: str) -> set[str]:
+    """Arayanın kendini tanıttığı ad: "adım elif", "benim adım elif", "ismim ali" → {"elif"}. "ben X" bilerek yok:
+    "ben selin hanımı arıyorum" da denir; kurallar (without_self) onu ayrıca ele alır."""
+    w = fold_words(said)
+    return {w[i + 1] for i, x in enumerate(w[:-1]) if x in _SELF_INTRO}
+
+
+def _honorific_after(said: str, name: str) -> str:
+    """Sözde adın hemen ardındaki hitap ("burak beyi" → "bey", "selin hanımla" → "hanım"); yoksa ""."""
+    w = fold_words(said)
+    for i, x in enumerate(w[:-1]):
+        if same_word(x, name):
+            nxt = w[i + 1]
+            for h in sorted(HONORIFICS, key=len, reverse=True):
+                if nxt == h or (nxt.startswith(h) and len(nxt) - len(h) <= 3):
+                    return h
+    return ""
+
+
 @dataclass(frozen=True)
 class Understanding:
     niyet: str
@@ -179,10 +202,25 @@ class Understanding:
         return [w for w in without_self(said) if w in first_names and not any(same_word(w, n) for n in named)]
 
     def repaired(self, said: str, first_names: frozenset[str], last_names: frozenset[str],
-                 unit_said: Callable[[str], bool]) -> tuple[Understanding, list[str]]:
+                 unit_said: Callable[[str], bool], said_unit: str = "") -> tuple[Understanding, list[str]]:
         """Sözle onarım (uydurma eklemeden): sözde geçen ama yazılmayan ad / soyad eklenir; kişi adı varken sözde
-        geçmeyen birim atılır (ölçüm 4, F04: "selin hanım … ekinci" → ad selin, uydurma birim İK, soyad yok)."""
+        geçmeyen birim atılır (ölçüm 4, F04: "selin hanım … ekinci" → ad selin, uydurma birim İK, soyad yok).
+        `said_unit`: kuralların sözde açıkça bulduğu tek birim (people.departments.department_said)."""
         got, notes = self, []
+        self_names = _self_introduced(said)
+        if got.ad and fold_words(got.ad)[:1] and fold_words(got.ad)[0] in self_names:
+            # "adım elif muhasebeden burak beyi arıyorum" → LLM arayanın adını yazdı (v7, D43: ad elif, soyad burak)
+            others = [w for w in got.missing_names(said, first_names) if w not in self_names]
+            sw = fold_words(got.soyad)
+            if sw and sw[0] in first_names and sw[0] not in self_names:
+                got = replace(got, ad=got.soyad, soyad="")
+            else:
+                got = replace(got, ad=others[0] if others else "")
+            notes.append(f"arayanın kendi adı atıldı: {self.ad}")
+        if got.ad and not got.hitap and (h := _honorific_after(said, fold_words(got.ad)[-1])):
+            # "burak beyi" → LLM hitabı yazmadı; yalnız adla kural teyit sorar (v7, D43)
+            got = replace(got, hitap=h)
+            notes.append(f"hitap eklendi: {h}")
         if not got.ad and (missing := got.missing_names(said, first_names)):
             got = replace(got, ad=missing[0])
             notes.append(f"ad eklendi: {missing[0]}")
@@ -197,6 +235,11 @@ class Understanding:
         if (got.ad or got.soyad) and got.birim and not unit_said(got.birim) and not grounded(got.birim, said):
             got = replace(got, birim="")
             notes.append(f"sözde olmayan birim atıldı: {self.birim}")
+        if (got.ad or got.soyad or got.unvan) and not got.birim and said_unit:
+            # sözde açıkça geçen birimi LLM atladı (v7, D20: "trafikten zafer geçmiş" → yalnız ad soyad; kişi
+            # silinmişti, birim hattına gidilemedi). Uydurma değil: kurallar sözde birim adını birebir buldu.
+            got = replace(got, birim=said_unit)
+            notes.append(f"sözdeki birim eklendi: {said_unit}")
         return got, notes
 
     def problem(self, said: str, first_names: frozenset[str],
@@ -425,7 +468,8 @@ class UnderstandMixin:
         vocab = self._vocabulary()
         unit_said = self._unit_said(u.text)
         if got is not None and got.niyet == "aktar":
-            got, notes = got.repaired(u.text, vocab.firsts, vocab.lasts, unit_said)
+            got, notes = got.repaired(u.text, vocab.firsts, vocab.lasts, unit_said,
+                                      said_unit=department_said(self.tools.index, u.text) or "")
             if notes:
                 log.info("[%s] anlama onarımı: %s", s.call_id, "; ".join(notes))
         if got is not None and got.niyet == "aktar" and (why := got.problem(u.text, vocab.firsts, unit_said)):
