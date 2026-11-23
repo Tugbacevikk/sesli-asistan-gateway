@@ -1422,3 +1422,23 @@ i5-11400H (6 çekirdek), GPU kapalı, gemma-santral (v4). `anlama_olc.py`, her s
 - Açık: gerçek eşzamanlı çağrı sayısı (kurumdan), sunucu çekirdek sayısı, STT ile aynı işlemciyi paylaşma.
 - TTS okunuş denetimi dinlendi: en şüpheli kayıtlarda okunuş doğru, hata STT'nin geri dinlemesinde (kısa / nadir
   soyadlar: "Burak Şen", "Oya Su"). TTS'e düzeltme gerekmiyor; STT'de ad tanıma ayrı iş.
+
+## 23.11.2026 — gemma-santral v6 / v7, kurulum modeli v7
+
+Eğitim: aynı ayarlar (Unsloth QLoRA, 2 epoch, lr 2e-4, batch 1 × 16). v7 verisi 8.662 / 453 / 2.588 (test: demo rehberi).
+
+| Model | Tam % | Uçtan uca % | tarif | operatör | 9 diyalog seti (--anlama) |
+|---|---|---|---|---|---|
+| v4 | 73,5 | 97,9 | 72,7 | 88,9 | 9/9 %100 |
+| v6 | 83,7 | 97,4 | 14,5 | 88,9 | 9/9 %100 |
+| v7 | 87,5 | 99,0 | 100 | 97,8 | 7/9 → anlama onarımıyla 9/9 %100 |
+
+- v5 (kullanılmadı): "bilgisayarım açılmıyor" unvan sanılıp Bilgi İşlem'e doğrudan aktarıldı; "jandarma personele"
+  unvan sanıldı. Neden veride: arıza tarifi 3, "bilgisayar işletmeni" unvanı 49 örnek; kısa birim adı hiç yok.
+- v6: "başındaki kişi" → "başkan" (tarif %14,5). Neden: eğitimde "il jandarma komutanlığının başındaki" → müdür
+  gibi yanlış etiketler (komutanlıkta çalışan bir şube müdüründen). v7: yalnız birimin başı (müdür / komutan /
+  başkan), kalıp çeşitlendi; uzman jandarma kademeli çavuş ve üstçavuş rütbeleri eğitim rehberine eklendi.
+- v7'nin iki diyalog hatası (D43 "adım elif … burak beyi", D20 "trafikten zafer geçmiş") kodda onarıldı: arayanın
+  kendi adı atılır, sözde birebir geçen birim ve adın ardındaki hitap eklenir (PR #68). v4 de etkilenmedi.
+- Karar: kurulum modeli v7 (`deploy/models.yaml`, sha256 4c12bceb…e907e7). Kalan: "ihtarname hakkında görüşmek
+  istiyorum", "mülakata çağrıldım" (konu_tarif, 2 örnek) bir sonraki veri sürümünde.
