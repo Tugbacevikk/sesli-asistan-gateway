@@ -40,6 +40,20 @@ def _norm(d: dict) -> dict:
     return {k: " ".join(fold_words(str(v))) for k, v in d.items() if v not in ("", None, 0)}
 
 
+def alan_farklari(pred: dict, gold: dict) -> list[str]:
+    """Tam eşleşmeyen çıktıda hangi alan nasıl yanlış: "unvan:eksik", "birim:fazla", "ad:farklı"."""
+    p, g = _norm(pred), _norm(gold)
+    out = []
+    for k in sorted(set(p) | set(g)):
+        if k not in p:
+            out.append(f"{k}:eksik")
+        elif k not in g:
+            out.append(f"{k}:fazla")
+        elif p[k] != g[k]:
+            out.append(f"{k}:farklı")
+    return out
+
+
 async def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append", required=True)
@@ -69,6 +83,9 @@ async def main(argv: list[str] | None = None) -> int:
         llm = OllamaChat(base_url=a.url, model=model, timeout_s=a.zaman_asimi, think=False)
         await llm.chat_json([{"role": "user", "content": "merhaba"}])             # ısınma: modeli belleğe al
         sayac, sureler, yanlislar = Counter(), [], []
+        alan_hatasi: Counter[str] = Counter()                 # tam eşleşmeyenlerde alan bazında hata
+        tur_alan: dict[str, Counter[str]] = defaultdict(Counter)
+        tam_yanlislar: list[dict] = []
         tur_basari: dict[str, list[int]] = defaultdict(lambda: [0, 0])
         for r in rows:
             msgs = r["messages"][:2]
@@ -92,6 +109,12 @@ async def main(argv: list[str] | None = None) -> int:
             if r.get("dahili") is None:
                 ok_uc = ok_niyet                       # aktar dışı: niyet doğruysa kod doğru yolu seçer
             sayac.update(json=ok_json, niyet=ok_niyet, tam=ok_tam, uc=ok_uc)
+            if ok_json and not ok_tam:
+                fark = alan_farklari(pred, gold)
+                alan_hatasi.update(fark)
+                tur_alan[r["tur"]].update(fark)
+                tam_yanlislar.append({"soz": msgs[1]["content"], "beklenen": gold, "cikti": pred, "tur": r["tur"],
+                                      "fark": fark, "uc_dogru": bool(ok_uc)})
             tur_basari[r["tur"]][0] += ok_uc
             tur_basari[r["tur"]][1] += 1
             if not ok_uc:
@@ -102,11 +125,16 @@ async def main(argv: list[str] | None = None) -> int:
         res = {"model": model, **{k: round(100 * sayac[k] / n, 1) for k in ("json", "niyet", "tam", "uc")},
                "p50_sn": round(statistics.median(s), 2), "p95_sn": round(s[min(n - 1, round(0.95 * (n - 1)))], 2),
                "tur_basina": {k: round(100 * v[0] / v[1], 1) for k, v in sorted(tur_basari.items())},
-               "yanlislar": yanlislar}
+               "yanlislar": yanlislar,
+               "alan_hatasi": dict(alan_hatasi.most_common()),
+               "tur_alan_hatasi": {k: dict(v.most_common(5)) for k, v in sorted(tur_alan.items())},
+               "tam_yanlislar": tam_yanlislar}
         rapor["sonuclar"].append(res)
         print(f"{model:22} {res['json']:>7} {res['niyet']:>8} {res['tam']:>6} {res['uc']:>12} "
               f"{res['p50_sn']:>7} {res['p95_sn']:>7}")
         print(f"{'':22} türe göre uçtan uca: " + ", ".join(f"{k} {v}" for k, v in res["tur_basina"].items()))
+        print(f"{'':22} tam eşleşmeyenlerde alan hatası (ilk 12): "
+              + ", ".join(f"{k} {v}" for k, v in alan_hatasi.most_common(12)))
         if a.v:
             for y in yanlislar[:30]:
                 print(f"    [{y['tur']}] {y['soz']}\n        beklenen {y['beklenen']}\n        çıktı    {y['cikti']}")

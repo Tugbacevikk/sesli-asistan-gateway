@@ -58,3 +58,25 @@ def test_vhki_acilir() -> None:
     from sesli_asistan.gateway.abbreviations import load_abbreviations
 
     assert load_abbreviations(extra=True).expand("VHKİ") == "Veri Hazırlama ve Kontrol İşletmeni"
+
+
+@pytest.mark.parametrize("yazim,acilim", [
+    ("Uzm.J.VIII.Kad.Çvş.", "Uzman Jandarma Sekizinci Kademeli Çavuş"),
+    ("Uzm. J. VIII. Kad. Çvş.", "Uzman Jandarma Sekizinci Kademeli Çavuş"),
+    ("J. Uzm.J.II.Kad.Çvş.", "Uzman Jandarma İkinci Kademeli Çavuş"),
+    ("Uzm.J.Çvş.", "Uzman Jandarma Çavuş"),
+    ("Asb.Kd.Üçvş.", "Astsubay Kıdemli Üstçavuş"),
+    ("Asb. Üçvş.", "Astsubay Üstçavuş"),
+    ("Jand.Uzm.IV.Kad.Çvş.", "Jandarma Uzman Dördüncü Kademeli Çavuş"),
+    ("Kd. Bçvş.", "Kıdemli Başçavuş"),
+    ("V.Şefi", "Vardiya Şefi"),                        # tek başına V. yine vardiya (kademe yalnız ".Kad." ile)
+])
+def test_uzman_jandarma_ve_ustcavus(yazim: str, acilim: str) -> None:
+    # jandarma.gov.tr şehit sorgusu ve rütbe çizelgelerindeki yazımlar (23.11.2026)
+    from collections import Counter
+
+    from sesli_asistan.gateway.abbreviations import load_abbreviations
+
+    bilinmeyen: Counter[str] = Counter()
+    assert load_abbreviations(extra=True).expand(yazim, bilinmeyen) == acilim
+    assert not bilinmeyen
