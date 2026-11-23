@@ -300,6 +300,125 @@
    ],
    "title": "Kıdemli Polis Memuru",
    "extension": "7126"
+  },
+  {
+   "id": "r-7127",
+   "kind": "department",
+   "department": "Jandarma Personel Şube",
+   "department_aliases": [
+    "jandarma personel"
+   ],
+   "extension": "7127",
+   "transferable": true
+  },
+  {
+   "id": "r-7128",
+   "kind": "department",
+   "department": "Jandarma Lojistik Şube",
+   "department_aliases": [
+    "jandarma lojistik"
+   ],
+   "extension": "7128",
+   "transferable": true
+  },
+  {
+   "id": "r-7129",
+   "first_name": "Mustafa",
+   "last_name": "Aksoy",
+   "department": "Jandarma Trafik Timi",
+   "department_aliases": [
+    "jandarma trafik"
+   ],
+   "title": "Uzman Jandarma Çavuş",
+   "extension": "7129"
+  },
+  {
+   "id": "r-7130",
+   "first_name": "Ali",
+   "last_name": "Kaplan",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Uzman Jandarma Birinci Kademeli Çavuş",
+   "extension": "7130"
+  },
+  {
+   "id": "r-7131",
+   "first_name": "Ömer",
+   "last_name": "Doğan",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Uzman Jandarma Dördüncü Kademeli Çavuş",
+   "extension": "7131"
+  },
+  {
+   "id": "r-7132",
+   "first_name": "Mehmet",
+   "last_name": "Akın",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Uzman Jandarma Sekizinci Kademeli Çavuş",
+   "extension": "7132"
+  },
+  {
+   "id": "r-7133",
+   "first_name": "Fatma",
+   "last_name": "Keskin",
+   "department": "Jandarma Asayiş Şube",
+   "department_aliases": [
+    "jandarma asayiş"
+   ],
+   "title": "Astsubay Üstçavuş",
+   "extension": "7133"
+  },
+  {
+   "id": "r-7134",
+   "first_name": "Gizem",
+   "last_name": "Polat",
+   "department": "Jandarma Personel Şube",
+   "department_aliases": [
+    "jandarma personel"
+   ],
+   "title": "Astsubay Kıdemli Üstçavuş",
+   "extension": "7134"
+  },
+  {
+   "id": "r-7135",
+   "first_name": "Elif",
+   "last_name": "Bozkurt",
+   "department": "Jandarma Personel Şube",
+   "department_aliases": [
+    "jandarma personel"
+   ],
+   "title": "Personel Şube Müdürü",
+   "extension": "7135"
+  },
+  {
+   "id": "r-7136",
+   "first_name": "Selin",
+   "last_name": "Erdem",
+   "department": "Jandarma Lojistik Şube",
+   "department_aliases": [
+    "jandarma lojistik"
+   ],
+   "title": "Lojistik Şube Müdürü",
+   "extension": "7136"
+  },
+  {
+   "id": "r-7137",
+   "first_name": "Okan",
+   "last_name": "Aydın",
+   "department": "Jandarma Karakol Komutanlığı",
+   "department_aliases": [
+    "karakol"
+   ],
+   "title": "Karakol Komutanı",
+   "extension": "7137"
   }
  ]
 }

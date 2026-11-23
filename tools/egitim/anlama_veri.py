@@ -165,6 +165,16 @@ def iyelik_yonelme(w: str) -> str:       # nizamiye → nizamiyesine (iyelikten 
     return iyelik3(w) + "n" + ("a" if _son_unlu(w) in _KALIN else "e")
 
 
+_IYELIKLI_SON = ("timi", "makamı", "birimi", "şubesi", "lığı", "liği", "luğu", "lüğü")
+
+
+def kurum_iyelik_yonelme(geri: str) -> str:
+    """"jandarmanın asayişine", "... trafik timine" (son sözcük zaten iyelikliyse yalnız -n- + hâl eki)."""
+    if geri.endswith(_IYELIKLI_SON):
+        return geri + "n" + ("a" if _son_unlu(geri) in _KALIN else "e")
+    return iyelik_yonelme(geri)
+
+
 def meslek(w: str) -> str:               # -cı / -çu: muhasebeci, hukukçu, lojistikçi
     e = _DORTLU[_son_unlu(w)]
     return w + ("ç" if w[-1] in _SERT else "c") + e
@@ -308,6 +318,14 @@ def kisi_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str |
                  "ad_rutbe"),
                 (f"{ad} {rutbe} vardı ona bağlar mısınız", etiket(niyet="aktar", ad=ad, unvan=u), c.extension,
                  "ad_rutbe")]
+        if len(u.split()) > 3 and soyad:
+            # v7: uzun rütbenin tamamı ("uzman jandarma sekizinci kademeli çavuş mehmet akın") ve baş kısmı
+            # ("uzman jandarma mehmet", "astsubay mehmet"): jandarma santralinde arayan rütbeyi böyle söyler
+            bas = " ".join(u.split()[:2])
+            out += [(f"{u} {ad} {soyad} ile görüşmek istiyorum", etiket(niyet="aktar", ad=ad, soyad=soyad, unvan=u),
+                     c.extension, "ad_rutbe"),
+                    (f"{bas} {ad} {belirtme(soyad)} arıyorum", etiket(niyet="aktar", ad=ad, soyad=soyad, unvan=bas),
+                     c.extension, "ad_rutbe")]
     if c.title and len(c.title.split()) <= 3 and hitap:
         u = turkish_lower(c.title)
         out.append((f"{ad} {hitap} vardı ya {u} olan", etiket(niyet="aktar", ad=ad, hitap=hitap, unvan=u),
@@ -339,11 +357,29 @@ def unvan_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str 
         b = turkish_lower(c.department)
         out.append((f"{ayrilma(b)} {birliktelik(u)} görüşecektim", etiket(niyet="aktar", unvan=u, birim=b),
                     c.extension, "birim_unvan"))
-    if u.endswith("müdürü") and c.department:   # tarif: "muhasebenin başındaki kişi" → müdür
+    if c.department and (bas := _birim_basi(u, turkish_lower(c.department))):
+        # tarif: "muhasebenin başındaki kişi" → müdür; "karakol komutanlığının başında kim var" → komutan.
+        # v7: yalnız kişi gerçekten o birimin başındaysa (v6'da "il jandarma komutanlığının başındaki" → müdür
+        # etiketi vardı: komutanlıkta çalışan bir şube müdüründen); kalıp çeşitlendi
         b = turkish_lower(c.department)
-        out.append((f"{tamlayan(b)} başındaki kişi kimse onunla görüşmek istiyorum",
-                    etiket(niyet="aktar", unvan="müdür", birim=b), c.extension, "tarif"))
+        for kalip in rng.sample(TARIF_KALIPLARI, 2):
+            out.append((kalip.format(b=tamlayan(b)), etiket(niyet="aktar", unvan=bas, birim=b), c.extension, "tarif"))
     return out
+
+
+TARIF_KALIPLARI = ["{b} başındaki kişi kimse onunla görüşmek istiyorum", "{b} başında kim var ona bağlar mısınız",
+                   "{b} en yetkilisi kimse onunla görüşeyim", "{b} başındaki kişiyle görüşmem lazım"]
+
+
+def _birim_basi(unvan: str, birim: str) -> str:
+    """Unvan birimin başı mı: "personel şube müdürü" / "jandarma personel şube" → "müdür"; komutanlığın başı
+    komutan, başkanlığın başı başkan. Başka bir birimin başı (komutanlıktaki bir şube müdürü) değildir: ""."""
+    for son, bas, birim_sonu in (("müdürü", "müdür", ("müdürlüğü", "şube", "şubesi", "birimi", "müdürlük")),
+                                  ("komutanı", "komutan", ("komutanlığı", "karakolu", "timi", "bölüğü")),
+                                  ("başkanı", "başkan", ("başkanlığı",))):
+        if unvan.endswith(son):
+            return bas if birim.endswith(birim_sonu) or not birim.endswith(("lığı", "liği", "luğu", "lüğü")) else ""
+    return ""
 
 
 def dahili_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
@@ -361,6 +397,12 @@ KONU_KALIPLARI = ["{s} ile ilgili arıyorum", "{s} konusunda bilgi almak istiyor
                   "{s} yüzünden arıyorum yardımcı olur musunuz"]
 
 
+# Konu tablosunda fiil olan sözler ("bozuldu", "çalışmıyor"): "bozuldu ile ilgili arıyorum" bozuk Türkçe (v5 verisi)
+FIIL_KONULAR = {"bozuldu", "çalışmıyor"}
+FIIL_KONU_KALIPLARI = ["cihazımız {s} kime bildirebilirim", "makine {s} yardımcı olabilecek biri var mı",
+                       "aldığımız ürün {s} kimle görüşmeliyim"]
+
+
 def konu_ornekleri(index: DirectoryIndex, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
     """Konunun birimi üretimdeki konu tablosuyla (MCP konu adımı, ADR-023) bulunur: etiket kodla aynı birimi söyler.
     Tabloda bu rehberde karşılığı olmayan konu atlanır (tahmin uydurulmaz)."""
@@ -372,7 +414,7 @@ def konu_ornekleri(index: DirectoryIndex, rng: random.Random) -> list[tuple[str,
             adaylar = table.lookup(soz)
             if not adaylar or not adaylar[0].get("birim"):
                 continue
-            kalip = rng.choice(KONU_KALIPLARI)
+            kalip = rng.choice(FIIL_KONU_KALIPLARI if soz in FIIL_KONULAR else KONU_KALIPLARI)
             out.append((kalip.format(s=soz), etiket(niyet="konu", konu=soz, tahmini_birim=adaylar[0]["birim"]),
                         None, "konu"))
     return out
@@ -416,11 +458,25 @@ def iyelik_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str
 # (birim adında aranacak sözcükler, konu etiketi, sözler). Birim rehberde yoksa atlanır.
 KONU_TARIFLERI = [
     (("bilgi işlem", "teknik destek"), "bilgisayar arızası",
-     ["ekranım kararıyor bilgisayar çalışmıyor kime söylemeliyim", "bilgisayarım çok yavaş bakabilecek biri var mı"]),
-    (("bilgi işlem", "teknik destek"), "yazıcı arızası", ["yazıcı kağıt sıkıştırıyor ilgilenecek biri var mı"]),
-    (("bilgi işlem", "teknik destek"), "şifre sorunu", ["şifremi unuttum sisteme giremiyorum"]),
-    (("bilgi işlem", "teknik destek"), "internet sorunu", ["internetim sürekli kopuyor kimi aramalıyım"]),
-    (("bilgi işlem", "teknik destek"), "program hatası", ["kullandığım program hata veriyor yardım lazım"]),
+     ["ekranım kararıyor bilgisayar çalışmıyor kime söylemeliyim", "bilgisayarım çok yavaş bakabilecek biri var mı",
+      # v6: v5 "bilgisayarım açılmıyor"u unvan sanıp Bilgi İşlem'e doğrudan aktardı (unvan örneği "bilgisayar
+      # işletmeni" 49, arıza tarifi 3 idi): tarif çoğaltıldı; etiket niyet "konu", kod sorar
+      "bilgisayarım açılmıyor kimden yardım isteyebilirim", "bilgisayar hiç açılmıyor bakacak biri lazım",
+      "laptopum dondu bir türlü açılmıyor", "bilgisayarım mavi ekran veriyor yardım edebilir misiniz",
+      "masaüstü bilgisayar çalışmıyor anlayan birini arıyorum", "bilgisayarımda virüs var gibi kimle görüşmeliyim",
+      "bilgisayar sürekli kendini kapatıyor ilgilenecek biri var mı"]),
+    (("bilgi işlem", "teknik destek"), "yazıcı arızası",
+     ["yazıcı kağıt sıkıştırıyor ilgilenecek biri var mı", "yazıcı çıktı vermiyor kime söyleyeyim",
+      "yazıcıya bağlanamıyorum yardım edecek biri var mı"]),
+    (("bilgi işlem", "teknik destek"), "şifre sorunu",
+     ["şifremi unuttum sisteme giremiyorum", "şifrem bloke oldu kimi aramalıyım"]),
+    (("bilgi işlem", "teknik destek"), "e-posta sorunu",
+     ["mailime giremiyorum yardımcı olabilecek biri var mı", "e postalarım gitmiyor kime bildireyim"]),
+    (("bilgi işlem", "teknik destek"), "internet sorunu",
+     ["internetim sürekli kopuyor kimi aramalıyım", "ağa bağlanamıyorum yardım edebilecek birini arıyorum",
+      "internet yok hiçbir sayfa açılmıyor"]),
+    (("bilgi işlem", "teknik destek"), "program hatası",
+     ["kullandığım program hata veriyor yardım lazım", "program açılmıyor hata veriyor kime söyleyeyim"]),
     (("insan kaynakları", "personel"), "staj başvurusu", ["staj başvurumun sonucunu öğrenmek istiyorum"]),
     (("insan kaynakları", "personel"), "açık pozisyon", ["açık pozisyonlarınız var mı özgeçmiş göndermek istiyorum"]),
     (("insan kaynakları", "personel"), "mülakat", ["mülakata çağrıldım bilgi alabilir miyim"]),
@@ -484,10 +540,17 @@ def zincir_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str
     kurum, geri, tam = rng.choice(adlar)
     kg = tamlayan(kurum)
     if c.kind == "department":
-        e = etiket(niyet="aktar", birim=tam)
-        out += [(f"{kg} {yonelme(geri)} bağlar mısınız", e, c.extension, "kurum_birim"),
-                (f"{kurum} {yonelme(geri)} bağlayın", e, c.extension, "kurum_birim"),
-                (f"{kg} {geri} şubesine aktarır mısınız", e, c.extension, "kurum_birim")]
+        # v6: bütün kısa adlar ("jandarma personel", "jandarma asayiş"); v5'te birim başına birini rastgele seçmek
+        # "jandarma personele" söyleyişini veriden düşürdü, model "personel"i unvan sandı (J03)
+        for kurum_, geri_, tam_ in adlar:
+            e = etiket(niyet="aktar", birim=tam_)
+            kg_ = tamlayan(kurum_)
+            # "jandarmanın asayişine" (tamlama: iyelikli), "jandarma asayişe" (bitişik ad: yalın + hâl eki)
+            out += [(f"{kg_} {kurum_iyelik_yonelme(geri_)} bağlar mısınız", e, c.extension, "kurum_birim"),
+                    (f"{kurum_} {yonelme(geri_)} bağlayın", e, c.extension, "kurum_birim"),
+                    (f"{kurum_} {yonelme(geri_)} bağlar mısın hele", e, c.extension, "kurum_birim")]
+            if "şube" not in geri_ and not geri_.endswith(_IYELIKLI_SON):
+                out.append((f"{kg_} {geri_} şubesine aktarır mısınız", e, c.extension, "kurum_birim"))
     elif c.title and len(c.title.split()) <= 3:
         u = turkish_lower(c.title)
         out.append((f"{kg} {belirtme(u)} istiyorum", etiket(niyet="aktar", unvan=u, birim=kurum), c.extension,
