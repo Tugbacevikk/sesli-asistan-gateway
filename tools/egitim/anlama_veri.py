@@ -318,6 +318,14 @@ def kisi_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str |
                  "ad_rutbe"),
                 (f"{ad} {rutbe} vardı ona bağlar mısınız", etiket(niyet="aktar", ad=ad, unvan=u), c.extension,
                  "ad_rutbe")]
+        if len(u.split()) > 3 and soyad:
+            # v7: uzun rütbenin tamamı ("uzman jandarma sekizinci kademeli çavuş mehmet akın") ve baş kısmı
+            # ("uzman jandarma mehmet", "astsubay mehmet"): jandarma santralinde arayan rütbeyi böyle söyler
+            bas = " ".join(u.split()[:2])
+            out += [(f"{u} {ad} {soyad} ile görüşmek istiyorum", etiket(niyet="aktar", ad=ad, soyad=soyad, unvan=u),
+                     c.extension, "ad_rutbe"),
+                    (f"{bas} {ad} {belirtme(soyad)} arıyorum", etiket(niyet="aktar", ad=ad, soyad=soyad, unvan=bas),
+                     c.extension, "ad_rutbe")]
     if c.title and len(c.title.split()) <= 3 and hitap:
         u = turkish_lower(c.title)
         out.append((f"{ad} {hitap} vardı ya {u} olan", etiket(niyet="aktar", ad=ad, hitap=hitap, unvan=u),
@@ -349,11 +357,29 @@ def unvan_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str 
         b = turkish_lower(c.department)
         out.append((f"{ayrilma(b)} {birliktelik(u)} görüşecektim", etiket(niyet="aktar", unvan=u, birim=b),
                     c.extension, "birim_unvan"))
-    if u.endswith("müdürü") and c.department:   # tarif: "muhasebenin başındaki kişi" → müdür
+    if c.department and (bas := _birim_basi(u, turkish_lower(c.department))):
+        # tarif: "muhasebenin başındaki kişi" → müdür; "karakol komutanlığının başında kim var" → komutan.
+        # v7: yalnız kişi gerçekten o birimin başındaysa (v6'da "il jandarma komutanlığının başındaki" → müdür
+        # etiketi vardı: komutanlıkta çalışan bir şube müdüründen); kalıp çeşitlendi
         b = turkish_lower(c.department)
-        out.append((f"{tamlayan(b)} başındaki kişi kimse onunla görüşmek istiyorum",
-                    etiket(niyet="aktar", unvan="müdür", birim=b), c.extension, "tarif"))
+        for kalip in rng.sample(TARIF_KALIPLARI, 2):
+            out.append((kalip.format(b=tamlayan(b)), etiket(niyet="aktar", unvan=bas, birim=b), c.extension, "tarif"))
     return out
+
+
+TARIF_KALIPLARI = ["{b} başındaki kişi kimse onunla görüşmek istiyorum", "{b} başında kim var ona bağlar mısınız",
+                   "{b} en yetkilisi kimse onunla görüşeyim", "{b} başındaki kişiyle görüşmem lazım"]
+
+
+def _birim_basi(unvan: str, birim: str) -> str:
+    """Unvan birimin başı mı: "personel şube müdürü" / "jandarma personel şube" → "müdür"; komutanlığın başı
+    komutan, başkanlığın başı başkan. Başka bir birimin başı (komutanlıktaki bir şube müdürü) değildir: ""."""
+    for son, bas, birim_sonu in (("müdürü", "müdür", ("müdürlüğü", "şube", "şubesi", "birimi", "müdürlük")),
+                                  ("komutanı", "komutan", ("komutanlığı", "karakolu", "timi", "bölüğü")),
+                                  ("başkanı", "başkan", ("başkanlığı",))):
+        if unvan.endswith(son):
+            return bas if birim.endswith(birim_sonu) or not birim.endswith(("lığı", "liği", "luğu", "lüğü")) else ""
+    return ""
 
 
 def dahili_ornekleri(c: Contact, rng: random.Random) -> list[tuple[str, str, str | None, str]]:
