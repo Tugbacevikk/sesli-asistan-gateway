@@ -29,6 +29,9 @@ from .core.corrections import SttCorrections
 _TOKEN = re.compile(r"(?<![\wçğıöşüÇĞİÖŞÜâ])([A-Za-zÇĞİÖŞÜçğıöşüâÂ]+\.(?:l[ıiuü]ğ[ıiuü]|[ıiuü]|l[ıiuü]k)?)")
 
 
+_MAX_PARTS = 5          # en uzun bileşik anahtar ("Asb.Kd.Bçvş." 3, "Jand.Uzm.IV.Kad.Çvş." 5 parça)
+
+
 def _key(abbr: str) -> str:
     return turkish_lower(abbr.strip())
 
@@ -62,10 +65,11 @@ class Abbreviations:
 
     @staticmethod
     def _runs(text: str) -> list[list[re.Match[str]]]:
-        """Bitişik kısaltma dizileri ("Asyş.D.Bşk.lığı" → [Asyş., D., Bşk.lığı])."""
+        """Bitişik kısaltma dizileri ("Asyş.D.Bşk.lığı" → [Asyş., D., Bşk.lığı]). Aradaki boşluk da bitişik sayılır
+        ("Kd. Bçvş.", "Uzm. J. VIII. Kad. Çvş."): rehberlerde iki yazım da var; bileşik anahtar yine bulunur."""
         runs: list[list[re.Match[str]]] = []
         for m in _TOKEN.finditer(text):
-            if runs and runs[-1][-1].end() == m.start():
+            if runs and not text[runs[-1][-1].end():m.start()].strip():
                 runs[-1].append(m)
             else:
                 runs.append([m])
@@ -75,7 +79,7 @@ class Abbreviations:
         words: list[str] = []
         i = 0
         while i < len(toks):
-            for n in range(min(3, len(toks) - i), 0, -1):
+            for n in range(min(_MAX_PARTS, len(toks) - i), 0, -1):
                 if (full := self.table.get(_key("".join(toks[i:i + n])))) is not None:
                     words.append(full)
                     i += n
