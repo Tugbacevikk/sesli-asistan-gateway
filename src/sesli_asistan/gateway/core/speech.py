@@ -41,6 +41,38 @@ _DECIMAL = re.compile(r"\b(\d+),(\d+)\b")              # "3,5" → "üç virgül
 _PERCENT = re.compile(r"%\s?(\d+)")
 _NUMBER = re.compile(r"\b\d{1,6}\b")
 _DROP = re.compile(r"[*_#`>|\[\]{}<>\"“”]+")
+# sıra sayısı: "1. Protokol Kısım Amiri", "2.Cari Harekât Şube" (jandarma rehberi, 23.11.2026: "bir. Protokol"
+# okunuyor, nokta cümleyi bölüyordu). Ardından harf gelmeli: tarih ("23.11.2026") ve ondalık etkilenmez.
+_ORDINAL = re.compile(r"\b(\d{1,3})\.\s*(?=[A-Za-zÇĞİÖŞÜçğıöşüâ])")
+# harf kısaltması: "SSM", "HBT", "İKK" harf harf okunur ("se se me"); "TEM", "KOM", "MEBS" sözcük gibi
+_ACRONYM = re.compile(r"\b[A-ZÇĞİÖŞÜ]{2,6}\b")
+_LETTER = {"A": "a", "B": "be", "C": "ce", "Ç": "çe", "D": "de", "E": "e", "F": "fe", "G": "ge", "Ğ": "yumuşak ge",
+           "H": "ha", "I": "ı", "İ": "i", "J": "je", "K": "ka", "L": "le", "M": "me", "N": "ne", "O": "o", "Ö": "ö",
+           "P": "pe", "R": "re", "S": "se", "Ş": "şe", "T": "te", "U": "u", "Ü": "ü", "V": "ve", "Y": "ye", "Z": "ze",
+           "X": "iks", "W": "ve", "Q": "kü"}
+_VOWELS = set("AEIİOÖUÜ")
+
+
+def ordinal_words(n: int) -> str:
+    """Sıra sayısının okunuşu: 1 → "birinci", 4 → "dördüncü", 6 → "altıncı", 20 → "yirminci"."""
+    w = number_to_words(n)
+    if w.endswith("dört"):
+        w = w[:-1] + "d"
+    last = next((c for c in reversed(w) if c in "aeıioöuü"), "e")
+    suf = {"a": "ıncı", "ı": "ıncı", "e": "inci", "i": "inci", "o": "uncu", "u": "uncu", "ö": "üncü", "ü": "üncü"}[last]
+    return w + (suf[1:] if w[-1] in "aeıioöuü" else suf)
+
+
+def _say_acronym(m: re.Match[str]) -> str:
+    """Okunabilen sözcük olduğu gibi kalır, ötekiler harf harf ("SSM" → "se se me", "KGYS" → "ka ge ye se").
+    Okunabilen: ünsüz + ünlü ile başlayan ("TEM", "MEBS", "KAYA"), ünlüyle başlayıp en az iki ünlülü ("AFAD", "ARGE",
+    "ÖZTÜRK"), iki harfli ve ünlülü ("ÖZ", "AK", "ER": rehberde büyük harfle yazılmış soyadı olabilir)."""
+    a = m.group()
+    vowels = sum(c in _VOWELS for c in a)
+    if (len(a) == 2 and vowels) or (len(a) >= 3 and (
+            (a[0] not in _VOWELS and a[1] in _VOWELS) or (a[0] in _VOWELS and vowels >= 2))):
+        return a
+    return " ".join(_LETTER.get(c, c) for c in a)
 
 
 def prepare_for_tts(text: str) -> str:
@@ -48,6 +80,8 @@ def prepare_for_tts(text: str) -> str:
 
     TTS'in rakamları kendi okumasına bırakılmaz; okunuş sesler arasında farklı olabilir ve test edilemez."""
     t = _DROP.sub(" ", text or "")
+    t = _ORDINAL.sub(lambda m: ordinal_words(int(m.group(1))) + " ", t)
+    t = _ACRONYM.sub(_say_acronym, t)
     t = _SEPARATED_DIGITS.sub(lambda m: " ".join(number_to_words(int(d)) for d in re.findall(r"\d", m.group())), t)
     t = _PERCENT.sub(lambda m: f"yüzde {number_to_words(int(m.group(1)))}", t)
     t = _DECIMAL.sub(lambda m: f"{number_to_words(int(m.group(1)))} virgül {number_to_words(int(m.group(2)))}", t)
