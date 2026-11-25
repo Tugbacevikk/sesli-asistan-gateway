@@ -1442,3 +1442,61 @@ Eğitim: aynı ayarlar (Unsloth QLoRA, 2 epoch, lr 2e-4, batch 1 × 16). v7 veri
   kendi adı atılır, sözde birebir geçen birim ve adın ardındaki hitap eklenir (PR #68). v4 de etkilenmedi.
 - Karar: kurulum modeli v7 (`deploy/models.yaml`, sha256 4c12bceb…e907e7). Kalan: "ihtarname hakkında görüşmek
   istiyorum", "mülakata çağrıldım" (konu_tarif, 2 örnek) bir sonraki veri sürümünde.
+
+## 25.11.2026 — gemma-santral v8
+
+Eğitim: Gemma 3 1B IT tabanlı Unsloth QLoRA (v7 ile aynı: 2 epoch, lr 2e-4, batch 1 × 16, Q8_0 GGUF). v8 verisi: 9.458 eğitim / 495 doğrulama / 2.616 test (demo rehberi) + 69 sohbet test. Özel isim denetimi: "BULGU YOK".
+
+### Anlama ölçümü (anlama_test.jsonl + sohbet_test.jsonl)
+
+| Metrik / Tür | gemma-santral (v7) | gemma-santral-v8 | Fark / Değerlendirme |
+|---|---|---|---|
+| **JSON %** | %100,0 | %100,0 | Değişmedi |
+| **Niyet %** | %99,2 | %99,5 | +0,3 |
+| **Tam %** | %86,0 | %86,0 | Aynı seviye |
+| **Uçtan uca %** | %98,5 | %98,6 | +0,1 |
+| **Gecikme (p50 / p95)** | 0,25 / 0,36 sn | 0,26 / 0,37 sn | Kararlı |
+| **konu_tarif** | %77,5 | **%100,0** | **+22,5** (v7'nin kaçırdığı mülakat, ihtarname, doğum kaydı tam çözüldü) |
+| **operator** | %97,6 | %87,8 | -9,8 ("yetkili biri", "danışmadaki arkadaş" unvan/ad sanıldı) |
+| **selam** | %100,0 | %100,0 | Kusursuz |
+| **birim** | %98,1 | %99,4 | +1,3 |
+| **birim_iyelik** | %98,9 | %100,0 | +1,1 |
+| **birim_unvan** | %96,2 | %97,2 | +1,0 |
+| **konu** | %100,0 | %88,0 | -12,0 ("teslimat/kargo/sevkiyat ile ilgili" sözlerinde niyet aktar döndü) |
+| **tarif** | %100,0 | %90,7 | -9,3 ("özel kalem/il emniyet başındaki" sözlerinde başkan/başkomutan) |
+| **farketmez** | %100,0 | %94,4 | -5,6 ("herhangi biri" belirsiz döndü) |
+| **kapat** | %97,2 | %94,4 | -2,8 ("sağ olun", "teşekkürler" selam/teşekkür döndü) |
+| **Sohbet: denetimden geçen %** | %63,8 | **%100,0** | **+36,2** (Ollama 500 hataları ve emojili bozulmalar giderildi) |
+| **Sohbet: selam karşılığı %** | %27,5 | **%100,0** | **+72,5** (Tüm selamlara sıcak ve doğru Türkçe karşılık) |
+| **Sohbet gecikmesi (p50)** | 0,09 sn | 0,23 sn | Tek cümlelik sıcak karşılık |
+
+### Diyalog setleri (--anlama kipi, GPU açık)
+
+| Set | Senaryo | v7 Başarı % | v7 Yanlış Aktarma | v8 Başarı % | v8 Yanlış Aktarma | İzinsiz Aktarma | Not / Başarısız |
+|---|---|---|---|---|---|---|---|
+| diyalog_seti | 74 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı (önceki koşu yanlış rehberle yapılmıştı) |
+| demo | 30 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| sesli_deneme | 15 | %93,3 | 1 | %93,3 | 1 | 0 | S21, S26 (v7 ve v8 aynı) |
+| sive_jandarma | 15 | %100,0 | 0 | %93,3 | 0 | 0 | v8: J14 başarısız (seçenek daraltma sordu) |
+| kamu | 9 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| makam | 10 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| sirket | 15 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| serbest | 25 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| sive | 20 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+| sentetik | 34 | %100,0 | 0 | %100,0 | 0 | 0 | Başarılı |
+
+### v8'in v7'den Geride Kaldığı Noktalar ve Yanlış Örnekleri
+
+1. **Diyalog Seti (sive_jandarma - J14):**
+   - **Söz:** `"usagum jandarma personelden tolga koca verusun"`
+   - **Beklenen:** `transfer: 30204` (Tolga Koç)
+   - **v7:** `"Sizi Tolga Koç'a aktarıyorum."` (Başarılı)
+   - **v8:** `"Jandarma mı, Dereköy mü?"` (Seçenek teyidine düştü, transfer gerçekleşmedi)
+
+2. **Anlama Testinde Gerileyen Türler:**
+   - **`konu`:** `"teslimat ile ilgili arıyorum"` → Beklenen: `{"niyet": "konu", "konu": "teslimat", "tahmini_birim": "İl Jandarma Lojistik Şube Müdürlüğü"}` · v8 Çıktısı: `{"niyet": "aktar", "konu": "teslimat"}`
+   - **`operator`:** `"danışmadaki arkadaşa verir misiniz"` → Beklenen: `{"niyet": "operator"}` · v8 Çıktısı: `{"niyet": "aktar", "unvan": "danışman"}`
+   - **`operator`:** `"makineyle olmaz bi adam baglayin"` → Beklenen: `{"niyet": "operator"}` · v8 Çıktısı: `{"niyet": "aktar", "ad": "adam", "hitap": "bey"}`
+   - **`tarif`:** `"valilik özel kalem müdürlüğünün başındaki kişi kimse onunla görüşmek isteyrum"` → Beklenen: `{"niyet": "aktar", "unvan": "müdür", "birim": "valilik özel kalem müdürlüğü"}` · v8 Çıktısı: `{"niyet": "aktar", "unvan": "baş kalem müdürü", "birim": "valilik özel kalem müdürlüğü"}`
+   - **`farketmez`:** `"herhangi biri olur"` → Beklenen: `{"niyet": "farketmez"}` · v8 Çıktısı: `{"niyet": "belirsiz"}`
+   - **`kapat`:** `"isimi hallettim tesekkurler lutfen"` → Beklenen: `{"niyet": "kapat"}` · v8 Çıktısı: `{"niyet": "teşekkür"}`
