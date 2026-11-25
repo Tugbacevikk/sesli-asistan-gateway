@@ -10,6 +10,9 @@
 - uçtan uca %: modelin çıktısı gerçek diyalog ajanından geçince doğru dahiliye gidiyor / doğru soruyu soruyor
               (asıl ölçüt: alan yazımı farklı olsa da arayan doğru yere ulaşıyor mu)
 - p50 / p95:  çağrı süresi, sn (ısınma çağrısı sayılmaz)
+- sohbet %:   (v8, `--sohbet`) kısa sohbet test setinde cevap üretimdeki denetimden geçiyor (tek sıcak cümle, soru /
+              aktarma / numara yok; geçmezse arayan kodun selamını duyar). Ayrıca selamın karşılığı doğru mu ("günaydın"
+              → "Günaydın").
 """
 from __future__ import annotations
 
@@ -30,8 +33,10 @@ from anlama_veri import REHBERLER, EtiketLlm, dogrula, yer_adlarini_degistir  # 
 
 from sesli_asistan.gateway.adapters.llm.ollama import OllamaChat  # noqa: E402
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
+from sesli_asistan.gateway.core.dialog.small_talk import clean_small_talk  # noqa: E402
 from sesli_asistan.gateway.core.dialog.understand import Understanding  # noqa: E402
 from sesli_asistan.gateway.core.models import Contact  # noqa: E402
+from sesli_asistan.gateway.core.phrases import greeting_echo  # noqa: E402
 from sesli_asistan.gateway.core.search import DirectoryIndex, fold_words  # noqa: E402
 from sesli_asistan.gateway.core.tools import ToolRegistry  # noqa: E402
 
@@ -62,10 +67,16 @@ async def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--sinir", type=int, default=0, help="ilk N örnek (0: hepsi)")
     ap.add_argument("--zaman-asimi", type=float, default=30.0)
     ap.add_argument("--cikti", default="sonuc_anlama.json")
+    ap.add_argument("--sohbet", default=str(ROOT / "tools/egitim/veri/sohbet_test.jsonl"),
+                    help="kısa sohbet test seti (v8); dosya yoksa atlanır")
     ap.add_argument("-v", action="store_true", help="yanlışları yaz")
     a = ap.parse_args(argv)
 
     rows = [json.loads(x) for x in Path(a.test).read_text(encoding="utf-8").splitlines() if x.strip()]
+    rows = [r for r in rows if r.get("tur") != "sohbet"]          # sohbet ayrı ölçülür (JSON değil)
+    sohbet_yolu = Path(a.sohbet)
+    sohbet_rows = ([json.loads(x) for x in sohbet_yolu.read_text(encoding="utf-8").splitlines() if x.strip()]
+                   if sohbet_yolu.exists() else [])
     if a.sinir:
         rows = rows[:a.sinir]
     # uçtan uca ölçüt için her rehberin ajanı (LLM yerine modelin çıktısını dönen sahte LLM)
@@ -129,18 +140,53 @@ async def main(argv: list[str] | None = None) -> int:
                "alan_hatasi": dict(alan_hatasi.most_common()),
                "tur_alan_hatasi": {k: dict(v.most_common(5)) for k, v in sorted(tur_alan.items())},
                "tam_yanlislar": tam_yanlislar}
+        if sohbet_rows:
+            res["sohbet"] = await sohbet_olc(llm_model=model, url=a.url, zaman=a.zaman_asimi, rows=sohbet_rows)
         rapor["sonuclar"].append(res)
         print(f"{model:22} {res['json']:>7} {res['niyet']:>8} {res['tam']:>6} {res['uc']:>12} "
               f"{res['p50_sn']:>7} {res['p95_sn']:>7}")
         print(f"{'':22} türe göre uçtan uca: " + ", ".join(f"{k} {v}" for k, v in res["tur_basina"].items()))
         print(f"{'':22} tam eşleşmeyenlerde alan hatası (ilk 12): "
               + ", ".join(f"{k} {v}" for k, v in alan_hatasi.most_common(12)))
+        if "sohbet" in res:
+            so = res["sohbet"]
+            print(f"{'':22} sohbet: denetimden geçen %{so['gecen']}, selam karşılığı doğru %{so['selam']}, "
+                  f"p50 {so['p50_sn']} sn (n = {so['n']})")
+            if a.v:
+                for y in so["gecmeyenler"][:10]:
+                    print(f"    [sohbet] {y['soz']}\n        çıktı    {y['cikti']}")
         if a.v:
             for y in yanlislar[:30]:
                 print(f"    [{y['tur']}] {y['soz']}\n        beklenen {y['beklenen']}\n        çıktı    {y['cikti']}")
     Path(a.cikti).write_text(json.dumps(rapor, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\nayrıntı: {a.cikti}")
     return 0
+
+
+async def sohbet_olc(llm_model: str, url: str, zaman: float, rows: list[dict]) -> dict:
+    """Kısa sohbet: üretimdeki gibi araçsız düz çağrı (`chat`), cevap `clean_small_talk` denetiminden geçiyor mu."""
+    llm = OllamaChat(base_url=url, model=llm_model, timeout_s=zaman, think=False)
+    gecen = selam = 0
+    sureler, gecmeyenler = [], []
+    for r in rows:
+        msgs = r["messages"][:2]
+        t = time.perf_counter()
+        try:
+            out = (await llm.chat(msgs, [])).content
+        except Exception as e:                                                    # noqa: BLE001
+            out = f"HATA: {e}"
+        sureler.append(time.perf_counter() - t)
+        temiz = clean_small_talk(out)
+        if temiz is None:
+            gecmeyenler.append({"soz": msgs[1]["content"], "cikti": out})
+            continue
+        gecen += 1
+        echo = greeting_echo(msgs[1]["content"])
+        selam += (echo is None) or temiz.startswith(echo)
+    await llm.aclose()
+    n, s = len(rows), sorted(sureler)
+    return {"n": n, "gecen": round(100 * gecen / n, 1), "selam": round(100 * selam / n, 1),
+            "p50_sn": round(statistics.median(s), 2), "gecmeyenler": gecmeyenler}
 
 
 if __name__ == "__main__":

@@ -15,6 +15,13 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Kısa sohbet ince ayarlı modelle (ADR-035 revizyonu): hal hatır ("günaydın, nasılsınız") araçsız tek LLM çağrısıyla
+  cevaplanır (`core/dialog/small_talk.py`); model yalnız sıcak bir cümle kurar, "Kiminle görüşmek istersiniz?" kodla
+  eklenir, denetimden geçmeyen cümlede kodun selamı. Önceden gemma-santral araç desteklemediği için sohbet cevabı
+  kural turuna düşüyordu. Kurulum şablonunda `SMALL_TALK=true`.
+- v8 eğitim verisi: kısa sohbet görevi (`tur: sohbet`, ayrı test `sohbet_test.jsonl`, `anlama_olc.py --sohbet`);
+  tek örnekli konu tarifleri çoğaltıldı (v7'nin kaçırdığı "ihtarname", "mülakat" dahil; her tarif en az 3 söz).
+- TTS okunuşu: sıra sayısı ("1." → "birinci") ve harfle okunan kısaltmalar ("SSM" → "se se me").
 - Arayüzden deneme çağrısı geniş bantta (ADR-027): mikrofon sesi 8 kHz G.711 yerine 16 kHz PCM16 olarak gider, oturum
   G.722 çağrısı gibi açılır; sesli sette temiz seste WER yarıya inmişti. `?hat=dar` eski yolu verir (karşılaştırma).
 - "LLM gerektiğinde anlar" kipi (ADR-037, `UNDERSTAND_MODE`, **varsayılan `llm`**): kuralların çözemediği söz
