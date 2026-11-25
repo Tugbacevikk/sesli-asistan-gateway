@@ -31,9 +31,14 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "src"))
 
 from sesli_asistan.gateway.core.dialog import DialogAgent, DialogConfig  # noqa: E402
+from sesli_asistan.gateway.core.dialog.small_talk import (  # noqa: E402
+    SMALL_TALK_PROMPT,
+    clean_small_talk,
+    tr_capitalize,
+)
 from sesli_asistan.gateway.core.dialog.understand import UNDERSTAND_PROMPT, Understanding  # noqa: E402
 from sesli_asistan.gateway.core.models import Contact  # noqa: E402
-from sesli_asistan.gateway.core.phrases import ablative  # noqa: E402
+from sesli_asistan.gateway.core.phrases import ablative, greeting_echo, is_small_talk  # noqa: E402
 from sesli_asistan.gateway.core.ports import LlmError, LlmMessage  # noqa: E402
 from sesli_asistan.gateway.core.search import DirectoryIndex  # noqa: E402
 from sesli_asistan.gateway.core.tools import ToolRegistry  # noqa: E402
@@ -469,37 +474,66 @@ KONU_TARIFLERI = [
      ["yazıcı kağıt sıkıştırıyor ilgilenecek biri var mı", "yazıcı çıktı vermiyor kime söyleyeyim",
       "yazıcıya bağlanamıyorum yardım edecek biri var mı"]),
     (("bilgi işlem", "teknik destek"), "şifre sorunu",
-     ["şifremi unuttum sisteme giremiyorum", "şifrem bloke oldu kimi aramalıyım"]),
+     ["şifremi unuttum sisteme giremiyorum", "şifrem bloke oldu kimi aramalıyım",
+      "parolamı unuttum hesabım kilitlendi", "sisteme giriş yapamıyorum şifre hatalı diyor"]),
     (("bilgi işlem", "teknik destek"), "e-posta sorunu",
-     ["mailime giremiyorum yardımcı olabilecek biri var mı", "e postalarım gitmiyor kime bildireyim"]),
+     ["mailime giremiyorum yardımcı olabilecek biri var mı", "e postalarım gitmiyor kime bildireyim",
+      "kurumsal mail hesabım açılmıyor"]),
     (("bilgi işlem", "teknik destek"), "internet sorunu",
      ["internetim sürekli kopuyor kimi aramalıyım", "ağa bağlanamıyorum yardım edebilecek birini arıyorum",
       "internet yok hiçbir sayfa açılmıyor"]),
     (("bilgi işlem", "teknik destek"), "program hatası",
-     ["kullandığım program hata veriyor yardım lazım", "program açılmıyor hata veriyor kime söyleyeyim"]),
-    (("insan kaynakları", "personel"), "staj başvurusu", ["staj başvurumun sonucunu öğrenmek istiyorum"]),
-    (("insan kaynakları", "personel"), "açık pozisyon", ["açık pozisyonlarınız var mı özgeçmiş göndermek istiyorum"]),
-    (("insan kaynakları", "personel"), "mülakat", ["mülakata çağrıldım bilgi alabilir miyim"]),
-    (("insan kaynakları", "personel"), "yıllık izin", ["yıllık izin hakkımı sormak istiyorum"]),
+     ["kullandığım program hata veriyor yardım lazım", "program açılmıyor hata veriyor kime söyleyeyim",
+      "uygulama sürekli donuyor bakabilecek biri var mı"]),
+    (("insan kaynakları", "personel"), "staj başvurusu",
+     ["staj başvurumun sonucunu öğrenmek istiyorum", "staj için başvuru yapmak istiyorum kime ulaşmalıyım",
+      "yaz stajı başvuruları açık mı", "okulumdan staj yeri arıyorum bilgi alabilir miyim"]),
+    (("insan kaynakları", "personel"), "açık pozisyon",
+     ["açık pozisyonlarınız var mı özgeçmiş göndermek istiyorum", "iş başvurusu yapmak istiyorum",
+      "eleman alımı var mı öğrenmek istiyorum", "cv mi nereye gönderebilirim"]),
+    (("insan kaynakları", "personel"), "mülakat",
+     ["mülakata çağrıldım bilgi alabilir miyim", "iş görüşmesi için aranmıştım kimle görüşeceğim",
+      "mülakat tarihimi öğrenmek istiyorum", "sözlü sınava çağrıldım saatini sormak istiyorum",
+      "mülakat sonucum açıklandı mı", "görüşmeye davet edilmiştim nereye geleceğim",
+      "mülakata gelemeyeceğim haber vermek istiyorum"]),
+    (("insan kaynakları", "personel"), "yıllık izin",
+     ["yıllık izin hakkımı sormak istiyorum", "kaç gün iznim kaldı öğrenebilir miyim",
+      "izin dilekçemi kime vereceğim", "rapor ve izin işlemleri için arıyorum"]),
     (("kalite",), "hatalı ürün", ["gelen malzemede çatlak var bunu bildirmek istiyorum",
                                  "teslim aldığımız ürünün ölçüleri tutmuyor kime söyleyeyim"]),
-    (("kalite",), "kalite belgesi", ["ürünleriniz için kalite sertifikası istiyoruz"]),
+    (("kalite",), "kalite belgesi", ["ürünleriniz için kalite sertifikası istiyoruz",
+                                     "iso belgenizin kopyasını alabilir miyiz", "ürün test raporunu istiyoruz"]),
     (("muhasebe", "finans"), "ödeme", ["ödememiz hesabınıza geçmiş mi kontrol etmek istiyorum",
                                       "hakedişimiz ne zaman yatacak öğrenebilir miyim"]),
-    (("muhasebe", "finans"), "fatura hatası", ["faturada tutar yanlış yazılmış düzeltilmesi lazım"]),
+    (("muhasebe", "finans"), "fatura hatası", ["faturada tutar yanlış yazılmış düzeltilmesi lazım",
+                                              "faturadaki vergi numarası hatalı", "aynı fatura iki kere kesilmiş"]),
     (("satın alma", "satınalma"), "teklif", ["size ürün satmak istiyoruz teklif vermek için kimle görüşmeliyim",
                                             "tedarikçiniz olmak istiyoruz"]),
     (("lojistik", "sevkiyat"), "sevkiyat", ["siparişimiz hala gelmedi araç nerede kaldı",
                                            "teslimat adresini değiştirmemiz gerekiyor"]),
-    (("müşteri hizmetleri",), "şikayet", ["aldığım hizmetten memnun kalmadım şikayetimi iletmek istiyorum"]),
-    (("nüfus",), "kimlik kartı", ["kimlik kartımı kaybettim yenisini nasıl alırım"]),
-    (("nüfus",), "doğum kaydı", ["bebeğimin doğum kaydını yaptırmak istiyorum"]),
-    (("trafik",), "çekilen araç", ["aracımı çekmişler nereden alabilirim"]),
-    (("trafik",), "trafik cezası", ["gelen ceza tutanağına itiraz etmek istiyorum"]),
-    (("aile", "sosyal"), "bakım desteği", ["yaşlı annem için bakım desteği almak istiyorum"]),
-    (("milli eğitim",), "okul nakli", ["çocuğumun okulunu değiştirmek istiyoruz kime başvuracağız"]),
-    (("hukuk",), "ihtarname", ["bize gelen ihtarname hakkında görüşmek istiyorum"]),
-    (("sağlık",), "sağlık raporu", ["sağlık raporu için nereye başvurmalıyım"]),
+    (("müşteri hizmetleri",), "şikayet", ["aldığım hizmetten memnun kalmadım şikayetimi iletmek istiyorum",
+                                        "bir şikayette bulunmak istiyorum", "verdiğim talep hala çözülmedi"]),
+    (("nüfus",), "kimlik kartı", ["kimlik kartımı kaybettim yenisini nasıl alırım", "kimliğimi yenilemek istiyorum",
+                                "nüfus cüzdanım çalındı ne yapmam lazım",
+                                "kimlik için randevu almak istiyorum"]),
+    (("nüfus",), "doğum kaydı", ["bebeğimin doğum kaydını yaptırmak istiyorum",
+                               "yeni doğan çocuğumu nüfusa yazdıracağım", "doğum bildirimi için ne gerekiyor"]),
+    (("trafik",), "çekilen araç", ["aracımı çekmişler nereden alabilirim", "arabam yediemine götürülmüş",
+                                 "park ettiğim yerden aracım kaldırılmış"]),
+    (("trafik",), "trafik cezası", ["gelen ceza tutanağına itiraz etmek istiyorum",
+                                  "hız cezası yazılmış bilgi almak istiyorum", "trafik cezamı nasıl öderim",
+                                  "ehliyetime el konuldu ne yapmalıyım"]),
+    (("aile", "sosyal"), "bakım desteği", ["yaşlı annem için bakım desteği almak istiyorum",
+                                        "engelli babam için evde bakım maaşı başvurusu",
+                                        "huzurevi başvurusu yapmak istiyoruz"]),
+    (("milli eğitim",), "okul nakli", ["çocuğumun okulunu değiştirmek istiyoruz kime başvuracağız",
+                                     "oğlumun nakil işlemleri için arıyorum", "kızımı başka okula aldırmak istiyorum"]),
+    (("hukuk",), "ihtarname",
+     ["bize gelen ihtarname hakkında görüşmek istiyorum", "noterden ihtarname geldi kimle konuşmalıyım",
+      "ihtarname çekmek istiyoruz", "elimize bir ihtarname ulaştı bilgi almak istiyorum",
+      "ihtarnameye cevap vermemiz gerekiyor", "dava açılmış bize tebligat geldi", "sözleşme ihtilafı için arıyorum"]),
+    (("sağlık",), "sağlık raporu", ["sağlık raporu için nereye başvurmalıyım", "heyet raporu almak istiyorum",
+                                  "engelli sağlık kurulu raporu için arıyorum"]),
 ]
 
 
@@ -678,6 +712,60 @@ class EtiketLlm:
         return LlmMessage(self.cevap)
 
 
+# --- v8: kısa sohbet (ADR-035, SMALL_TALK=true) ---------------------------------------------------------------------
+# Ayrı görev: sistem = SMALL_TALK_PROMPT (small_talk.py, üretimdekiyle aynı), model = tek sıcak cümle. Soruyu
+# ("Kiminle görüşmek istersiniz?") kod ekler; model soru sormaz, kimseyi önermez. Kurallı kurulur: selamın karşılığı
+# + hal hatırın karşılığı + dileğin karşılığı.
+SOHBET_ACILIS = ["", "alo ", "merhaba ", "günaydın ", "iyi günler ", "iyi akşamlar ", "selamünaleyküm ",
+                 "hayırlı günler ", "merhabalar ", "alo günaydın ", "selam "]
+SOHBET_HAL = ["nasılsınız", "nasılsın", "naber", "ne haber", "iyi misiniz", "nasılsınız iyi misiniz",
+              "keyifler nasıl", "nasıl gidiyor", "işler nasıl gidiyor", "nasılsınız bugün"]
+SOHBET_EK = ["", "", " kolay gelsin", " hayırlı işler", " iyi çalışmalar", " bugün hava çok güzel",
+             " yoğun musunuz bugün", " rahatsız ediyorum kusura bakmayın"]
+SOHBET_HAL_CEVAP = ["iyiyim, teşekkür ederim", "iyiyim, sağ olun", "teşekkür ederim, iyiyim",
+                    "iyiyim, sorduğunuz için teşekkür ederim", "sağ olun, iyiyim"]
+SOHBET_EK_CEVAP = {
+    " kolay gelsin": ["size de kolay gelsin", "size de kolay gelsin, sağ olun"],
+    " hayırlı işler": ["size de hayırlı işler", "size de hayırlı işler dilerim"],
+    " iyi çalışmalar": ["size de iyi çalışmalar", "size de kolay gelsin"],
+    " bugün hava çok güzel": ["gerçekten güzel bir gün", "öyle, havanın güzel olması insanı mutlu ediyor"],
+    " yoğun musunuz bugün": ["sizin için her zaman buradayım", "sizinle ilgilenmek için buradayım"],
+    " rahatsız ediyorum kusura bakmayın": ["ne demek, hiç rahatsız etmiyorsunuz", "estağfurullah, ne rahatsızlığı"],
+}
+
+
+def _sohbet_cevap(soz: str, ek: str, rng: random.Random) -> str:
+    echo = greeting_echo(soz)
+    parca = [echo] if echo and echo != "Aleykümselam" else (["Aleykümselam"] if echo else [])
+    hal = rng.choice(SOHBET_HAL_CEVAP)
+    parca.append(hal)
+    if ek.strip():
+        # "sağ olun" iki kez söylenmez ("Sağ olun, iyiyim, sağ olun, size de")
+        secenek = [c for c in SOHBET_EK_CEVAP[ek] if not ("sağ olun" in hal and "sağ olun" in c)]
+        parca.append(rng.choice(secenek or SOHBET_EK_CEVAP[ek]))
+    return tr_capitalize(", ".join(parca)) + "."
+
+
+def sohbet_ornekleri(rng: random.Random, yasak: set[str]) -> tuple[list[dict], list[dict]]:
+    """(eğitim + doğrulama, test). Test sözleri eğitimde hiç görülmez (aynı söz kalıbı da)."""
+    sozler = sorted({f"{a}{h}{e}".strip() for a in SOHBET_ACILIS for h in SOHBET_HAL for e in SOHBET_EK})
+    rng.shuffle(sozler)
+    out = []
+    for soz in sozler:
+        ek = next((e for e in SOHBET_EK_CEVAP if soz.endswith(e.strip())), "")
+        cevap = _sohbet_cevap(soz, ek, rng)
+        gurultulu = stt_gurultu(sive_uygula(soz, rng), rng)
+        if _sade(gurultulu) in yasak or not is_small_talk(gurultulu):
+            continue
+        assert clean_small_talk(cevap) == cevap, cevap      # üretimdeki denetimden geçmeyen etiket olmaz
+        out.append({"rehber": "-", "tur": "sohbet", "dahili": None, "messages": [
+            {"role": "system", "content": SMALL_TALK_PROMPT},
+            {"role": "user", "content": gurultulu},
+            {"role": "assistant", "content": cevap}]})
+    n = max(1, len(out) // 10)
+    return out[n:], out[:n]
+
+
 async def dogrula(agent: DialogAgent, llm: EtiketLlm, soz: str, cevap: str, dahili: str | None) -> bool:
     if Understanding.parse(cevap) is None:
         return False
@@ -788,10 +876,17 @@ async def main(argv: list[str] | None = None) -> int:
         n = max(1, len(ornekler) // 20)
         dogrulama += ornekler[:n]
         egitim += ornekler[n:]
+    sohbet, sohbet_test = sohbet_ornekleri(rng, yasak)
+    n = max(1, len(sohbet) // 20)
+    dogrulama += sohbet[:n]
+    egitim += sohbet[n:]
+    toplam["sohbet"] = len(sohbet) + len(sohbet_test)
+    print(f"{'sohbet':8} {len(sohbet) + len(sohbet_test):5} örnek   (test {len(sohbet_test)}, ayrı dosya)")
     rng.shuffle(egitim)
     out = Path(a.cikti)
     out.mkdir(parents=True, exist_ok=True)
-    for ad, rows in (("anlama_egitim", egitim), ("anlama_dogrulama", dogrulama), ("anlama_test", test)):
+    for ad, rows in (("anlama_egitim", egitim), ("anlama_dogrulama", dogrulama), ("anlama_test", test),
+                     ("sohbet_test", sohbet_test)):
         with (out / f"{ad}.jsonl").open("w", encoding="utf-8") as f:
             for r in rows:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")

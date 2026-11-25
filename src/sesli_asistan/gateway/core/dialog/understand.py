@@ -35,7 +35,15 @@ from ..models import Candidate, DialogTurn
 from ..people.common import TITLE_SYNONYMS, _bucket, _cached, without_self
 from ..people.departments import department_said
 from ..people.names import sound_alike
-from ..phrases import FILLER_WORDS, NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS, number_word, spoken_numbers
+from ..phrases import (
+    FILLER_WORDS,
+    NEGATION_WORDS,
+    OPERATOR_WORDS,
+    YES_WORDS,
+    is_small_talk,
+    number_word,
+    spoken_numbers,
+)
 from ..ports import LlmError
 from ..resilience import supports_json
 from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
@@ -331,6 +339,8 @@ class UnderstandMixin:
         sözle, anlamazsa özgün sözle adımlar sürer; son adımda ikinci LLM çağrısı yapılmaz."""
         if u.confirm or u.op_confirm or u.choice:
             return None
+        if self.cfg.small_talk and is_small_talk(u.text) and self.pending_question(s) is None:
+            return None    # hal hatır (ADR-035): anlama "selam"a indirgerdi; kısa sohbet adımı karşılık verir
         extra = self.unexplained(u.text)
         if not (NEGATION & set(fold_words(u.text)) or len(extra) >= COMPLEX_MIN):
             return None

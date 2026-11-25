@@ -15,6 +15,7 @@ from ..people import (
     sound_alike,
 )
 from ..people.common import without_self
+from ..people.departments import department_spans, drop_dominated
 from ..people.names import _first_name_said, _last_name_said, says_first_name
 from ..phrases import (
     FAST_BLOCK,
@@ -42,6 +43,7 @@ from ..thresholds import (
     NAME_SAME,
     NEAR_NAME_MIN,
 )
+from ..words import same_word
 from .common import (
     DialogSession,
     _last_user,
@@ -95,6 +97,11 @@ class RulesMixin:
         """Adaylardan, sözde adı (ya da eş anlamlısı) geçen birimde olanlar; birim söylenmediyse ya da hiçbiri o
         birimde değilse boş liste (daraltma yapılmaz)."""
         core = " ".join(w for w in search_key(text).split() if not is_role_word(w))
+        # önce en tam söylenen birim ("temel eğitim" → Temel Eğitim; "eğitim" geçen Ortaöğretim onun parçası).
+        # Sesli deneme listesi S25, 25.11.2026: dolgu sözcükli söyleyişte iki şube de soruluyordu
+        said = drop_dominated(department_spans(self.tools.index, without_self(core)))
+        if said and (inside := [c for c in cands if c.department in said or said & set(c.unit_path)]):
+            return inside
         depts = self._rule_scan(without_self(core))[1]   # "müdür" Genel Müdürlük'ü birim saydırmasın
         if not depts:
             return []
@@ -426,7 +433,7 @@ class RulesMixin:
         if len(found) != 1:
             return None                                # hiç ya da birden çok aday: LLM karar versin
         contact, kind = next(iter(found.values()))
-        if kind != "department" and (others := self._other_surnames(words, contact)):
+        if kind not in ("department", "role") and (others := self._other_surnames(words, contact)):
             # Santral denemesi (02.11.2026): rehberde olmayan "Tuğba Çevik" → STT "kuba çelik elif şahin" → Elif Şahin'e
             # aktarılmıştı. Sözde başka bir kişinin soyadı da geçiyorsa emin olunamaz: aktarılmaz, sorulur.
             log.info("[%s] hızlı yol: %s yanında başka soyad (%s) — sorulacak", s.call_id, contact.full_name,
@@ -434,7 +441,7 @@ class RulesMixin:
             if self.cfg.clarify_by_code and len(others) <= 2:
                 return self._fast_clarify_of(s, [*others, contact])
             return None
-        if (kind != "department" and self._mentions_department(words)
+        if (kind not in ("department", "role") and self._mentions_department(words)
                 and not self._mentions_department(words, only=contact)):
             # söylenen birim kişinin birimi değil ("satıştan Burak Çelik"; Burak muhasebede): aktarılmaz, sorulur
             log.info("[%s] hızlı yol: %s başka birimle söylendi — sorulacak", s.call_id, contact.full_name)
@@ -498,17 +505,44 @@ class RulesMixin:
         for n in (3, 2, 1):
             for i in range(len(words) - n + 1):
                 window = " ".join(words[i:i + n])
-                for kind in ("name", "department") if n >= 2 else ("department",):  # yalnız ad / soyad: belirsiz
-                    res = index.search(**{kind: window})
+                for kind in ("name", "department") if n >= 2 else ("department", "role"):  # yalnız ad: belirsiz
+                    res = index.search(**{"name" if kind == "role" else kind: window})
                     if res.match != Match.SINGLE_HIGH or res.candidates[0].score < self.cfg.fast_path_min_score:
                         continue
                     c = res.candidates[0].contact
+                    if kind == "role":
+                        # tek sözcüklü, kişisiz ve tek olan makam hattı unvanın kendisiyle ("nizamiyeye bağlayın"):
+                        # sesli deneme listesi S16, 25.11.2026 ("jandarma nizamiyesine" gidiyordu, yalnızı gitmiyordu)
+                        title = search_key(c.title).split()
+                        if c.kind != "role" or len(title) != 1 or not same_word(window, title[0]):
+                            continue
+                        found.setdefault(c.id, (c, "role"))
+                        continue
                     if kind == "name" and not self._full_name_said(c, window):
                         continue                       # unvan ya da takma adla değil, gerçekten ad + soyadla
                     if kind == "department" and (c.kind != "department" or has_role_word(text)
                                                  or self._mentions_person(words)):
                         continue                       # "muhasebeden ayşe hanım": birim değil, oradaki bir kişi
                     found.setdefault(c.id, (c, kind))
+        if not found and not has_role_word(text) and not self._mentions_person(words):
+            # benzer adlı birimler (Dereköy / Akçakaya İlçe Nüfus) aramada ikisi birden yüksek puan alıyor: sözde adı
+            # ya da eş anlamlısı tam geçen ve başka bir eşleşmenin parçası olmayan tek birim (bozuk duyulan parça
+            # sayılmaz). Sesli deneme listesi S07, 25.11.2026: "dereköy nüfus müdürlüğüne" "bulamadım" alıyordu.
+            # yalnız en az iki sözcüklü eşleşme: tek sözcüklü eş anlamlılar ("arızam" → Teknik Destek) konu adımına
+            spans = department_spans(index, without_self(text))
+            said = drop_dominated(spans)
+            if len(said) == 1 and len(spans[next(iter(said))]) >= 2:
+                d = next(iter(said))
+                line = next((c for c in index.contacts() if c.kind == "department" and c.department == d), None)
+                if line is not None:
+                    found[line.id] = (line, "department")
+        roles = [c for c, k in found.values() if k == "role"]
+        if len(roles) == 1 and len(found) > 1:
+            # "jandarma nizamiye": kurumun hattı + içindeki tek makam hattı → makam hattı
+            r = roles[0]
+            for c, k in list(found.values()):
+                if k == "department" and tuple(r.unit_path[:len(c.unit_path)]) == tuple(c.unit_path):
+                    found.pop(c.id, None)
         if len(found) > 1:
             # sözde hem üst birim hem onun alt birimi ("jandarma" + "jandarma personele"): alt birim kalır
             depts = [c for c, k in found.values() if k == "department"]

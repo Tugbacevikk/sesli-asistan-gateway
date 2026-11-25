@@ -1,6 +1,7 @@
 """Akışın adımları (`STEPS`): her söz sırayla adımlardan geçer, ilk cevap veren turu bitirir."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from typing import TYPE_CHECKING, Any
@@ -20,6 +21,8 @@ from ..people import (
     same_title,
     same_unit,
 )
+from ..people.common import without_self
+from ..people.departments import department_spans
 from ..people.names import says_first_name
 from ..phrases import (
     FAST_BLOCK,
@@ -39,6 +42,7 @@ from ..phrases import (
     unknown_target,
     wants_hangup,
 )
+from ..ports import LlmError
 from ..search import (
     has_role_word,
     is_role_word,
@@ -50,6 +54,7 @@ from .common import (
     _ancestor_line,
     _Utterance,
 )
+from .small_talk import SMALL_TALK_PROMPT, clean_small_talk
 
 if TYPE_CHECKING:
     from .agent import DialogAgent
@@ -211,6 +216,12 @@ class StepsMixin:
             return None
         if lines and not persons and not intent and self._title_only_lines(u.text, numbers):
             return None
+        if len(lines) >= 2 and not persons and not m.others and not intent and says_first_name(u.text):
+            # aynı sözcükle bulunan adaş birimler + bir ad ("asayişteki uğur astsubay": jandarma ve emniyet asayiş):
+            # iki ayrı hedef değil, tek kişinin birimi belirsiz; kişi adımları birimle daraltır
+            spans = department_spans(self.tools.index, without_self(u.text))
+            if len({frozenset(spans.get(c.department, ())) for c in lines}) == 1:
+                return None
         log.info("[%s] sözde birden çok hedef%s: %s", s.call_id, " (operatör / kapatma isteğiyle)" if intent else "",
                  ", ".join(c.full_name for c in (*m.contacts, *m.others)))
         if len(targets) == 1:         # tek hedef + operatör / kapatma ya da hattı olmayan başka birim
@@ -410,8 +421,31 @@ class StepsMixin:
             return self._rule_turn(s, u.text)
         if self.cfg.understand == "llm" and not (u.confirm or u.op_confirm or u.choice):
             if self.cfg.small_talk and is_small_talk(u.text) and self.pending_question(s) is None:
-                # hal hatır (ADR-035): sıcak karşılık araçlı döngüden gelir; anlama çağrısı "selam"a indirgeyip
-                # düz karşılama veriyordu (canlı 12.11: "merhaba nasılsınız" → "Merhaba, kiminle…")
-                return await self._run(s)
+                # hal hatır (ADR-035): anlama çağrısı "selam"a indirgeyip düz karşılama veriyordu (canlı 12.11);
+                # araçlı döngü de ince ayarlı modelde (araçsız) kural turuna düşüyordu: araçsız sohbet çağrısı
+                return await self._small_talk_turn(s, u)
             return await self._understood_answer(s, u)  # ADR-037: araçlı döngü yerine tek "anla" çağrısı
         return await self._run(s)
+
+    async def _small_talk_turn(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn:
+        """Hal hatır: LLM'in sıcak cümlesi + kodun sorusu. LLM düşer ya da cümle denetimden geçmezse kod cevabı."""
+        messages = [{"role": "system", "content": SMALL_TALK_PROMPT}, {"role": "user", "content": u.text}]
+        s.llm_calls += 1
+        reply = None
+        try:
+            msg = await asyncio.wait_for(self.llm.chat(messages, []), timeout=self.cfg.understand_timeout_s)
+            reply = clean_small_talk(msg.content)
+            if reply is None:
+                log.info("[%s] kısa sohbet cevabı denetimden geçmedi: %r", s.call_id, msg.content[:120])
+        except (TimeoutError, LlmError) as e:
+            log.warning("[%s] kısa sohbet (LLM) hatası: %s %s", s.call_id, type(e).__name__, e)
+        u.reopen(s)
+        ask = self.cfg.texts.ask_target
+        if reply is None:
+            echo = greeting_echo(u.text)
+            text = self.cfg.texts.greeting_reply
+            if echo and text.startswith("Merhaba,"):
+                text = f"{echo},{text[len('Merhaba,'):]}"
+            return self._reply(s, text)
+        log.info("[%s] kısa sohbet: %s", s.call_id, reply)
+        return self._reply(s, f"{reply} {ask}")

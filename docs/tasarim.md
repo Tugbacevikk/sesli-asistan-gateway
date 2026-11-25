@@ -1138,7 +1138,7 @@ Tüm değerler başlangıçta doğrulanır; geçersiz ayarda servis açıklayıc
 | `LLM_PROMPT_PATH` | (boş: koddaki istem) | ADR-024: sistem istemi şablonu (yalnız `{kurum}` yer tutucusu; hatalıysa servis açılmaz) |
 | `LLM_PROMPT_DEPARTMENTS` | 0 | ADR-024: isteme kurumun birim listesi (en çok N birim, rehberden); 0: yok |
 | `LLM_FEW_SHOT` | false | ADR-024: isteme örnek konuşmalar (Ek B) |
-| `SMALL_TALK` | false | ADR-035: hal hatır / kısa sohbete LLM karşılık verir, sonra yönlendirir (istemde sohbet kuralı değişir, Ek B) |
+| `SMALL_TALK` | false (kurulum şablonu: true) | ADR-035: hal hatıra LLM araçsız tek çağrıyla sıcak bir cümleyle karşılık verir, kod yönlendirme sorusunu ekler; denetimden geçmeyen cümlede kodun selamı |
 | `UNDERSTAND_TIMEOUT_S` | 5 | Anlama çağrısının süre sınırı (sn); araçlı döngü `LLM_TIMEOUT_S` kullanır. HTTP sınırı ikisinin büyüğü |
 | `UNDERSTAND_MODE` | llm | ADR-037: kuralların çözemediği söz LLM'le yapılandırılmış bilgiye çevrilir, karar yine kodda. `kural`: kapalı (eski araçlı LLM döngüsü) |
 | `UNDERSTAND_NARROW` | teyit | ADR-039: kural birden çok aday bulup soracakken LLM'e de sorulur; LLM adaylardan tam birini gösterirse `teyit` ("X'e mi bağlayayım?"; teyitsiz aktarma kasten yok); `kapali`: kuralın sorusu |
@@ -1950,6 +1950,13 @@ ondan bağımsızdır.
   yine kodla ve anında; açık bir soru (teyit, "hangisi?") varsa o yinelenir; LLM kapalıysa kod cevabı.
 - **Sonuç:** Sohbet eden turlar LLM süresi kadar (3–7 sn) bekletir; varsayılan kapalı kalır, kurum açar. Varsayılan
   istem değişmedi (Ek B).
+- **Revizyon (25.11.2026, gemma-santral):** İnce ayarlı model araç desteklemediği için araçlı döngüden gelen sohbet
+  cevabı kural turuna düşüyordu (ayar açık olsa da arayan sabit cümle duyuyordu). Hal hatır artık **araçsız tek
+  çağrıyla** cevaplanır (`core/dialog/small_talk.py`, istem `SMALL_TALK_PROMPT`): model yalnız bir karşılık cümlesi
+  yazar, "Kiminle görüşmek istersiniz?" sorusunu kod ekler. Cümle denetimden geçmezse (boş, 110 karakterden uzun,
+  soru işareti, rakam, "aktar / bağla / dahili", JSON) kodun selamı söylenir: sohbet turunda aktarma olamaz. Anlama
+  adımı hal hatırda atlanır ("selam"a indirgemesin). Model v8'den itibaren bu görevle de eğitilir (sohbet
+  örnekleri, ayrı test dosyası `sohbet_test.jsonl`). Kurulum şablonunda `SMALL_TALK=true` (demo isteği).
 
 ### ADR-036 — Çok adaş, aynı birimde farklı unvanlar, birbirinin yerine geçen hatlar
 
@@ -2098,7 +2105,7 @@ ondan bağımsızdır.
   `deploy/modelfiles/gemma-santral.Modelfile` ile Ollama'ya kurulur (şablon ve lisans ana modelden).
 - **Araçlı turlar:** gemma-3-1b araç çağrısı desteklemez (Ollama: "does not support tools"). Karar (17.11.2026):
   bu turlar kural tabanlı sürer; adaptör ilk retten sonra araçlı istek göndermez, ısıtma araçsız yapılır. Kısa
-  sohbet (ADR-035) bu modelle yok.
+  sohbet (ADR-035) araçsız ayrı çağrıyla yapılır (revizyon 25.11.2026), v8 verisinde sohbet örnekleri var.
 - **Ölçüm (17.11.2026, RTX 3050 Ti 4 GB dizüstü; ayrıntı `docs/olcumler.md`):** anlama testi (demo rehberi, 1.642
   söz) uçtan uca %98,8, tam alan %88,4, p50 0,23 sn / p95 0,36 sn (qwen3.5:4b ~2–4 sn); yedi kalıp setinde izinsiz
   aktarma 0, altısında %100; serbest set %80 (qwen %88; kalan hataların çoğu iki modelde ortak ve kodda); şive seti

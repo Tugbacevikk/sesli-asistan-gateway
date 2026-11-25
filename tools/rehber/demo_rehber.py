@@ -571,7 +571,8 @@ class DemoRehberUretici:
                 birim_yolu=sube_yol,
                 kategori="şube",
                 department=f"İl Jandarma {s_ad}",
-                department_aliases=[s_alias, s_ad],
+                # "Asayiş Şube" kısa adı (emniyetteki gibi): "asayiş şubeyi" iki kurumda da aranır, kurum sorulur
+                department_aliases=[s_alias, s_ad, s_ad.removesuffix(" Müdürlüğü")],
             )
 
             # Şube Müdürü (kind=role, kişisiz)

@@ -38,6 +38,9 @@ etiket yanlış kişiye aktarıyorsa ya da hiçbir yere varmıyorsa örnek atıl
 - Türler: ad+soyad, birim+ad+hitap, ad+unvan, birim, unvan, birim+unvan, tarif ("muhasebenin başındaki kişi"),
   dahili (rakam ve yazıyla), konu (üretimdeki konu tablosuyla), dışlama ("muhasebe değil satış"), operatör,
   kapat, mesai, selam, farketmez, belirsiz (istem saldırısı, konu dışı).
+- v8: **sohbet** (ayrı görev, ADR-035): sistem `SMALL_TALK_PROMPT`, model tek sıcak cümle ("Günaydın, iyiyim,
+  teşekkür ederim."). Eğitim ve doğrulamaya karışır; testi ayrı dosyada (`sohbet_test.jsonl`), `anlama_olc.py`
+  kendiliğinden ölçer (denetimden geçen %, selam karşılığı %).
 - STT bozulmaları: Türkçe harf kaybı (`ayse hanim`), "alo / eee / iyi günler" başı, "lütfen" sonu.
 - Dengeleme: bir rehberde bir türden en çok `--tur-siniri` (250) örnek.
 - Sistem istemi üretimdekiyle birebir aynı (`UNDERSTAND_PROMPT` + rehberin birim listesi).
