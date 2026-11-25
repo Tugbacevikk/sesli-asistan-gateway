@@ -21,8 +21,10 @@ from .common import (
 
 
 def department_said(index: DirectoryIndex, text: str) -> str | None:
-    """Sözde tam olarak geçen tek birim ("muhasebe", "personel başkanlığından"); yoksa ya da birden çoksa None."""
-    depts = _mentioned_departments(index, without_self(text))
+    """Sözde tam olarak geçen tek birim ("muhasebe", "personel başkanlığından"); yoksa ya da birden çoksa None.
+    Başka bir birimin eşleşmesinin içinde kalan sayılmaz: "jandarma personelden" → yalnız Jandarma Personel
+    (sesli deneme J14, 25.11.2026: Jandarma Komutanlığı da sayılıp birim eklenmiyordu)."""
+    depts = drop_dominated(department_spans(index, without_self(text)))
     return next(iter(depts)) if len(depts) == 1 else None
 
 
