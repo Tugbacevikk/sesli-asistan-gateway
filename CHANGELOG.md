@@ -21,6 +21,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
   kural turuna düşüyordu. Kurulum şablonunda `SMALL_TALK=true`.
 - v8 eğitim verisi: kısa sohbet görevi (`tur: sohbet`, ayrı test `sohbet_test.jsonl`, `anlama_olc.py --sohbet`);
   tek örnekli konu tarifleri çoğaltıldı (v7'nin kaçırdığı "ihtarname", "mülakat" dahil; her tarif en az 3 söz).
+- Sesli deneme: okuma listesi (`tests/data/diyalog_seti_sesli_deneme.yaml`, 30 senaryo, demo rehberi; CI'da kural
+  kipinde) ve `tools/deneme/sesli_rapor.py` (liste çıktısı; çağrı kayıtlarından söylenen → duyulan → gidilen yer
+  tablosu, WER, hatanın STT'de mi anlamada mı olduğu).
 - TTS okunuşu: sıra sayısı ("1." → "birinci") ve harfle okunan kısaltmalar ("SSM" → "se se me").
 - Arayüzden deneme çağrısı geniş bantta (ADR-027): mikrofon sesi 8 kHz G.711 yerine 16 kHz PCM16 olarak gider, oturum
   G.722 çağrısı gibi açılır; sesli sette temiz seste WER yarıya inmişti. `?hat=dar` eski yolu verir (karşılaştırma).
@@ -114,7 +117,18 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 - Sürüm yönetimi: bu dosya, `tools/kurulum/surum.py`, etiketten GitHub sürümü oluşturan CI işi; sürüm sağlık
   yanıtında (`version`).
 
+
 ### Düzeltildi
+- Birim adının parçası ayrı hedef sayılıyordu: "dereköy nüfus müdürlüğü" → "Akçakaya mı, Dereköy mü?", "valilik
+  hukuk işleri" → üç seçenek. Sözde başka bir birimin eşleşmesinin içinde kalan birim atılır (`drop_dominated`);
+  benzer adlı birimlerde tam adla söylenen birim doğrudan aktarılır.
+- "narkotik şubeye" Milli Eğitim şubelerine benzetiliyordu: birim türü sözcükleri ("şube", "müdürlük") bozuk birim
+  adı sayılmaz.
+- Tek sözcüklü ve tek olan makam hattı unvanıyla bulunur ("nizamiyeye bağlayın" operatör soruluyordu).
+- Dolgu sözcüklü söyleyişte ("şey ben ee temel eğitim…") "ben" kendini tanıtma sanılıp birim adı siliniyordu.
+- Aynı unvanlı hatlar en tam söylenen birimle daraltılır ("temel eğitim şube müdürü").
+- Demo rehberi: jandarma şubelerine "Asayiş / Personel / Lojistik Şube" kısa adları (emniyetteki gibi).
+- Eğitim not defteri: `packing = False` (yeni Unsloth örnekleri paketliyordu: 9458 örnek → 2563 blok, çok yavaş).
 - Unvan birden çok birimde geçerken birim de söylendiyse ("kaliteden sorumlu müdür") adaylar o birime daraltılır;
   eskiden birimler arasında soru soruluyordu. Eş anlamlı unvan sözde geçerse karşılığı da aranır ("sekreterine" →
   Asistan; `people.common.TITLE_SYNONYMS`, anlama kipiyle ortak). Senaryolar: R25, R26.

@@ -93,8 +93,14 @@ def demo() -> DirectoryIndex:
     return DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
 
 
+def test_kurum_ve_sube_soylenince_kural_dogrudan_bulur(demo: DirectoryIndex) -> None:
+    # J06: "jandarma asayiş" birimin tam eş adı, "şube müdürü" o birimde tek: LLM'e gerek kalmadan aktarılır
+    # (25.11.2026'ya kadar kural iki şubeyi soruyor, LLM daraltıp teyit soruyordu)
+    (turn,), _, _ = _konus(demo, "teyit", "jandarmanın asayiş şube müdürünü istirem")
+    assert _aktarilan(turn) == ["30101"]
+
+
 @pytest.mark.parametrize(("soz", "dahili"), [
-    ("jandarmanın asayiş şube müdürünü istirem", "30101"),   # J06: birim seçilir, unvan o birimde aranır
     ("asayişteki uğur astsubayla görüşcem", "30131"),        # J09: üç şubede Uğur astsubay; "asayişteki"
 ])
 def test_onceki_adimin_sorusu_da_daraltilir(demo: DirectoryIndex, soz: str, dahili: str) -> None:

@@ -352,7 +352,12 @@ class TransferMixin:
         args = {"Department": contact.department} if kind == "department" else {"Name": contact.full_name}
         call = ToolCall(id=f"hizli_{len(s.history)}", name="InContacts", arguments=args)
         out = self.tools.execute(call, s.state)
-        if out.content.get("match") != "single_high":
+        res = out.content.get("results") or []
+        # benzer adlı birimler (Dereköy / Akçakaya İlçe Nüfus) birim adının tam aramasında ikisi de yüksek puan alır:
+        # birimin kendisi açık farkla öndeyse yeter (aday hızlı yolda tam adla seçildi)
+        ahead = (kind == "department" and bool(res) and res[0].get("extension") == contact.extension
+                 and (len(res) == 1 or res[0].get("score", 0) > res[1].get("score", 0)))
+        if out.content.get("match") != "single_high" and not ahead:
             return None
         action = self.tools.transfer(contact.extension, s.state)
         if action is None:

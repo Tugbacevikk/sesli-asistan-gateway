@@ -1,0 +1,166 @@
+# Sesli deneme okuma listesi (demo rehberi): mikrofonla /ui üzerinden okunur, sonra
+# tools/deneme/sesli_rapor.py çağrı kayıtlarından "söylenen → duyulan → gidilen yer" tablosunu çıkarır.
+# Rehber: data/demo_rehber.json
+#
+# Her senaryo AYRI çağrıdır (yeni çağrı aç, ilk cümleyi söyle; asistan sorarsa sıradaki cümleyi söyle, aktarınca
+# çağrıyı kapat). Sıra önemli: rapor çağrıları bu sırayla eşler.
+# Yazıyla doğrulama (CI'da da koşar): seste kalan bir senaryo yazıda geçiyorsa hata STT'dedir.
+#   python tests/eval/diyalog.py --kural --set tests/data/diyalog_seti_sesli_deneme.yaml --rehber data/demo_rehber.json
+
+# --- A. Ad soyad (STT'nin ad tanıması) ---
+- id: S01
+  aciklama: "Ad soyad, yönelme eki"
+  konusma: ["mehmet demire bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "20011"}
+
+- id: S02
+  aciklama: "Ad soyad + hanım"
+  konusma: ["elif kurt hanımla görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "51021"}
+
+- id: S03
+  aciklama: "Kısa soyad (STT'de zor: Şen)"
+  konusma: ["murat şen ile görüşebilir miyim"]
+  beklenen: {eylem: transfer, dahili: "40213"}
+
+- id: S04
+  aciklama: "Ad soyad, belirtme eki"
+  konusma: ["gizem polatı arıyorum"]
+  beklenen: {eylem: transfer, dahili: "51012"}
+
+# --- B. Birim adları ---
+- id: S05
+  aciklama: "Birim, yönelme eki"
+  konusma: ["narkotik şubeye bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "40300"}
+
+- id: S06
+  aciklama: "Büro adı"
+  konusma: ["cinayet bürosunu istiyorum"]
+  beklenen: {eylem: transfer, dahili: "40110"}
+
+- id: S07
+  aciklama: "İlçe + birim"
+  konusma: ["dereköy nüfus müdürlüğüne bağlayın"]
+  beklenen: {eylem: transfer, dahili: "52020"}
+
+- id: S08
+  aciklama: "Kurum + birim"
+  konusma: ["valilik hukuk işleri lütfen"]
+  beklenen: {eylem: transfer, dahili: "20020"}
+
+# --- C. Makam ve unvan ---
+- id: S09
+  aciklama: "Makam: il jandarma komutanı (makam hattı aktarılamaz → komutanlığın genel hattı, yardımcısına değil)"
+  konusma: ["il jandarma komutanı ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
+
+- id: S10
+  aciklama: "Makam: kaymakam"
+  konusma: ["akçakaya kaymakamına bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "51001"}
+
+- id: S11
+  aciklama: "Makam: il emniyet müdürü"
+  konusma: ["il emniyet müdürüyle görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "40001"}
+
+- id: S12
+  aciklama: "Unvan: hukuk müşaviri"
+  konusma: ["hukuk müşavirine bağlayın"]
+  beklenen: {eylem: transfer, dahili: "20021"}
+
+# --- D. Jandarma: şube + makam, rütbe ---
+- id: S13
+  aciklama: "Jandarma şube müdürü"
+  konusma: ["jandarma personel şube müdürü"]
+  beklenen: {eylem: transfer, dahili: "30201"}
+
+- id: S14
+  aciklama: "Jandarma şube + astsubay makamı"
+  konusma: ["jandarma lojistik şube idari işlemler astsubayı"]
+  beklenen: {eylem: transfer, dahili: "30310"}
+
+- id: S15
+  aciklama: "Jandarma nöbetçi amiri"
+  konusma: ["jandarma nöbetçi amirine bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "30080"}
+
+- id: S16
+  aciklama: "Nizamiye"
+  konusma: ["nizamiyeye bağlayın"]
+  beklenen: {eylem: transfer, dahili: "30081"}
+
+# --- E. Çok adaylı: asistan sorar, cevap verilir ---
+- id: S17
+  aciklama: "Aynı adlı üç kişi: şube sorulur"
+  konusma: ["uğur çelik ile görüşmek istiyorum", "personel"]
+  beklenen: {eylem: transfer, dahili: "30231"}
+
+- id: S18
+  aciklama: "İki kurumda büro amiri: kurum sorulur"
+  konusma: ["trafik büro amiri", "emniyet"]
+  beklenen: {eylem: transfer, dahili: "40210"}
+
+- id: S19
+  aciklama: "Birim sorulur, alt birim adıyla cevap"
+  konusma: ["asayiş şubeyi arıyorum", "jandarma"]
+  beklenen: {eylem: transfer, dahili: "30100"}
+
+- id: S20
+  aciklama: "Aynı adlı iki kişi: birimle"
+  konusma: ["mehmet kaya", "milli eğitim"]
+  beklenen: {eylem: transfer, dahili: "60102"}
+
+# --- F. Tarif ve konu ---
+- id: S21
+  aciklama: "Tarif: başındaki kişi (komutan hattı aktarılamaz → genel hat)"
+  konusma: ["il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
+
+- id: S22
+  aciklama: "Birim içinden ad"
+  konusma: ["narkotikten serkan kurt"]
+  beklenen: {eylem: transfer, dahili: "40312"}
+
+- id: S23
+  aciklama: "Dahili numara"
+  konusma: ["dahili iki sıfır sıfır dört dört"]
+  beklenen: {eylem: transfer, dahili: "20044"}
+
+- id: S24
+  aciklama: "Ad + birim, bulunma eki"
+  konusma: ["hırsızlık bürosundaki burak arslan"]
+  beklenen: {eylem: transfer, dahili: "40122"}
+
+# --- G. Doğal / şiveli söyleyiş ---
+- id: S25
+  aciklama: "Dolgu sözcükleri"
+  konusma: ["şey ben ee temel eğitim şube müdürüyle görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "60201"}
+
+- id: S26
+  aciklama: "Şive + selam"
+  konusma: ["selamünaleyküm gardaş dereköy kaymakamına bağla hele", "evet"]
+  beklenen: {eylem: transfer, dahili: "52001"}
+
+- id: S27
+  aciklama: "Önce selam, sonra istek (iki tur)"
+  konusma: ["merhaba", "milli eğitim müdürünü arıyorum"]
+  beklenen: {eylem: transfer, dahili: "60001"}
+
+# --- H. Aktarılmaması gerekenler ---
+- id: S28
+  aciklama: "Belgegeçer hattı aktarılmaz"
+  konusma: ["valilik belgegeçerine bağlar mısınız"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["20009"]}
+
+- id: S29
+  aciklama: "Ayrılmış personel aktarılmaz"
+  konusma: ["zafer geçmiş ile görüşmek istiyorum"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["40099"]}
+
+- id: S30
+  aciklama: "Operatör isteği"
+  konusma: ["operatöre bağlayın"]
+  beklenen: {eylem: operator}

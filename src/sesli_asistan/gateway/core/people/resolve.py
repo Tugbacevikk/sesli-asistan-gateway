@@ -7,6 +7,7 @@ from typing import Any
 from ..models import Contact
 from ..search import (
     DirectoryIndex,
+    fold_words,
     is_role_word,
     search_key,
 )
@@ -16,8 +17,10 @@ from .common import (
     without_self,
 )
 from .departments import (
-    _department_tails,
     _mentioned_departments,
+    department_spans,
+    department_tail_spans,
+    drop_dominated,
 )
 from .names import (
     _first_name_said,
@@ -107,6 +110,21 @@ class Mentions:
         return len(self.contacts) + len(self.departments) + len(self.others)
 
 
+def _said_departments(index: DirectoryIndex, words: list[str]) -> set[str]:
+    """Sözde geçen birimler (tam ad / eş anlamlı ve ayırt edici parça); başka bir birimin eşleşmesinin içinde kalanlar
+    atılır (`drop_dominated`). Yalnız parçayla bulunan birimin sözcüğü, tam bulunan bir birimdeki bir unvanın sözcüğüyse
+    o da atılır: "jandarma lojistik idari işlemler astsubayı" → "işlemler" Lojistik'teki unvanın, Destek Hizmetleri'nin
+    ("İdari İşler") değil."""
+    spans = department_spans(index, words)
+    titles = {w for c in index.contacts() if c.department in spans for w in fold_words(c.title)}
+    for d, s in department_tail_spans(index, words).items():
+        if d in spans:
+            spans[d] |= s
+        elif not any(words[i] in titles for i in s):
+            spans[d] = set(s)
+    return drop_dominated(spans)
+
+
 def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> Mentions:
     """`numbers`: sözde geçen sayılar (dahili olabilir; çağıran çıkarır)."""
     words = without_self(text)
@@ -122,7 +140,7 @@ def mentioned_targets(index: DirectoryIndex, text: str, numbers: list[str]) -> M
         owner = next((c for c in index.contacts() if c.extension == n), None)
         if owner is not None and not any(c.id == owner.id for c in named):
             by_id.setdefault(owner.id, owner)
-    said_depts = _mentioned_departments(index, words) | _department_tails(index, words)
+    said_depts = _said_departments(index, words)
     covered = {c.department for c in by_id.values()} | {c.department for c in others}
     rest: list[str] = []
     for d in sorted(said_depts - covered):

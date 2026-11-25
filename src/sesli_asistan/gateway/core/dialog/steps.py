@@ -21,6 +21,8 @@ from ..people import (
     same_title,
     same_unit,
 )
+from ..people.common import without_self
+from ..people.departments import department_spans
 from ..people.names import says_first_name
 from ..phrases import (
     FAST_BLOCK,
@@ -214,6 +216,12 @@ class StepsMixin:
             return None
         if lines and not persons and not intent and self._title_only_lines(u.text, numbers):
             return None
+        if len(lines) >= 2 and not persons and not m.others and not intent and says_first_name(u.text):
+            # aynı sözcükle bulunan adaş birimler + bir ad ("asayişteki uğur astsubay": jandarma ve emniyet asayiş):
+            # iki ayrı hedef değil, tek kişinin birimi belirsiz; kişi adımları birimle daraltır
+            spans = department_spans(self.tools.index, without_self(u.text))
+            if len({frozenset(spans.get(c.department, ())) for c in lines}) == 1:
+                return None
         log.info("[%s] sözde birden çok hedef%s: %s", s.call_id, " (operatör / kapatma isteğiyle)" if intent else "",
                  ", ".join(c.full_name for c in (*m.contacts, *m.others)))
         if len(targets) == 1:         # tek hedef + operatör / kapatma ya da hattı olmayan başka birim

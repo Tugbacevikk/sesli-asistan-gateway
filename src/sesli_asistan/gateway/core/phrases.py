@@ -82,9 +82,26 @@ def asks_general_help(text: str) -> bool:
 
 
 def strip_fillers(text: str) -> str:
-    """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur)."""
-    return " ".join(w for w in text.split() if not (fold_tr_words(w) and fold_tr_words(w)[0] in _FILLERS
-                                                     and len(fold_tr_words(w)) == 1))
+    """Sözden dolgu sesleri atılır (noktalama ve sözcük sırası korunur). Duraksayan "ben" de atılır ("şey ben ee
+    temel eğitim şube müdürüyle": dolgu atılınca "ben temel" kendini tanıtma sanılıp "temel" siliniyordu; sesli
+    deneme listesi S25, 25.11.2026); ardından yaygın bir ad geliyorsa ("ben ee mehmet") tanıtmadır, kalır."""
+    from .people.names import COMMON_FIRST_NAMES  # döngüsel içe aktarma olmasın: yalnız burada
+
+    def filler(w: str) -> bool:
+        f = fold_tr_words(w)
+        return bool(f) and f[0] in _FILLERS and len(f) == 1
+
+    words = text.split()
+    out = []
+    for i, w in enumerate(words):
+        if filler(w):
+            continue
+        if fold_tr_words(w) == ["ben"] and i + 1 < len(words) and filler(words[i + 1]):
+            nxt = next((x for x in words[i + 1:] if not filler(x)), "")
+            if not (fold_tr_words(nxt) and fold_tr_words(nxt)[0] in COMMON_FIRST_NAMES):
+                continue
+        out.append(w)
+    return " ".join(out)
 
 
 
