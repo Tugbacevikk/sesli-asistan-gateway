@@ -20,6 +20,7 @@ from ..phrases import (
     question_particle,
     spoken_numbers,
     wants_hangup,
+    with_possessive,
 )
 from ..ports import ToolCall
 from ..search import (
@@ -135,14 +136,25 @@ class TransferMixin:
         """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar
         bantlı seste "burak çelik" duyuldu), yalnız adla söylendi ya da hedef konudan çıkarıldı (`why`)."""
         s.state.confirm, s.state.confirm_again = Candidate(contact, 100), False
+        s.state.confirm_display = display = with_possessive(display) if display else ""
         name = contact.full_name if contact.kind != "department" else contact.department
         log.info("[%s] %s: %s teyit ediliyor", s.call_id,
                  why or f"düşük STT güveni ({s.stt_confidence or 0:.2f})", name)
         # display: arayanın tanıdığı ad ("Dereköy Nüfus Müdürü"); kişinin adını bilmiyor olabilir (unvanla istedi)
-        to = common_dative(display) if display else contact_dative(contact)
-        turn = self._reply(s, self.cfg.texts.confirm.format(ad=display or name, ad_e=to, mi=question_particle(to)))
+        name, to = self._confirm_names(s)
+        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=to, mi=question_particle(to)))
         turn.fast = True
         return turn
+
+    def _confirm_names(self: DialogAgent, s: DialogSession) -> tuple[str, str]:
+        """Açık teyidin adı ve yönelme hâli: `_confirm`'ün verdiği ad ("Dereköy Kaymakamı") ya da kaydın adı.
+        Teyit yinelenince de aynısı (sesli deneme 26.11.2026: ilk soru "Dereköy Kaymakama", yinelemesi kişinin adıyla
+        "Okan Yıldırım'a" soruluyordu)."""
+        assert s.state.confirm is not None
+        c = s.state.confirm.contact
+        if s.state.confirm_display:
+            return s.state.confirm_display, common_dative(s.state.confirm_display)
+        return (c.full_name if c.kind != "department" else c.department), contact_dative(c)
 
     def _resolve_confirm(self: DialogAgent, s: DialogSession, text: str, cand: Candidate,
                          suggested: bool = False, again: bool = False) -> DialogTurn | None:
@@ -173,8 +185,7 @@ class TransferMixin:
             # Anlaşılmayan cevap (sesli set 20.11.2026, arkada konuşan: "he" → "geçen ay aş"): soru bir kez,
             # kodla ve beklemeden yinelenir; arayan baştan anlatmak zorunda kalmaz. İkincisinde bırakılır.
             s.state.confirm, s.state.confirm_suggested, s.state.confirm_again = cand, suggested, True
-            to = contact_dative(cand.contact)
-            name = cand.contact.full_name if cand.contact.kind != "department" else cand.contact.department
+            name, to = self._confirm_names(s)
             log.info("[%s] teyit cevabı anlaşılmadı, yineleniyor: %s", s.call_id, log_text(text))
             turn = self._reply(s, self.cfg.texts.confirm_again.format(ad=name, ad_e=to, mi=question_particle(to)))
             turn.fast = True

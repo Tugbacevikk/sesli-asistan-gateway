@@ -141,6 +141,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Yer adıyla seçilen makamın teyidi eksizdi ("Dereköy Kaymakama mı…") ve yinelenince kişinin adına dönüyordu
+  ("Okan Yıldırım'a mı…"): artık "Dereköy Kaymakamına mı bağlamamı istersiniz?", yinelemesi de aynı adla.
 - Arayan hiç konuşmadan "Sizi anlayamadım" deniyordu (sesli deneme 26.11.2026): 0,8–1,5 sn'lik **boş** STT sonuçları
   (hoparlörden dönen asistan sesi, gürültü) cevaplanıp deneme sayılıyor, çağrı operatöre gidiyordu. Boş sonuç sınırı
   600 → 1600 ms (`MIN_NOISE_MS`); arayan susarsa "Sizi duyamadım" sorusu yine gelir.

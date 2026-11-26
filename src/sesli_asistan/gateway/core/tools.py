@@ -77,6 +77,8 @@ class CallToolState:
     choice_question: str = ""               # o soru "X mı, Y mi?" değilse ("Hangi birimdeki müfettiş?")
     confirm: Candidate | None = None        # arayana "X'e mi bağlayayım?" diye soruldu (STT güveni düşüktü)
     confirm_again: bool = False             # teyit sorusu anlaşılmayan cevap yüzünden bir kez yinelendi
+    confirm_display: str = ""               # teyitte söylenen ad ("Dereköy Kaymakamı"); boş: kaydın adı. Yalnız
+                                            # `_confirm` yazar; teyit yinelenince aynı ad kullanılır
     confirm_suggested: bool = False         # o teyit bir öneriydi (konudan çıkarılan birim): "hayır" → "Peki, kiminle?"
     confirm_operator: bool = False          # arayana "operatöre mi bağlayayım?" diye soruldu (hedef anlaşılmadı)
     truncated: bool = False                 # son aramada gösterilenden çok aday vardı

@@ -25,7 +25,6 @@ from ..phrases import (
     ORDINALS,
     YES_WORDS,
     ablative,
-    contact_dative,
     number_answer,
     question_particle,
     spoken_numbers,
@@ -376,8 +375,7 @@ class ChoiceMixin:
         """Arayanın cevabını bekleyen soru (kodla sorulan), yoksa None."""
         texts = self.cfg.texts
         if s.state.confirm is not None:
-            c = s.state.confirm.contact
-            name, to = (c.full_name if c.kind != "department" else c.department), contact_dative(c)
+            name, to = self._confirm_names(s)
             return texts.confirm.format(ad=name, ad_e=to, mi=question_particle(to))
         if s.state.confirm_operator:
             return texts.confirm_operator
