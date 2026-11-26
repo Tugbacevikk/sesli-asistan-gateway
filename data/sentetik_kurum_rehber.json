@@ -35,7 +35,7 @@
         "Yeşilova Valisi"
       ],
       "extension": "20001",
-      "transferable": false,
+      "transferable": true,
       "updated_at": "2026-11-09T08:00:00Z",
       "deleted": false
     },

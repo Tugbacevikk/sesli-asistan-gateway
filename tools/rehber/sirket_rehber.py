@@ -100,7 +100,7 @@ def build(seed: int = 2026) -> list[dict[str, Any]]:
         if path == ("Genel Müdürlük",):
             n += 1                                  # makam: aktarılmaz, asistanına yönlendirilir
             out.append(_record("s-genelmudur", "role", path, aliases, str(n), title="Genel Müdür",
-                               own_aliases=["Genel Müdür Bey", "Patron"], transferable=False, category="makam"))
+                               own_aliases=["Genel Müdür Bey", "Patron"], category="makam"))
         for title, count in staff:
             for _ in range(count):
                 n += 1

@@ -279,7 +279,6 @@ def build_synthetic_directory(target_count: int = 600, seed: int = 2026) -> list
         valilik_dept,
         "Vali",
         "20001",
-        transferable=False,
         aliases=[f"{IL_ADI} Valisi"],
         dept_aliases=valilik_aliases,
     )

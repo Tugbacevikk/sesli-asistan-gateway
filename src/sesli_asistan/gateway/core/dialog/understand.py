@@ -562,20 +562,31 @@ class UnderstandMixin:
                  for w in fold_words(got.unvan) if len(w) > 2]
         if not title:
             return None
+        # birim eş adıyla da söylenebilir ("il jandarma komutanlığı" = Yeşilova İl Jandarma Komutanlığı): hattı bulunan
+        # birim, kaydın birim yolunda geçiyorsa o da sayılır (komutan "İl Jandarma Komutanlığı Makamı"nda, S21)
+        unit_line = self._named_unit_line(got.birim)
+        named = unit_line.department if unit_line is not None and unit_line.kind == "department" else None
         found = []
         for c in self.tools.index.contacts():
             if c.kind == "department" or not c.transferable:
                 continue
             units = {search_key(n) for n in (c.department, *c.department_aliases, *c.unit_path)}
             have = fold_words(c.title)
-            if key in units and all(any(same_word(w, t) or same_word(syn, t) for t in have) for w, syn in title):
+            inside = key in units or (named is not None and named in (c.department, *c.unit_path))
+            if inside and all(any(same_word(w, t) or same_word(syn, t) for t in have) for w, syn in title):
                 found.append(c)
+        if len(found) > 1:
+            # unvanı tam söylenen tek hat ("komutan" + birim "il jandarma komutanlığı" → İl Jandarma Komutanı; Komutan
+            # Yardımcısı, Bölük Komutanı değil): unvanın her sözcüğü ya söylenen unvanda ya birim adında geçiyor
+            spoken = [*(w for w, _ in title), *(syn for _, syn in title), *fold_words(got.birim)]
+            exact = [c for c in found if all(any(same_word(x, t) for x in spoken) for t in fold_words(c.title))]
+            found = exact if len(exact) == 1 else found
         if len(found) == 1:
             return self._code_transfer(s, Candidate(found[0], 100))
         if 2 <= len(found) <= 3:
             cands = tuple(Candidate(c, 100) for c in found)
             return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
-        line = self._named_unit_line(got.birim) if not found else None
+        line = unit_line if not found else None
         # aktarılamayan hatlar aranabilir kayıtlarda yok: kaynak rehberden
         closed = [c for c in self.tools.index.source_contacts()
                   if line is not None and c.kind != "department" and not c.transferable
@@ -588,7 +599,7 @@ class UnderstandMixin:
             # (sesli deneme S21, 25.11.2026: LLM yolu "…Komutanlığına mı bağlayayım?" diye soruyordu)
             log.info("[%s] %s aktarılamaz: %s hattı", s.call_id, closed[0].title, line.department)
             return self._code_transfer(s, Candidate(line, 100))
-        if not found and (line := self._named_unit_line(got.birim)) is not None:
+        if not found and (line := unit_line) is not None:
             # unvan birimde yok: unvanı atıp birim hattına doğrudan aktarmak yerine sorulur (ölçüm 4, F02: "genel
             # müdürlük sekreter" kalıpta Genel Müdürlük hattına aktarılmıştı)
             asked = self._confirm(s, line, why="unvan birimde bulunamadı")

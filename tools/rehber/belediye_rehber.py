@@ -96,7 +96,7 @@ class BelediyeRehberi:
         self._ekle("b-kurum", "department", KURUM, ["Belediye", "Ilgınova Belediye", "Belediye Santrali"], "",
                    30000, kok, "kurum")
         self._ekle("b-baskan", "role", "Belediye Başkanlığı", ["Başkanlık", "Başkanlık Makamı"], "Belediye Başkanı",
-                   30001, kok + ["Belediye Başkanlığı"], "makam", aktarilabilir=False, takma=["Başkan Bey", "Başkan"])
+                   30001, kok + ["Belediye Başkanlığı"], "makam", takma=["Başkan Bey", "Başkan"])
         for i in range(1, 4):
             self._ekle(f"b-baskan-yrd-{i}", "person", "Belediye Başkanlığı", ["Başkanlık"], "Başkan Yardımcısı",
                        30001 + i, kok + ["Belediye Başkanlığı"], "makam")

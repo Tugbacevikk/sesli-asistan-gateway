@@ -27,14 +27,16 @@ SETS = [
     ("diyalog_seti_demo.yaml", "data/demo_rehber.json", set()),
     ("diyalog_seti_sirket.yaml", "data/sirket_rehber.json", set()),
     ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json", set()),
-    ("diyalog_seti_sesli_deneme.yaml", "data/demo_rehber.json", set()),   # sesli deneme okuma listesi
+    # sesli deneme okuma listesi. S21 ("komutanlığın başındaki kişi"): tarifi kural yolu çözmez, kurum hattına
+    # aktarır (izinsiz değil); LLM anlama yolu komutanın hattına (test_anlama_onarim)
+    ("diyalog_seti_sesli_deneme.yaml", "data/demo_rehber.json", {"S21"}),
     ("diyalog_seti_belediye.yaml", "data/belediye_rehber.json", set()),    # görülmemiş kurum (v9)
 ]
 
 
 # Aynı setler MCP adımı açıkken (canlı kurulumdaki `MCP_STEP=true` akışı; sunucusuz, işlevler yerelde). Kural modu bu
 # yolu sınamıyordu: canlı denemede (10.11.2026) "satıştaki Merve", "Volkan Bey" hataları ancak orada görüldü.
-MCP_KNOWN: dict[str, set[str]] = {}
+MCP_KNOWN: dict[str, set[str]] = {"diyalog_seti_sesli_deneme.yaml": {"S21"}}
 
 
 @pytest.mark.parametrize("mcp", [False, True], ids=["kural", "mcp"])

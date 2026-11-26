@@ -69,11 +69,25 @@ def test_unvan_yoksa_yalniz_birim_hatti() -> None:
     assert _konus("data/demo_rehber.json", soz, {"niyet": "aktar", "birim": "dereköy kaymakamlığı"}) == ["52000"]
 
 
-def test_aktarilamayan_makamda_teyitsiz_birim_hatti() -> None:
-    # S21: komutan hattı aktarılamaz → kural yolundaki gibi komutanlığın genel hattı, teyit sorulmaz
+def test_makam_birimin_es_adiyla_dogrudan() -> None:
+    # S21: "il jandarma komutanlığı" kurumun eş adı, komutan alt birimde (Makam): komutanın hattı, teyitsiz
+    # (karar 26.11.2026: makam hatları aktarılabilir)
     soz = "il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum"
     cikti = {"niyet": "aktar", "unvan": "komutan", "birim": "il jandarma komutanlığı"}
-    assert _konus("data/demo_rehber.json", soz, cikti) == ["30000"]
+    assert _konus("data/demo_rehber.json", soz, cikti) == ["30001"]
+
+
+def test_aktarilamayan_makamda_teyitsiz_birim_hatti(tmp_path: Path) -> None:
+    # rehber bir makamı aktarılamaz işaretlerse: kural yolundaki gibi kurumun genel hattı, teyit sorulmaz
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    for c in data["contacts"]:
+        if c["id"] == "j-komutan":
+            c["transferable"] = False
+    rehber = tmp_path / "rehber.json"
+    rehber.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    soz = "il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum"
+    cikti = {"niyet": "aktar", "unvan": "komutan", "birim": "il jandarma komutanlığı"}
+    assert _konus(str(rehber), soz, cikti) == ["30000"]
 
 
 def test_atlanan_birim_ust_birimle_karismaz() -> None:
@@ -94,3 +108,21 @@ def test_atlanan_birim_ust_birimle_karismaz() -> None:
     first, second = asyncio.run(run())
     assert "Tolga Koç" in first.text and not first.actions
     assert [a.extension for a in second.actions if a.type == "transfer"] == ["30204"]
+
+
+def test_kural_yolunda_aktarilamayan_makam_kurum_hattina(tmp_path: Path) -> None:
+    # kural yolu da aynı: aktarılamaz işaretli vali → valiliğin genel hattı; yardımcısı adıyla istenirse o kişi
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    for c in data["contacts"]:
+        if c["id"] == "v-vali":
+            c["transferable"] = False
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({}), ToolRegistry(index), DialogConfig(llm_enabled=False, understand="kural"))
+
+    async def run(soz: str) -> list[str]:
+        ses = agent.new_session("t")
+        ses.greeting()
+        tr = await ses.handle_user(soz)
+        return [a.extension for a in tr.actions if a.type == "transfer"]
+    assert asyncio.run(run("valiyle görüşmek istiyorum")) == ["20000"]
+    assert asyncio.run(run("vali yardımcısı kemal yılmaz")) == ["20002"]

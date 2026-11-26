@@ -934,6 +934,11 @@ async def main(argv: list[str] | None = None) -> int:
         egitim += ek * a.ek_tekrar
         toplam["gercek"] = len(ek)
         print(f"{'gerçek':8} {len(ek):5} örnek   (eğitimde {a.ek_tekrar} kez)")
+        # aday_veri "rehber" alanına dosya adını yazar ("demo_rehber"); test rehberinin adı ya da dosya adı
+        adlar = {x: x for x in testler} | {Path(REHBERLER[x]).stem: x for x in testler}
+        if sizan_test := sorted({adlar[r.get("rehber", "")] for r in ek if r.get("rehber", "") in adlar}):
+            print(f"  UYARI: ek örnekler test rehberinden ({', '.join(sizan_test)}): o rehberin anlama_test sonucu "
+                  "artık görülmemiş rehber ölçüsü değil (rehbere göre satırında belediye bağımsız kalır)")
     rng.shuffle(egitim)
     out = Path(a.cikti)
     out.mkdir(parents=True, exist_ok=True)

@@ -39,7 +39,7 @@
     "Başkan"
    ],
    "extension": "30001",
-   "transferable": false,
+   "transferable": true,
    "birim_yolu": [
     "Ilgınova Belediyesi",
     "Belediye Başkanlığı"

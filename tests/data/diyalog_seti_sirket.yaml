@@ -89,9 +89,9 @@
 
 # --- 5. AKTARILAMAYAN, OLMAYAN, DAHİLİ, OPERATÖR ---
 - id: R17
-  aciklama: "Genel Müdür makamı aktarılmaz"
+  aciklama: "Genel Müdür makamı doğrudan bağlanır (karar 26.11.2026: makam hatları aktarılabilir)"
   konusma: ["genel müdürle görüşmek istiyorum"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["1101"]}
+  beklenen: {eylem: transfer, dahili: "1101"}
 
 - id: R18
   aciklama: "Rehberde olmayan birim"

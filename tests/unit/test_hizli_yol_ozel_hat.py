@@ -39,7 +39,8 @@ def test_ozel_hat_birim_hattina_yeglenir(agent: DialogAgent, soz: str, dahili: s
     assert _aktarilan(agent, soz) == [dahili]
 
 
-@pytest.mark.parametrize("soz", ["jandarmaya bağlayın", "il jandarma komutanına bağlar mısınız"])
-def test_genel_hat_degismedi(agent: DialogAgent, soz: str) -> None:
-    """Yalnız kurum adı (ya da aktarılamaz makam, ADR-025) söylenince yine birim hattı."""
-    assert _aktarilan(agent, soz) == ["30000"]
+@pytest.mark.parametrize(("soz", "dahili"), [("jandarmaya bağlayın", "30000"),
+                                           ("il jandarma komutanına bağlar mısınız", "30001")])
+def test_genel_hat_degismedi(agent: DialogAgent, soz: str, dahili: str) -> None:
+    """Yalnız kurum adı söylenince yine birim hattı; makam söylenince makamın hattı (karar 26.11.2026)."""
+    assert _aktarilan(agent, soz) == [dahili]

@@ -37,7 +37,7 @@
     "Patron"
    ],
    "extension": "1101",
-   "transferable": false,
+   "transferable": true,
    "birim_yolu": [
     "Genel Müdürlük"
    ],

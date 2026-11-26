@@ -197,7 +197,6 @@ class DemoRehberUretici:
             title="Vali",
             aliases=["Yeşilova Valisi", "Vali Bey"],
             department_aliases=["Valilik"],
-            transferable=False,
         )
 
         # Vali Yardımcısı 1 (Kemal Yılmaz)
@@ -490,7 +489,6 @@ class DemoRehberUretici:
             title="İl Jandarma Komutanı",
             aliases=["Jandarma Komutanı", "Alay Komutanı", "Komutan"],
             department_aliases=["İl Jandarma"],
-            transferable=False,
         )
 
         # Komutan Yardımcısı

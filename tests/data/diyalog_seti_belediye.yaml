@@ -43,9 +43,9 @@
   beklenen: {eylem: transfer, dahili: "36002"}
 
 - id: B08
-  aciklama: "Aktarılamayan makam: belediye başkanı aktarılmaz (vali D15, genel müdür R17 gibi)"
+  aciklama: "Makam: belediye başkanı doğrudan bağlanır (karar 26.11.2026; vali D15, genel müdür R17 gibi)"
   konusma: ["belediye başkanıyla görüşmek istiyorum"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["30001"]}
+  beklenen: {eylem: transfer, dahili: "30001"}
 
 - id: B09
   aciklama: "Hizmet hattı"

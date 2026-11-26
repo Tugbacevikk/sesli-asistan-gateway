@@ -17,7 +17,10 @@ yazılır; elle düzeltilip `--elle` ile yeniden verilebilir (her satırın "cev
     python tools/egitim/anlama_veri.py --ek tools/egitim/veri/aday/aday_egitim.jsonl
 
 Not: sesli deneme cümleleri diyalog setinde de var (tests/data/diyalog_seti_sesli_deneme.yaml). Bozuk biçimleri
-eğitime girdikten sonra o setin sonucu bağımsız ölçü sayılmaz; anlama_test (demo / belediye) etkilenmez.
+eğitime girdikten sonra o setin sonucu bağımsız ölçü sayılmaz. Rehber bir test rehberiyse (demo, belediye) o rehberin
+adları ve birimleri eğitime girer: anlama_test'in o rehber satırı artık "hiç görülmemiş rehber" ölçüsü değildir
+(anlama_veri.py --ek bunu yazar). Gerçek bir kurum rehberiyle toplanan sözlerde gerçek kişi adları olur: eğitim
+verisine girmeden önce ozel_isim_denetim.py çalıştırılmalı (havuz dışı ad bulgu verir).
 """
 from __future__ import annotations
 
@@ -153,7 +156,8 @@ async def isle(adaylar: list[dict[str, Any]], rehber: Path, elle: list[dict[str,
                 tamam.append(ornek(a, soz, dogru[0]))
                 break
         else:
-            kalan.append({**a, "soz": a["sozler"][0], "cevap": etiket_adaylari(a["sozler"][0], c)[:1] or "",
+            # "cevap" metin olmalı: --elle yalnız metin cevaplı satırları okur (liste yazılıyordu, satır atlanıyordu)
+            kalan.append({**a, "soz": a["sozler"][0], "cevap": (etiket_adaylari(a["sozler"][0], c) or [""])[0],
                           "neden": "otomatik etiket doğrulanmadı",
                           "kayit": {"ad": c.full_name, "unvan": c.title, "birim": c.department}})
     return tamam, kalan

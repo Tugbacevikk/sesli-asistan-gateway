@@ -51,9 +51,9 @@
 
 # --- C. Makam ve unvan ---
 - id: S09
-  aciklama: "Makam: il jandarma komutanı (makam hattı aktarılamaz → komutanlığın genel hattı, yardımcısına değil)"
+  aciklama: "Makam: il jandarma komutanı doğrudan bağlanır (karar 26.11.2026), yardımcısına değil"
   konusma: ["il jandarma komutanı ile görüşmek istiyorum"]
-  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
+  beklenen: {eylem: transfer, dahili: "30001", yasak_dahili: ["30002"]}
 
 - id: S10
   aciklama: "Makam: kaymakam"
@@ -114,9 +114,9 @@
 
 # --- F. Tarif ve konu ---
 - id: S21
-  aciklama: "Tarif: başındaki kişi (komutan hattı aktarılamaz → genel hat)"
+  aciklama: "Tarif: başındaki kişi = komutan, doğrudan bağlanır (karar 26.11.2026)"
   konusma: ["il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum"]
-  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
+  beklenen: {eylem: transfer, dahili: "30001", yasak_dahili: ["30002"]}
 
 - id: S22
   aciklama: "Birim içinden ad"

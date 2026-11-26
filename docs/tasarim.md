@@ -2211,9 +2211,14 @@ ondan bağımsızdır.
   - Görülmemiş kurum: uydurma belediye rehberi (başka il ve yapı) eğitimde hiç kullanılmaz; anlama testi ve diyalog
     seti (B01–B16).
 - **Sonuç:** Belediye seti modelden önce kural katmanında dört genelleme hatası yakaladı (biri yanlış aktarma:
-  "muhasebe şefini" → birim hattı); düzeltildi. Açık: aktarılamayan en üst makam istenince (vali, genel müdür,
-  belediye başkanı) aktarma yok (D15, R17, B08), il jandarma komutanında kurum hattı (D16): ürün kararı tutarlı hale
-  getirilmeli.
+  "muhasebe şefini" → birim hattı); düzeltildi.
+- **Makam hatları (karar 26.11.2026):** uydurma rehberlerde makam hatları (vali, il jandarma komutanı, genel müdür,
+  belediye başkanı) artık aktarılabilir: istenince doğrudan makamın hattına (D15, D16, R17, B08, S13). Önceden vali,
+  genel müdür ve belediye başkanında aktarma yoktu, il jandarma komutanında kurum hattına gidiliyordu (tutarsız).
+  Gerçek bir rehber bir makamı aktarılamaz işaretlerse çağrı kapanmaz: kural ve LLM yolunda makamın en yakın üst
+  biriminin genel hattına, teyitsiz (`_step_closed_role`, `_title_in_unit`). Yardımcısı ya da sekreteri istenirse
+  ("genel müdürün sekreteri") o kişi; makam unvanı burada rakip sayılmaz (titles.title_rivals). Belgegeçer (faks)
+  ve eski kayıtlar aktarılamaz kalır.
 
 ### Ek A — Repo yapısı
 

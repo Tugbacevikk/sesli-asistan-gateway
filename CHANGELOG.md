@@ -136,6 +136,14 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- **Makam hatları doğrudan aktarılır** (karar 26.11.2026): "valiyle", "il jandarma komutanına", "genel müdürle",
+  "belediye başkanıyla" → makamın kendi hattı (uydurma rehberlerde aktarılabilir işaretlendi; önceden aktarma yoktu
+  ya da kurum hattına gidiliyordu). Rehber bir makamı aktarılamaz işaretlerse kurumun genel hattına aktarılır (kural
+  ve LLM yolu aynı). "Genel müdürün sekreteri" → asistan (genel müdür rakip sorulmaz); "kaliteden sorumlu müdür
+  hanım" → Kalite Müdürü ("kiminle?" sorulmaz). LLM yolunda birim eş adıyla söylenen makam ("il jandarma
+  komutanlığının başındaki kişi") komutanın hattına. Faks hatları aktarılamaz kalır.
+- `aday_veri.py`: elle etiketlenecek satırın `cevap` alanı liste yazılıyordu, `--elle` o satırları atlıyordu (metin).
+  `anlama_veri.py --ek`: ek örnekler test rehberinden (demo) geliyorsa uyarır (o rehberin testi artık bağımsız değil).
 - Görülmemiş kurum (belediye) setinin bulduğu kural hataları: birim eş adıyla unvan birlikte söylenince ("muhasebe
   şefini") birimin genel hattına aktarılıyordu (yanlış aktarma), artık unvanı tam söylenen tek hat; çok sözcüklü
   hizmet hattı ("su arıza nöbetçisine") bulunamıyordu; birimin tek hattı olan hizmet hattında ("beyaz masaya")
