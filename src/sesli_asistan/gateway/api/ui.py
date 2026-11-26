@@ -127,8 +127,16 @@ def _precheck(request: Request, settings: Any, content_type: str | None = None,
     return None
 
 
-async def _json_body(request: Request) -> Any:
-    return json.loads(await request.body() or b"{}")
+async def _json_body(request: Request) -> dict[str, Any]:
+    """İstek gövdesi JSON nesnesi; bozuk JSON ya da nesne olmayan değer ValueError (çağıran 400 döner; önceden
+    bazı uç noktalarda 500 oluyordu)."""
+    try:
+        body = json.loads(await request.body() or b"{}")
+    except ValueError:
+        raise ValueError("geçersiz JSON") from None
+    if not isinstance(body, dict):
+        raise ValueError("JSON nesnesi olmalı")
+    return body
 
 
 def _csv(data: bytes, name: str) -> Response:
@@ -178,10 +186,8 @@ def _mount_settings(app: FastAPI, health: Callable[[], dict[str, Any]], settings
         """Kelime düzeltmeleri: bir sözün düzeltilmiş hali (kaydetmeden denemek için; izleyici de deneyebilir)."""
         if (bad := _precheck(request, settings, "application/json", admin=False)) is not None:
             return bad
-        body = await _json_body(request)
-        if not isinstance(body, dict):
-            return _err(400, "BAD_REQUEST", "JSON nesnesi olmalı")
         try:
+            body = await _json_body(request)
             return JSONResponse({"text": settings.try_corrections(body.get("text", ""), body.get("corrections"))})
         except ValueError as e:
             return _err(400, "BAD_REQUEST", str(e))
@@ -298,9 +304,10 @@ def _mount_monitoring(app: FastAPI, manager: CallManager, history: Any, access: 
             return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
         if getattr(history, "feedback_set", None) is None:
             return _err(404, "NOT_FOUND", "geri bildirim yok")
-        body = await _json_body(request)
-        if not isinstance(body, dict):
-            return _err(400, "BAD_REQUEST", "JSON nesnesi olmalı")
+        try:
+            body = await _json_body(request)
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
         verdict = str(body.get("karar") or "")
         ext = " ".join(str(body.get("dogru_dahili") or "").split())
         note = " ".join(str(body.get("not") or "").split())[:300]

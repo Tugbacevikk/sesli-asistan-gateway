@@ -222,6 +222,11 @@ def test_kelime_duzeltmesi_aninda_uygulanir_ve_gecmise_yazilir():
         assert dene.json()["text"] == "bilgi işlem"
         r = put(tc, {"corrections": {"ama tepe": "Anıttepe"}})
         assert rt.agent.cfg.stt_corrections.apply("masebe") == "masebe"
+        # bozuk / nesne olmayan gövde 400 (önceden 500)
+        for govde in ("{bozuk", "[1, 2]"):
+            assert tc.post("/v1/admin/corrections/try", content=govde, headers=JSON).status_code == 400
+            assert tc.post("/v1/admin/directory/apply", content=govde, headers=JSON).status_code == 400
+            assert tc.put("/v1/admin/settings", content=govde, headers=JSON).status_code == 400
 
 
 def test_kelime_duzeltmesi_degisiklik_ozeti():
