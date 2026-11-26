@@ -2430,7 +2430,7 @@ Değiştirmeden önce iki senaryo seti de çalıştırılır (`tests/eval/diyalo
 | FUZZY_TARGET_MIN | 82 | bozuk duyulan birim adı ("masebeye"), yalnız teyitle | sesli set 05.11.2026 |
 | GROUNDED_MIN | 75 | düşük güvende LLM'in hedefi sözde geçmeli | canlı 05.11.2026 ("çokağa" ~ "kaya" 67,5) |
 | SOUND_MIN / SOUND_MARGIN | 65 / 25 | ses benzerliğiyle ad, teyitle | ADR-026, ölçüm 04.11.2026 |
-| MIN_NOISE_MS | 600 | kısa boş sonuç gürültü | canlı 02.11.2026 |
+| MIN_NOISE_MS | 1600 | kısa boş sonuç gürültü (600'den; hoparlör yankısı, sesli deneme 26.11.2026) | canlı 02.11.2026 |
 | NOISE_BELOW / NOISE_MAX_LETTERS | 0,2 / 2 | gürültü kırıntısı ("b") cevaplanmaz | canlı 04.11.2026 |
 | BARGE_IN_LEVEL_MARGIN_DB | 6 dB | söze girme anı arayanın kendi seviyesinin bu kadar altındaysa sayılmaz | canlı 05.11.2026 (arayan -29 / -31, video -37 / -38 dBFS) |
 | BACKGROUND_SPEECH_MARGIN_DB | 8 dB | anlaşılan bir söz arayanın kendi seviyesinin bu kadar altındaysa cevaplanmaz, deneme sayılmaz (arka plan konuşması; ayar `BACKGROUND_MARGIN_DB`, 0: kapalı; arayanın seviyesi bilinmiyorken çalışmaz) | ofiste deneme 09.11.2026; söze girme kapısından 2 dB geniş: tüm söz atıldığı için daha temkinli |

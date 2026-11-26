@@ -253,8 +253,11 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
     def _on_heard(self, ev: Event, k: str) -> None:
         """STT sonucu (metin ya da anlaşılamadı): gürültü, arka plan ve kapının saymadığı sözler elenir; kalan söz
         sıradaki tura girer."""
-        if k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms:
-            return  # öksürük, tık: cevaplanmaz, deneme sayılmaz
+        if (k == "not_recognized" and ev.data["reason"] == "empty" and ev.data["ms"] < self.cfg.min_noise_ms
+                and not self._barged):
+            # öksürük, tık, yankı: cevaplanmaz, deneme sayılmaz. Söze girilmişse (asistan sustu) yarıda kalan cümle
+            # yeniden söylenir: sessiz kalınmaz
+            return
         if k == "final" and self._noise_fragment(ev.data):
             log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
                      ev.data.get("confidence") or 0)

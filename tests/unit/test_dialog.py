@@ -720,7 +720,8 @@ async def test_secimde_anlasilmayan_cevapta_soru_kodla_yinelenir_ve_acik_kalir()
     s = a.new_session("c")
     q = await s.handle_user("ayşe hanım lütfen")
     t = await s.handle_user("ateşe girmem")
-    assert not t.actions and t.text == q.text and a.llm.seen == [] and s.state.failed_attempts == 1
+    # soru yinelenir (sayıyla seçim önerisi eklenir: choice_by_number)
+    assert not t.actions and t.text.startswith(q.text) and a.llm.seen == [] and s.state.failed_attempts == 1
     t = await s.handle_user("bir işe yaramaz")                 # "-maz": Yılmaz'a yakın → teyit
     assert t.text == "Ayşe Yılmaz'a mı bağlamamı istersiniz?"
     t = await s.handle_user("evet")
@@ -804,7 +805,7 @@ async def test_cok_dusuk_guvende_secim_sorusu_acik_kalir_operator_ve_kapatma_cal
     await s.handle_user("ayşe hanım lütfen")
     s.stt_confidence = 0.41
     t = await s.handle_user("teşekkürler")
-    assert t.text == "Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?" and a.llm.seen == []
+    assert t.text.startswith("Satıştan Ayşe Kaya mı, Muhasebeden Ayşe Yılmaz mı?") and a.llm.seen == []
     s.stt_confidence = 0.96
     t = await s.handle_user("yılmaz")
     assert [x.extension for x in t.actions] == ["214"]

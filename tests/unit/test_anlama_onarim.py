@@ -208,4 +208,28 @@ def test_secenek_sorusunda_bozuk_yer_adi_teyitle() -> None:
     assert soru == "Dereköy Nüfus Müdürüne mi bağlamamı istersiniz?" and ilgili and ext == ["52021"]
     assert asyncio.run(run("dere köy"))[2] == ["52021"]          # bitişik yazılınca doğrudan
     soru, ilgili, _ = asyncio.run(run("tekrar"))
-    assert soru == "Akçakaya mı, Dereköy mü?" and not ilgili       # ilgisiz söz: seçenek uydurulmaz
+    assert soru.startswith("Akçakaya mı, Dereköy mü?") and not ilgili   # ilgisiz söz: seçenek uydurulmaz
+
+
+def test_secenek_cevabi_anlasilmazsa_sayiyla_secilir() -> None:
+    # sesli deneme 26.11.2026: "Dereköy" defalarca "ne kör bir dekar", "bir sorumuz var" duyuldu; sayı sağlam duyulur
+    from sesli_asistan.gateway.core.phrases import number_answer
+    assert number_answer(["iki"]) == 1 and number_answer(["2"]) == 1
+    assert number_answer(["bir", "sorumuz", "var"]) is None
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({}), ToolRegistry(index), DialogConfig(understand="kural", llm_enabled=False))
+
+    async def run(*sozler: str) -> list[tuple[str, list[str]]]:
+        ses = agent.new_session("t")
+        ses.greeting()
+        out = []
+        for soz in sozler:
+            tr = await ses.handle_user(soz)
+            out.append((tr.text, [a.extension for a in tr.actions if a.type == "transfer"]))
+        return out
+    out = asyncio.run(run("kaymakamla görüşmek istiyorum", "ne kör bir dekar", "iki"))
+    assert out[0][0] == "Akçakaya mı, Dereköy mü?"
+    assert out[1] == ("Akçakaya mı, Dereköy mü? Birincisi için bir, ikincisi için iki diyebilirsiniz.", [])
+    assert out[2][1] == ["52001"]
+    assert asyncio.run(run("kaymakamla görüşmek istiyorum", "bir sorumuz var", "1"))[2][1] == ["51001"]

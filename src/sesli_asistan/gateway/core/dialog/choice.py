@@ -26,6 +26,7 @@ from ..phrases import (
     YES_WORDS,
     ablative,
     contact_dative,
+    number_answer,
     question_particle,
     spoken_numbers,
     vowel_mask,
@@ -346,6 +347,8 @@ class ChoiceMixin:
         for word, idx in ORDINALS.items():
             if word in words and -len(choice) <= idx < len(choice):
                 picked.add(idx % len(choice))
+        if not picked and (n := number_answer(words)) is not None and n < len(choice):
+            picked.add(n)                              # "iki": sayıyla seçim (choice_by_number)
         if not picked:
             return self._fuzzy_choice(s, text, words, choice)
         if len(picked) > 1 and (exact := _exact_title(choice, picked, words)) is not None:
@@ -391,6 +394,7 @@ class ChoiceMixin:
         if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (YES_WORDS | NEGATION_WORDS):
             return True
         if s.state.choice and (any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice)))
+                               or number_answer(words) is not None
                                or wants_anyone(text) or _label_pick(s.state.choice, words) is not None):
             return True
         numbers = [*re.findall(r"\d{2,6}", text), *spoken_numbers(words)]
@@ -410,6 +414,8 @@ class ChoiceMixin:
             # "evet" seçim değil: soru "Hangisini istersiniz: X mi, Y mi?" diye açılır (aynı cümle döngü gibi duyulur)
             s.state.choice_question = q
             q = self.cfg.texts.which_one.format(soru=q)
+        if q and 2 <= len(choice) <= 3 and self.cfg.texts.choice_by_number:
+            q = f"{q} {self.cfg.texts.choice_by_number}"   # kısa yer / ad cevabı bozuk duyuluyor: sayı sağlam
         turn = self._reply(s, q or self.cfg.texts.not_understood)
         turn.fast = True
         return turn
