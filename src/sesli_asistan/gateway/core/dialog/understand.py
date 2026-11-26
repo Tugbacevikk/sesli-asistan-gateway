@@ -645,6 +645,15 @@ class UnderstandMixin:
             log.info("[%s] anlama (LLM, %.0f ms): konu %r → %r rehberde yok", s.call_id, ms, got.konu,
                      got.tahmini_birim)
             return None
+        table = self.tools.topic_table()
+        topic = table.topic_of(u.text) if table is not None else None
+        if table is not None and topic is not None and topic.departments and not table.fits(topic, pick.department):
+            # konu listesi bu konunun birimini biliyor ("cari hesap" → muhasebe / mali işler), LLM'in tahmini başka
+            # bir birim: rehberde o birim yok demektir, uydurma öneri sorulmaz (deneme 26.11.2026: cari hesap →
+            # İl Milli Eğitim Müdürlüğü)
+            log.info("[%s] anlama (LLM, %.0f ms): konu %r → %r konu listesine uymuyor, önerilmez", s.call_id, ms,
+                     got.konu, pick.department)
+            return None
         log.info("[%s] anlama (LLM, %.0f ms): konu %r → %s (teyit)", s.call_id, ms, got.konu, pick.extension)
         asked = self._confirm(s, pick, why="konudan tahmin edilen birim")
         s.state.confirm_suggested = True
