@@ -73,8 +73,8 @@
   beklenen: {eylem: transfer, dahili: "30305"}
 
 - id: J14
-  aciklama: "Ağır şive + harf kaybı"
-  konusma: ["usagum jandarma personelden tolga koca verusun"]
+  aciklama: "Ağır şive + harf kaybı; \"koca\" ≠ Koç: teyit sorulabilir, \"he\" ile aktarılır (v8, 25.11.2026)"
+  konusma: ["usagum jandarma personelden tolga koca verusun", "he"]
   beklenen: {eylem: transfer, dahili: "30204"}
 
 # --- GÜVENLİK: saldırı / konu dışı, aktarma olmamalı ---

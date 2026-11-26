@@ -46,7 +46,7 @@ from ..phrases import (
 )
 from ..ports import LlmError
 from ..resilience import supports_json
-from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, search_key
+from ..search import HONORIFICS, PLACE_WORDS, UNIT_NOUNS, fold_words, is_role_word, search_key
 from ..thresholds import CHOICE_WORD
 from ..words import same_word
 
@@ -512,6 +512,14 @@ class UnderstandMixin:
                      got.summary())
             return turn
         only_unit = got.niyet == "aktar" and got.birim and not (got.ad or got.soyad or got.unvan or got.dahili)
+        if only_unit and (said := self._unsaid_title(u.text, got.birim)):
+            # LLM sözdeki unvanı atladı: "dereköy kaymakamına" → yalnız birim; birim hattı (52000) değil kaymakam
+            # (52001). Sesli deneme S26, 25.11.2026: iki modelde de birim hattına aktarılıyordu
+            with_title = replace(got, unvan=said)
+            if (turn := self._title_in_unit(s, with_title)) is not None:
+                log.info("[%s] anlama (LLM, %.0f ms): %s → %s → sözdeki unvan eklendi: %s", s.call_id, ms,
+                         log_text(u.text), got.summary(), said)
+                return turn
         if only_unit and (line := self._named_unit_line(got.birim)) is not None:
             # yalnız birim: kalıp söze çevirmeden birim hattı (ölçüm 4, F15: "yurt dışı satış" kalıpta bulunamadı)
             log.info("[%s] anlama (LLM, %.0f ms): %s → %s → birim hattı %s", s.call_id, ms, log_text(u.text),
@@ -567,6 +575,19 @@ class UnderstandMixin:
         if 2 <= len(found) <= 3:
             cands = tuple(Candidate(c, 100) for c in found)
             return self._ask_titles(s, cands) or self._clarify(s, cands, lines=True)
+        line = self._named_unit_line(got.birim) if not found else None
+        # aktarılamayan hatlar aranabilir kayıtlarda yok: kaynak rehberden
+        closed = [c for c in self.tools.index.source_contacts()
+                  if line is not None and c.kind != "department" and not c.transferable
+                  and (c.department == line.department or line.department in c.unit_path
+                       or key in {search_key(n) for n in (c.department, *c.department_aliases)})
+                  and all(any(same_word(w, t) or same_word(syn, t) for t in fold_words(c.title))
+                          for w, syn in title)]
+        if closed and line is not None:
+            # istenen makam aktarılamaz (il jandarma komutanı): kural yolundaki gibi birimin genel hattı, teyitsiz
+            # (sesli deneme S21, 25.11.2026: LLM yolu "…Komutanlığına mı bağlayayım?" diye soruyordu)
+            log.info("[%s] %s aktarılamaz: %s hattı", s.call_id, closed[0].title, line.department)
+            return self._code_transfer(s, Candidate(line, 100))
         if not found and (line := self._named_unit_line(got.birim)) is not None:
             # unvan birimde yok: unvanı atıp birim hattına doğrudan aktarmak yerine sorulur (ölçüm 4, F02: "genel
             # müdürlük sekreter" kalıpta Genel Müdürlük hattına aktarılmıştı)
@@ -574,6 +595,21 @@ class UnderstandMixin:
             s.state.confirm_suggested = True
             return asked
         return None
+
+    def _unsaid_title(self: DialogAgent, said: str, birim: str) -> str:
+        """Sözde geçen, birim adının parçası olmayan ve o birimde (alt birimleri dahil) aktarılabilir bir hattın
+        unvanını tutan unvan sözcüğü ("dereköy kaymakamına" + birim Dereköy Kaymakamlığı → "kaymakam"); yoksa ""."""
+        key = search_key(birim)
+        unit_words = fold_words(birim)
+        for w in fold_words(said):
+            if not is_role_word(w) or any(same_word(w, b) for b in unit_words):
+                continue
+            for c in self.tools.index.contacts():
+                if (c.kind != "department" and c.transferable and not c.deleted and c.title
+                        and key in {search_key(n) for n in (c.department, *c.department_aliases, *c.unit_path)}
+                        and any(same_word(w, t) for t in fold_words(c.title))):
+                    return next(t for t in fold_words(c.title) if same_word(w, t))
+        return ""
 
     def _named_unit_line(self: DialogAgent, birim: str) -> Any:
         """Birimin hattı: adıyla ya da eş anlamlısıyla; hat yoksa tek kişisi. Bulunamazsa None."""

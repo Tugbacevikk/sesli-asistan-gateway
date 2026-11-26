@@ -55,3 +55,42 @@ def test_kendini_tanitma_yoksa_ad_korunur() -> None:
     got, notes = Understanding(niyet="aktar", ad="elif").repaired(
         "elif hanımla görüşecektim", frozenset({"elif"}), frozenset(), lambda b: False)
     assert got.ad == "elif" and not any("kendi adı" in n for n in notes)
+
+
+# Sesli deneme v8 ölçümü 25.11.2026: LLM sözdeki bir bilgiyi atladı, kod eksik JSON'a güvendi.
+def test_atlanan_unvan_birim_hattina_degil_makama() -> None:
+    # S26: "dereköy kaymakamına" → yalnız birim; birim hattı 52000 değil kaymakam 52001
+    soz = "selamünaleyküm gardaş dereköy kaymakamına bağla hele"
+    assert _konus("data/demo_rehber.json", soz, {"niyet": "aktar", "birim": "dereköy kaymakamlığı"}) == ["52001"]
+
+
+def test_unvan_yoksa_yalniz_birim_hatti() -> None:
+    soz = "dereköy kaymakamlığına bağlar mısınız"
+    assert _konus("data/demo_rehber.json", soz, {"niyet": "aktar", "birim": "dereköy kaymakamlığı"}) == ["52000"]
+
+
+def test_aktarilamayan_makamda_teyitsiz_birim_hatti() -> None:
+    # S21: komutan hattı aktarılamaz → kural yolundaki gibi komutanlığın genel hattı, teyit sorulmaz
+    soz = "il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum"
+    cikti = {"niyet": "aktar", "unvan": "komutan", "birim": "il jandarma komutanlığı"}
+    assert _konus("data/demo_rehber.json", soz, cikti) == ["30000"]
+
+
+def test_atlanan_birim_ust_birimle_karismaz() -> None:
+    # J14: "jandarma personelden tolga koca" → yalnız ad soyad; birim Jandarma Personel eklenir (Komutanlık değil,
+    # "Jandarma mı, Dereköy mü?" sorulmaz). "koca" ≠ "Koç": Tolga Koç teyit edilir, "evet" → 30204
+    soz = "usagum jandarma personelden tolga koca verusun"
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    llm = MapLlm({soz: {"niyet": "aktar", "ad": "tolga", "soyad": "koca"}})
+    agent = DialogAgent(llm, ToolRegistry(index), DialogConfig(understand="llm"))
+
+    async def run():
+        ses = agent.new_session("t")
+        ses.greeting()
+        first = await ses.handle_user(soz)
+        second = await ses.handle_user("evet")
+        return first, second
+    first, second = asyncio.run(run())
+    assert "Tolga Koç" in first.text and not first.actions
+    assert [a.extension for a in second.actions if a.type == "transfer"] == ["30204"]

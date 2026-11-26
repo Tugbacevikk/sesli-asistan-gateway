@@ -119,6 +119,12 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- LLM sözdeki bir bilgiyi atlayınca kod eksik JSON'a güveniyordu (v8 ölçümü, sesli deneme, iki modelde de):
+  "dereköy kaymakamına" → yalnız birim, kaymakam (52001) yerine kaymakamlık hattına (52000) aktarılıyordu (S26):
+  sözde geçen ve o birimde bir hattın tuttuğu unvan eklenir. Aktarılamayan makam istendiğinde ("il jandarma
+  komutanlığının başındaki kişi") LLM yolu da kural yolu gibi teyitsiz birim hattına gider (S21). "jandarma
+  personelden tolga koca" → atlanan birim Jandarma Komutanlığı ile karıştırılıp "Jandarma mı, Dereköy mü?"
+  soruluyordu (J14): sözdeki birim en tam eşleşmeyle bulunur.
 - Birim adının parçası ayrı hedef sayılıyordu: "dereköy nüfus müdürlüğü" → "Akçakaya mı, Dereköy mü?", "valilik
   hukuk işleri" → üç seçenek. Sözde başka bir birimin eşleşmesinin içinde kalan birim atılır (`drop_dominated`);
   benzer adlı birimlerde tam adla söylenen birim doğrudan aktarılır.
