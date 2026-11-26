@@ -198,6 +198,17 @@ def is_small_talk(text: str) -> bool:
     return bool(w & (_HOW_ARE_YOU - {"ne", "haber"})) or {"ne", "haber"} <= w
 
 
+_REQUEST_STEMS = ("bagla", "aktar", "gorus", "istiyor", "isterim", "ariyor", "konus", "verir", "verin", "lazim",
+                  "sorum", "soracak", "bilgi")
+
+
+def is_pure_small_talk(text: str) -> bool:
+    """Hal hatır ve istek yok ("merhaba nasılsınız bugün hava çok güzel"): hızlı yola sokulmadan sohbet cevabı verilir
+    (deneme 26.11.2026: "günaydın" adlarla eşleşip "Valilik mi, Dereköy mü?" soruldu). İstek sözcüğü varsa
+    ("selam nasılsın muhasebeye bağlar mısın") istek önce gelir."""
+    return is_small_talk(text) and not any(w.startswith(_REQUEST_STEMS) for w in fold_tr_words(text))
+
+
 def is_greeting_only(text: str, noise: int = 0) -> bool:
     """Söz yalnız selam / hal hatır / "alo, duyuyor musunuz" mu (bir istek yok)? En az bir selam sözü olmalı.
     Sonu kesilmiş selam ("merhab") selam sayılır. `noise`: tanınmayan en çok kaç sözcüğe izin verilir (STT kırıntısı:

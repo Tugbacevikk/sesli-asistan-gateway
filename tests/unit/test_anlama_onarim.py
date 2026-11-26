@@ -146,3 +146,21 @@ def test_konu_soylenince_genel_istek_sorulmaz() -> None:
         return (await ses.handle_user(soz)).text
     # demo rehberinde muhasebe yok: "kişiyi bulamadım" değil, konu cevabı
     assert asyncio.run(run()).startswith("Bu konuyla ilgili birimi bulamadım")
+
+
+def test_hal_hatir_hizli_yola_girmez() -> None:
+    # deneme 26.11.2026: SMALL_TALK açıkken "günaydın nasılsınız" adımlara bırakıldı, hızlı yol "günaydın"ı "Aydın"
+    # soyadı sandı ("Valilik mi, Dereköy mü?")
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({}), ToolRegistry(index), DialogConfig(understand="llm", small_talk=True))
+
+    async def run(soz: str) -> tuple[str, list[str]]:
+        ses = agent.new_session("t")
+        ses.greeting()
+        tr = await ses.handle_user(soz)
+        return tr.text, [a.extension for a in tr.actions if a.type == "transfer"]
+    for soz in ("günaydın nasılsınız", "merhaba nasılsınız bugün hava çok güzel"):
+        text, ext = asyncio.run(run(soz))
+        assert "mi," not in text and not ext and text.endswith("kiminle görüşmek istersiniz?"), (soz, text)
+    assert asyncio.run(run("günaydın hasan aydın ile görüşmek istiyorum"))[1] == ["20032"]
