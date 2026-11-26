@@ -10,6 +10,9 @@ Akış (demo, kendi makinende):
   3. Raporu çıkar (çağrı kayıtları: CALL_LOG_DIR, varsayılan cagri_kayitlari/; metinler için LOG_TEXTS=true):
          python tools/deneme/sesli_rapor.py rapor --gun 2026-11-25 --baslangic 14:00 --cikti sesli_rapor.md
 
+  4. STT'nin bozduğu rehber sözcüklerinden kelime düzeltmesi önerisi (Ayarlar → Kelime düzeltmeleri):
+         python tools/deneme/stt_duzeltme.py sesli_rapor.json --rehber data/demo_rehber.json
+
 Eşleme: çağrılar başlama saatine göre sıralanır ve listedeki senaryolara sırayla verilir. Bir senaryo atlandıysa ya
 da araya başka bir çağrı girdiyse `--atla S07` / `--baslangic SS:DD` ile düzelt. Her çağrı için ilk duyulan söz
 listedeki ilk cümleyle karşılaştırılır; çok farklıysa (sözcük benzerliği < %30) uyarı yazılır: eşleme kaymış olabilir.

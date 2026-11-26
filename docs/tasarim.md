@@ -1932,6 +1932,10 @@ ondan bağımsızdır.
   rehberdeki gerçek bir ad ya da birim düzeltilemez (bütün aramaları bozardı); en çok 300 satır. "Dene" kutusu
   kaydetmeden yazılan tabloyla sonucu gösterir (`POST /v1/admin/corrections/try`, izleyici de kullanabilir).
   Değişiklikler geçmişe yazılır.
+- **Öneri aracı (26.11.2026):** `tools/deneme/stt_duzeltme.py` sesli deneme raporundaki söylenen / duyulan cümleleri
+  sözcük sözcük hizalar; söylenen tarafında rehber sözcüğü olan ayrışmaları "duyulan → doğrusu" önerisi olarak, kaç
+  kez görüldüğüyle verir (ayar ekranının kurallarıyla; ek farkı ve rehberle ilgisiz sözler atılır). Kurulumda
+  kurumun ilk denemelerinden listeyi çıkarmanın yolu budur; bir kez görülen öneri okuma hatası olabilir.
 
 ### ADR-034 — Diyalog yöneticisi konu konu modüllere bölündü
 
