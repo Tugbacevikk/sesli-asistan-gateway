@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Ayar ekranında **Kelime düzeltmeleri** (ADR-033): STT'nin sık yanlış duyduğu sözler ve doğruları ("masebe" →
+  "muhasebe") arayüzden eklenir, yeniden başlatmadan geçerli olur; ek korunur. Kurum dosyasındakilerle birleşir
+  (salt okunur gösterilir). Cevap sözcükleri ve rehberdeki gerçek adlar düzeltilemez. "Dene" kutusu, değişiklik
+  geçmişi.
 - Kısa sohbet ince ayarlı modelle (ADR-035 revizyonu): hal hatır ("günaydın, nasılsınız") araçsız tek LLM çağrısıyla
   cevaplanır (`core/dialog/small_talk.py`); model yalnız sıcak bir cümle kurar, "Kiminle görüşmek istersiniz?" kodla
   eklenir, denetimden geçmeyen cümlede kodun selamı. Önceden gemma-santral araç desteklemediği için sohbet cevabı

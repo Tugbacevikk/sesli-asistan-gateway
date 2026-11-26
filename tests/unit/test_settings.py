@@ -203,3 +203,74 @@ def test_yeni_anonslar_ayar_dogrulamasi():
     with pytest.raises(ValueError, match="yer tutucu almaz"):
         GatewaySettings(_env_file=None, not_found_text="{ad} yok")
     assert GatewaySettings(_env_file=None, busy_text="{ad} hatta.").dialog_texts().busy == "{ad} hatta."
+
+
+# --- kelime düzeltmeleri (ADR-033, ayar ekranı) -------------------------------------------------------------
+def test_kelime_duzeltmesi_aninda_uygulanir_ve_gecmise_yazilir():
+    tc, rt = client()
+    with tc:
+        r = put(tc, {"corrections": {"masebe": "muhasebe", "ama tepe": "Anıttepe", "": ""}})
+        assert r.status_code == 200, r.text
+        assert r.json()["corrections"] == {"masebe": "muhasebe", "ama tepe": "Anıttepe"}
+        # ek korunur, yeniden başlatma gerekmez
+        assert rt.agent.cfg.stt_corrections.apply("masebeye bağlar mısınız") == "muhasebeye bağlar mısınız"
+        dene = tc.post("/v1/admin/corrections/try", content=json.dumps({"text": "ama tepedeki şube"}), headers=JSON)
+        assert dene.json()["text"] == "Anıttepedeki şube"
+        # kaydetmeden, yazılan tabloyla dene
+        dene = tc.post("/v1/admin/corrections/try", headers=JSON,
+                       content=json.dumps({"text": "bilgi işlen", "corrections": {"bilgi işlen": "bilgi işlem"}}))
+        assert dene.json()["text"] == "bilgi işlem"
+        r = put(tc, {"corrections": {"ama tepe": "Anıttepe"}})
+        assert rt.agent.cfg.stt_corrections.apply("masebe") == "masebe"
+
+
+def test_kelime_duzeltmesi_degisiklik_ozeti():
+    from sesli_asistan.gateway.local_settings import LocalSettings
+    from sesli_asistan.gateway.settings_service import describe_changes
+
+    eski = LocalSettings(corrections={"masebe": "muhasebe", "ama tepe": "Anıtepe"})
+    yeni = LocalSettings(corrections={"ama tepe": "Anıttepe", "bilgi işlen": "bilgi işlem"})
+    assert describe_changes(eski, yeni, None) == [
+        "kelime düzeltmesi değişti: ama tepe → Anıttepe (önce Anıtepe)",
+        "kelime düzeltmesi eklendi: bilgi işlen → bilgi işlem",
+        "kelime düzeltmesi silindi: masebe → muhasebe"]
+
+
+@pytest.mark.parametrize("fixes,msg", [
+    ({"evet": "hayır"}, "cevap sözcüğü"),
+    ({"operatör": "muhasebe"}, "cevap sözcüğü"),
+    ({"masebe": ""}, "ikisi de dolu"),
+    ({"masebe": "masebe"}, "doğrusu yanlış duyulanla aynı"),
+    ({"bir iki üç dört beş altı": "x"}, "en çok 5 sözcük"),
+    ({"masebe": "muhasebe", "Masebe": "muhasebe"}, "iki kez"),
+])
+def test_hatali_kelime_duzeltmesi_kaydedilmez(fixes, msg):
+    tc, rt = client()
+    with tc:
+        r = put(tc, {"corrections": fixes})
+        assert r.status_code == 400 and msg in r.json()["error"]["message"], r.text
+        assert not rt.agent.cfg.stt_corrections
+
+
+def test_rehberdeki_gercek_ad_duzeltilemez():
+    tc, rt = client()
+    with tc:
+        c = next(c for c in rt.directory.index.source_contacts() if c.kind == "person")
+        r = put(tc, {"corrections": {c.full_name: "başka biri"}})
+        assert r.status_code == 400 and "rehberde gerçek" in r.json()["error"]["message"]
+
+
+def test_kurum_dosyasindaki_duzeltmelerle_birlesir(tmp_path):
+    kurum = tmp_path / "kisaltmalar.json"
+    kurum.write_text(json.dumps({"stt_duzeltmeleri": {"masaj bakanlığı": "asayiş başkanlığı", "masebe": "masa"}}),
+                     encoding="utf-8")
+    path = str(tmp_path / "ayar.json")
+    s = GatewaySettings(_env_file=None, directory_path=str(ROOT / "data/rehber_ornek.json"), local_settings_file=path,
+                        abbreviations_path=str(kurum))
+    LocalSettingsStore(path).save({"corrections": {"Masebe": "muhasebe"}})
+    rt = GatewayRuntime(s, llm=object(), stt=object(), tts=object())
+    fix = rt.agent.cfg.stt_corrections
+    assert fix.apply("masaj bakanlığına") == "asayiş başkanlığına"      # kurum dosyasından
+    assert fix.apply("masebeye") == "muhasebeye"                          # ayar ekranındaki öncelikli
+    assert rt.settings.view()["corrections_base"]["masaj bakanlığı"] == "asayiş başkanlığı"
+    rt.history.close()

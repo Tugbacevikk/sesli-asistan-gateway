@@ -91,13 +91,14 @@ def test_ayar_ekrani_cevap_bicimi():
     with tc:
         v = tc.get("/v1/admin/settings").json()
     assert set(v) == {"writable", "user", "texts", "office", "aliases", "contacts", "prompts_missing",
-                      "directory_upload"}
+                      "directory_upload", "corrections", "corrections_base"}
     assert set(v["user"]) == {"name", "role"}
     assert all(set(t) == {"name", "label", "placeholders", "value", "default", "changed"} for t in v["texts"])
     assert set(v["office"]) == {"hours", "holidays", "mode", "status", "timezone"}
     assert v["contacts"] and all(set(c) == {"id", "name", "department", "title", "extension", "kind", "aliases",
                                             "local", "duplicate"} for c in v["contacts"])
     assert isinstance(v["aliases"], dict) and isinstance(v["prompts_missing"], bool)
+    assert isinstance(v["corrections"], dict) and isinstance(v["corrections_base"], dict)   # söz → doğrusu
 
 
 # --- 4. rehber yükleme durumu -----------------------------------------------------------------------------

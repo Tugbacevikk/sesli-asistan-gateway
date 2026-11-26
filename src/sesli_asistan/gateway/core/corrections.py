@@ -12,7 +12,8 @@ class SttCorrections:
     bakanlığına" → "asayiş başkanlığına"). Uzun kural önce."""
 
     def __init__(self, table: dict[str, str] | None = None):
-        rules = [(tuple(fold_tr_words(k)), v.strip()) for k, v in (table or {}).items() if v.strip()]
+        self.table = dict(table or {})          # kurum dosyası + ayar ekranı birleştirilirken (settings_service)
+        rules = [(tuple(fold_tr_words(k)), v.strip()) for k, v in self.table.items() if v.strip()]
         self.rules = sorted((r for r in rules if r[0]), key=lambda r: -len(r[0]))
 
     def __bool__(self) -> bool:

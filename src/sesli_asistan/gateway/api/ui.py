@@ -171,6 +171,19 @@ def _mount_settings(app: FastAPI, health: Callable[[], dict[str, Any]], settings
         log.info("ayarlar arayüzden kaydedildi (%s)", request.client.host if request.client else "?")
         return JSONResponse(view)
 
+    @app.post("/v1/admin/corrections/try", include_in_schema=False)
+    async def admin_corrections_try(request: Request) -> JSONResponse:
+        """Kelime düzeltmeleri: bir sözün düzeltilmiş hali (kaydetmeden denemek için; izleyici de deneyebilir)."""
+        if (bad := _precheck(request, settings, "application/json", admin=False)) is not None:
+            return bad
+        body = await _json_body(request)
+        if not isinstance(body, dict):
+            return _err(400, "BAD_REQUEST", "JSON nesnesi olmalı")
+        try:
+            return JSONResponse({"text": settings.try_corrections(body.get("text", ""), body.get("corrections"))})
+        except ValueError as e:
+            return _err(400, "BAD_REQUEST", str(e))
+
     @app.post("/v1/admin/contacts", include_in_schema=False)
     async def admin_contact_add(request: Request) -> JSONResponse:
         """Rehbere yerel kayıt (kaynak rehber değişmez; tasarim.md 13.1)."""

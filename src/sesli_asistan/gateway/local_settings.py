@@ -42,6 +42,7 @@ class LocalSettings:
     after_hours_mode: AfterHoursMode | None = None
     aliases: dict[str, list[str]] = field(default_factory=dict)       # kayıt kimliği → takma adlar
     contacts: tuple[LocalContact, ...] = ()
+    corrections: dict[str, str] = field(default_factory=dict)        # yanlış duyulan söz → doğrusu (ADR-033)
 
     def to_json(self) -> dict[str, Any]:
         """Dosyaya yazılan biçim: yalnız dolu alanlar."""
@@ -55,4 +56,6 @@ class LocalSettings:
             out["contacts"] = [c.as_api() for c in self.contacts]
         if self.aliases:
             out["aliases"] = {k: list(v) for k, v in self.aliases.items()}
+        if self.corrections:
+            out["corrections"] = dict(self.corrections)
         return out
