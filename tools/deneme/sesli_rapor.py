@@ -10,6 +10,10 @@ Akış (demo, kendi makinende):
   3. Raporu çıkar (çağrı kayıtları: CALL_LOG_DIR, varsayılan cagri_kayitlari/; metinler için LOG_TEXTS=true):
          python tools/deneme/sesli_rapor.py rapor --gun 2026-11-25 --baslangic 14:00 --cikti sesli_rapor.md
 
+     `--teshis stt_teshis --tsv dogrular.tsv` (STT_DEBUG_DIR açıkken): cümle sesleri + doğru metinler; STT ayarı
+     (dil modeli açık / kapalı) aynı seslerle ölçülür:
+         python tools/stt/karsilastir.py --tsv dogrular.tsv --sherpa models/turkish-stt-66m-v2 \
+             --lm models/santral_lm.onnx --lm-olcek 0.2 --lm-olcek 0.4
   4. STT'nin bozduğu rehber sözcüklerinden kelime düzeltmesi önerisi (Ayarlar → Kelime düzeltmeleri):
          python tools/deneme/stt_duzeltme.py sesli_rapor.json --rehber data/demo_rehber.json
 
@@ -196,6 +200,9 @@ def komut_rapor(a: argparse.Namespace) -> int:
             yer = "büyük olasılıkla STT" if r["wer"] >= 0.3 else "anlama / kural"
             md.append(f"- **{r['id']}** ({r['sonuc']}, {yer}): söylenen «{r['soylenen']}», duyulan «{r['duyulan']}», "
                       f"asistan «{r['cevaplar']}»  \n  `{r['dosya']}`")
+    if a.teshis and a.tsv:
+        n_tsv = teshis_tsv(eslesme, Path(a.teshis), Path(a.tsv))
+        print(f"yazıldı: {a.tsv} ({n_tsv} cümle sesi + doğru metni; tools/stt/karsilastir.py --tsv)", file=sys.stderr)
     kalan = len(cagrilar) - sum(len(g) for _, g in eslesme)
     if kalan > 0:
         md.append(f"\n{kalan} çağrı hiçbir senaryoyla eşlenmedi (liste bitti).")
@@ -207,6 +214,26 @@ def komut_rapor(a: argparse.Namespace) -> int:
                                                        encoding="utf-8")
         print(f"yazıldı: {a.cikti} (+ .json)", file=sys.stderr)
     return 0
+
+
+def teshis_tsv(eslesme: list[tuple[dict[str, Any], list[Cagri]]], klasor: Path, cikti: Path) -> int:
+    """STT teşhis kayıtları (STT_DEBUG_DIR: <çağrı>_<sıra>.wav + .json) → "ses dosyası<TAB>söylenen" (karsilastir.py
+    --tsv): STT ayarlarını (dil modeli, eşik) aynı seslerle yeniden ölçmek için. Çağrının metin çıkan cümleleri
+    sırayla senaryonun sözlerine eşlenir; metinsiz (gürültü, boş) cümle atlanır, fazlası alınmaz."""
+    satir = []
+    for sen, grup in eslesme:
+        call_id = grup[-1].dosya.stem.split("_", 1)[-1]        # <SSddss>_<çağrı>.log
+        sesler = []
+        for meta in sorted(klasor.glob(f"{call_id}_*.json")):
+            try:
+                m = json.loads(meta.read_text(encoding="utf-8"))
+            except ValueError:
+                continue
+            if m.get("metin") and meta.with_suffix(".wav").exists():
+                sesler.append(meta.with_suffix(".wav"))
+        satir += [f"{wav}\t{soz}" for wav, soz in zip(sesler, sen["konusma"], strict=False)]
+    cikti.write_text("\n".join(satir) + "\n", encoding="utf-8")
+    return len(satir)
 
 
 def _sonraki_ilk(senaryolar: list[dict[str, Any]], sen: dict[str, Any]) -> str:
@@ -229,6 +256,8 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--tekrar-son", action=argparse.BooleanOptionalAction, default=True,
                    help="aynı senaryonun art arda denemelerinden sonuncusu (varsayılan açık)")
     r.add_argument("--cikti", default="", help="Markdown dosyası (yanına .json da yazılır)")
+    r.add_argument("--teshis", default="", help="STT_DEBUG_DIR (cümle sesleri); --tsv ile")
+    r.add_argument("--tsv", default="", help="ses<TAB>söylenen dosyası (karsilastir.py --tsv için)")
     a = ap.parse_args(argv)
     return komut_liste(a) if a.komut == "liste" else komut_rapor(a)
 

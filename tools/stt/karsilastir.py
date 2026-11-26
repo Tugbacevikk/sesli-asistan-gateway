@@ -187,7 +187,7 @@ class Sherpa:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="STT modellerini aynı kayıtlarla karşılaştırır")
-    ap.add_argument("wav", nargs="+", type=Path)
+    ap.add_argument("wav", nargs="*", type=Path, help="ses dosyaları (boş: --tsv'deki dosyalar)")
     ap.add_argument("--whisper", action="append", default=[], help="faster-whisper model klasörü (birden çok)")
     ap.add_argument("--sherpa", action="append", default=[], help="sherpa-onnx transducer klasörü (birden çok)")
     ap.add_argument("--ipucu", action="append", default=[], help="Whisper ipucu (rehber adı); tekrar verilebilir")
@@ -217,6 +217,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     if not a.whisper and not a.sherpa:
         ap.error("en az bir --whisper ya da --sherpa")
+    a.wav_verildi = bool(a.wav)
 
     refs: dict[str, str] = {}
     if a.tsv:
@@ -224,6 +225,10 @@ def main(argv: list[str] | None = None) -> int:
             for row in csv.reader(f, delimiter="\t"):
                 if len(row) >= 2 and row[0].strip() and not row[0].startswith("#"):
                     refs[Path(row[0].strip()).name] = row[1].strip()
+                    if not a.wav_verildi:
+                        a.wav.append(Path(row[0].strip()))     # Windows'ta *.wav açılmaz: dosyalar tsv'den
+    if not a.wav:
+        ap.error("ses dosyası yok (wav ya da --tsv)")
 
     engines: list[tuple[str, object, list[str] | None]] = []
     if a.rehber:
