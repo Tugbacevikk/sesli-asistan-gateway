@@ -141,6 +141,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- `SMALL_TALK=true` iken hal hatır ("günaydın nasılsınız") adımlara bırakılıyordu: hızlı yol "günaydın"ı "Aydın"
+  soyadıyla eşleyip "Valilik mi, Dereköy mü?" diye soruyordu. İstek içermeyen hal hatır artık selam adımında sohbet
+  cevabı alır; istek varsa ("selam, muhasebeye bağlar mısın") istek önce gelir.
 - Konu söylenen genel istek ("cari hesap konusunda bilgi almak istiyorum") "Hangi konuda?" diye yeniden soruluyordu:
   LLM açıkken konudan birim tahmin edilir; konunun birimi yoksa "Bu konuyla ilgili birimi bulamadım…" (yeni metin
   `TOPIC_NOT_FOUND_TEXT`), "aradığınız kişiyi" denmez.

@@ -36,6 +36,7 @@ from ..phrases import (
     greeting_echo,
     is_abusive,
     is_greeting_only,
+    is_pure_small_talk,
     is_small_talk,
     maybe_operator,
     names_topic,
@@ -70,11 +71,13 @@ class StepsMixin:
     async def _step_greeting(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """"selam", "merhaba", "alo", "iyi günler": istek yok; "bulamadım" denmez, deneme sayılmaz, açık soru
         (teyit, "hangisi?") yeniden sorulur (canlı 03.11.2026)."""
+        if (self.cfg.small_talk and self.cfg.llm_enabled and self.pending_question(s) is None
+                and is_pure_small_talk(u.text) and not self._mentions_target(u.text)):
+            # hal hatır: LLM karşılık verip yönlendirir (ADR-035); açık soru varsa o yinelenir. Burada cevaplanır:
+            # adımlara bırakılınca hızlı yol "günaydın"ı "Aydın" soyadı sandı ("Valilik mi, Dereköy mü?", 26.11.2026)
+            return await self._small_talk_turn(s, u)
         if not (is_greeting_only(u.text) or (is_greeting_only(u.text, noise=1) and not self._mentions_target(u.text))):
             return None
-        if (self.cfg.small_talk and self.cfg.llm_enabled and is_small_talk(u.text)
-                and self.pending_question(s) is None):
-            return None             # hal hatır: LLM karşılık verip yönlendirir (ADR-035); açık soru varsa o yinelenir
         u.reopen(s)
         log.info("[%s] yalnız selam: %s", s.call_id, log_text(u.text))
         text = self.cfg.texts.greeting_reply
