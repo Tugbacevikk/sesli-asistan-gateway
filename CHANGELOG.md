@@ -15,6 +15,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- `tools/deneme/stt_duzeltme.py`: sesli deneme raporundan **kelime düzeltmesi önerisi**. STT'nin rehberdeki ad / birim
+  / unvan sözcüklerini nasıl bozduğu ("masaj" → "asayiş", "dere köy" → "dereköy"), kaç kez görüldüğüyle; ayar
+  ekranına girilir ya da kurum dosyasına (`stt_duzeltmeleri`) eklenir.
 - **Yanlış yönlendirme geri bildirimi** (v9): İzleme → Son çağrılar'da her çağrı "Yanlış" (doğru kayıt seçilir) ya
   da "Doğru" işaretlenir; sözler kopyalanır (çağrı geçmişten silinse de kalır, 90 gün), değişiklik geçmişine yazılır.
   "Eğitim adaylarını indir" (yalnız yönetici) → `tools/egitim/aday_veri.py`: işaretli çağrılar ve sesli deneme raporu
