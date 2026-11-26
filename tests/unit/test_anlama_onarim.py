@@ -164,3 +164,24 @@ def test_hal_hatir_hizli_yola_girmez() -> None:
         text, ext = asyncio.run(run(soz))
         assert "mi," not in text and not ext and text.endswith("kiminle görüşmek istersiniz?"), (soz, text)
     assert asyncio.run(run("günaydın hasan aydın ile görüşmek istiyorum"))[1] == ["20032"]
+
+
+def test_konu_listesine_uymayan_tahmin_onerilmez() -> None:
+    # deneme 26.11.2026: demo rehberinde muhasebe yok, LLM "cari hesap" için İl Milli Eğitim Müdürlüğü'nü önerdi;
+    # konu listesi bu konunun birimini biliyor (muhasebe / mali işler): uymayan öneri sorulmaz
+    from sesli_asistan.gateway.composition import load_topics
+    soz = "cari hesap konusunda bilgi almak istiyorum"
+
+    def cevap(rehber: str, birim: str) -> str:
+        data = json.loads((ROOT / rehber).read_text(encoding="utf-8"))
+        index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+        llm = MapLlm({soz: {"niyet": "konu", "konu": "cari hesap", "tahmini_birim": birim}})
+        agent = DialogAgent(llm, ToolRegistry(index, topics=load_topics(None)), DialogConfig(understand="llm"))
+
+        async def run() -> str:
+            ses = agent.new_session("t")
+            ses.greeting()
+            return (await ses.handle_user(soz)).text
+        return asyncio.run(run())
+    assert cevap("data/demo_rehber.json", "İl Milli Eğitim Müdürlüğü").startswith("Bu konuyla ilgili birimi bulamadım")
+    assert cevap("data/sirket_rehber.json", "Muhasebe") == "Muhasebe'ye mi bağlamamı istersiniz?"

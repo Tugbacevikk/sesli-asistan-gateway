@@ -62,20 +62,33 @@ class TopicTable:
                         keys.append(k)
         self.topics = [(sorted((fold_words(w) for w in t.words), key=len, reverse=True), t) for t in topics]
 
-    def lookup(self, text: str) -> list[dict[str, str]]:
-        """Sözdeki konu → [{"id", "neden": "konu", "eslesen", "birim"}]; konu yok ya da birim çözülemedi → []."""
+    def _best(self, text: str) -> tuple[str, Topic] | None:
         words = fold_words(text)
         if not words:
-            return []
+            return None
         best: tuple[int, int, str, Topic] | None = None
         for order, (phrases, topic) in enumerate(self.topics):
             for p in phrases:
                 if _contains(words, p) and (best is None or (len(p), -order) > (best[0], -best[1])):
                     best = (len(p), order, " ".join(p), topic)
                     break                              # konunun en uzun sözü (sözler uzundan kısaya)
-        if best is None:
+        return None if best is None else (best[2], best[3])
+
+    def topic_of(self, text: str) -> Topic | None:
+        """Sözde geçen konu (rehberde birimi olsun olmasın)."""
+        best = self._best(text)
+        return best[1] if best else None
+
+    def fits(self, t: Topic, department: str) -> bool:
+        """Birim, konunun birim kalıplarından birine uyuyor mu ("Muhasebe Müdürlüğü" ↔ "muhasebe")."""
+        keys = self._depts.get(department) or [search_key(department).split()]
+        return any(_contains(k, search_key(p).split()) for p in t.departments for k in keys)
+
+    def lookup(self, text: str) -> list[dict[str, str]]:
+        """Sözdeki konu → [{"id", "neden": "konu", "eslesen", "birim"}]; konu yok ya da birim çözülemedi → []."""
+        if (found := self._best(text)) is None:
             return []
-        _, _, matched, topic = best
+        matched, topic = found
         dept, targets = self._targets(topic)
         return [{"id": c.id, "neden": "konu", "eslesen": matched, "birim": dept} for c in targets[:MAX_CANDIDATES]]
 

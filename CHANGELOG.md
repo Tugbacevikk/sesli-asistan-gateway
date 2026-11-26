@@ -141,6 +141,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- LLM'in konudan birim tahmini konu listesine (`konular.json`) uymuyorsa önerilmez: demo rehberinde muhasebe yokken
+  "cari hesap" için "İl Milli Eğitim Müdürlüğüne mi?" soruluyordu; artık "Bu konuyla ilgili birimi bulamadım…".
 - `SMALL_TALK=true` iken hal hatır ("günaydın nasılsınız") adımlara bırakılıyordu: hızlı yol "günaydın"ı "Aydın"
   soyadıyla eşleyip "Valilik mi, Dereköy mü?" diye soruyordu. İstek içermeyen hal hatır artık selam adımında sohbet
   cevabı alır; istek varsa ("selam, muhasebeye bağlar mısın") istek önce gelir.
