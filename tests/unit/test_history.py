@@ -119,3 +119,46 @@ def test_yarida_kalan_gecis_geri_alinir(tmp_path, monkeypatch):
     assert db.execute("PRAGMA user_version").fetchone()[0] == h.SCHEMA_VERSION - 1
     assert not db.execute("SELECT 1 FROM sqlite_master WHERE name='yeni'").fetchone()   # yarım tablo kalmadı
     db.close()
+
+
+# --- yanlış yönlendirme geri bildirimi (v9) -----------------------------------------------------------------
+def test_geri_bildirim_kalici_ve_cagri_silinse_de_durur(tmp_path):
+    from sesli_asistan.gateway.adapters.history import sqlite as hs
+
+    db = str(tmp_path / "g.db")
+    h = SqliteCallHistory(db, retention_days=30)
+    eski = (datetime.now() - timedelta(days=40)).isoformat(timespec="seconds")
+    h.add("c-1", stats(started=eski, heard="masebeden ayşe hanım"))
+    assert h.feedback_set("c-1", "tugba", "yanlis", "101", "muhasebe duyulamadı")
+    assert not h.feedback_set("yok", "tugba", "yanlis", "101")          # olmayan çağrı
+    h.close()
+    h = SqliteCallHistory(db, retention_days=30)
+    assert h.purge() == 1 and h.recent() == []                             # çağrı silindi
+    (fb,) = h.feedback()
+    assert fb["karar"] == "yanlis" and fb["dogru_dahili"] == "101" and fb["not"] == "muhasebe duyulamadı"
+    assert fb["turns"][0]["heard"] == "masebeden ayşe hanım" and fb["turns"][0]["actions"] == ["transfer:214"]
+    assert h.schema == len(hs.MIGRATIONS)
+    assert h.feedback_set("c-1", "tugba", "") and h.feedback() == []      # işaret kaldırıldı
+
+
+def test_geri_bildirim_api_ve_disa_aktarim():
+    import json
+
+    from test_ui import client
+
+    tc, rt = client()
+    with tc:
+        rt.manager.results.append(("c-9", stats(heard="masebeden ayşe hanım")))
+        put = lambda b: tc.put("/v1/admin/calls/c-9/feedback", content=json.dumps(b),  # noqa: E731
+                               headers={"Content-Type": "application/json"})
+        assert put({"karar": "yanlis"}).status_code == 400                   # doğru dahili zorunlu
+        assert put({"karar": "belki", "dogru_dahili": "101"}).status_code == 400
+        r = put({"karar": "yanlis", "dogru_dahili": "101", "not": "x"})
+        assert r.status_code == 200, r.text
+        calls = tc.get("/v1/admin/calls").json()["recent"]
+        assert calls[0]["geri_bildirim"] == {"karar": "yanlis", "dogru_dahili": "101", "not": "x"}
+        satirlar = [json.loads(x) for x in tc.get("/v1/admin/feedback/export").text.splitlines()]
+        assert satirlar[0]["call_id"] == "c-9" and satirlar[0]["turns"][0]["heard"] == "masebeden ayşe hanım"
+        gecmis = [d for c in tc.get("/v1/admin/changes").json()["changes"] for d in c["ayrinti"]]
+        assert "çağrı c-9: yanlış yönlendirildi → doğrusu 101" in gecmis
+        assert any(d.startswith("eğitim adayları indirildi") for d in gecmis)

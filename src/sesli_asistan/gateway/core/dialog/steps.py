@@ -268,6 +268,9 @@ class StepsMixin:
         only_department = nobody and not has_line and len(members) >= 2 and not has_role_word(u.text)
         if not members or not (unknown_person or only_department):
             return None
+        said = search_key(u.text)
+        if any(c.kind == "role" and c.title and search_key(c.title) and search_key(c.title) in said for c in members):
+            return None     # birimin makam / hizmet hattı unvanıyla söylendi ("beyaz masa"): hızlı yol aktarır (B10)
         if unknown_person and (turn := self._count_failure(s)) is not None:
             return turn                               # aynı bilinmeyen ad tekrar tekrar: sonunda operatör
         q = self.cfg.texts.ask_person_in_department.format(birimden=ablative(dept))

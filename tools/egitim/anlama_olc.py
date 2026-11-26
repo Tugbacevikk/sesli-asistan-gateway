@@ -62,7 +62,9 @@ def alan_farklari(pred: dict, gold: dict) -> list[str]:
 async def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--model", action="append", required=True)
-    ap.add_argument("--test", default=str(ROOT / "tools/egitim/veri/anlama_test.jsonl"))
+    ap.add_argument("--test", action="append",
+                    help="test dosyası (birden çok verilebilir); verilmezse veri/anlama_test*.jsonl hepsi "
+                         "(demo + v9'dan itibaren görülmemiş kurum: belediye)")
     ap.add_argument("--url", default="http://127.0.0.1:11434")
     ap.add_argument("--sinir", type=int, default=0, help="ilk N örnek (0: hepsi)")
     ap.add_argument("--zaman-asimi", type=float, default=30.0)
@@ -72,7 +74,8 @@ async def main(argv: list[str] | None = None) -> int:
     ap.add_argument("-v", action="store_true", help="yanlışları yaz")
     a = ap.parse_args(argv)
 
-    rows = [json.loads(x) for x in Path(a.test).read_text(encoding="utf-8").splitlines() if x.strip()]
+    a.test = a.test or [str(p) for p in sorted((ROOT / "tools/egitim/veri").glob("anlama_test*.jsonl"))]
+    rows = [json.loads(x) for yol in a.test for x in Path(yol).read_text(encoding="utf-8").splitlines() if x.strip()]
     rows = [r for r in rows if r.get("tur") != "sohbet"]          # sohbet ayrı ölçülür (JSON değil)
     sohbet_yolu = Path(a.sohbet)
     sohbet_rows = ([json.loads(x) for x in sohbet_yolu.read_text(encoding="utf-8").splitlines() if x.strip()]
@@ -98,6 +101,7 @@ async def main(argv: list[str] | None = None) -> int:
         tur_alan: dict[str, Counter[str]] = defaultdict(Counter)
         tam_yanlislar: list[dict] = []
         tur_basari: dict[str, list[int]] = defaultdict(lambda: [0, 0])
+        rehber_basari: dict[str, list[int]] = defaultdict(lambda: [0, 0, 0])     # tam, uçtan uca, n
         for r in rows:
             msgs = r["messages"][:2]
             gold = json.loads(r["messages"][2]["content"])
@@ -128,6 +132,10 @@ async def main(argv: list[str] | None = None) -> int:
                                       "fark": fark, "uc_dogru": bool(ok_uc)})
             tur_basari[r["tur"]][0] += ok_uc
             tur_basari[r["tur"]][1] += 1
+            rb = rehber_basari[r["rehber"]]
+            rb[0] += ok_tam
+            rb[1] += ok_uc
+            rb[2] += 1
             if not ok_uc:
                 yanlislar.append({"soz": msgs[1]["content"], "beklenen": gold, "cikti": out, "tur": r["tur"]})
         await llm.aclose()
@@ -136,6 +144,8 @@ async def main(argv: list[str] | None = None) -> int:
         res = {"model": model, **{k: round(100 * sayac[k] / n, 1) for k in ("json", "niyet", "tam", "uc")},
                "p50_sn": round(statistics.median(s), 2), "p95_sn": round(s[min(n - 1, round(0.95 * (n - 1)))], 2),
                "tur_basina": {k: round(100 * v[0] / v[1], 1) for k, v in sorted(tur_basari.items())},
+               "rehber_basina": {k: {"tam": round(100 * v[0] / v[2], 1), "uc": round(100 * v[1] / v[2], 1),
+                                     "n": v[2]} for k, v in sorted(rehber_basari.items())},
                "yanlislar": yanlislar,
                "alan_hatasi": dict(alan_hatasi.most_common()),
                "tur_alan_hatasi": {k: dict(v.most_common(5)) for k, v in sorted(tur_alan.items())},
@@ -145,6 +155,9 @@ async def main(argv: list[str] | None = None) -> int:
         rapor["sonuclar"].append(res)
         print(f"{model:22} {res['json']:>7} {res['niyet']:>8} {res['tam']:>6} {res['uc']:>12} "
               f"{res['p50_sn']:>7} {res['p95_sn']:>7}")
+        if len(res["rehber_basina"]) > 1:      # demo ve görülmemiş kurum (belediye) ayrı
+            print(f"{'':22} rehbere göre (tam % / uçtan uca %): " + ", ".join(
+                f"{k} {v['tam']} / {v['uc']} (n {v['n']})" for k, v in res["rehber_basina"].items()))
         print(f"{'':22} türe göre uçtan uca: " + ", ".join(f"{k} {v}" for k, v in res["tur_basina"].items()))
         print(f"{'':22} tam eşleşmeyenlerde alan hatası (ilk 12): "
               + ", ".join(f"{k} {v}" for k, v in alan_hatasi.most_common(12)))

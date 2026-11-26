@@ -28,6 +28,7 @@ SETS = [
     ("diyalog_seti_sirket.yaml", "data/sirket_rehber.json", set()),
     ("diyalog_seti_sentetik.yaml", "data/sentetik_kurum_rehber.json", set()),
     ("diyalog_seti_sesli_deneme.yaml", "data/demo_rehber.json", set()),   # sesli deneme okuma listesi
+    ("diyalog_seti_belediye.yaml", "data/belediye_rehber.json", set()),    # görülmemiş kurum (v9)
 ]
 
 

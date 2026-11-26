@@ -2196,6 +2196,25 @@ ondan bağımsızdır.
 
 ## 20. Ekler
 
+### ADR-040 — Gerçek kullanımdan eğitim verisi ve görülmemiş kurum ölçüsü (v9)
+
+- **Bağlam:** v1–v8 eğitim verisinin tamamı sentetikti (rehberden kurala göre kurulan sözler, elle uydurulmuş STT
+  bozulmaları). Ürün farklı kurumlara dağıtılacak; test rehberi (demo) eğitimdeki kurum rehberiyle aynı uydurma ili
+  paylaşıyordu, "yeni kuruma gidince ne olur" ölçülmüyordu.
+- **Karar:**
+  - Arayüzde çağrıya "yanlış / doğru" geri bildirimi; yanlışta doğru kayıt seçilir. Sözler `feedback` tablosuna
+    kopyalanır (çağrı geçmişi şeması 3), 90 gün tutulur (FEEDBACK_DAYS, KVKK: kişisel veri; `CALL_HISTORY_TEXTS=false`
+    ise sözler boş, aday üretilmez). Dışa aktarma yalnız yöneticiye, değişiklik geçmişine yazılır.
+  - `tools/egitim/aday_veri.py`: geri bildirim + sesli deneme raporu → eğitim örneği. Etiket doğru kayıttan kurulur
+    (sözdeki sözcükler kaydın adı / unvanı / birimine benzerlikle, eşik 75 / 100: "kort" → "kurt"); gerçek diyalog
+    ajanıyla doğrulanır, geçmeyen elle etiketlemeye. Ek örnekler eğitimde 3 kez (`--ek-tekrar`).
+  - Görülmemiş kurum: uydurma belediye rehberi (başka il ve yapı) eğitimde hiç kullanılmaz; anlama testi ve diyalog
+    seti (B01–B16).
+- **Sonuç:** Belediye seti modelden önce kural katmanında dört genelleme hatası yakaladı (biri yanlış aktarma:
+  "muhasebe şefini" → birim hattı); düzeltildi. Açık: aktarılamayan en üst makam istenince (vali, genel müdür,
+  belediye başkanı) aktarma yok (D15, R17, B08), il jandarma komutanında kurum hattı (D16): ürün kararı tutarlı hale
+  getirilmeli.
+
 ### Ek A — Repo yapısı
 
 Tek Python paketi (`sesli_asistan`), servisler alt paketlerdir. Servis sınırları `import-linter`
