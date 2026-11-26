@@ -98,7 +98,7 @@ def test_kurum_cevabi_kurumun_birim_hattina_gitmez(contacts):
 @pytest.mark.parametrize("text, ext", [
     ("emniyete bağlar mısınız", "40000"),               # D06: "emniyete" → "emniye" değil "emniyet"
     ("valilik hukuk müşaviri", "20021"),                # D14: üst birim + içindeki hat tek hedef
-    ("il jandarma komutanına bağlar mısınız", "30000"),  # D16: Komutan aktarılamaz → birim hattı, yardımcısı değil
+    ("il jandarma komutanına bağlar mısınız", "30001"),  # D16: Komutanın kendi hattı, yardımcısı değil (26.11.2026)
 ])
 def test_demo_tek_tur(contacts, text, ext):
     t = say(agent(contacts), text)[0]

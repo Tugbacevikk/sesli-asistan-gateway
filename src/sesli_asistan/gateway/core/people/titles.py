@@ -89,10 +89,12 @@ def title_rivals(index: DirectoryIndex, c: Contact, text: str) -> list[Contact]:
         return []
     own = " ".join(title)
     # rakip: unvanının **tamamı** sözde geçen hat ("avukatı" → "Avukat"); yalnız ortak sözcüğü taşıyan
-    # ("jandarma komutanı" → "Komutan Yardımcısı") rakip değil
+    # ("jandarma komutanı" → "Komutan Yardımcısı") rakip değil. Bulunanın unvanı rakibinkiyle başlıyorsa rakip
+    # onun sahibidir ("genel müdürün sekreteri" → Genel Müdür Asistanı; Genel Müdür değil, R26)
     return [o for o in index.contacts()
             if o.id != c.id and o.kind != "department" and o.title and o.department == c.department
             and not " ".join(fold_words(o.title)).startswith(own)
+            and not own.startswith(" ".join(fold_words(o.title)) + " ")
             and all(any(same_word(x, s) for s in said) for x in fold_words(o.title))]
 
 

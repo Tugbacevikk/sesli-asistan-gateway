@@ -447,7 +447,8 @@ class RulesMixin:
             log.info("[%s] hızlı yol: %s başka birimle söylendi — sorulacak", s.call_id, contact.full_name)
             return self._confirm(s, contact)
         if kind == "department" and (other := self._more_specific(text, contact)) is not None and (
-                tuple(contact.unit_path[:len(other.unit_path)]) != tuple(other.unit_path)):   # üst birime dönülmez
+                other.kind != "department"                    # birimin içindeki hat ("muhasebe şefi", B07)
+                or tuple(contact.unit_path[:len(other.unit_path)]) != tuple(other.unit_path)):   # üst birime dönülmez
             # "jandarmanın nizamiyesine": sözde birimin adı geçiyor ama unvanı da tam söylenen tek bir hat var
             # (Nizamiye): birim hattına değil o hatta (şive + jandarma seti J07; önceden Komutanlık hattına gidiyordu)
             log.info("[%s] hızlı yol: birim hattı yerine sözde açıkça söylenen hat: %s → %s", s.call_id,
@@ -478,16 +479,29 @@ class RulesMixin:
                         and top.score >= self.cfg.fast_path_min_score
                         and (len(cands) == 1 or top.score > cands[1].score)):
                     return top.contact
+        said = fold_words(text)
+
+        def in_said(t: str) -> bool:   # "nizamiye" ⊂ "nizamiyesine"; ek kökü kısaltabilir ("nizamiye" → "nizami")
+            return any(w.startswith(t) or strip_suffix(w) == strip_suffix(t) for w in said)
+
+        # birimde unvanının bütün sözcükleri söylenen tek hat: "muhasebe şefini" → Muhasebe Şefi, birimin genel hattı
+        # (Mali Hizmetler; eş adı "Muhasebe") değil. Görülmemiş kurum seti B07, 26.11.2026: birim hattına gidiyordu
+        def title_said(t: str) -> bool:   # unvan sözcüğü kendisi ya da kısa bir ekle: "şefini" evet, "kaymakamlığına"
+            return any(w == t or strip_suffix(w) == strip_suffix(t) or (w.startswith(t) and len(w) - len(t) <= 3)
+                       for w in said)       # hayır (birimin adı: Kaymakamlık hattı, kaymakamın kendisi değil)
+
+        inside = [c for c in self.tools.index.contacts()
+                  if c.kind != "department" and c.transferable and c.title and c.id != department.id
+                  and (c.department == department.department or department.department in c.unit_path)
+                  and all(title_said(t) for t in fold_words(c.title))]
+        if len(inside) == 1:
+            return inside[0]
         res = self.tools.index.search(text)
         if res.match not in (Match.SINGLE_HIGH, Match.SINGLE_LOW) or not res.candidates:
             return None
         c = res.candidates[0].contact
         if c.id == department.id or not c.transferable:
             return None
-        said = fold_words(text)
-
-        def in_said(t: str) -> bool:   # "nizamiye" ⊂ "nizamiyesine"; ek kökü kısaltabilir ("nizamiye" → "nizami")
-            return any(w.startswith(t) or strip_suffix(w) == strip_suffix(t) for w in said)
 
         if c.kind == "department":
             names = [fold_words(n) for n in (c.department, *c.department_aliases)]
@@ -517,6 +531,13 @@ class RulesMixin:
                         if c.kind != "role" or len(title) != 1 or not same_word(window, title[0]):
                             continue
                         found.setdefault(c.id, (c, "role"))
+                        continue
+                    if kind == "name" and c.kind == "role":
+                        # çok sözcüklü makam / hizmet hattı unvanının tamamıyla ("su arıza nöbetçisine"): B09
+                        title = search_key(c.title).split()
+                        if len(title) == n and c.transferable and all(
+                                same_word(w, t) for w, t in zip(words[i:i + n], title, strict=True)):
+                            found.setdefault(c.id, (c, "role"))
                         continue
                     if kind == "name" and not self._full_name_said(c, window):
                         continue                       # unvan ya da takma adla değil, gerçekten ad + soyadla

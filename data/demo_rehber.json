@@ -40,7 +40,7 @@
         "Vali Bey"
       ],
       "extension": "20001",
-      "transferable": false,
+      "transferable": true,
       "birim_yolu": [
         "Yeşilova Valiliği"
       ],
@@ -609,7 +609,7 @@
         "Komutan"
       ],
       "extension": "30001",
-      "transferable": false,
+      "transferable": true,
       "birim_yolu": [
         "Yeşilova İl Jandarma Komutanlığı"
       ],

@@ -86,3 +86,20 @@ diyalog setlerinde (adım 6) izinsiz aktarma 0.
    `gemma3:1b`'den). Commit et; GGUF repoya girmez.
 3. `deploy/ayar/gateway.env`: `LLM_MODEL=gemma-santral`. `install.sh` GGUF'u indirir, özeti doğrular, `ollama create`
    ile kurar; indiremezse uyarır, LLM adımları kural tabanlı sürer. İnternetsiz paket (`paket.sh`) GGUF'u da içerir.
+
+## Gerçek kullanımdan veri (v9)
+
+1. Arayüz → İzleme → Son çağrılar: yanlış yere giden çağrıyı **Yanlış** ile işaretleyip doğru kaydı seçin (doğru
+   gidenleri **Doğru** ile). **Eğitim adaylarını indir** → `egitim_adaylari.jsonl`.
+2. Sesli deneme raporu: `python tools/deneme/sesli_rapor.py rapor --cikti sesli_rapor.md` (yanına `.json`).
+3. `python tools/egitim/aday_veri.py --arayuz egitim_adaylari.jsonl --sesli sesli_rapor.json --rehber data/demo_rehber.json`
+   → `veri/aday/aday_egitim.jsonl` (doğrulanmış) ve `elle_etiketle.jsonl` (otomatik etiketlenemeyen; `cevap` alanını
+   elle yazıp `--elle` ile yeniden verin).
+4. `python tools/egitim/anlama_veri.py --ek tools/egitim/veri/aday/aday_egitim.jsonl` (ek örnekler eğitimde 3 kez).
+
+## Test rehberleri
+
+Eğitimde hiç görülmez: `demo` (anlama_test.jsonl) ve `belediye` (anlama_test_belediye.jsonl, v9). Demo, eğitimdeki
+kurum rehberiyle aynı uydurma ili paylaşır; belediye başka il ve başka yapıdadır: **yeni kuruma genelleme** ölçüsü.
+`anlama_olc.py` ikisini de okur, "rehbere göre" satırında ayrı verir.
+

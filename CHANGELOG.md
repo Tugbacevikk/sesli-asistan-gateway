@@ -15,6 +15,19 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- **Yanlış yönlendirme geri bildirimi** (v9): İzleme → Son çağrılar'da her çağrı "Yanlış" (doğru kayıt seçilir) ya
+  da "Doğru" işaretlenir; sözler kopyalanır (çağrı geçmişten silinse de kalır, 90 gün), değişiklik geçmişine yazılır.
+  "Eğitim adaylarını indir" (yalnız yönetici) → `tools/egitim/aday_veri.py`: işaretli çağrılar ve sesli deneme raporu
+  → anlama eğitim örneği (etiket doğru kayıttan, bozuk söz doğru biçime bağlanır, ajanla doğrulanır; geçmeyen elle
+  etiketlemeye). `anlama_veri.py --ek` ile eğitime girer. Çağrı geçmişi şeması 3 (`feedback` tablosu).
+- **Görülmemiş kurum testi** (v9): `data/belediye_rehber.json` (uydurma Ilgınova Belediyesi, `tools/rehber/belediye_rehber.py`;
+  başka il, müdürlükler, kısaltmalı bağlı kuruluş, itfaiye rütbeleri, hizmet hatları). Eğitimde hiç kullanılmaz:
+  `anlama_test_belediye.jsonl`; `anlama_olc.py` rehbere göre ayrı raporlar. Diyalog seti `diyalog_seti_belediye.yaml`
+  (16 senaryo, CI'da).
+- v9 eğitim verisi: v8'de gerileyen operatör, kapat, fark etmez, konu ve tarif türleri güçlendirildi; hedefi belirsiz
+  sözler ("dün beni arayan bey") için `belirsiz` örnekleri.
+- Eğitim not defteri hızı: büyük GPU'da (A100 / L4) 16 bit LoRA, gradyan taşıma kapalı, 16'lık parti, uzunluğa göre
+  gruplama (v8: A100'de 3,5 saat). Drive klasörü ve GGUF adı sürümlü (`SURUM`), önceki sürümün üstüne yazılmaz.
 - Ayar ekranında **Kelime düzeltmeleri** (ADR-033): STT'nin sık yanlış duyduğu sözler ve doğruları ("masebe" →
   "muhasebe") arayüzden eklenir, yeniden başlatmadan geçerli olur; ek korunur. Kurum dosyasındakilerle birleşir
   (salt okunur gösterilir). Cevap sözcükleri ve rehberdeki gerçek adlar düzeltilemez. "Dene" kutusu, değişiklik
@@ -123,6 +136,18 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- **Makam hatları doğrudan aktarılır** (karar 26.11.2026): "valiyle", "il jandarma komutanına", "genel müdürle",
+  "belediye başkanıyla" → makamın kendi hattı (uydurma rehberlerde aktarılabilir işaretlendi; önceden aktarma yoktu
+  ya da kurum hattına gidiliyordu). Rehber bir makamı aktarılamaz işaretlerse kurumun genel hattına aktarılır (kural
+  ve LLM yolu aynı). "Genel müdürün sekreteri" → asistan (genel müdür rakip sorulmaz); "kaliteden sorumlu müdür
+  hanım" → Kalite Müdürü ("kiminle?" sorulmaz). LLM yolunda birim eş adıyla söylenen makam ("il jandarma
+  komutanlığının başındaki kişi") komutanın hattına. Faks hatları aktarılamaz kalır.
+- `aday_veri.py`: elle etiketlenecek satırın `cevap` alanı liste yazılıyordu, `--elle` o satırları atlıyordu (metin).
+  `anlama_veri.py --ek`: ek örnekler test rehberinden (demo) geliyorsa uyarır (o rehberin testi artık bağımsız değil).
+- Görülmemiş kurum (belediye) setinin bulduğu kural hataları: birim eş adıyla unvan birlikte söylenince ("muhasebe
+  şefini") birimin genel hattına aktarılıyordu (yanlış aktarma), artık unvanı tam söylenen tek hat; çok sözcüklü
+  hizmet hattı ("su arıza nöbetçisine") bulunamıyordu; birimin tek hattı olan hizmet hattında ("beyaz masaya")
+  "kiminle?" soruluyordu.
 - LLM sözdeki bir bilgiyi atlayınca kod eksik JSON'a güveniyordu (v8 ölçümü, sesli deneme, iki modelde de):
   "dereköy kaymakamına" → yalnız birim, kaymakam (52001) yerine kaymakamlık hattına (52000) aktarılıyordu (S26):
   sözde geçen ve o birimde bir hattın tuttuğu unvan eklenir. Aktarılamayan makam istendiğinde ("il jandarma

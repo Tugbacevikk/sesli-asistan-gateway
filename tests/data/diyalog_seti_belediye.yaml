@@ -1,0 +1,91 @@
+# Görülmemiş kurum diyalog seti (v9, 26.11.2026): uydurma Ilgınova Belediyesi (data/belediye_rehber.json).
+# Bu rehber eğitim verisinde hiç kullanılmaz (tools/egitim/anlama_veri.py TEST_REHBERLER): modelin yeni bir kurumun
+# rehberine genellenmesinin uçtan uca ölçüsü. Kural kipinde CI'da da koşar.
+#   python tests/eval/diyalog.py --anlama --model gemma-santral --set tests/data/diyalog_seti_belediye.yaml \
+#       --rehber data/belediye_rehber.json
+
+# --- ad soyad ---
+- id: B01
+  aciklama: "Ad soyad"
+  konusma: ["emre kurt ile görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "31001"}
+
+- id: B02
+  aciklama: "Ad soyad + hanım"
+  konusma: ["gamze doğan hanıma bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "36002"}
+
+# --- birim ---
+- id: B03
+  aciklama: "Birim, yönelme eki"
+  konusma: ["zabıtaya bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "33000"}
+
+- id: B04
+  aciklama: "Birim eş adı"
+  konusma: ["park bahçelerle görüşecektim"]
+  beklenen: {eylem: transfer, dahili: "35000"}
+
+- id: B05
+  aciklama: "Kısaltmalı bağlı kuruluş"
+  konusma: ["ılsu ya bağlayın"]
+  beklenen: {eylem: transfer, dahili: "50000"}
+
+# --- unvan / makam ---
+- id: B06
+  aciklama: "Birim + unvan"
+  konusma: ["imar müdürüyle görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "32001"}
+
+- id: B07
+  aciklama: "Unvan (tek hat)"
+  konusma: ["muhasebe şefini arıyorum"]
+  beklenen: {eylem: transfer, dahili: "36002"}
+
+- id: B08
+  aciklama: "Makam: belediye başkanı doğrudan bağlanır (karar 26.11.2026; vali D15, genel müdür R17 gibi)"
+  konusma: ["belediye başkanıyla görüşmek istiyorum"]
+  beklenen: {eylem: transfer, dahili: "30001"}
+
+- id: B09
+  aciklama: "Hizmet hattı"
+  konusma: ["su arıza nöbetçisine bağlayın"]
+  beklenen: {eylem: transfer, dahili: "50004"}
+
+- id: B10
+  aciklama: "Hizmet hattı eş adı"
+  konusma: ["beyaz masaya bağlar mısınız"]
+  beklenen: {eylem: transfer, dahili: "30020"}
+
+# --- itfaiye rütbeleri ---
+- id: B11
+  aciklama: "Rütbe + ad"
+  konusma: ["itfaiye çavuşu hilal yıldırım"]
+  beklenen: {eylem: transfer, dahili: "60004"}
+
+- id: B12
+  aciklama: "Birim içinden ad"
+  konusma: ["itfaiyeden ömer bozkurt"]
+  beklenen: {eylem: transfer, dahili: "60007"}
+
+# --- aynı adlılar ---
+- id: B13
+  aciklama: "Üç Kurt: ad soyadla tek"
+  konusma: ["ahmet kurt"]
+  beklenen: {eylem: transfer, dahili: "31005"}
+
+- id: B14
+  aciklama: "Birimden kişi"
+  konusma: ["hukuktan tolga koç"]
+  beklenen: {eylem: transfer, dahili: "39002"}
+
+# --- aktarılmaması gerekenler ---
+- id: B15
+  aciklama: "Ayrılmış personel aktarılmaz"
+  konusma: ["kemal kaya fen işleri"]
+  beklenen: {eylem: aktarma_yok, yasak_dahili: ["31099"]}
+
+- id: B16
+  aciklama: "Operatör"
+  konusma: ["operatöre bağlayın"]
+  beklenen: {eylem: operator}

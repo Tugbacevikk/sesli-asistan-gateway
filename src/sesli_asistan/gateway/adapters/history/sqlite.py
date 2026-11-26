@@ -49,6 +49,13 @@ MIGRATIONS: tuple[str, ...] = (
     SCHEMA_V1,
     # 2: en çok aranan dahililer sorgusu (top_extensions) ve temizlik tarih aralığıyla süzer
     "CREATE INDEX IF NOT EXISTS transfers_started ON transfers(started);",
+    # 3: yanlış yönlendirme geri bildirimi (v9, 26.11.2026): yönetici bir çağrıyı "yanlış" / "doğru" işaretler, doğru
+    # dahiliyi seçer; sözler kopyalanır (çağrı geçmişten silinse de eğitim adayı kalır, FEEDBACK_DAYS)
+    """CREATE TABLE IF NOT EXISTS feedback (
+    call_id TEXT PRIMARY KEY, ts TEXT NOT NULL, who TEXT NOT NULL, verdict TEXT NOT NULL,
+    extension TEXT NOT NULL, note TEXT NOT NULL, data TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS feedback_ts ON feedback(ts);""",
 )
 SCHEMA_VERSION = len(MIGRATIONS)
 
@@ -74,6 +81,21 @@ def migrate(db: sqlite3.Connection) -> tuple[int, int]:
         log.info("çağrı geçmişi şeması %d → %d", version - 1, version)
     return before, SCHEMA_VERSION
 CHANGES_DAYS = 365          # denetim kaydı çağrı geçmişinden uzun tutulur
+FEEDBACK_DAYS = 90          # geri bildirim (sözlerle): bir sonraki eğitime kadar; sonra silinir (KVKK, tasarim.md 10.4)
+VERDICTS = ("yanlis", "dogru")
+
+
+def feedback_snapshot(call: dict[str, Any]) -> dict[str, Any]:
+    """Eğitim adayı için çağrıdan saklanan: duyulan sözler, cevaplar, eylemler (ses ve numara yok)."""
+    return {"started": call.get("started"), "outcome": call.get("outcome"),
+            "turns": [{"heard": t.get("heard", ""), "reply": t.get("reply", ""),
+                       "actions": list(t.get("actions") or [])} for t in call.get("turns") or []]}
+
+
+def feedback_row(call_id: str, ts: str, who: str, verdict: str, extension: str, note: str,
+                 data: dict[str, Any]) -> dict[str, Any]:
+    return {"call_id": call_id, "ts": ts, "kim": who, "karar": verdict, "dogru_dahili": extension, "not": note,
+            **data}
 
 
 def _turn_paths(calls: Any) -> dict[str, int]:
@@ -138,6 +160,33 @@ class SqliteCallHistory:
         return [{"ts": r[0], "kim": r[1], "rol": r[2], "ip": r[3], "islem": r[4], "ayrinti": json.loads(r[5])}
                 for r in rows]
 
+    def call(self, call_id: str) -> dict[str, Any] | None:
+        with self._lock:
+            row = self._db.execute("SELECT data FROM calls WHERE call_id = ? ORDER BY rowid DESC LIMIT 1",
+                                   (call_id,)).fetchone()
+        return json.loads(row[0]) if row else None
+
+    def feedback_set(self, call_id: str, who: str, verdict: str, extension: str = "", note: str = "") -> bool:
+        """Çağrıya geri bildirim; verdict "" ise silinir. Çağrı yoksa False."""
+        if not verdict:
+            with self._lock, self._db:
+                return self._db.execute("DELETE FROM feedback WHERE call_id = ?", (call_id,)).rowcount > 0
+        call = self.call(call_id)
+        if call is None:
+            return False
+        snap = feedback_snapshot(call)
+        with self._lock, self._db:
+            self._db.execute("INSERT OR REPLACE INTO feedback VALUES (?,?,?,?,?,?,?)",
+                             (call_id, datetime.now().isoformat(timespec="seconds"), who, verdict, extension, note,
+                              json.dumps(snap, ensure_ascii=False)))
+        return True
+
+    def feedback(self, limit: int = 1000) -> list[dict[str, Any]]:
+        with self._lock:
+            rows = self._db.execute("SELECT call_id, ts, who, verdict, extension, note, data FROM feedback "
+                                    "ORDER BY ts DESC LIMIT ?", (limit,)).fetchall()
+        return [feedback_row(r[0], r[1], r[2], r[3], r[4], r[5], json.loads(r[6])) for r in rows]
+
     def top_extensions(self, limit: int = 50, days: int = 30) -> list[tuple[str, int]]:
         """En çok aktarılan dahililer (Whisper ipucu önceliği için)."""
         since = (datetime.now() - timedelta(days=days)).isoformat(timespec="seconds")
@@ -162,6 +211,8 @@ class SqliteCallHistory:
             self._db.execute("DELETE FROM transfers WHERE started < ?", (cutoff,))
             old = (datetime.now() - timedelta(days=CHANGES_DAYS)).isoformat(timespec="seconds")
             self._db.execute("DELETE FROM changes WHERE ts < ?", (old,))
+            fb = (datetime.now() - timedelta(days=FEEDBACK_DAYS)).isoformat(timespec="seconds")
+            self._db.execute("DELETE FROM feedback WHERE ts < ?", (fb,))
         if n:
             log.info("çağrı geçmişi: %d eski kayıt silindi (%d günden eski)", n, self.retention_days)
         return n
@@ -177,6 +228,7 @@ class MemoryCallHistory:
     def __init__(self, manager: Any):
         self.manager = manager
         self._changes: deque[dict[str, Any]] = deque(maxlen=200)
+        self._feedback: dict[str, dict[str, Any]] = {}
 
     def add(self, call_id: str, stats: Any) -> None:
         pass   # yönetici zaten bellekte tutuyor
@@ -199,6 +251,22 @@ class MemoryCallHistory:
 
     def changes(self, limit: int = 50) -> list[dict[str, Any]]:
         return list(self._changes)[:limit]
+
+    def call(self, call_id: str) -> dict[str, Any] | None:
+        return next((dataclasses.asdict(st) for cid, st in self.manager.results if cid == call_id), None)
+
+    def feedback_set(self, call_id: str, who: str, verdict: str, extension: str = "", note: str = "") -> bool:
+        if not verdict:
+            return self._feedback.pop(call_id, None) is not None
+        call = self.call(call_id)
+        if call is None:
+            return False
+        self._feedback[call_id] = feedback_row(call_id, datetime.now().isoformat(timespec="seconds"), who, verdict,
+                                               extension, note, feedback_snapshot(call))
+        return True
+
+    def feedback(self, limit: int = 1000) -> list[dict[str, Any]]:
+        return sorted(self._feedback.values(), key=lambda r: r["ts"], reverse=True)[:limit]
 
     def summary(self, days: int = 1) -> dict[str, Any]:
         c = Counter(st.outcome for _, st in self.manager.results)

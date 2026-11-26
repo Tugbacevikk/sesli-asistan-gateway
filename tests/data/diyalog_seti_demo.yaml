@@ -77,14 +77,14 @@
 
 # --- 3. AKTARILAMAZ HATLAR VE REHBERDE OLMAYANLAR ---
 - id: D15
-  aciklama: "Aktarılamaz makam hattı: Vali doğrudan bağlanamaz"
+  aciklama: "Makam hattı: Vali doğrudan bağlanır (karar 26.11.2026: makam hatları aktarılabilir)"
   konusma: ["vali bey ile görüşmek istiyorum"]
-  beklenen: {eylem: aktarma_yok, yasak_dahili: ["20001"]}
+  beklenen: {eylem: transfer, dahili: "20001"}
 
 - id: D16
-  aciklama: "Aktarılamaz makam hattı: Jandarma Komutanı doğrudan bağlanamaz; kurumun birim hattına (ADR-025), Komutan Yardımcısına değil"
+  aciklama: "Makam hattı: Jandarma Komutanı doğrudan bağlanır (karar 26.11.2026), Komutan Yardımcısına değil"
   konusma: ["il jandarma komutanına bağlar mısınız"]
-  beklenen: {eylem: transfer, dahili: "30000", yasak_dahili: ["30001", "30002"]}
+  beklenen: {eylem: transfer, dahili: "30001", yasak_dahili: ["30002"]}
 
 - id: D17
   aciklama: "Aktarılamaz destek hattı: Valilik faks/belgegeçer"

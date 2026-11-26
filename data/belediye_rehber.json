@@ -1,0 +1,2055 @@
+{
+ "_aciklama": "Görülmemiş kurum test rehberi (uydurma belediye). Eğitimde kullanılmaz.",
+ "contacts": [
+  {
+   "id": "b-kurum",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Ilgınova Belediyesi",
+   "department_aliases": [
+    "Belediye",
+    "Ilgınova Belediye",
+    "Belediye Santrali"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "30000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi"
+   ],
+   "kategori": "kurum",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-baskan",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "Belediye Başkanlığı",
+   "department_aliases": [
+    "Başkanlık",
+    "Başkanlık Makamı"
+   ],
+   "title": "Belediye Başkanı",
+   "aliases": [
+    "Başkan Bey",
+    "Başkan"
+   ],
+   "extension": "30001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Belediye Başkanlığı"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-baskan-yrd-1",
+   "kind": "person",
+   "first_name": "İbrahim",
+   "last_name": "Yıldırım",
+   "department": "Belediye Başkanlığı",
+   "department_aliases": [
+    "Başkanlık"
+   ],
+   "title": "Başkan Yardımcısı",
+   "aliases": [],
+   "extension": "30002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Belediye Başkanlığı"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-baskan-yrd-2",
+   "kind": "person",
+   "first_name": "Ayşe",
+   "last_name": "Şahin",
+   "department": "Belediye Başkanlığı",
+   "department_aliases": [
+    "Başkanlık"
+   ],
+   "title": "Başkan Yardımcısı",
+   "aliases": [],
+   "extension": "30003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Belediye Başkanlığı"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-baskan-yrd-3",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Polat",
+   "department": "Belediye Başkanlığı",
+   "department_aliases": [
+    "Başkanlık"
+   ],
+   "title": "Başkan Yardımcısı",
+   "aliases": [],
+   "extension": "30004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Belediye Başkanlığı"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ozel-kalem",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Özel Kalem Müdürlüğü",
+   "department_aliases": [
+    "Özel Kalem",
+    "Başkanlık Sekreterliği"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "30010",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Özel Kalem Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ozel-kalem-mdr",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Erdoğan",
+   "department": "Özel Kalem Müdürlüğü",
+   "department_aliases": [
+    "Özel Kalem"
+   ],
+   "title": "Özel Kalem Müdürü",
+   "aliases": [],
+   "extension": "30011",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Özel Kalem Müdürlüğü"
+   ],
+   "kategori": "makam",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-cagri",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "Beyaz Masa",
+   "department_aliases": [
+    "Çağrı Merkezi",
+    "Halkla İlişkiler",
+    "Şikayet Hattı"
+   ],
+   "title": "Beyaz Masa",
+   "aliases": [
+    "Çağrı Merkezi",
+    "Şikayet Hattı"
+   ],
+   "extension": "30020",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Beyaz Masa"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "31000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-1",
+   "kind": "person",
+   "first_name": "Emre",
+   "last_name": "Kurt",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "Fen İşleri Müdürü",
+   "aliases": [],
+   "extension": "31001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-2",
+   "kind": "person",
+   "first_name": "Kemal",
+   "last_name": "Demir",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "İnşaat Mühendisi",
+   "aliases": [],
+   "extension": "31002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-3",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Bozkurt",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "İnşaat Mühendisi",
+   "aliases": [],
+   "extension": "31003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-4",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Kurt",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "Harita Teknikeri",
+   "aliases": [],
+   "extension": "31004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-5",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Kurt",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "Harita Teknikeri",
+   "aliases": [],
+   "extension": "31005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-fen-6",
+   "kind": "person",
+   "first_name": "Hasan",
+   "last_name": "Polat",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri",
+    "Yol Yapım"
+   ],
+   "title": "Asfalt Şantiye Şefi",
+   "aliases": [
+    "Asfalt Şefi"
+   ],
+   "extension": "31006",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "32000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar-1",
+   "kind": "person",
+   "first_name": "Gizem",
+   "last_name": "Şahin",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "İmar Müdürü",
+   "aliases": [],
+   "extension": "32001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar-2",
+   "kind": "person",
+   "first_name": "Ayşe",
+   "last_name": "Bozkurt",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "Yapı Ruhsat Şefi",
+   "aliases": [
+    "Ruhsat Şefi"
+   ],
+   "extension": "32002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar-3",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Koç",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "Mimar",
+   "aliases": [],
+   "extension": "32003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar-4",
+   "kind": "person",
+   "first_name": "Ceren",
+   "last_name": "Kaya",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "Yapı Denetim Memuru",
+   "aliases": [],
+   "extension": "32004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-imar-5",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Acar",
+   "department": "İmar ve Şehircilik Müdürlüğü",
+   "department_aliases": [
+    "İmar",
+    "İmar Müdürlüğü",
+    "Ruhsat"
+   ],
+   "title": "Yapı Denetim Memuru",
+   "aliases": [],
+   "extension": "32005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İmar ve Şehircilik Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "33000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita-1",
+   "kind": "person",
+   "first_name": "Hakan",
+   "last_name": "Arslan",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "Zabıta Müdürü",
+   "aliases": [],
+   "extension": "33001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita-2",
+   "kind": "person",
+   "first_name": "Uğur",
+   "last_name": "Bulut",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "Zabıta Amiri",
+   "aliases": [
+    "Zabıta Komiseri"
+   ],
+   "extension": "33002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita-3",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Şen",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "Zabıta Memuru",
+   "aliases": [],
+   "extension": "33003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita-4",
+   "kind": "person",
+   "first_name": "Emre",
+   "last_name": "Polat",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "Zabıta Memuru",
+   "aliases": [],
+   "extension": "33004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-zabita-5",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "Zabıta Müdürlüğü",
+   "department_aliases": [
+    "Zabıta",
+    "Belediye Zabıtası"
+   ],
+   "title": "Zabıta Nöbetçi Amirliği",
+   "aliases": [
+    "Nöbetçi Zabıta"
+   ],
+   "extension": "33005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Zabıta Müdürlüğü"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-temizlik",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Temizlik İşleri Müdürlüğü",
+   "department_aliases": [
+    "Temizlik İşleri",
+    "Çöp",
+    "Çevre Temizlik"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "34000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Temizlik İşleri Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-temizlik-1",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Şen",
+   "department": "Temizlik İşleri Müdürlüğü",
+   "department_aliases": [
+    "Temizlik İşleri",
+    "Çöp",
+    "Çevre Temizlik"
+   ],
+   "title": "Temizlik İşleri Müdürü",
+   "aliases": [],
+   "extension": "34001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Temizlik İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-temizlik-2",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Demir",
+   "department": "Temizlik İşleri Müdürlüğü",
+   "department_aliases": [
+    "Temizlik İşleri",
+    "Çöp",
+    "Çevre Temizlik"
+   ],
+   "title": "Saha Sorumlusu",
+   "aliases": [],
+   "extension": "34002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Temizlik İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-temizlik-3",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Aydın",
+   "department": "Temizlik İşleri Müdürlüğü",
+   "department_aliases": [
+    "Temizlik İşleri",
+    "Çöp",
+    "Çevre Temizlik"
+   ],
+   "title": "Çöp Toplama Şefi",
+   "aliases": [],
+   "extension": "34003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Temizlik İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-park",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Park ve Bahçeler Müdürlüğü",
+   "department_aliases": [
+    "Park Bahçeler",
+    "Yeşil Alan"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "35000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Park ve Bahçeler Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-park-1",
+   "kind": "person",
+   "first_name": "Burak",
+   "last_name": "Kaya",
+   "department": "Park ve Bahçeler Müdürlüğü",
+   "department_aliases": [
+    "Park Bahçeler",
+    "Yeşil Alan"
+   ],
+   "title": "Park ve Bahçeler Müdürü",
+   "aliases": [],
+   "extension": "35001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Park ve Bahçeler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-park-2",
+   "kind": "person",
+   "first_name": "Hilal",
+   "last_name": "Kaplan",
+   "department": "Park ve Bahçeler Müdürlüğü",
+   "department_aliases": [
+    "Park Bahçeler",
+    "Yeşil Alan"
+   ],
+   "title": "Ziraat Mühendisi",
+   "aliases": [],
+   "extension": "35002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Park ve Bahçeler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-park-3",
+   "kind": "person",
+   "first_name": "Zeynep",
+   "last_name": "Yılmaz",
+   "department": "Park ve Bahçeler Müdürlüğü",
+   "department_aliases": [
+    "Park Bahçeler",
+    "Yeşil Alan"
+   ],
+   "title": "Ziraat Mühendisi",
+   "aliases": [],
+   "extension": "35003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Park ve Bahçeler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-park-4",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Acar",
+   "department": "Park ve Bahçeler Müdürlüğü",
+   "department_aliases": [
+    "Park Bahçeler",
+    "Yeşil Alan"
+   ],
+   "title": "Bahçıvan Ustabaşı",
+   "aliases": [],
+   "extension": "35004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Park ve Bahçeler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "36000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali-1",
+   "kind": "person",
+   "first_name": "Yasemin",
+   "last_name": "Şen",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "Mali Hizmetler Müdürü",
+   "aliases": [],
+   "extension": "36001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali-2",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Doğan",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "Muhasebe Şefi",
+   "aliases": [],
+   "extension": "36002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali-3",
+   "kind": "person",
+   "first_name": "Özlem",
+   "last_name": "Demir",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "Emlak Vergisi Memuru",
+   "aliases": [
+    "Emlak Servisi"
+   ],
+   "extension": "36003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali-4",
+   "kind": "person",
+   "first_name": "Emre",
+   "last_name": "Can",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "Emlak Vergisi Memuru",
+   "aliases": [
+    "Emlak Servisi"
+   ],
+   "extension": "36004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mali-5",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Kılıç",
+   "department": "Mali Hizmetler Müdürlüğü",
+   "department_aliases": [
+    "Mali Hizmetler",
+    "Muhasebe",
+    "Tahakkuk"
+   ],
+   "title": "Tahsildar",
+   "aliases": [],
+   "extension": "36005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mali Hizmetler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ik",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "İnsan Kaynakları ve Eğitim Müdürlüğü",
+   "department_aliases": [
+    "İnsan Kaynakları",
+    "Personel",
+    "Özlük"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "37000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İnsan Kaynakları ve Eğitim Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ik-1",
+   "kind": "person",
+   "first_name": "Deniz",
+   "last_name": "Kaplan",
+   "department": "İnsan Kaynakları ve Eğitim Müdürlüğü",
+   "department_aliases": [
+    "İnsan Kaynakları",
+    "Personel",
+    "Özlük"
+   ],
+   "title": "İnsan Kaynakları Müdürü",
+   "aliases": [],
+   "extension": "37001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İnsan Kaynakları ve Eğitim Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ik-2",
+   "kind": "person",
+   "first_name": "Hasan",
+   "last_name": "Bozkurt",
+   "department": "İnsan Kaynakları ve Eğitim Müdürlüğü",
+   "department_aliases": [
+    "İnsan Kaynakları",
+    "Personel",
+    "Özlük"
+   ],
+   "title": "Özlük İşleri Şefi",
+   "aliases": [
+    "Personel Şefi"
+   ],
+   "extension": "37002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İnsan Kaynakları ve Eğitim Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ik-3",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Bozkurt",
+   "department": "İnsan Kaynakları ve Eğitim Müdürlüğü",
+   "department_aliases": [
+    "İnsan Kaynakları",
+    "Personel",
+    "Özlük"
+   ],
+   "title": "Bordro Memuru",
+   "aliases": [],
+   "extension": "37003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İnsan Kaynakları ve Eğitim Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ik-4",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Yıldız",
+   "department": "İnsan Kaynakları ve Eğitim Müdürlüğü",
+   "department_aliases": [
+    "İnsan Kaynakları",
+    "Personel",
+    "Özlük"
+   ],
+   "title": "Bordro Memuru",
+   "aliases": [],
+   "extension": "37004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İnsan Kaynakları ve Eğitim Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-yazi",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Yazı İşleri Müdürlüğü",
+   "department_aliases": [
+    "Yazı İşleri",
+    "Evrak",
+    "Meclis"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "38000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Yazı İşleri Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-yazi-1",
+   "kind": "person",
+   "first_name": "Tolga",
+   "last_name": "Çelik",
+   "department": "Yazı İşleri Müdürlüğü",
+   "department_aliases": [
+    "Yazı İşleri",
+    "Evrak",
+    "Meclis"
+   ],
+   "title": "Yazı İşleri Müdürü",
+   "aliases": [],
+   "extension": "38001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Yazı İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-yazi-2",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Bulut",
+   "department": "Yazı İşleri Müdürlüğü",
+   "department_aliases": [
+    "Yazı İşleri",
+    "Evrak",
+    "Meclis"
+   ],
+   "title": "Meclis Kalemi",
+   "aliases": [
+    "Meclis Kalem"
+   ],
+   "extension": "38002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Yazı İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-yazi-3",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Yurt",
+   "department": "Yazı İşleri Müdürlüğü",
+   "department_aliases": [
+    "Yazı İşleri",
+    "Evrak",
+    "Meclis"
+   ],
+   "title": "Evrak Kayıt Memuru",
+   "aliases": [],
+   "extension": "38003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Yazı İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-yazi-4",
+   "kind": "person",
+   "first_name": "Ahmet",
+   "last_name": "Kılıç",
+   "department": "Yazı İşleri Müdürlüğü",
+   "department_aliases": [
+    "Yazı İşleri",
+    "Evrak",
+    "Meclis"
+   ],
+   "title": "Evrak Kayıt Memuru",
+   "aliases": [],
+   "extension": "38004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Yazı İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-hukuk",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Hukuk İşleri Müdürlüğü",
+   "department_aliases": [
+    "Hukuk İşleri",
+    "Avukatlık"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "39000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Hukuk İşleri Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-hukuk-1",
+   "kind": "person",
+   "first_name": "İbrahim",
+   "last_name": "Polat",
+   "department": "Hukuk İşleri Müdürlüğü",
+   "department_aliases": [
+    "Hukuk İşleri",
+    "Avukatlık"
+   ],
+   "title": "Hukuk İşleri Müdürü",
+   "aliases": [],
+   "extension": "39001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Hukuk İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-hukuk-2",
+   "kind": "person",
+   "first_name": "Tolga",
+   "last_name": "Koç",
+   "department": "Hukuk İşleri Müdürlüğü",
+   "department_aliases": [
+    "Hukuk İşleri",
+    "Avukatlık"
+   ],
+   "title": "Avukat",
+   "aliases": [
+    "Belediye Avukatı"
+   ],
+   "extension": "39002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Hukuk İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-hukuk-3",
+   "kind": "person",
+   "first_name": "Ayşe",
+   "last_name": "Acar",
+   "department": "Hukuk İşleri Müdürlüğü",
+   "department_aliases": [
+    "Hukuk İşleri",
+    "Avukatlık"
+   ],
+   "title": "Avukat",
+   "aliases": [
+    "Belediye Avukatı"
+   ],
+   "extension": "39003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Hukuk İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-bilgi",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Bilgi İşlem Müdürlüğü",
+   "department_aliases": [
+    "Bilgi İşlem",
+    "Bilişim"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "40000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Bilgi İşlem Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-bilgi-1",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Doğan",
+   "department": "Bilgi İşlem Müdürlüğü",
+   "department_aliases": [
+    "Bilgi İşlem",
+    "Bilişim"
+   ],
+   "title": "Bilgi İşlem Müdürü",
+   "aliases": [],
+   "extension": "40001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Bilgi İşlem Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-bilgi-2",
+   "kind": "person",
+   "first_name": "Hilal",
+   "last_name": "Acar",
+   "department": "Bilgi İşlem Müdürlüğü",
+   "department_aliases": [
+    "Bilgi İşlem",
+    "Bilişim"
+   ],
+   "title": "Sistem Yöneticisi",
+   "aliases": [],
+   "extension": "40002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Bilgi İşlem Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-bilgi-3",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Kılıç",
+   "department": "Bilgi İşlem Müdürlüğü",
+   "department_aliases": [
+    "Bilgi İşlem",
+    "Bilişim"
+   ],
+   "title": "Yazılım Uzmanı",
+   "aliases": [],
+   "extension": "40003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Bilgi İşlem Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-kultur",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Kültür ve Sosyal İşler Müdürlüğü",
+   "department_aliases": [
+    "Kültür İşleri",
+    "Sosyal İşler",
+    "Kültür Merkezi"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "41000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Kültür ve Sosyal İşler Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-kultur-1",
+   "kind": "person",
+   "first_name": "Merve",
+   "last_name": "Acar",
+   "department": "Kültür ve Sosyal İşler Müdürlüğü",
+   "department_aliases": [
+    "Kültür İşleri",
+    "Sosyal İşler",
+    "Kültür Merkezi"
+   ],
+   "title": "Kültür ve Sosyal İşler Müdürü",
+   "aliases": [],
+   "extension": "41001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Kültür ve Sosyal İşler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-kultur-2",
+   "kind": "person",
+   "first_name": "Hüseyin",
+   "last_name": "Güneş",
+   "department": "Kültür ve Sosyal İşler Müdürlüğü",
+   "department_aliases": [
+    "Kültür İşleri",
+    "Sosyal İşler",
+    "Kültür Merkezi"
+   ],
+   "title": "Kurs Koordinatörü",
+   "aliases": [],
+   "extension": "41002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Kültür ve Sosyal İşler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-kultur-3",
+   "kind": "person",
+   "first_name": "Mehmet",
+   "last_name": "Yıldız",
+   "department": "Kültür ve Sosyal İşler Müdürlüğü",
+   "department_aliases": [
+    "Kültür İşleri",
+    "Sosyal İşler",
+    "Kültür Merkezi"
+   ],
+   "title": "Sosyal Yardım Memuru",
+   "aliases": [
+    "Sosyal Yardım"
+   ],
+   "extension": "41003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Kültür ve Sosyal İşler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-kultur-4",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Kılıç",
+   "department": "Kültür ve Sosyal İşler Müdürlüğü",
+   "department_aliases": [
+    "Kültür İşleri",
+    "Sosyal İşler",
+    "Kültür Merkezi"
+   ],
+   "title": "Sosyal Yardım Memuru",
+   "aliases": [
+    "Sosyal Yardım"
+   ],
+   "extension": "41004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Kültür ve Sosyal İşler Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-veteriner",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Veteriner İşleri Müdürlüğü",
+   "department_aliases": [
+    "Veteriner",
+    "Sokak Hayvanları"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "42000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Veteriner İşleri Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-veteriner-1",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Çelik",
+   "department": "Veteriner İşleri Müdürlüğü",
+   "department_aliases": [
+    "Veteriner",
+    "Sokak Hayvanları"
+   ],
+   "title": "Veteriner Hekim",
+   "aliases": [
+    "Veteriner Bey"
+   ],
+   "extension": "42001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Veteriner İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-veteriner-2",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Kaplan",
+   "department": "Veteriner İşleri Müdürlüğü",
+   "department_aliases": [
+    "Veteriner",
+    "Sokak Hayvanları"
+   ],
+   "title": "Hayvan Bakım Teknikeri",
+   "aliases": [],
+   "extension": "42002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Veteriner İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-veteriner-3",
+   "kind": "person",
+   "first_name": "Hasan",
+   "last_name": "Can",
+   "department": "Veteriner İşleri Müdürlüğü",
+   "department_aliases": [
+    "Veteriner",
+    "Sokak Hayvanları"
+   ],
+   "title": "Hayvan Bakım Teknikeri",
+   "aliases": [],
+   "extension": "42003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Veteriner İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mezarlik",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "Mezarlıklar Müdürlüğü",
+   "department_aliases": [
+    "Mezarlıklar",
+    "Cenaze Hizmetleri"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "43000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mezarlıklar Müdürlüğü"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mezarlik-1",
+   "kind": "person",
+   "first_name": "Mustafa",
+   "last_name": "Doğan",
+   "department": "Mezarlıklar Müdürlüğü",
+   "department_aliases": [
+    "Mezarlıklar",
+    "Cenaze Hizmetleri"
+   ],
+   "title": "Mezarlıklar Müdürü",
+   "aliases": [],
+   "extension": "43001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mezarlıklar Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-mezarlik-2",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "Mezarlıklar Müdürlüğü",
+   "department_aliases": [
+    "Mezarlıklar",
+    "Cenaze Hizmetleri"
+   ],
+   "title": "Cenaze Hizmetleri",
+   "aliases": [
+    "Cenaze Nakil",
+    "Cenaze Aracı"
+   ],
+   "extension": "43002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Mezarlıklar Müdürlüğü"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "50000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "bagli_kurulus",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu-1",
+   "kind": "person",
+   "first_name": "İrem",
+   "last_name": "Arslan",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "ILSU Genel Müdürü",
+   "aliases": [],
+   "extension": "50001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "bagli_kurulus",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu-2",
+   "kind": "person",
+   "first_name": "Gamze",
+   "last_name": "Kaya",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "Abone İşleri Şefi",
+   "aliases": [],
+   "extension": "50002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "bagli_kurulus",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu-3",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "Arıza Ekibi",
+   "aliases": [],
+   "extension": "50003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu-4",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "Su Arıza Nöbetçisi",
+   "aliases": [],
+   "extension": "50004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-ilsu-5",
+   "kind": "person",
+   "first_name": "Kemal",
+   "last_name": "Şahin",
+   "department": "ILSU Su ve Kanalizasyon İdaresi",
+   "department_aliases": [
+    "ILSU",
+    "Su İdaresi",
+    "Su ve Kanalizasyon"
+   ],
+   "title": "Kanal Ekibi Formeni",
+   "aliases": [],
+   "extension": "50005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "ILSU Su ve Kanalizasyon İdaresi"
+   ],
+   "kategori": "bagli_kurulus",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye",
+   "kind": "department",
+   "first_name": "",
+   "last_name": "",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "",
+   "aliases": [],
+   "extension": "60000",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "birim",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-1",
+   "kind": "person",
+   "first_name": "Can",
+   "last_name": "Bulut",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Müdürü",
+   "aliases": [],
+   "extension": "60001",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-2",
+   "kind": "person",
+   "first_name": "Ömer",
+   "last_name": "Demir",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Amiri",
+   "aliases": [],
+   "extension": "60002",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-3",
+   "kind": "person",
+   "first_name": "Elif",
+   "last_name": "Aydın",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Amiri",
+   "aliases": [],
+   "extension": "60003",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-4",
+   "kind": "person",
+   "first_name": "Hilal",
+   "last_name": "Yıldırım",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Çavuşu",
+   "aliases": [],
+   "extension": "60004",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-5",
+   "kind": "person",
+   "first_name": "Esra",
+   "last_name": "Bulut",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Çavuşu",
+   "aliases": [],
+   "extension": "60005",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-6",
+   "kind": "person",
+   "first_name": "Hüseyin",
+   "last_name": "Yıldız",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Çavuşu",
+   "aliases": [],
+   "extension": "60006",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-7",
+   "kind": "person",
+   "first_name": "Ömer",
+   "last_name": "Bozkurt",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Eri",
+   "aliases": [],
+   "extension": "60007",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-8",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Doğan",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Eri",
+   "aliases": [],
+   "extension": "60008",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-9",
+   "kind": "person",
+   "first_name": "Kemal",
+   "last_name": "Kaya",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Eri",
+   "aliases": [],
+   "extension": "60009",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-itfaiye-santral",
+   "kind": "role",
+   "first_name": "",
+   "last_name": "",
+   "department": "İtfaiye Daire Başkanlığı",
+   "department_aliases": [
+    "İtfaiye",
+    "İtfaiye Müdürlüğü"
+   ],
+   "title": "İtfaiye Santrali",
+   "aliases": [
+    "Yangın İhbar"
+   ],
+   "extension": "60100",
+   "transferable": true,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "İtfaiye Daire Başkanlığı"
+   ],
+   "kategori": "hizmet",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": false
+  },
+  {
+   "id": "b-eski",
+   "kind": "person",
+   "first_name": "Onur",
+   "last_name": "Arslan",
+   "department": "Fen İşleri Müdürlüğü",
+   "department_aliases": [
+    "Fen İşleri"
+   ],
+   "title": "Eski Fen İşleri Müdürü",
+   "aliases": [],
+   "extension": "31099",
+   "transferable": false,
+   "birim_yolu": [
+    "Ilgınova Belediyesi",
+    "Fen İşleri Müdürlüğü"
+   ],
+   "kategori": "personel",
+   "updated_at": "2026-11-26T08:00:00Z",
+   "deleted": true
+  }
+ ]
+}

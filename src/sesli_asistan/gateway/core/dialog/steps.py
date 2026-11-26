@@ -44,6 +44,7 @@ from ..phrases import (
 )
 from ..ports import LlmError
 from ..search import (
+    fold_words,
     has_role_word,
     is_role_word,
     search_key,
@@ -268,6 +269,14 @@ class StepsMixin:
         only_department = nobody and not has_line and len(members) >= 2 and not has_role_word(u.text)
         if not members or not (unknown_person or only_department):
             return None
+        said = search_key(u.text)
+        if any(c.kind == "role" and c.title and search_key(c.title) and search_key(c.title) in said for c in members):
+            return None     # birimin makam / hizmet hattı unvanıyla söylendi ("beyaz masa"): hızlı yol aktarır (B10)
+        words = fold_words(u.text)
+        if any(c.title and (heads := [w for w in fold_words(c.title) if is_role_word(w)])
+               and all(any(w == h or strip_suffix(w) == strip_suffix(h) for w in words) for h in heads)
+               for c in members):
+            return None     # birimdeki biri unvanıyla söylendi ("kaliteden sorumlu müdür hanım" → Kalite Müdürü, R25)
         if unknown_person and (turn := self._count_failure(s)) is not None:
             return turn                               # aynı bilinmeyen ad tekrar tekrar: sonunda operatör
         q = self.cfg.texts.ask_person_in_department.format(birimden=ablative(dept))
@@ -300,6 +309,39 @@ class StepsMixin:
     async def _step_fast_extension(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """1. rehber: söylenen dahili numara."""
         return self._fast_extension(s, u.text) if self.cfg.fast_path else None
+
+    async def _step_closed_role(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
+        """İstenen makamın hattı aktarılamaz ("valiyle", "belediye başkanıyla", "genel müdürle"): makamın en yakın üst
+        biriminin genel hattına aktarılır; orada sekreterlik / santral karşılar (karar 26.11.2026: bütün makamlarda il
+        jandarma komutanındaki gibi, ADR-025; önceden vali ve genel müdürde aktarma yoktu, belediye başkanında
+        yardımcılar soruluyordu). Yardımcısı ya da başka bir unvan ("genel müdürün sekreteri") söylendiyse, ya da
+        aktarılabilir bir hattın unvanı da tam söylendiyse bu adım çalışmaz."""
+        if not self.cfg.fast_path or self.pending_question(s) is not None:
+            return None
+        said = fold_words(u.text)
+
+        def in_said(t: str) -> bool:     # kendisi ya da kısa ekle ("başkanıyla"); "kaymakamlığına" sayılmaz
+            return any(w == t or strip_suffix(w) == strip_suffix(t) or (w.startswith(t) and len(w) - len(t) <= 4)
+                       for w in said)
+
+        ix = self.tools.index
+        closed = [c for c in ix.source_contacts() if c.kind != "department" and not c.transferable and not c.deleted
+                  and c.title and any(fold_words(n) and all(in_said(t) for t in fold_words(n))
+                                      for n in (c.title, *c.aliases))]        # takma adı da: "başkan bey"
+        if len(closed) != 1:
+            return None
+        role = closed[0]
+        own = {t for n in (role.title, *role.aliases) for t in fold_words(n)}
+        if any(is_role_word(w) and not any(w == t or w.startswith(t) for t in own) for w in said):
+            return None                                   # "yardımcısı", "sekreterine": başka bir hat isteniyor
+        if any(c.transferable and c.title and all(in_said(t) for t in fold_words(c.title)) for c in ix.contacts()):
+            return None                                   # aktarılabilir bir hattın unvanı da tam söylendi
+        lines = {c.department: c for c in ix.contacts() if c.kind == "department" and c.transferable}
+        line = next((lines[n] for n in (role.department, *reversed(role.unit_path)) if n in lines), None)
+        if line is None:
+            return None
+        log.info("[%s] %s aktarılamaz: %s hattı", s.call_id, role.title, line.department)
+        return self._code_transfer(s, Candidate(line, 100))
 
     async def _step_same_title(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Sözdeki unvana birden çok hat uyuyor ve "X mı, Y mi?" ile sorulamıyor (3'ten çok ya da aynı adlı): birim

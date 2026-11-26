@@ -239,6 +239,7 @@ STEPS = (
     "_step_fast_path",          # 1. rehber: tam ad, birim
     "_step_fast_clarify",       # 1. rehber: "hangisi?" sorusu
     "_step_fast_extension",     # 1. rehber: dahili numara
+    "_step_closed_role",        # aktarılamayan makam ("vali", "belediye başkanı"): kurumun genel hattı
     "_step_same_title",         # aynı unvanlı çok hat: "Hangi birimdeki müfettiş?" (ADR-030)
     "_step_mcp",                # 2. MCP: kişi çözme, konu → birim
     "_step_fuzzy_target",       # bozuk duyulan birim / konu ("masebeye", "çifremi"): teyitle

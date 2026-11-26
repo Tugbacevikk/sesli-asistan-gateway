@@ -49,6 +49,8 @@ from sesli_asistan.gateway.core.manager import CallError, CallManager
 from .access import VIEWER, Principal, UiAccess
 from .web_call import Outbox, WebPbx, WsMedia
 
+VERDICTS = ("yanlis", "dogru")      # yanlış yönlendirme geri bildirimi (adapters/history/sqlite.py ile aynı)
+
 log = logging.getLogger(__name__)
 
 UI_PREFIXES = ("/ui", "/v1/ui", "/v1/admin")
@@ -279,7 +281,64 @@ def _mount_monitoring(app: FastAPI, manager: CallManager, history: Any, access: 
         recent, misses, today = await asyncio.gather(asyncio.to_thread(history.recent, 50),
                                                      asyncio.to_thread(history.misses, 20),
                                                      asyncio.to_thread(history.summary, 1))
+        get_fb = getattr(history, "feedback", None)
+        marks = {r["call_id"]: {"karar": r["karar"], "dogru_dahili": r["dogru_dahili"], "not": r["not"]}
+                 for r in (await asyncio.to_thread(get_fb, 500) if get_fb else [])}
+        for c in recent:
+            c["geri_bildirim"] = marks.get(c["call_id"])
         return JSONResponse({"active": active, "recent": recent, "misses": misses, "today": today})
+
+    @app.put("/v1/admin/calls/{call_id}/feedback", include_in_schema=False)
+    async def call_feedback(call_id: str, request: Request) -> JSONResponse:
+        """Yanlış yönlendirme işareti (v9): {"karar": "yanlis" | "dogru" | "", "dogru_dahili": "…", "not": "…"}.
+        "yanlis" için doğru dahili zorunlu (eğitim adayının etiketi); "" işareti kaldırır. Yalnız yönetici."""
+        if (denied := _forbidden(request)) is not None:
+            return denied
+        if request.headers.get("content-type", "").split(";")[0].strip() != "application/json":
+            return _err(415, "UNSUPPORTED_MEDIA_TYPE", "içerik application/json olmalı")
+        if getattr(history, "feedback_set", None) is None:
+            return _err(404, "NOT_FOUND", "geri bildirim yok")
+        body = await _json_body(request)
+        if not isinstance(body, dict):
+            return _err(400, "BAD_REQUEST", "JSON nesnesi olmalı")
+        verdict = str(body.get("karar") or "")
+        ext = " ".join(str(body.get("dogru_dahili") or "").split())
+        note = " ".join(str(body.get("not") or "").split())[:300]
+        if verdict and verdict not in VERDICTS:
+            return _err(400, "BAD_REQUEST", "karar yanlis, dogru ya da boş olmalı")
+        if verdict == "yanlis" and not ext.isdigit():
+            return _err(400, "BAD_REQUEST", "yanlış yönlendirmede doğru dahili (rakam) seçilmeli")
+        actor = _actor(request)
+        ok = await asyncio.to_thread(history.feedback_set, call_id, actor["kim"], verdict, ext, note)
+        if not ok:
+            return _err(404, "NOT_FOUND", "çağrı bulunamadı (geçmişten silinmiş olabilir)")
+        detail = (f"çağrı {call_id}: işaret kaldırıldı" if not verdict else
+                  f"çağrı {call_id}: {'yanlış yönlendirildi → doğrusu ' + ext if verdict == 'yanlis' else 'doğru'}")
+        try:
+            await asyncio.to_thread(history.change_add, actor["kim"], actor["rol"], actor["ip"], "geri bildirim",
+                                    [detail])
+        except Exception:      # denetim kaydı yazılamadı: işaret yine geçerli
+            log.exception("değişiklik geçmişi yazılamadı")
+        return JSONResponse({"call_id": call_id, "karar": verdict, "dogru_dahili": ext, "not": note})
+
+    @app.get("/v1/admin/feedback/export", include_in_schema=False)
+    async def feedback_export(request: Request) -> Response:
+        """İşaretlenen çağrılar, eğitim adayı olarak (JSONL): tools/egitim/aday_veri.py okur. Kişisel veri (sözler):
+        yalnız yönetici indirir; indirme değişiklik geçmişine yazılır."""
+        if (denied := _forbidden(request)) is not None:
+            return denied
+        get = getattr(history, "feedback", None)
+        rows = await asyncio.to_thread(get, 5000) if get else []
+        actor = _actor(request)
+        try:
+            await asyncio.to_thread(history.change_add, actor["kim"], actor["rol"], actor["ip"], "geri bildirim",
+                                    [f"eğitim adayları indirildi ({len(rows)} çağrı)"])
+        except Exception:
+            log.exception("değişiklik geçmişi yazılamadı")
+        body = "".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows)
+        return Response(body, media_type="application/x-ndjson; charset=utf-8",
+                        headers={"Content-Disposition": 'attachment; filename="egitim_adaylari.jsonl"',
+                                 "Cache-Control": "no-store"})
 
     @app.websocket("/v1/ui/canli")
     async def live_ws(websocket: WebSocket) -> None:

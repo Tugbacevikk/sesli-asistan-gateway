@@ -67,9 +67,9 @@
 
 # --- 2. AKSTARILAMAZ KAYITLAR (VALİ, BELGEGEÇER) ---
 - id: S13
-  aciklama: Vali aktarılamaz, birim hattına (kalem) yönlendirilir
+  aciklama: Vali doğrudan bağlanır (karar 26.11.2026)
   konusma: ["valiyle görüşmek istiyorum"]
-  beklenen: {eylem: transfer, dahili: "20000"}
+  beklenen: {eylem: transfer, dahili: "20001"}
 
 - id: S14
   aciklama: Valilik Belgegeçer hattı (aktarılamaz)

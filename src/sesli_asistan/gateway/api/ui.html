@@ -277,7 +277,8 @@ td input { min-width: 160px; }
     <h2 class="sec">Süren çağrılar <span class="note" id="liveStatus"></span></h2>
     <div class="livegrid" id="live" aria-live="polite"></div>
     <h2 class="sec">Son çağrılar</h2>
-    <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Sonuç</th><th>Başlangıç</th><th>Süre</th><th>Konuşma</th></tr></thead>
+    <p class="note">Yanlış yere giden çağrıyı "Yanlış" ile işaretleyip doğru kaydı seçin: işaretlenenler bir sonraki model eğitiminin verisine aday olur. <a href="#" id="fbExport" hidden>Eğitim adaylarını indir</a> <span id="fbCount" class="note"></span></p>
+    <div class="tablewrap"><table><thead><tr><th>Çağrı</th><th>Sonuç</th><th>Başlangıç</th><th>Süre</th><th>Konuşma</th><th>Değerlendirme</th></tr></thead>
       <tbody id="recent"></tbody></table></div>
     <h2 class="sec">Rehberde bulunamayan aramalar</h2>
     <p class="note">Sık geçenler rehbere takma ad olarak eklenebilir.</p>
@@ -414,7 +415,7 @@ function show(name) {
     view.hidden = k !== name;
   }
   clearInterval(watchTimer);
-  if (name === "watch") { refresh(); watchTimer = setInterval(refresh, 3000); liveConnect(); } else liveStop();
+  if (name === "watch") { fbInit().then(refresh); watchTimer = setInterval(refresh, 3000); liveConnect(); } else liveStop();
   if (name === "settings") loadSettings();
   if (name === "directory") loadDirectory();
 }
@@ -714,13 +715,18 @@ async function refresh() {
       for (const a of c.active) liveCalls.set(a.call_id, { call_id: a.call_id, channel: a.channel, state: a.state, lines: [] });
       renderLive();
     }
+    if (fbOpen) return;      // geri bildirim formu açıkken liste yenilenmez (yazılan kaybolmasın)
+    fbLast = c.recent;
+    const marked = c.recent.filter((r) => r.geri_bildirim?.karar === "yanlis").length;
+    $("fbCount").textContent = marked ? `(${marked} yanlış işaretli)` : "";
     $("recent").innerHTML = c.recent.length ? c.recent.map((r) => {
       const turns = r.turns.map((t) => `<li>${esc(t.heard || "–")} <span class="note">/</span> ${esc(t.reply)}${t.actions.length ? " <span class='note'>(" + esc(t.actions.join(", ")) + ")</span>" : ""}${t.final_to_audio_s != null ? " <span class='note'>" + fmt(t.final_to_audio_s) + "</span>" : ""}</li>`).join("");
       return `<tr><td>${esc(r.call_id)}<div class="note">${channelText(r.channel)}</div></td>
         <td class="outcome-${esc(r.outcome)}">${esc(outcomeText(r.outcome))}${reasonText(r.reason) !== outcomeText(r.outcome) ? `<div class="note">${esc(reasonText(r.reason))}</div>` : ""}</td>
         <td>${esc(r.started.replace("T", " "))}</td><td>${fmt(r.duration_s)}</td>
-        <td>${r.turns.length ? `<details><summary>${r.turns.length} tur</summary><ol>${turns}</ol></details>` : "<span class='note'>konuşma yok</span>"}</td></tr>`;
-    }).join("") : `<tr><td colspan="5" class="note">Henüz biten çağrı yok. Deneme çağrısı sekmesinden bir arama yapın.</td></tr>`;
+        <td>${r.turns.length ? `<details><summary>${r.turns.length} tur</summary><ol>${turns}</ol></details>` : "<span class='note'>konuşma yok</span>"}</td>
+        <td data-fb="${esc(r.call_id)}">${fbCell(r)}</td></tr>`;
+    }).join("") : `<tr><td colspan="6" class="note">Henüz biten çağrı yok. Deneme çağrısı sekmesinden bir arama yapın.</td></tr>`;
     $("misses").innerHTML = c.misses.length ? c.misses.map((m) => `<tr><td>${esc(m.text)}</td><td>${m.count}</td></tr>`).join("")
       : `<tr><td colspan="2" class="note">Bulunamayan arama yok.</td></tr>`;
   } catch (e) {
@@ -728,6 +734,70 @@ async function refresh() {
   }
 }
 
+
+/* ---------- izleme: yanlış yönlendirme geri bildirimi (v9) ---------- */
+let fbOpen = null, fbLast = [], fbContacts = null, fbAdmin = false;
+async function fbInit() {
+  try {
+    const st = await fetch("/v1/admin/settings", { headers }).then((r) => r.ok ? r.json() : null);
+    fbAdmin = !!st && st.user?.role !== "izleyici";
+    fbContacts = st ? st.contacts.filter((c) => /^\d+$/.test(c.extension)) : [];
+  } catch (e) { fbAdmin = false; fbContacts = []; }
+  $("fbExport").hidden = !fbAdmin;
+}
+function fbName(ext) {
+  const c = (fbContacts || []).find((x) => x.extension === ext);
+  return c ? `${c.name} (${ext})` : ext;
+}
+function fbCell(r) {
+  const g = r.geri_bildirim;
+  const mark = !g ? "" : g.karar === "yanlis"
+    ? `<div class="status-bad">Yanlış → ${esc(fbName(g.dogru_dahili))}</div>${g.not ? `<div class="note">${esc(g.not)}</div>` : ""}`
+    : `<div class="status-ok">Doğru</div>`;
+  if (!fbAdmin || !r.turns.length) return mark || "<span class='note'>–</span>";
+  return mark + `<div class="row"><button class="linkbtn" type="button" data-fbwrong="${esc(r.call_id)}">Yanlış</button>
+    <button class="linkbtn" type="button" data-fbok="${esc(r.call_id)}">Doğru</button>
+    ${g ? `<button class="linkbtn" type="button" data-fbclear="${esc(r.call_id)}">Kaldır</button>` : ""}</div>`;
+}
+async function fbSend(id, body, cell) {
+  const r = await fetch(`/v1/admin/calls/${encodeURIComponent(id)}/feedback`, { method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) { cell.insertAdjacentHTML("beforeend", `<div class="status-bad">${esc(d.error?.message || "Kaydedilemedi.")}</div>`); return; }
+  fbOpen = null;
+  refresh();
+}
+$("recent").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  const cell = b.closest("td");
+  if (b.dataset.fbok) fbSend(b.dataset.fbok, { karar: "dogru" }, cell);
+  else if (b.dataset.fbclear) fbSend(b.dataset.fbclear, { karar: "" }, cell);
+  else if (b.dataset.fbwrong) {
+    const id = b.dataset.fbwrong;
+    fbOpen = id;
+    cell.innerHTML = `<div class="field"><label for="fbTo">Doğru kayıt</label>
+        <select id="fbTo"><option value="">Seçin…</option>${(fbContacts || []).map((c) =>
+          `<option value="${esc(c.extension)}">${esc(c.name)}${c.department && c.kind !== "department" ? " – " + esc(c.department) : ""} (${esc(c.extension)})</option>`).join("")}</select></div>
+      <div class="field"><label for="fbNote">Not (isteğe bağlı)</label><input id="fbNote" maxlength="300" autocomplete="off"></div>
+      <div class="row"><button class="send" type="button" id="fbSave">Kaydet</button>
+        <button class="linkbtn" type="button" id="fbCancel">Vazgeç</button></div>`;
+    $("fbTo").focus();
+    $("fbCancel").onclick = () => { fbOpen = null; refresh(); };
+    $("fbSave").onclick = () => {
+      if (!$("fbTo").value) { $("fbTo").focus(); return; }
+      fbSend(id, { karar: "yanlis", dogru_dahili: $("fbTo").value, not: $("fbNote").value }, cell);
+    };
+  }
+});
+$("fbExport").onclick = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/v1/admin/feedback/export", { headers });
+  if (!r.ok) return;
+  const url = URL.createObjectURL(await r.blob());
+  const a = Object.assign(document.createElement("a"), { href: url, download: "egitim_adaylari.jsonl" });
+  document.body.append(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+};
 
 /* ---------- izleme: canlı çağrılar (/v1/ui/canli) ---------- */
 let liveWs = null, liveOk = false, liveRetry = null;

@@ -2196,6 +2196,30 @@ ondan bağımsızdır.
 
 ## 20. Ekler
 
+### ADR-040 — Gerçek kullanımdan eğitim verisi ve görülmemiş kurum ölçüsü (v9)
+
+- **Bağlam:** v1–v8 eğitim verisinin tamamı sentetikti (rehberden kurala göre kurulan sözler, elle uydurulmuş STT
+  bozulmaları). Ürün farklı kurumlara dağıtılacak; test rehberi (demo) eğitimdeki kurum rehberiyle aynı uydurma ili
+  paylaşıyordu, "yeni kuruma gidince ne olur" ölçülmüyordu.
+- **Karar:**
+  - Arayüzde çağrıya "yanlış / doğru" geri bildirimi; yanlışta doğru kayıt seçilir. Sözler `feedback` tablosuna
+    kopyalanır (çağrı geçmişi şeması 3), 90 gün tutulur (FEEDBACK_DAYS, KVKK: kişisel veri; `CALL_HISTORY_TEXTS=false`
+    ise sözler boş, aday üretilmez). Dışa aktarma yalnız yöneticiye, değişiklik geçmişine yazılır.
+  - `tools/egitim/aday_veri.py`: geri bildirim + sesli deneme raporu → eğitim örneği. Etiket doğru kayıttan kurulur
+    (sözdeki sözcükler kaydın adı / unvanı / birimine benzerlikle, eşik 75 / 100: "kort" → "kurt"); gerçek diyalog
+    ajanıyla doğrulanır, geçmeyen elle etiketlemeye. Ek örnekler eğitimde 3 kez (`--ek-tekrar`).
+  - Görülmemiş kurum: uydurma belediye rehberi (başka il ve yapı) eğitimde hiç kullanılmaz; anlama testi ve diyalog
+    seti (B01–B16).
+- **Sonuç:** Belediye seti modelden önce kural katmanında dört genelleme hatası yakaladı (biri yanlış aktarma:
+  "muhasebe şefini" → birim hattı); düzeltildi.
+- **Makam hatları (karar 26.11.2026):** uydurma rehberlerde makam hatları (vali, il jandarma komutanı, genel müdür,
+  belediye başkanı) artık aktarılabilir: istenince doğrudan makamın hattına (D15, D16, R17, B08, S13). Önceden vali,
+  genel müdür ve belediye başkanında aktarma yoktu, il jandarma komutanında kurum hattına gidiliyordu (tutarsız).
+  Gerçek bir rehber bir makamı aktarılamaz işaretlerse çağrı kapanmaz: kural ve LLM yolunda makamın en yakın üst
+  biriminin genel hattına, teyitsiz (`_step_closed_role`, `_title_in_unit`). Yardımcısı ya da sekreteri istenirse
+  ("genel müdürün sekreteri") o kişi; makam unvanı burada rakip sayılmaz (titles.title_rivals). Belgegeçer (faks)
+  ve eski kayıtlar aktarılamaz kalır.
+
 ### Ek A — Repo yapısı
 
 Tek Python paketi (`sesli_asistan`), servisler alt paketlerdir. Servis sınırları `import-linter`
