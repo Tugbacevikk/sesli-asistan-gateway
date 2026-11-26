@@ -141,6 +141,12 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Arayan hiç konuşmadan "Sizi anlayamadım" deniyordu (sesli deneme 26.11.2026): 0,8–1,5 sn'lik **boş** STT sonuçları
+  (hoparlörden dönen asistan sesi, gürültü) cevaplanıp deneme sayılıyor, çağrı operatöre gidiyordu. Boş sonuç sınırı
+  600 → 1600 ms (`MIN_NOISE_MS`); arayan susarsa "Sizi duyamadım" sorusu yine gelir.
+- Seçenek sorusunun cevabı anlaşılmayınca soru sayıyla seçim önerisiyle yinelenir ("Akçakaya mı, Dereköy mü?
+  Birincisi için bir, ikincisi için iki diyebilirsiniz."; `CHOICE_BY_NUMBER_TEXT`): kısa yer adı telefonda defalarca
+  bozuk duyuldu ("ne kör bir dekar", sesli deneme 26.11.2026), "iki" / "2" sağlam duyulur.
 - Seçenek sorusunun ("Akçakaya mı, Dereköy mü?") bozuk duyulan tek sözcüklü cevabı ("dea kör") eşlenmiyor, kısık
   olduğu için arka plan sayılıp atılıyordu (sesli deneme 26.11.2026, çağrı operatöre gitti). Cevap bir adayın ayırt
   edici yer / birim adına açıkça yakınsa teyitle sorulur: "Dereköy Nüfus Müdürüne mi bağlamamı istersiniz?".

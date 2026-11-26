@@ -48,8 +48,11 @@ SOUND_MIN = 65.0
 SOUND_MARGIN = 25.0
 
 # --- söze girme ve gürültü (canlı 04–05.11.2026) ------------------------------------------------------------------
-# Bundan kısa "anlaşılamadı" (boş) sesler gürültü (öksürük, tık): cevaplanmaz, deneme sayılmaz.
-MIN_NOISE_MS = 600
+# Bundan kısa "anlaşılamadı" (boş) sesler gürültü (öksürük, tık, hoparlörden mikrofona dönen asistan sesi): cevaplanmaz,
+# deneme sayılmaz. 600 → 1600 ms (sesli deneme 26.11.2026): arayan hiç konuşmadan 0,8–1,5 sn'lik boş sonuçlar
+# "Sizi anlayamadım" dedirtip denemeyi yakıyor, çağrıyı operatöre götürüyordu. Gerçek kısa söz bozuk da olsa metin
+# verir ("dea kör"); boş kalan gerçek söz için arayan sustuğunda "Sizi duyamadım" sorusu gelir.
+MIN_NOISE_MS = 1600
 # Gürültü kırıntısı: güveni bunun altında ve en çok bu kadar harf ("b" 0,05; "s" 0,23 geçer, tekrar kapısına düşer).
 NOISE_BELOW = 0.2
 NOISE_MAX_LETTERS = 2

@@ -821,3 +821,16 @@ async def test_coken_cagri_de_gecmise_ve_kayda_yazilir():
     await mgr._run("x", Crashing(), None)
     assert seen == [("x", "error", "oturum_hatasi", 1)]
     assert mgr.results[-1][1].outcome == "error"
+
+
+async def test_kisa_bos_sonuc_cevaplanmaz():
+    # sesli deneme 26.11.2026: arayan konuşmadan 0,8–1,5 sn'lik boş sonuçlar (yankı) "Sizi anlayamadım" dedirtiyordu
+    llm = Llm(LlmMessage("Tamam."))
+    async with Call(llm) as c:
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("not_recognized", "", 0.0, 0, 1500, reason="empty"))
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "filanca", 0.9, 0, 900))
+        await c.until(lambda: c.session.stats.turns)
+        await asyncio.sleep(0.05)
+        assert [t.heard for t in c.session.stats.turns] == ["filanca"]        # boş sonuç tura girmedi

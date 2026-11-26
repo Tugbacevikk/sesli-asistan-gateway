@@ -132,6 +132,9 @@ class DialogTexts:
     # "X mı, Y mi?" sorusuna yalnız "evet" / "he" (şive seti S17, serbest F09): aynı soru kelimesi kelimesine
     # yinelenmez; seçimin istendiği açıkça söylenir
     which_one: str = "Hangisini istersiniz: {soru}"
+    # seçenek sorusunun cevabı anlaşılmayınca soruya eklenir: kısa yer / ad cevabı telefonda bozuk duyuluyor ("Dereköy"
+    # → "dea kör", "ne kör bir dekar"; sesli deneme 26.11.2026), sayılar sağlam duyulur
+    choice_by_number: str = "Birincisi için bir, ikincisi için iki diyebilirsiniz."
     ask_topic: str = ("Hangi konuda bilgi almak istersiniz? Görüşmek istediğiniz kişiyi ya da birimi de "
                       "söyleyebilirsiniz.")
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür

@@ -188,6 +188,7 @@ class GatewaySettings(BaseSettings):
     office_hours_text: str = ""               # mesai sorusunun cevabı; {saatler} zorunlu
     office_hours_unknown_text: str = ""       # OFFICE_HOURS tanımlı değilken mesai sorusu
     ask_target_text: str = ""                 # bilgi verildikten sonra "Kiminle görüşmek istersiniz?"
+    choice_by_number_text: str = ""            # seçenek cevabı anlaşılmayınca: "Birincisi için bir, ikincisi için iki…"
     which_one_text: str = ""                  # iki seçenekli soruya "evet" denince "Hangisini istersiniz: ..."
     which_department_text: str = ""           # aynı unvanlı çok hat: "Hangi birimdeki {unvan}?" (ADR-030)
     indistinct_text: str = ""                 # aynı unvan, aynı birim: ayırt edilemedi → operatör

@@ -364,6 +364,18 @@ FILLER_WORDS = {"ist", "istiyor", "istiyoru", "istiyorum", "lutfen", "baglar", "
            "orada", "var", "yok", "sey", "hani", "evet", "tamam", "beni", "bana", "kim", "kimle", "lazim"}
 ORDINALS = {"birinci": 0, "birincisi": 0, "ilk": 0, "ilki": 0, "ilkine": 0, "ikinci": 1, "ikincisi": 1,
              "ikinciye": 1, "ucuncu": 2, "ucuncusu": 2, "son": -1, "sonuncu": -1, "sonuncusu": -1, "sonuncuya": -1}
+# seçenek sorusuna sayıyla cevap ("iki", "2", "ikinci numara"): yalnız sözün tamamı sayıysa (+ "numara", "lütfen")
+NUMBER_ANSWERS = {"bir": 0, "1": 0, "iki": 1, "2": 1, "uc": 2, "3": 2}
+_NUMBER_TAIL = {"numara", "numarayi", "numaraya", "olan", "lutfen", "tane"}
+
+
+def number_answer(words: list[str]) -> int | None:
+    """"iki" / "2" / "iki numara" → 1 (sıra); başka sözcük varsa ("bir sorumuz var") None."""
+    if words and words[0] in NUMBER_ANSWERS and all(w in _NUMBER_TAIL for w in words[1:]):
+        return NUMBER_ANSWERS[words[0]]
+    return None
+
+
 _VOWELS = "aıoueiöü"
 
 
