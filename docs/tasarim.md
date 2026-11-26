@@ -1925,6 +1925,13 @@ ondan bağımsızdır.
   `ad_olmayan_sozcukler` (rehber yüklemede kişi adı sanılmayacak yer / birim sözcükleri). Kurumun dosyası depoya
   konmaz (`data/yerel/`).
 - **Sonuç:** Kurum dosyası olmadan bu bozmalar düzeltilmez; kurulumda kurumun denemelerinden çıkan listeyle doldurulur.
+- **Ayar ekranı (26.11.2026):** "Kelime düzeltmeleri" bölümü: kurum yöneticisi "yanlış duyulan → doğrusu"
+  satırları ekler, kaydedince yeniden başlatmadan geçerli olur (yerel ayar `corrections`, `LOCAL_SETTINGS_FILE`).
+  Kurum dosyasındakilerle birleşir, aynı söz ikisinde varsa ayar ekranındaki geçerli; kurum dosyasındakiler arayüzde
+  salt okunur görünür. Kurallar: yanlış duyulan söz 1–5 sözcük, 2–60 harf; evet / hayır / operatör sözcükleri ve
+  rehberdeki gerçek bir ad ya da birim düzeltilemez (bütün aramaları bozardı); en çok 300 satır. "Dene" kutusu
+  kaydetmeden yazılan tabloyla sonucu gösterir (`POST /v1/admin/corrections/try`, izleyici de kullanabilir).
+  Değişiklikler geçmişe yazılır.
 
 ### ADR-034 — Diyalog yöneticisi konu konu modüllere bölündü
 

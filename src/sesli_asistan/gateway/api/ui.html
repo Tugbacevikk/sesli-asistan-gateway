@@ -360,6 +360,19 @@ td input { min-width: 160px; }
         <div class="hint" id="setOfficeNow"></div>
       </div>
     </div>
+    <h2 class="sec">Kelime düzeltmeleri</h2>
+    <p class="note">Konuşma tanımanın sık yanlış duyduğu sözler ve doğruları ("masebe" → "muhasebe", "ama tepe" → "Anıttepe"). Arayanın sözü anlamadan önce düzeltilir; ek korunur ("masebeye" → "muhasebeye"). Rehberdeki gerçek adlar ve evet / hayır / operatör düzeltilemez. Kaydedince yeniden başlatmadan geçerli olur.</p>
+    <div class="tablewrap"><table><thead><tr><th>Yanlış duyulan</th><th>Doğrusu</th><th></th></tr></thead>
+      <tbody id="setFixes"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><button class="ghost" id="fixAdd" type="button">Satır ekle</button></div>
+    <details id="fixBaseBox" style="margin-top:8px" hidden><summary class="note">Kurum dosyasındaki düzeltmeler (salt okunur): <span id="fixBaseCount"></span></summary>
+      <div class="note" id="fixBase"></div></details>
+    <div class="box" style="margin-top:12px">
+      <div class="field"><label for="fixTry">Dene: duyulan sözü yazın</label>
+        <input id="fixTry" autocomplete="off" placeholder="masebeye bağlar mısınız"></div>
+      <div class="row" style="margin-top:8px"><button class="ghost" id="fixTryBtn" type="button">Düzelt</button>
+        <span id="fixTryOut" role="status" aria-live="polite"></span></div>
+    </div>
     <h2 class="sec">Takma adlar</h2>
     <p class="note">Arayanların kullandığı başka adlar ("Ferhat Bey", "bilgi işlem" yerine "IT"). Virgülle ayırın. Rehber kaynağındaki takma adlar değişmez; bunlar onlara eklenir.</p>
     <div class="box" id="missBox" hidden>
@@ -844,11 +857,61 @@ function renderSettings(st, misses) {
       <td><label class="sr" for="al-${esc(c.id)}">${esc(c.name)} takma adları</label>
         <input id="al-${esc(c.id)}" data-id="${esc(c.id)}" value="${esc((st.aliases[c.id] || []).join(", "))}" autocomplete="off"></td>
     </tr>`).join("");
+  renderFixes(st);
   $("missBox").hidden = !misses.length;
   $("missPick").innerHTML = misses.map((m) => `<option>${esc(m.text)}</option>`).join("");
   $("missTo").innerHTML = st.contacts.map((c) => `<option value="${esc(c.id)}">${esc(c.name)} (${esc(c.extension)})</option>`).join("");
-  for (const el of $("view-settings").querySelectorAll("textarea, input, select, #setSave, #missAdd")) el.disabled = !st.writable;
+  for (const el of $("view-settings").querySelectorAll("textarea, input, select, #setSave, #missAdd, #fixAdd")) el.disabled = !st.writable;
+  $("fixTry").disabled = false;   // denemek salt okunur kullanıcıya da açık
 }
+
+function fixRow(k = "", v = "") {
+  const n = $("setFixes").rows.length;
+  return `<tr><td><label class="sr" for="fk-${n}">Yanlış duyulan</label><input id="fk-${n}" class="fixKey" maxlength="60" value="${esc(k)}" autocomplete="off"></td>
+    <td><label class="sr" for="fv-${n}">Doğrusu</label><input id="fv-${n}" class="fixVal" maxlength="60" value="${esc(v)}" autocomplete="off"></td>
+    <td><button class="linkbtn fixDel" type="button">Sil</button></td></tr>`;
+}
+function renderFixes(st) {
+  $("setFixes").innerHTML = "";
+  const rows = Object.entries(st.corrections || {});
+  for (const [k, v] of rows.length ? rows : [["", ""]]) $("setFixes").insertAdjacentHTML("beforeend", fixRow(k, v));
+  const base = Object.entries(st.corrections_base || {});
+  $("fixBaseBox").hidden = !base.length;
+  $("fixBaseCount").textContent = base.length;
+  $("fixBase").innerHTML = base.map(([k, v]) => `<div>${esc(k)} → ${esc(v)}</div>`).join("");
+}
+function readFixes() {
+  const out = {};
+  for (const r of $("setFixes").rows) {
+    const k = r.querySelector(".fixKey").value.trim(), v = r.querySelector(".fixVal").value.trim();
+    if (k || v) out[k] = v;
+  }
+  return out;
+}
+$("setFixes").onclick = (e) => {
+  if (!e.target.classList.contains("fixDel") || !settings?.writable) return;
+  e.target.closest("tr").remove();
+  if (!$("setFixes").rows.length) $("setFixes").insertAdjacentHTML("beforeend", fixRow());
+  setStatus("Silindi; kaydetmeyi unutmayın.");
+};
+$("fixAdd").onclick = () => {
+  $("setFixes").insertAdjacentHTML("beforeend", fixRow());
+  $("setFixes").rows[$("setFixes").rows.length - 1].querySelector(".fixKey").focus();
+};
+async function tryFix() {
+  const text = $("fixTry").value.trim();
+  if (!text) return;
+  $("fixTryOut").className = "";
+  try {
+    const r = await fetch("/v1/admin/corrections/try", { method: "POST",
+      headers: { ...headers, "Content-Type": "application/json" }, body: JSON.stringify({ text, corrections: readFixes() }) });
+    const d = await r.json();
+    if (!r.ok) { $("fixTryOut").textContent = d.error?.message || "Denenemedi."; $("fixTryOut").className = "status-bad"; return; }
+    $("fixTryOut").textContent = d.text === text ? "Değişmedi." : `→ ${d.text}`;
+  } catch (e) { $("fixTryOut").textContent = "Gateway'e ulaşılamadı."; $("fixTryOut").className = "status-bad"; }
+}
+$("fixTryBtn").onclick = tryFix;
+$("fixTry").onkeydown = (e) => { if (e.key === "Enter") tryFix(); };
 
 $("missAdd").onclick = () => {
   const input = $("al-" + $("missTo").value), text = $("missPick").value;
@@ -870,7 +933,7 @@ $("setSave").onclick = async () => {
     if (v.length) aliases[i.dataset.id] = v;
   }
   const body = { texts, office_hours: $("setHours").value, holidays: $("setHolidays").value,
-    after_hours_mode: $("setMode").value, aliases };
+    after_hours_mode: $("setMode").value, aliases, corrections: readFixes() };
   $("setSave").disabled = true;
   setStatus("Kaydediliyor, değişen anonslar seslendiriliyor…");
   try {

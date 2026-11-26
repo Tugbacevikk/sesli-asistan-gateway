@@ -17,9 +17,13 @@ import secrets
 from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
+from sesli_asistan.libs.text.normalizer import fold_tr_words
+
 from .config import TEXT_FIELDS, check_texts
+from .core.corrections import SttCorrections
 from .core.dialog import DialogTexts
 from .core.models import Contact
+from .core.phrases import NEGATION_WORDS, OPERATOR_WORDS, YES_WORDS
 from .core.schedule import OfficeHours
 from .core.search import search_key
 from .directory_upload import DirectoryUpload
@@ -72,6 +76,8 @@ TEXT_LABELS = {
 MAX_TEXT = 400
 MAX_ALIASES = 10
 MAX_LOCAL_CONTACTS = 500
+MAX_CORRECTIONS = 300
+MAX_CORRECTION_WORDS = 5
 _EXTENSION = re.compile(r"^\d{2,6}$")   # yalnız dahili numara: dış hat / cep numarası yazılamaz (aktarma güvenliği)
 
 
@@ -80,6 +86,9 @@ class SettingsService:
         self.rt, self.store, self.upload = rt, store, upload
         self.local = LocalSettings()
         self._lock = asyncio.Lock()
+        # kurum dosyasındaki düzeltmeler (ABBREVIATIONS_PATH, salt okunur): ayar ekranındakiler bunların üzerine
+        base = rt.agent.cfg.stt_corrections
+        self.base_corrections: dict[str, str] = dict(base.table) if base else {}
 
     # --- yükleme / uygulama ---------------------------------------------------------------------------------
 
@@ -108,6 +117,13 @@ class SettingsService:
         rt.agent.set_texts(replace(self.base_texts(), **local.texts))
         rt.set_office_rules(OfficeHours.parse(*self._office(local)), self._mode(local))
         rt.directory.index.set_overlay(local.aliases, [Contact.from_api(c.as_api()) for c in local.contacts])
+        rt.agent.set_corrections(SttCorrections(self.merged_corrections(local.corrections)))
+
+    def merged_corrections(self, local: dict[str, str]) -> dict[str, str]:
+        """Kurum dosyası + ayar ekranı; aynı söz ikisinde de varsa ayar ekranındaki geçerli."""
+        mine = {" ".join(fold_tr_words(k)) for k in local}
+        return {**{k: v for k, v in self.base_corrections.items() if " ".join(fold_tr_words(k)) not in mine},
+                **local}
 
     def _office(self, local: LocalSettings) -> tuple[str, str]:
         """Geçerli (mesai saatleri, tatiller): yerel ayar yoksa ayar dosyasındaki."""
@@ -133,7 +149,45 @@ class SettingsService:
             if clean := _clean_aliases(values):
                 aliases[cid] = clean
         return LocalSettings(texts=self._clean_texts(data.get("texts") or {}), **self._clean_office(data),
-                             aliases=aliases, contacts=tuple(contacts))
+                             aliases=aliases, contacts=tuple(contacts),
+                             corrections=self._clean_corrections(data.get("corrections") or {}, contacts))
+
+    def _clean_corrections(self, data: Any, contacts: list[LocalContact]) -> dict[str, str]:
+        """Kelime düzeltmeleri: "yanlış duyulan söz" → "doğrusu". Yanlış duyulan söz 1–5 sözcük; evet / hayır /
+        operatör gibi cevap sözcükleri ve rehberdeki gerçek bir ad ya da birim düzeltilemez (bütün aramaları
+        bozar: "kaya" → "kaplan" yazılırsa Kaya soyadlı kimse bulunamaz)."""
+        if not isinstance(data, dict):
+            raise ValueError("kelime düzeltmeleri JSON nesnesi olmalı")
+        reserved = {*YES_WORDS, *NEGATION_WORDS, *OPERATOR_WORDS}
+        index = self.rt.directory.index
+        names = [n for c in index.source_contacts() for n in (c.full_name, c.department)]
+        names += [n for lc in contacts for n in (lc.label, lc.department)]
+        real = {" ".join(fold_tr_words(n)) for n in names if n}
+        out: dict[str, str] = {}
+        seen: set[str] = set()
+        for raw_key, raw_value in data.items():
+            key, value = " ".join(str(raw_key or "").split()), " ".join(str(raw_value or "").split())
+            if not key and not value:
+                continue
+            folded = fold_tr_words(key)
+            if not folded or not value:
+                raise ValueError(f"kelime düzeltmesi: yanlış duyulan söz ve doğrusu ikisi de dolu olmalı ({key!r})")
+            if not 2 <= len(key) <= 60 or not 1 <= len(value) <= 60 or len(folded) > MAX_CORRECTION_WORDS:
+                raise ValueError(f"kelime düzeltmesi: en çok {MAX_CORRECTION_WORDS} sözcük, 2–60 harf ({key!r})")
+            joined = " ".join(folded)
+            if joined == " ".join(fold_tr_words(value)):
+                raise ValueError(f"kelime düzeltmesi: doğrusu yanlış duyulanla aynı ({key!r})")
+            if len(folded) == 1 and folded[0] in reserved:
+                raise ValueError(f"kelime düzeltmesi: {key!r} cevap sözcüğü (evet / hayır / operatör), düzeltilemez")
+            if joined in real:
+                raise ValueError(f"kelime düzeltmesi: {key!r} rehberde gerçek bir ad ya da birim, düzeltilemez")
+            if joined in seen:
+                raise ValueError(f"kelime düzeltmesi: {key!r} iki kez yazılmış")
+            seen.add(joined)
+            out[key] = value
+        if len(out) > MAX_CORRECTIONS:
+            raise ValueError(f"en çok {MAX_CORRECTIONS} kelime düzeltmesi")
+        return out
 
     def _clean_texts(self, data: dict[str, Any]) -> dict[str, str]:
         """Anonslar: bilinen alan, uzunluk, yer tutucular ({ad}, {saatler} …); varsayılanla aynı olan atılır."""
@@ -197,6 +251,12 @@ class SettingsService:
         return await self.update({**self.local.to_json(), "contacts": rest, "aliases": aliases}, actor=actor,
                                  action="rehber")
 
+    def try_corrections(self, text: str, table: Any = None) -> str:
+        """Arayüzdeki "Dene": söz, yazılan (henüz kaydedilmemiş) tabloyla düzeltilmiş hali. Tablo verilmezse
+        geçerli düzeltmeler. Tablo doğrulanır (kaydetmedeki kurallar): hatalıysa ValueError."""
+        local = self.local.corrections if table is None else self._clean_corrections(table, list(self.local.contacts))
+        return SttCorrections(self.merged_corrections(local)).apply(" ".join(str(text or "").split())[:400])
+
     # --- ayar ekranı --------------------------------------------------------------------------------------
 
     @property
@@ -218,6 +278,8 @@ class SettingsService:
             "office": dict(zip(("hours", "holidays"), self._office(local), strict=True),
                            mode=rt.after_hours_mode, status=rt.office_status(), timezone=s.timezone),
             "aliases": local.aliases,
+            "corrections": local.corrections,
+            "corrections_base": dict(self.base_corrections),
             "contacts": sorted(({"id": c.id, "name": c.full_name, "department": c.department, "title": c.title,
                                  "extension": c.extension, "kind": c.kind, "aliases": list(c.aliases),
                                  "local": c.id.startswith("yerel-"),
@@ -287,6 +349,14 @@ def describe_changes(old: LocalSettings, new: LocalSettings, index: Any) -> list
             out.append(f"takma ad eklendi: {who(cid)} ← {', '.join(added)}")
         if removed:
             out.append(f"takma ad silindi: {who(cid)} ← {', '.join(removed)}")
+    oco, nco = old.corrections, new.corrections
+    for k in sorted(set(oco) | set(nco), key=str.casefold):
+        if k not in oco:
+            out.append(f"kelime düzeltmesi eklendi: {k} → {nco[k]}")
+        elif k not in nco:
+            out.append(f"kelime düzeltmesi silindi: {k} → {oco[k]}")
+        elif oco[k] != nco[k]:
+            out.append(f"kelime düzeltmesi değişti: {k} → {nco[k]} (önce {oco[k]})")
     oc = {c.id: c for c in old.contacts}
     nc = {c.id: c for c in new.contacts}
     out.extend(f"yerel kayıt eklendi: {names[cid]} ({nc[cid].department or '-'}, {nc[cid].extension})"

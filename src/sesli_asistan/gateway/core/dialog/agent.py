@@ -6,6 +6,7 @@ from dataclasses import replace
 
 from sesli_asistan.libs.text.normalizer import turkish_lower
 
+from ..corrections import SttCorrections
 from ..models import Action, DialogTurn, TransferAction
 from ..phrases import (
     strip_fillers,
@@ -79,6 +80,10 @@ class DialogAgent(StepsMixin, ChoiceMixin, RulesMixin, TransferMixin, LlmMixin, 
     def set_texts(self, texts: DialogTexts) -> None:
         """Ayar ekranından: süren çağrılar yeni metinleri bir sonraki cümlede kullanır."""
         self.cfg = replace(self.cfg, texts=texts)
+
+    def set_corrections(self, corrections: SttCorrections) -> None:
+        """Ayar ekranından (kelime düzeltmeleri): süren çağrılarda bir sonraki sözden itibaren geçerli."""
+        self.cfg = replace(self.cfg, stt_corrections=corrections)
 
     # --- giriş noktaları ---
 
