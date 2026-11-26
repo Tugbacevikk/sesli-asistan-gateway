@@ -11,6 +11,8 @@ from __future__ import annotations
 from .packet import RtpPacket
 
 MAX_FILL = 25          # en çok bu kadar kayıp paket (0,5 sn) sessizlikle doldurulur; fazlası sıra atlaması
+LATE_RESYNC = 25       # art arda bu kadar "geç" paket (0,5 sn): sıra geriye atladı (aynı SSRC ile akış yeniden
+                       # başladı, bekletme dönüşü); yeni sıradan sürülür. Önceden sarmaya kadar (dakikalarca) atılırdı
 
 
 class JitterBuffer:
@@ -20,6 +22,7 @@ class JitterBuffer:
         self.pending: dict[int, RtpPacket] = {}
         self.late = 0  # geç ya da tekrar gelip atılan paket sayısı
         self.resyncs = 0
+        self._late_run = 0     # art arda geç paket
 
     def push(self, p: RtpPacket) -> list[RtpPacket | None]:
         if self.next is None:
@@ -27,7 +30,13 @@ class JitterBuffer:
         nxt: int = self.next
         if (p.seq - self.next) & 0xFFFF >= 0x8000:  # geç kalmış (zaten geçildi): at
             self.late += 1
-            return []
+            self._late_run += 1
+            if self._late_run < LATE_RESYNC:
+                return []
+            self.resyncs += 1                          # sıra geriye atladı: bekleyenler atılır, yeni sıradan
+            self.pending.clear()
+            self.next = nxt = p.seq
+        self._late_run = 0
         if p.seq in self.pending:  # tekrar
             self.late += 1
             return []
