@@ -40,3 +40,19 @@ def test_rapor_eslestirir_ve_degerlendirir(tmp_path, capsys):
 def test_wer():
     assert rapor.wer("murat şen ile", "murat şen ile") == 0
     assert rapor.wer("murat şen ile", "murat şenle") == 2 / 3
+
+
+def test_teshis_kayitlarindan_tsv(tmp_path):
+    # STT teşhis kayıtları → "ses<TAB>söylenen": metinsiz cümle atlanır, senaryonun sözleriyle sırayla eşlenir
+    teshis = tmp_path / "stt_teshis"
+    teshis.mkdir()
+    for n, metin in enumerate(["", "uğur çelik ile görüşmek istiyorum", "personel"], 1):
+        (teshis / f"web-abc_{n:03d}.json").write_text(json.dumps({"metin": metin}), encoding="utf-8")
+        (teshis / f"web-abc_{n:03d}.wav").write_bytes(b"")
+    c = rapor.Cagri(dosya=tmp_path / "101500_web-abc.log", basladi="", turlar=[], sonuc="", kanal="web")
+    sen = {"id": "S17", "konusma": ["uğur çelik ile görüşmek istiyorum", "personel"]}
+    out = tmp_path / "d.tsv"
+    assert rapor.teshis_tsv([(sen, [c])], teshis, out) == 2
+    rows = [r.split("\t") for r in out.read_text(encoding="utf-8").splitlines()]
+    assert [(Path(w).name, s) for w, s in rows] == [("web-abc_002.wav", "uğur çelik ile görüşmek istiyorum"),
+                                                     ("web-abc_003.wav", "personel")]
