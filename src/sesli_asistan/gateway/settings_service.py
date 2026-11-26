@@ -48,6 +48,7 @@ TEXT_LABELS = {
     "holiday": ("Tatil", ""),
     "no_operator": ("Operatör yok (mesai dışı)", ""),
     "not_found": ("Bulunamadı", ""),
+    "topic_not_found": ("Konunun birimi bulunamadı", ""),
     "not_found_again": ("Yine bulunamadı (operatör teklifi)", ""),
     "too_many": ("Çok aday", ""),
     "busy": ("Aranan meşgul", "{ad} {ad_e}"),

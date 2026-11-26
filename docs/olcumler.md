@@ -1500,3 +1500,29 @@ Eğitim: Gemma 3 1B IT tabanlı Unsloth QLoRA (v7 ile aynı: 2 epoch, lr 2e-4, b
    - **`tarif`:** `"valilik özel kalem müdürlüğünün başındaki kişi kimse onunla görüşmek isteyrum"` → Beklenen: `{"niyet": "aktar", "unvan": "müdür", "birim": "valilik özel kalem müdürlüğü"}` · v8 Çıktısı: `{"niyet": "aktar", "unvan": "baş kalem müdürü", "birim": "valilik özel kalem müdürlüğü"}`
    - **`farketmez`:** `"herhangi biri olur"` → Beklenen: `{"niyet": "farketmez"}` · v8 Çıktısı: `{"niyet": "belirsiz"}`
    - **`kapat`:** `"isimi hallettim tesekkurler lutfen"` → Beklenen: `{"niyet": "kapat"}` · v8 Çıktısı: `{"niyet": "teşekkür"}`
+
+## 26.11.2026 — gemma-santral v9 (kurulum modeli v9)
+
+Eğitim: Gemma 3 1B IT, Unsloth LoRA (16 bit, Colab L4 22 GB: parti 4 × 4 biriktirme, 2 tur, 1.332 adım, ~50 dk).
+v9 verisi: 10.651 eğitim / 558 doğrulama; test demo 2.972 + **görülmemiş kurum (belediye) 2.611** + 69 sohbet.
+Özel isim denetimi: "BULGU YOK". Son doğrulama kaybı 0,069 (200. adım; eğitim 0,066).
+
+| | v8 | v9 |
+|---|---|---|
+| JSON geçerli | %99,7 | %100,0 |
+| Niyet doğru | %97,0 | %99,6 |
+| Tam eşleşme | %79,6 | %85,1 |
+| **Uçtan uca** | %95,9 | **%99,2** |
+| demo / belediye uçtan uca | %96,9 / %94,8 | %99,4 / %98,9 |
+| Yanlış niyet (adet) | 152 | 22 |
+| Gecikme p50 / p95 | 0,26 / 0,36 sn | 0,27 / 0,36 sn |
+| Sohbet denetimi / selam karşılığı | %100 / %100 | %100 / %95,7 |
+
+Türe göre uçtan uca (v8 → v9): operator 72,2 → 100; belirsiz 69,9 → 98,6; konu 81,7 → 99,5; tarif 81,8 → 99,4;
+kapat 81,8 → 97,9; farketmez 91,8 → 100; selam 95,6 → 100. Küçük düşüş (gürültü sınırında): birim_iyelik 98,9 → 97,7;
+kurum_unvan 97,9 → 96,8; kurum_birim_unvan 97,8 → 96,7.
+
+Not: v8 sayıları 25.11 ölçümünden düşük; test seti büyüdü (belediye, yeni türler), aynı setle yan yana ölçüldü.
+Karar: kurulum modeli v9 (`deploy/models.yaml`); v8 yedek (`ollama cp gemma-santral gemma-santral-v8`). Model eğitimi
+bu sürümle bitirildi: yeniden eğitim yalnız gerçek "yanlış yönlendirildi" işaretleri birikince ya da yeni kurumda
+ölçüm kötü çıkarsa.

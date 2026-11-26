@@ -138,3 +138,22 @@ def test_jitter_buyuk_sira_atlamasinda_sahte_sessizlik_uretmez():
     assert len(j.push(parse(_pkt(0)))) == 1
     assert j.push(parse(_pkt(20000))) == []
     assert len(j.drain()) == 1                                  # kapanışta da 20000 sessizlik değil
+
+
+def test_jitter_sira_geriye_atlarsa_yeni_siradan_surer():
+    # aynı SSRC ile akış geriye atlayan sırayla yeniden başladı (bekletme dönüşü): önceden sıra sarana kadar
+    # (~55000 paket, ~18 dk) her paket "geç" diye atılıyordu
+    from sesli_asistan.gateway.adapters.rtp.jitter import LATE_RESYNC, JitterBuffer
+    j = JitterBuffer(depth=4)
+    out = []
+    for s in range(40000, 40050):
+        out += j.push(parse(_pkt(s)))
+    for s in range(30000, 30100):                               # 10000 geri (yarım daireden az)
+        out += j.push(parse(_pkt(s)))
+    assert len(out) == 50 + 100 - (LATE_RESYNC - 1) and j.resyncs == 1
+    # tek tük geç / tekrar paket sırayı bozmaz
+    j = JitterBuffer(depth=4)
+    out = []
+    for s in [0, 1, 2, 3, 1, 4, 5, 2, 6]:
+        out += j.push(parse(_pkt(s)))
+    assert [p.seq for p in out if p] == [0, 1, 2, 3, 4, 5, 6] and j.resyncs == 0

@@ -15,6 +15,7 @@ from ..phrases import (
     YES_WORDS,
     asks_operator,
     contact_dative,
+    names_topic,
     question_particle,
     spoken_numbers,
     wants_hangup,
@@ -231,7 +232,9 @@ class TransferMixin:
         if (turn := self._count_failure(s)) is not None:
             return turn
         last = s.state.failed_attempts == self.cfg.max_failed_attempts - 1
-        turn = self._reply(s, self.cfg.texts.not_found_again if last else self.cfg.texts.not_found)
+        said = next((m.get("content") or "" for m in reversed(s.history) if m.get("role") == "user"), "")
+        first = self.cfg.texts.topic_not_found if names_topic(said) else self.cfg.texts.not_found
+        turn = self._reply(s, self.cfg.texts.not_found_again if last else first)
         turn.fallback = True
         return turn
 

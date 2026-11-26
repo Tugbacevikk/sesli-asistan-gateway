@@ -84,8 +84,9 @@ models:
     yalniz_mirror: true          # asıl kaynak yok: yalnız şirketin dosya sunucusunda (mirror)
     hedef: gemma-santral
     dosyalar: [gemma-santral.Q8_0.gguf]
-    # v8 (25.11.2026): Colab A100 eğitimi, q8_0; boyut 1069306304 bayt. Dosya sunucusuna
-    # gemma-santral.Q8_0.gguf adıyla konur (eğitim çıktısı gemma-3-1b-it.Q8_0.gguf).
-    # Önceki: v7 4c12bceb…07e7, v4 fff31128…d1f2. Seçim: docs/olcumler.md, 25.11.2026.
+    # v9 (26.11.2026): Colab L4 eğitimi (10651 örnek, 2 tur), q8_0; boyut 1069306304 bayt. Dosya sunucusuna
+    # gemma-santral.Q8_0.gguf adıyla konur (eğitim çıktısı gemma-santral-v9.Q8_0.gguf). Ölçüm: uçtan uca %99,2
+    # (v8 %95,9), görülmemiş belediye %98,9 (v8 %94,8), JSON %100.
+    # Önceki: v8 9f803ad7…dff1, v7 4c12bceb…07e7, v4 fff31128…d1f2. Seçim: docs/olcumler.md.
     sha256:
-      gemma-santral.Q8_0.gguf: 9f803ad77c604aae3d9c1c282f61ac17db0f5f65182304b5f068eb898e96dff1
+      gemma-santral.Q8_0.gguf: c74bce50e8e1d3b6b3ebd9b9cee3bb92eaa193b7e0fa669c0ccc1f71f601148c

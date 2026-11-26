@@ -38,6 +38,7 @@ from ..phrases import (
     is_greeting_only,
     is_small_talk,
     maybe_operator,
+    names_topic,
     spoken_numbers,
     unknown_target,
     wants_hangup,
@@ -100,8 +101,9 @@ class StepsMixin:
     async def _step_general_help(self: DialogAgent, s: DialogSession, u: _Utterance) -> DialogTurn | None:
         """Hedefsiz genel istek ("bilgi almak istiyorum", "bir sorum var"): LLM'e gitmeden konu / kişi sorulur, deneme
         sayılmaz, açık soru yinelenir. Canlı 05.11.2026: LLM "bilgi"yi birim sanıp Bilgi İşlem'e aktarmıştı."""
-        if not asks_general_help(u.text) or self._mentions_target(u.text) or self.tools.local_topic(u.text):
-            return None
+        if (not asks_general_help(u.text) or self._mentions_target(u.text) or self.tools.local_topic(u.text)
+                or (self.cfg.llm_enabled and names_topic(u.text))):
+            return None     # konu söylendi ("cari hesap konusunda"): konudan birim tahmini (MCP / LLM, teyitle)
         u.reopen(s)
         log.info("[%s] genel istek: %s", s.call_id, log_text(u.text))
         reply = self._reply(s, self.pending_question(s) or self.cfg.texts.ask_topic)
