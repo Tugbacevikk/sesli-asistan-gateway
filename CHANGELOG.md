@@ -15,6 +15,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- **Anlama modeli v9** (`deploy/models.yaml`): uçtan uca %99,2 (v8 %95,9), hiç görülmemiş kurumda (belediye) %98,9;
+  operatör, belirsiz, konu, tarif ve kapat türleri düzeldi (docs/olcumler.md, 26.11.2026).
 - `tools/deneme/stt_duzeltme.py`: sesli deneme raporundan **kelime düzeltmesi önerisi**. STT'nin rehberdeki ad / birim
   / unvan sözcüklerini nasıl bozduğu ("masaj" → "asayiş", "dere köy" → "dereköy"), kaç kez görüldüğüyle; ayar
   ekranına girilir ya da kurum dosyasına (`stt_duzeltmeleri`) eklenir.
@@ -139,6 +141,12 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Konu söylenen genel istek ("cari hesap konusunda bilgi almak istiyorum") "Hangi konuda?" diye yeniden soruluyordu:
+  LLM açıkken konudan birim tahmin edilir; konunun birimi yoksa "Bu konuyla ilgili birimi bulamadım…" (yeni metin
+  `TOPIC_NOT_FOUND_TEXT`), "aradığınız kişiyi" denmez.
+- RTP sıra tamponu: aynı SSRC ile sıra numarası geriye atlarsa (bekletme dönüşü) paketler sıra sarana kadar (dakikalarca)
+  "geç" sayılıp atılıyordu; 0,5 sn sonra yeni sıradan sürülür.
+- Arayüz API: bozuk ya da nesne olmayan JSON gövdesi bazı uç noktalarda 500 dönüyordu; artık 400.
 - **Makam hatları doğrudan aktarılır** (karar 26.11.2026): "valiyle", "il jandarma komutanına", "genel müdürle",
   "belediye başkanıyla" → makamın kendi hattı (uydurma rehberlerde aktarılabilir işaretlendi; önceden aktarma yoktu
   ya da kurum hattına gidiliyordu). Rehber bir makamı aktarılamaz işaretlerse kurumun genel hattına aktarılır (kural

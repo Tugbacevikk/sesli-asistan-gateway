@@ -112,6 +112,9 @@ class DialogTexts:
     holiday: str = ("Bugün tatil nedeniyle hizmet veremiyoruz. Lütfen mesai saatlerimiz içinde tekrar arayın. "
                     "İyi günler dileriz.")
     not_found: str = "Aradığınız kişiyi rehberde bulamadım. Adını ya da birimini tekrar söyler misiniz?"
+    # konu söylendi ama birimi bulunamadı ("cari hesap konusunda…"): "aradığınız kişiyi" denmez (deneme 26.11.2026)
+    topic_not_found: str = ("Bu konuyla ilgili birimi bulamadım. Görüşmek istediğiniz kişiyi ya da birimi söyler "
+                            "misiniz?")
     not_found_again: str = ("Yine bulamadım. Adı ya da birimi tekrar söyleyebilirsiniz, "
                             "isterseniz sizi operatöre de bağlayabilirim.")
     too_many: str = "Birden fazla kayıt buldum. Soyadını ya da birimini de söyler misiniz?"
@@ -308,7 +311,8 @@ def fixed_prompts(cfg: DialogConfig) -> dict[str, str]:
     return {"greeting": greeting_text(cfg), "not_understood": t.not_understood,
             "offer_operator": t.offer_operator, "to_operator": t.to_operator, "error": t.error,
             "no_input": t.no_input, "closed": t.closed, "holiday": t.holiday, "no_operator": t.no_operator,
-            "not_found": t.not_found, "not_found_again": t.not_found_again, "too_many": t.too_many,
+            "not_found": t.not_found, "topic_not_found": t.topic_not_found, "not_found_again": t.not_found_again,
+            "too_many": t.too_many,
             "goodbye": t.goodbye}
 
 

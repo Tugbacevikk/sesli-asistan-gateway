@@ -172,6 +172,7 @@ class GatewaySettings(BaseSettings):
     holiday_text: str = ""
     no_operator_text: str = ""
     not_found_text: str = ""
+    topic_not_found_text: str = ""
     not_found_again_text: str = ""
     too_many_text: str = ""
     busy_text: str = ""                       # {ad} {ad_e}

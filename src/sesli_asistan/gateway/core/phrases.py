@@ -69,6 +69,18 @@ def contact_dative(c: Any) -> str:
     return dative(name)
 
 
+_TOPIC_SAID = re.compile(r"\b\w{3,}(?: \w+){0,2} (konusunda|konusuyla|konusu ile|hakkinda|ile ilgili)\b")
+
+
+def names_topic(text: str) -> bool:
+    """Konu söylendi ("cari hesap konusunda", "maaşım hakkında", "pasaport ile ilgili"): genel istek değil, konudan
+    birim tahmini yapılır (deneme 26.11.2026: "cari hesap konusunda bilgi almak istiyorum" → "Hangi konuda?" diye
+    yeniden soruluyordu)."""
+    joined = " ".join(w for w in fold_tr_words(text) if w not in ("bir", "sey", "bi"))
+    m = _TOPIC_SAID.search(joined)
+    return m is not None and not m.group(0).startswith(("bu ", "su ", "o ", "her ", "baska "))
+
+
 def asks_general_help(text: str) -> bool:
     """Hedefsiz genel istek: "bilgi almak istiyorum", "bir sorum var", "bir şey soracaktım", "yardım istiyorum"
     (canlı 05.11.2026: "bilgi almak istiyorum" Bilgi İşlem'e aktarıldı). Kişi / birim / konu ayrıca denetlenir."""

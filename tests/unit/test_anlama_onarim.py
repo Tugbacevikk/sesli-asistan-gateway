@@ -126,3 +126,23 @@ def test_kural_yolunda_aktarilamayan_makam_kurum_hattina(tmp_path: Path) -> None
         return [a.extension for a in tr.actions if a.type == "transfer"]
     assert asyncio.run(run("valiyle görüşmek istiyorum")) == ["20000"]
     assert asyncio.run(run("vali yardımcısı kemal yılmaz")) == ["20002"]
+
+
+def test_konu_soylenince_genel_istek_sorulmaz() -> None:
+    # deneme 26.11.2026: "cari hesap konusunda bilgi almak istiyorum" → "Hangi konuda?" yeniden soruluyordu
+    from sesli_asistan.gateway.core.phrases import names_topic
+    assert names_topic("cari hesap konusunda bilgi almak istiyorum")
+    assert names_topic("pasaport ile ilgili soracaktım")
+    assert not names_topic("bilgi almak istiyorum") and not names_topic("bu konuda bilgi almak istiyorum")
+    soz = "cari hesap konusunda bilgi almak istiyorum"
+    cikti = {"niyet": "konu", "konu": "cari hesap", "tahmini_birim": "Muhasebe"}
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({soz: cikti}), ToolRegistry(index), DialogConfig(understand="llm"))
+
+    async def run() -> str:
+        ses = agent.new_session("t")
+        ses.greeting()
+        return (await ses.handle_user(soz)).text
+    # demo rehberinde muhasebe yok: "kişiyi bulamadım" değil, konu cevabı
+    assert asyncio.run(run()).startswith("Bu konuyla ilgili birimi bulamadım")
