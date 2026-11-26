@@ -14,6 +14,7 @@ from ..phrases import (
     NEGATION_WORDS,
     YES_WORDS,
     asks_operator,
+    common_dative,
     contact_dative,
     names_topic,
     question_particle,
@@ -129,15 +130,17 @@ class TransferMixin:
         c = s.stt_confidence
         return c is not None and self.cfg.confirm_below > 0 and c < self.cfg.confirm_below
 
-    def _confirm(self: DialogAgent, s: DialogSession, contact: Any, why: str = "") -> DialogTurn:
+    def _confirm(self: DialogAgent, s: DialogSession, contact: Any, why: str = "",
+                 display: str = "") -> DialogTurn:
         """Aktarmadan önce teyit: STT güveni düşük (santral denemesi 02.11.2026: rehberde olmayan "Tuğba Çevik" dar
         bantlı seste "burak çelik" duyuldu), yalnız adla söylendi ya da hedef konudan çıkarıldı (`why`)."""
         s.state.confirm, s.state.confirm_again = Candidate(contact, 100), False
         name = contact.full_name if contact.kind != "department" else contact.department
         log.info("[%s] %s: %s teyit ediliyor", s.call_id,
                  why or f"düşük STT güveni ({s.stt_confidence or 0:.2f})", name)
-        to = contact_dative(contact)
-        turn = self._reply(s, self.cfg.texts.confirm.format(ad=name, ad_e=to, mi=question_particle(to)))
+        # display: arayanın tanıdığı ad ("Dereköy Nüfus Müdürü"); kişinin adını bilmiyor olabilir (unvanla istedi)
+        to = common_dative(display) if display else contact_dative(contact)
+        turn = self._reply(s, self.cfg.texts.confirm.format(ad=display or name, ad_e=to, mi=question_particle(to)))
         turn.fast = True
         return turn
 

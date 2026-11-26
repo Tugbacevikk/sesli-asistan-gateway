@@ -185,3 +185,27 @@ def test_konu_listesine_uymayan_tahmin_onerilmez() -> None:
         return asyncio.run(run())
     assert cevap("data/demo_rehber.json", "İl Milli Eğitim Müdürlüğü").startswith("Bu konuyla ilgili birimi bulamadım")
     assert cevap("data/sirket_rehber.json", "Muhasebe") == "Muhasebe'ye mi bağlamamı istersiniz?"
+
+
+def test_secenek_sorusunda_bozuk_yer_adi_teyitle() -> None:
+    # sesli deneme 26.11.2026: "Akçakaya mı, Dereköy mü?" → "Dereköy" STT'de "dea kör"; eşlenmedi, kısık diye arka
+    # plan da sayıldı, çağrı operatöre gitti
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({}), ToolRegistry(index), DialogConfig(understand="kural", llm_enabled=False))
+
+    async def run(cevap: str) -> tuple[str, bool, list[str]]:
+        ses = agent.new_session("t")
+        ses.greeting()
+        assert (await ses.handle_user("nüfus müdürüyle görüşmek istedim")).text == "Akçakaya mı, Dereköy mü?"
+        ilgili = ses.concerns_call(cevap)
+        ilk = await ses.handle_user(cevap)
+        if ilk.actions:
+            return ilk.text, ilgili, [a.extension for a in ilk.actions if a.type == "transfer"]
+        tr = await ses.handle_user("evet")
+        return ilk.text, ilgili, [a.extension for a in tr.actions if a.type == "transfer"]
+    soru, ilgili, ext = asyncio.run(run("dea kör"))
+    assert soru == "Dereköy Nüfus Müdürüne mi bağlamamı istersiniz?" and ilgili and ext == ["52021"]
+    assert asyncio.run(run("dere köy"))[2] == ["52021"]          # bitişik yazılınca doğrudan
+    soru, ilgili, _ = asyncio.run(run("tekrar"))
+    assert soru == "Akçakaya mı, Dereköy mü?" and not ilgili       # ilgisiz söz: seçenek uydurulmaz

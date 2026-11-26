@@ -391,7 +391,7 @@ class ChoiceMixin:
         if (s.state.confirm is not None or s.state.confirm_operator) and set(words) & (YES_WORDS | NEGATION_WORDS):
             return True
         if s.state.choice and (any(_choice_said(s.state.choice, i, words) for i in range(len(s.state.choice)))
-                               or wants_anyone(text)):
+                               or wants_anyone(text) or _label_pick(s.state.choice, words) is not None):
             return True
         numbers = [*re.findall(r"\d{2,6}", text), *spoken_numbers(words)]
         return (department_said(ix, text) is not None or mentioned_targets(ix, text, numbers).count > 0
@@ -435,14 +435,62 @@ class ChoiceMixin:
         scores = [score(search_key(c.contact.last_name)) for c in choice]
         best = max(range(len(choice)), key=scores.__getitem__)
         rest = max((sc for i, sc in enumerate(scores) if i != best), default=0.0)
+        display = ""
         if scores[best] < FUZZY_CHOICE_MIN or scores[best] - rest < FUZZY_CHOICE_MARGIN:
-            return None
+            if (picked := _label_pick(choice, words)) is None:
+                return None
+            best, display = picked, _label_display(choice, picked)
         s.state.last_results = choice
         log.info("[%s] seçim (yakın, teyitle): %s → %s", s.call_id, log_text(text), choice[best].contact.extension)
-        return self._confirm(s, choice[best].contact)
+        return self._confirm(s, choice[best].contact, display=display)
 
     def _fast_clarify_of(self: DialogAgent, s: DialogSession, contacts: list[Any]) -> DialogTurn | None:
         s.state.truncated = False
         if (turn := self._clarify(s, tuple(Candidate(c, 100) for c in contacts))) is not None:
             turn.fast = True
         return turn
+
+
+LABEL_MIN = 58.0       # ayırt edici sözcüğe (yer / birim adı) benzerlik: tek sözcüklü kısa cevap bozuk duyulur
+LABEL_MARGIN = 15.0    # ikinci adaydan bu kadar açık olmalı (yalnız teyitle sorulur)
+
+
+def _labels(choice: tuple[Candidate, ...]) -> list[set[str]]:
+    """Her adayın ayırt edici sözcükleri: birim yolu ve unvanında olup bütün adaylarda ortak olmayanlar
+    ("Akçakaya mı, Dereköy mü?" → {akcakaya} / {derekoy})."""
+    raw = [{w for n in (c.contact.department, *c.contact.unit_path, c.contact.title) for w in fold_words(n or "")
+            if len(w) >= 4} for c in choice]
+    common = set.intersection(*raw) if raw else set()
+    return [r - common for r in raw]
+
+
+def _label_pick(choice: tuple[Candidate, ...], words: list[str]) -> int | None:
+    """Cevap bir adayın ayırt edici sözcüğüne açıkça yakın (bozuk duyulmuş yer / birim adı): o aday (teyitle).
+    Sesli deneme 26.11.2026: "Akçakaya mı, Dereköy mü?" → "Dereköy" STT'de "dea kör"; eşlenmedi, kısık diye arka plan
+    da sayıldı, çağrı operatöre gitti. Bitişik sözcükler birleştirilir ("dere köy", "dea kör" → "deakor")."""
+    # adaylardaki adlar ("ayşe ırmak": ortak ad Ayşe) burada sayılmaz: ad benzerliğine _fuzzy_choice bakar
+    names = {search_key(n) for c in choice for n in (c.contact.first_name, c.contact.last_name) if n}
+    words = [w for w in words if not any(similarity(w, n) >= FIRST_NAME_LIKE for n in names)]
+    spoken = [w for w in words if len(w) >= 3] + [a + b for a, b in zip(words, words[1:], strict=False)]
+    if not spoken:
+        return None
+    labels = _labels(choice)
+    # kısa sözcük uzun adın parçasına benzemesin ("ayşe" ↔ "muhasebe" %68): uzunluklar yakın olmalı
+    # kısa ad (≤ 5 harf: "satış") kısa bozuk sözle karışır ("ateşe" %60): yalnız uzun yer / birim adları
+    scores = [max((similarity(v, lab) for w in spoken for v in query_variants(w) for lab in labs
+                   if len(lab) >= 6 and len(w) >= 0.7 * len(lab)), default=0.0) for labs in labels]
+    best = max(range(len(choice)), key=scores.__getitem__)
+    rest = max((sc for i, sc in enumerate(scores) if i != best), default=0.0)
+    return best if scores[best] >= LABEL_MIN and scores[best] - rest >= LABEL_MARGIN else None
+
+
+def _label_display(choice: tuple[Candidate, ...], i: int) -> str:
+    """Teyitte söylenecek ad: ayırt edici sözcük + unvan ("Dereköy Nüfus Müdürü"); unvan yoksa boş (kişinin adı)."""
+    c = choice[i].contact
+    if not c.title:
+        return ""
+    labs = _labels(choice)[i]
+    words = [w for n in (c.department, *c.unit_path) for w in (n or "").split()]
+    tag = next((w for w in words if fold_words(w) and fold_words(w)[0] in labs), "")
+    return f"{tag} {c.title}".strip() if tag and fold_words(tag)[0] not in fold_words(c.title) else ""
+

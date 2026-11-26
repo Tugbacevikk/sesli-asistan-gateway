@@ -141,6 +141,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Seçenek sorusunun ("Akçakaya mı, Dereköy mü?") bozuk duyulan tek sözcüklü cevabı ("dea kör") eşlenmiyor, kısık
+  olduğu için arka plan sayılıp atılıyordu (sesli deneme 26.11.2026, çağrı operatöre gitti). Cevap bir adayın ayırt
+  edici yer / birim adına açıkça yakınsa teyitle sorulur: "Dereköy Nüfus Müdürüne mi bağlamamı istersiniz?".
 - LLM'in konudan birim tahmini konu listesine (`konular.json`) uymuyorsa önerilmez: demo rehberinde muhasebe yokken
   "cari hesap" için "İl Milli Eğitim Müdürlüğüne mi?" soruluyordu; artık "Bu konuyla ilgili birimi bulamadım…".
 - `SMALL_TALK=true` iken hal hatır ("günaydın nasılsınız") adımlara bırakılıyordu: hızlı yol "günaydın"ı "Aydın"
