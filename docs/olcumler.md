@@ -1545,3 +1545,26 @@ lm1: 26.11 derlemi; lm2: seçenek cevapları eklenmiş derlem (PR #86), ikisi de
   biçimden 19'u doğru adaya gidiyor). Tek heceli "iki" 12 kaydın 9'unda "peki", "bir" çoğunda boş: seçenek ipucu
   "Birinci ya da ikinci" oldu.
 - Yapay ses gerçek arayanın yerini tutmaz (tek Piper sesi); karar gerçek 30 çağrılık denemeyle doğrulanacak.
+
+## 27.11.2026 — dil modeli ağırlığı: santral seti × FLEURS (gerçek insan sesi, genel cümle)
+
+FLEURS Türkçe test, 200 cümle × G.711/G.722 × temiz / uğultu 15 dB = 800 kayıt (`tools/stt/hazir_set.py`);
+santral seti yukarıdaki 576 yapay kayıt. Dil modeli lm2.
+
+| Ağırlık | Santral WER | santral tam | FLEURS WER | FLEURS tam | FLEURS farkı |
+|---|---|---|---|---|---|
+| yok | 51,1 | 139 | 10,0 | 301 | — |
+| **0,1** | 44,6 | 154 | 13,1 | 276 | **+3,1** |
+| 0,2 | 41,7 | 160 | 18,3 | 209 | +8,3 |
+| 0,3 | 40,5 | 164 | 28,0 | 123 | +18,0 |
+| 0,4 | 41,3 | 167 | 44,1 | 49 | +34,1 |
+
+FLEURS hat / gürültü (yok → 0,1 → 0,2): G.711 temiz 12,2 → 14,7 → 19,5; G.711 uğultu 14,4 → 17,7 → 22,6;
+G.722 temiz 9,8 → 12,6 → 18,3; G.722 uğultu 11,4 → 14,3 → 20,0. G.722 her durumda G.711'den ~2,5 puan iyi.
+
+- Bozulmanın biçimi **sözcük yutma**: uzun cümle kesiliyor ya da tamamen boş çıkıyor ("…bir yardımdır" → "meydimdir").
+  Dil modeli kısa santral cümleleriyle eğitildi, uzun cümlede sonu erken bitirmeyi seçiyor.
+- Karar: **ağırlık 0,1** (genel konuşmada +3 puan sınırı). Santral kazancının çoğu (51,1 → 44,6; toplam
+  kazancın ~%70'i) 0,1'de alınıyor; 0,2 uzun cümleli arayanı (derdini anlatan) bozuyor.
+- Sonraki adım (eğitimsiz): derleme genel Türkçe uzun cümleler katılırsa (Common Voice metni, CC0) yutma azalıp daha
+  yüksek ağırlık kullanılabilir; yeniden aynı iki setle ölçülür.
