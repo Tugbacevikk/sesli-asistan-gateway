@@ -109,7 +109,26 @@ SHORT = ["evet", "evet lütfen", "evet doğru", "tamam", "olur", "aynen", "hayı
          "görüşmeyi sonlandırmak istiyorum", "kapatabilirsiniz", "başka bir şey yok", "anlamadım tekrar eder misiniz",
          "ilki", "ikincisi", "sonuncusu", "hiçbiri", "bilmiyorum", "mesai saatleri nedir", "saat kaça kadar açıksınız",
          "adresiniz neresi", "sipariş vermek istiyorum", "fiyat teklifi almak istiyorum", "şikayetim var",
-         "faturamla ilgili bir sorun var", "arızam var", "şifremi unuttum", "iş başvurusu yapacaktım"]
+         "faturamla ilgili bir sorun var", "arızam var", "şifremi unuttum", "iş başvurusu yapacaktım",
+         # sayıyla seçim ("Birincisi için bir, ikincisi için iki diyebilirsiniz"; sesli deneme 26.11.2026)
+         "bir", "iki", "üç", "iki lütfen", "bir numara", "birincisi", "ikinci"]
+# "Akçakaya mı, Dereköy mü?" sorusunun cevabı: yer / kurum adı tek başına ya da kısa (sesli deneme 26.11.2026:
+# "Dereköy" → "dea kör", "ne kör bir dekar"; derlemde yer adı yalnız birim adının parçası olarak geçiyordu)
+CHOICE = ["{p}", "{p} lütfen", "{p_dan}", "evet {p}", "{p} olan", "{p} {t}", "{p_dan} {t}", "{p} {t_a} bağlayın"]
+_GENERIC = {"il", "ilçe", "valilik", "valiliği", "genel", "bölge", "merkez", "şube", "büro", "birim", "müdürlüğü",
+            "başkanlığı", "komutanlığı", "kaymakamlığı", "belediyesi", "belediye", "makamı", "özel"}
+
+
+def places(directory: list[dict]) -> list[str]:
+    """Rehberdeki yer / kurum adları: birim yolundaki adların ilk sözcüğü, genel birim sözcüğü değilse
+    ("Dereköy İlçe Nüfus Müdürlüğü" → dereköy, "Yeşilova Valiliği" → yeşilova)."""
+    out = set()
+    for c in directory:
+        for n in (c.get("department") or "", *(c.get("unit_path") or [])):
+            w = turkish_lower(n).split()[:1]
+            if w and len(w[0]) >= 4 and w[0] not in _GENERIC and not w[0].endswith(("lığı", "liği", "luğu", "lüğü")):
+                out.add(w[0])
+    return sorted(out)
 
 
 def generate(n: int, first: list[tuple[str, str]], last: list[str], directory: list[dict], topics: list[str],
@@ -123,6 +142,7 @@ def generate(n: int, first: list[tuple[str, str]], last: list[str], directory: l
                      *(turkish_lower(c.get("title", "")) for c in directory if c.get("title"))} - {"", "birim hattı"})
 
     gender = dict(first)
+    yerler = places(directory)
 
     def person() -> str:
         r = rnd.random()
@@ -167,6 +187,10 @@ def generate(n: int, first: list[tuple[str, str]], last: list[str], directory: l
             s = rnd.choice([f"{number_to_words(num)} numaraya bağlayın", f"dahili {num}",
                             f"{number_to_words(num)} lütfen", f"{num} numaralı dahili",
                             " ".join(number_to_words(int(d)) for d in str(num))])
+        elif r < 0.93 and yerler:
+            t = rnd.choice(["kaymakamı", "müdürü", "nüfus müdürü", "belediye başkanı", "şube müdürü", *titles])
+            s = rnd.choice(CHOICE).format(p=(p := rnd.choice(yerler)), p_dan=ek(p, "dan", True), t=t,
+                                          t_a=ek(t, "a", False))
         elif r < 0.96:
             s = rnd.choice(SHORT)
         elif extra:

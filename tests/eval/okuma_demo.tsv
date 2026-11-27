@@ -1,0 +1,50 @@
+# Demo rehberi (data/demo_rehber.json) sesli deneme okuma listesi + seçenek cevapları; tools/stt/sesli_set.py ile
+# yapay sesle ölçülür (tests/data/diyalog_seti_sesli_deneme.yaml'dan, 27.11.2026). Her satır: dosya<TAB>doğru metin.
+s01a.wav	mehmet demire bağlar mısınız
+s02a.wav	elif kurt hanımla görüşmek istiyorum
+s03a.wav	murat şen ile görüşebilir miyim
+s04a.wav	gizem polatı arıyorum
+s05a.wav	narkotik şubeye bağlar mısınız
+s06a.wav	cinayet bürosunu istiyorum
+s07a.wav	dereköy nüfus müdürlüğüne bağlayın
+s08a.wav	valilik hukuk işleri lütfen
+s09a.wav	il jandarma komutanı ile görüşmek istiyorum
+s10a.wav	akçakaya kaymakamına bağlar mısınız
+s11a.wav	il emniyet müdürüyle görüşecektim
+s12a.wav	hukuk müşavirine bağlayın
+s13a.wav	jandarma personel şube müdürü
+s14a.wav	jandarma lojistik şube idari işlemler astsubayı
+s15a.wav	jandarma nöbetçi amirine bağlar mısınız
+s16a.wav	nizamiyeye bağlayın
+s17a.wav	uğur çelik ile görüşmek istiyorum
+s17b.wav	personel
+s18a.wav	trafik büro amiri
+s18b.wav	emniyet
+s19a.wav	asayiş şubeyi arıyorum
+s19b.wav	jandarma
+s20a.wav	mehmet kaya
+s20b.wav	milli eğitim
+s21a.wav	il jandarma komutanlığının başındaki kişiyle görüşmek istiyorum
+s22a.wav	narkotikten serkan kurt
+s23a.wav	dahili iki sıfır sıfır dört dört
+s24a.wav	hırsızlık bürosundaki burak arslan
+s25a.wav	şey ben ee temel eğitim şube müdürüyle görüşecektim
+s26a.wav	selamünaleyküm gardaş dereköy kaymakamına bağla hele
+s26b.wav	evet
+s27a.wav	merhaba
+s27b.wav	milli eğitim müdürünü arıyorum
+s28a.wav	valilik belgegeçerine bağlar mısınız
+s29a.wav	zafer geçmiş ile görüşmek istiyorum
+s30a.wav	operatöre bağlayın
+c01.wav	dereköy
+c02.wav	akçakaya
+c03.wav	yeşilova
+c04.wav	dereköy lütfen
+c05.wav	akçakaya kaymakamı
+c06.wav	dereköy nüfus müdürü
+c07.wav	iki
+c08.wav	bir
+c09.wav	evet
+c10.wav	hayır
+c11.wav	evet lütfen
+c12.wav	tekrar eder misiniz
