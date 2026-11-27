@@ -69,6 +69,10 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
         self._stop = asyncio.Event()
         self._work: asyncio.Task | None = None   # akışlı turda süren diyalog (çağrı biterse iptal edilir)
         self._listen_since = 0.0                 # dinlemeye geçildiği / arayanın son konuştuğu an
+        # atılan uzun söz (anlaşılmayan, gürültü sayılan): arayan konuştu ama duyulmadı; kısa sürede "duyamadım"
+        # denir, 8 sn sessizlik beklenmez (sesli deneme 27.11.2026). Çağrıda bir kez: yankı döngüsü olmasın
+        self._unheard_at: float | None = None
+        self._unheard_used = False
         self._caller_talking = False             # SPEECH_STARTED geldi, sonucu (FINAL/NOT_RECOGNIZED) gelmedi
         self._barged = False                     # son söz asistanın sözünü keserek başladı
         self._silences = 0                       # art arda sessiz dinleme sayısı
@@ -215,6 +219,8 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
             self._caller_talking = k == "speech_started"
             self._listen_since = ev.at
             self._silences = 0
+            if k == "speech_started":
+                self._unheard_at = None          # yeniden konuşuyor: bekleyen "duyamadım" iptal
         if k == "speech_started":
             self._on_speech_started(ev)
         elif k in ("final", "not_recognized"):
@@ -257,10 +263,12 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
                 and not self._barged):
             # öksürük, tık, yankı: cevaplanmaz, deneme sayılmaz. Söze girilmişse (asistan sustu) yarıda kalan cümle
             # yeniden söylenir: sessiz kalınmaz
+            self._note_unheard(ev)
             return
         if k == "final" and self._noise_fragment(ev.data):
             log.info("[%s] gürültü kırıntısı yok sayıldı (güven %.2f)", self.call_id,
                      ev.data.get("confidence") or 0)
+            self._note_unheard(ev)
             return
         if self._ignore_next:
             # kapının saymadığı söze girmenin metni (arka plan): cevaplanmaz, deneme sayılmaz
@@ -295,6 +303,12 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
         log.error("[%s] STT akışı koptu (%s): operatöre", self.call_id, ev.data["error"])
         if self.state not in (CallState.HANDED_OFF, CallState.TRANSFERRING):
             await self._emergency_operator("stt_koptu")
+
+    def _note_unheard(self, ev: Event) -> None:
+        """Atılan söz uzunsa (öksürük değil, konuşma: "merhaba bugün hava nasıl" → STT "u", güven 0,09) kısa sürede
+        "duyamadım" denir. Deneme sayılmaz; çağrıda bir kez (yankı her seferinde tetiklemesin)."""
+        if not self._unheard_used and ev.data.get("ms", 0) >= self.cfg.unheard_min_ms:
+            self._unheard_at = ev.at
 
     def _noise_fragment(self, data: dict) -> bool:
         conf = data.get("confidence")
@@ -360,6 +374,12 @@ class CallSession(SpeakingMixin, PbxActionsMixin):
         elif now - self.started_at > self.cfg.max_call_duration_s and self.state == CallState.LISTENING:
             log.warning("[%s] çağrı süresi aşıldı: operatöre", self.call_id)
             self._start_speech(self._operator_turn("sure_asimi"), heard_at=None, heard="[süre]")
+        elif (self._unheard_at is not None and self.state == CallState.LISTENING and not self._inputs
+              and not self._caller_talking and not self._speaking()
+              and now - self._listen_since > self.cfg.unheard_wait_s):
+            self._unheard_at, self._unheard_used = None, True
+            log.info("[%s] arayan konuştu ama anlaşılmadı: soru yineleniyor", self.call_id)
+            self._start_speech(self.dialog.no_input_turn(), heard_at=None, heard="[anlaşılmadı]")
         elif (self.state == CallState.LISTENING and not self._inputs and not self._caller_talking
               and not self._speaking() and now - self._listen_since > self.cfg.no_input_s):
             self._silences += 1

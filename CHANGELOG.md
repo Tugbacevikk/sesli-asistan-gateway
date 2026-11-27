@@ -145,6 +145,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Arayan konuştu ama söz anlaşılmadı (STT "u", güven 0,09; gürültü sayılıp atıldı): arayan 8 sn bekleyip "Sizi
+  duyamıyorum" duyuyordu (sesli deneme 27.11.2026). 1,2 sn'den uzun atılan sözden 1,5 sn sonra soru yinelenir; deneme
+  sayılmaz, çağrıda bir kez (hoparlör yankısı döngüye sokmasın).
 - Seçenek ipucu "Birinci ya da ikinci diyebilirsiniz." oldu: yapay sesle ölçümde (27.11.2026) tek heceli "iki"
   çoğunlukla "peki", "bir" boş duyuldu; sıra sözcükleri uzun ve sağlam ("bir" / "iki" yine kabul edilir).
 - Yer adıyla seçilen makamın teyidi eksizdi ("Dereköy Kaymakama mı…") ve yinelenince kişinin adına dönüyordu
