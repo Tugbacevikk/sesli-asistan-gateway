@@ -65,3 +65,6 @@ sonuc_*.json
 # her konuşmanın log dosyası (CALL_LOG_DIR): kişisel veri, repoya girmez
 cagri_kayitlari/
 tools/egitim/veri/
+sesli_set_*/
+fleurs_set/
+veri_onbellek/
