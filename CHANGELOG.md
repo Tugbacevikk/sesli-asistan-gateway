@@ -15,6 +15,10 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Santral dil modeli derlemi: seçenek sorularının kısa cevapları (yer / kurum adı tek başına: "dereköy", "akçakaya
+  kaymakamı"; sayıyla seçim: "iki"). Sesli denemede "Dereköy" defalarca bozuk duyuldu; derlemde yer adı yalnız birim
+  adının parçası olarak geçiyordu. `tests/eval/okuma_demo.tsv`: demo rehberi okuma listesi + seçenek cevapları
+  (`tools/stt/sesli_set.py` ile yapay sesle ölçmek için).
 - **Anlama modeli v9** (`deploy/models.yaml`): uçtan uca %99,2 (v8 %95,9), hiç görülmemiş kurumda (belediye) %98,9;
   operatör, belirsiz, konu, tarif ve kapat türleri düzeldi (docs/olcumler.md, 26.11.2026).
 - `tools/deneme/stt_duzeltme.py`: sesli deneme raporundan **kelime düzeltmesi önerisi**. STT'nin rehberdeki ad / birim
