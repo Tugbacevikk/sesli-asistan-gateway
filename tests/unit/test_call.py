@@ -834,3 +834,20 @@ async def test_kisa_bos_sonuc_cevaplanmaz():
         await c.until(lambda: c.session.stats.turns)
         await asyncio.sleep(0.05)
         assert [t.heard for t in c.session.stats.turns] == ["filanca"]        # boş sonuç tura girmedi
+
+
+async def test_atilan_uzun_soz_icin_kisa_surede_duyamadim():
+    # sesli deneme 27.11.2026: ilk söz STT'de "u" (güven 0,09, 1,86 sn) gürültü sayılıp atıldı, arayan 8 sn sonra
+    # "Sizi duyamıyorum" duydu. Uzun söz atılınca kısa sürede sorulur; deneme sayılmaz, çağrıda bir kez
+    llm = Llm(LlmMessage("Tamam."))
+    async with Call(llm, no_input_s=30.0) as c:
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "u", 0.09, 0, 1860))
+        await c.until(lambda: c.session.stats.turns)
+        assert c.session.stats.turns[0].heard == "[anlaşılmadı]"
+        assert c.session.dialog.state.failed_attempts == 0
+        # ikinci kez atılan uzun söz yeniden sordurmaz
+        c.stt.stream.ev.put_nowait(SttEvent("speech_started"))
+        c.stt.stream.ev.put_nowait(SttEvent("final", "u", 0.09, 0, 1860))
+        await asyncio.sleep(2.5)
+        assert len(c.session.stats.turns) == 1

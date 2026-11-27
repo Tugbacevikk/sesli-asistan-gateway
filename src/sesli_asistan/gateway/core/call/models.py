@@ -42,6 +42,10 @@ class CallConfig:
     noise_max_letters: int = NOISE_MAX_LETTERS
     dtmf_operator_digit: str = "0"     # FR-15: tuşlayınca operatör
     no_input_s: float = 8.0            # dinlemede bu kadar sessizlik → "Sizi duyamıyorum"
+    # bundan uzun atılan söz (anlaşılmayan, gürültü sayılan) konuşmadır: unheard_wait_s sessizlikten sonra
+    # "duyamıyorum" (8 sn beklenmez; çağrıda bir kez). Sesli deneme 27.11.2026: ilk söz "u" (güven 0,09) atıldı
+    unheard_min_ms: int = 1200
+    unheard_wait_s: float = 1.5
     no_input_max: int = 2              # kaçıncı sessizlikte operatöre
     tick_s: float = 1.0
     thinking_sound: bool = True        # düşünürken klavye sesi (sessizlik "hat koptu mu?" dedirtmesin)
