@@ -148,6 +148,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Konu listesi denetimi LLM'in yazdığı konuyla da yapılır: STT "cari hesap"ı "cihaye hesap" duyunca söz listeye
+  uymuyor, LLM'in Milli Eğitim tahmini yine soruluyordu (sesli deneme 27.11.2026).
 - Arayan konuştu ama söz anlaşılmadı (STT "u", güven 0,09; gürültü sayılıp atıldı): arayan 8 sn bekleyip "Sizi
   duyamıyorum" duyuyordu (sesli deneme 27.11.2026). 1,2 sn'den uzun atılan sözden 1,5 sn sonra soru yinelenir; deneme
   sayılmaz, çağrıda bir kez (hoparlör yankısı döngüye sokmasın).
