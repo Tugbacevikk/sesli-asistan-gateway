@@ -134,7 +134,9 @@ class DialogTexts:
     which_one: str = "Hangisini istersiniz: {soru}"
     # seçenek sorusunun cevabı anlaşılmayınca soruya eklenir: kısa yer / ad cevabı telefonda bozuk duyuluyor ("Dereköy"
     # → "dea kör", "ne kör bir dekar"; sesli deneme 26.11.2026), sayılar sağlam duyulur
-    choice_by_number: str = "Birincisi için bir, ikincisi için iki diyebilirsiniz."
+    # yapay ses ölçümü 27.11.2026: tek heceli "iki" 12 kaydın 9'unda "peki", "bir" çoğunda boş duyuldu; "ikinci",
+    # "birinci" uzun ve sağlam (sıra sözcükleri ORDINALS'ta zaten seçim sayılıyordu)
+    choice_by_number: str = "Birinci ya da ikinci diyebilirsiniz."
     ask_topic: str = ("Hangi konuda bilgi almak istersiniz? Görüşmek istediğiniz kişiyi ya da birimi de "
                       "söyleyebilirsiniz.")
     which_department: str = "Hangi birimdeki {unvan}?"      # aynı unvanlı çok hat (ADR-030): birimle süzülür
