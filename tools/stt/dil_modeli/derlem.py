@@ -219,6 +219,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--konular", type=Path, default=ROOT / "src/sesli_asistan/gateway/konular.json")
     ap.add_argument("--set", type=Path, action="append", default=[], help="diyalog seti YAML (arayan sözleri)")
     ap.add_argument("--adet", type=int, default=60000)
+    ap.add_argument("--genel", type=Path, help="genel Türkçe cümleler (genel_metin.py): uzun cümle yutulmasın")
+    ap.add_argument("--genel-oran", type=float, default=0.25, help="derlemde genel cümle payı (varsayılan 0,25)")
     ap.add_argument("--tohum", type=int, default=7)
     ap.add_argument("--cikti", type=Path, required=True)
     a = ap.parse_args(argv)
@@ -240,6 +242,16 @@ def main(argv: list[str] | None = None) -> int:
         pass
     extra = [turkish_lower(x).replace("[santral]", "").strip() for x in extra if x and "[" not in x]
     lines = generate(a.adet, first, last, directory, topics, extra, a.tohum)
+    if a.genel:
+        # ölçüm 27.11.2026: yalnız santral cümlesiyle eğitilen model uzun cümleyi yutuyor (docs/olcumler.md)
+        genel = [x for x in a.genel.read_text(encoding="utf-8").splitlines() if x.strip()]
+        n = round(len(lines) * a.genel_oran / (1 - a.genel_oran)) if 0 < a.genel_oran < 1 else 0
+        rnd = random.Random(a.tohum + 1)
+        ek_satir = (genel * (n // len(genel) + 1))[:n] if genel else []
+        rnd.shuffle(ek_satir)
+        lines = lines + ek_satir
+        rnd.shuffle(lines)
+        print(f"genel: {len(ek_satir)} satır ({len(genel)} farklı cümle, pay {a.genel_oran:.0%})")
     a.cikti.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"{a.cikti}: {len(lines)} cümle, {len(set(lines))} farklı, {sum(len(x.split()) for x in lines)} sözcük")
     return 0

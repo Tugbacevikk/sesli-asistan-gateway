@@ -15,6 +15,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- Dil modeli derlemine genel Türkçe cümle (`tools/stt/dil_modeli/genel_metin.py`: FLEURS train + dev metni, CC BY 4.0,
+  STT biçiminde; `derlem.py --genel genel.txt --genel-oran 0.25`): yalnız santral cümlesiyle eğitilen model uzun
+  cümleyi yutuyordu (FLEURS ölçümü 27.11.2026); daha yüksek ağırlığın güvenli olup olmadığı aynı iki setle ölçülür.
 - `tools/stt/hazir_set.py`: FLEURS Türkçe test (CC BY 4.0, gerçek insan sesleri) indirilir, santral hattından geçmiş
   gibi kodlanır (G.711 / G.722, uğultu); karsilastir.py ile STT'nin ve dil modelinin genel konuşmada ölçümü.
 - **Kadın sesi varsayılan:** kurulum `sesli-tts` (Seslen, :5600) servisini de kurar, `gateway.env` şablonu
