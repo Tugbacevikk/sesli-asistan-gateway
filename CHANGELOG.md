@@ -145,6 +145,8 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Seçenek ipucu "Birinci ya da ikinci diyebilirsiniz." oldu: yapay sesle ölçümde (27.11.2026) tek heceli "iki"
+  çoğunlukla "peki", "bir" boş duyuldu; sıra sözcükleri uzun ve sağlam ("bir" / "iki" yine kabul edilir).
 - Yer adıyla seçilen makamın teyidi eksizdi ("Dereköy Kaymakama mı…") ve yinelenince kişinin adına dönüyordu
   ("Okan Yıldırım'a mı…"): artık "Dereköy Kaymakamına mı bağlamamı istersiniz?", yinelemesi de aynı adla.
 - Arayan hiç konuşmadan "Sizi anlayamadım" deniyordu (sesli deneme 26.11.2026): 0,8–1,5 sn'lik **boş** STT sonuçları

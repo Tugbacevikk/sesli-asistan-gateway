@@ -1526,3 +1526,22 @@ Not: v8 sayıları 25.11 ölçümünden düşük; test seti büyüdü (belediye,
 Karar: kurulum modeli v9 (`deploy/models.yaml`); v8 yedek (`ollama cp gemma-santral gemma-santral-v8`). Model eğitimi
 bu sürümle bitirildi: yeniden eğitim yalnız gerçek "yanlış yönlendirildi" işaretleri birikince ya da yeni kurumda
 ölçüm kötü çıkarsa.
+
+## 27.11.2026 — santral dil modeli, yapay sesle (demo rehberi)
+
+Set: `tests/eval/okuma_demo.tsv` (48 cümle: sesli deneme listesi + seçenek cevapları) × G.711/G.722 × hız 0,9/1,1 ×
+temiz / uğultu 10 dB / arkada konuşma 10 dB = 576 kayıt (`tools/stt/sesli_set.py`, Piper). STT: mihu turkish-stt-66m-v2.
+lm1: 26.11 derlemi; lm2: seçenek cevapları eklenmiş derlem (PR #86), ikisi de doğrulama şaşkınlığı 2,07.
+
+| | WER | CER | tam doğru | RTF |
+|---|---|---|---|---|
+| dil modelsiz | 51,1 | 24,7 | 139 | 0,075 |
+| lm1 0,2 / 0,4 | 41,9 / 40,9 | 22,4 / 23,7 | 158 / 166 | 0,124 / 0,138 |
+| lm2 0,2 / 0,4 | **41,7** / 41,3 | **22,1** / 24,9 | 160 / 167 | 0,125 / 0,136 |
+
+- Dil modeli WER'i ~10 puan düşürüyor; 0,4'te boş sonuç ve sözcük yutma artıyor (CER kötüleşiyor): **lm2, ölçek 0,2**.
+- Tek sözcüklü yer adı dil modeliyle de düzelmiyor ("dereköy" → "neriköy'e", "nere köye", "gereköy"; "akçakaya" →
+  "şakaya", "takça kaya"): bunlar diyalogda ses benzerliğiyle teyitle seçiliyor (choice._label_pick; 22 bozuk
+  biçimden 19'u doğru adaya gidiyor). Tek heceli "iki" 12 kaydın 9'unda "peki", "bir" çoğunda boş: seçenek ipucu
+  "Birinci ya da ikinci" oldu.
+- Yapay ses gerçek arayanın yerini tutmaz (tek Piper sesi); karar gerçek 30 çağrılık denemeyle doğrulanacak.

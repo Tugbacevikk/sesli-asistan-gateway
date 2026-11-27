@@ -230,9 +230,10 @@ def test_secenek_cevabi_anlasilmazsa_sayiyla_secilir() -> None:
         return out
     out = asyncio.run(run("kaymakamla görüşmek istiyorum", "ne kör bir dekar", "iki"))
     assert out[0][0] == "Akçakaya mı, Dereköy mü?"
-    assert out[1] == ("Akçakaya mı, Dereköy mü? Birincisi için bir, ikincisi için iki diyebilirsiniz.", [])
+    assert out[1] == ("Akçakaya mı, Dereköy mü? Birinci ya da ikinci diyebilirsiniz.", [])
     assert out[2][1] == ["52001"]
     assert asyncio.run(run("kaymakamla görüşmek istiyorum", "bir sorumuz var", "1"))[2][1] == ["51001"]
+    assert asyncio.run(run("kaymakamla görüşmek istiyorum", "ne kör bir dekar", "ikinci"))[2][1] == ["52001"]
 
 
 def test_teyit_yinelenince_ayni_ad_ve_tamlama() -> None:
