@@ -58,6 +58,20 @@ def common_dative(phrase: str) -> str:
     return w + suffix
 
 
+def with_possessive(phrase: str) -> str:
+    """Tamlama: son sözcüğe iyelik eki, yoksa ("Dereköy Kaymakam" → "Dereköy Kaymakamı", "Dereköy Nüfus Müdürü" aynı):
+    teyitte yer adı + unvan söylenir, eksiz "Dereköy Kaymakama" yanlış okunuyordu (sesli deneme 26.11.2026)."""
+    w = phrase.strip()
+    if " " not in w:
+        return w
+    low = turkish_lower(w)
+    if low[-1] in "ıiuü" or low.endswith(("sı", "si", "su", "sü")):
+        return w
+    v = next((ch for ch in reversed(low) if ch in _BACK | _FRONT), "e")
+    suffix = {"a": "ı", "ı": "ı", "o": "u", "u": "u", "e": "i", "i": "i", "ö": "ü", "ü": "ü"}.get(v, "i")
+    return w + ("s" + suffix if low[-1] in _BACK | _FRONT else suffix)
+
+
 def contact_dative(c: Any) -> str:
     """Kaydın söylenen adı yönelme ekiyle: kişi ve birim özel ad ("Ayşe Yılmaz'a", "Muhasebe'ye"), makam cins isim.
     İyelik ekiyle biten çok sözcüklü birim adı tamlamadır: -n- ile ("Su ve Kanalizasyon İdaresine", "İnsan

@@ -233,3 +233,21 @@ def test_secenek_cevabi_anlasilmazsa_sayiyla_secilir() -> None:
     assert out[1] == ("Akçakaya mı, Dereköy mü? Birincisi için bir, ikincisi için iki diyebilirsiniz.", [])
     assert out[2][1] == ["52001"]
     assert asyncio.run(run("kaymakamla görüşmek istiyorum", "bir sorumuz var", "1"))[2][1] == ["51001"]
+
+
+def test_teyit_yinelenince_ayni_ad_ve_tamlama() -> None:
+    # sesli deneme 26.11.2026: "dene karşımız" → "Dereköy Kaymakama mı…" (eksiz), "tekrar" → yinelemesi kişinin
+    # adıyla "Okan Yıldırım'a mı…" soruldu
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    agent = DialogAgent(MapLlm({}), ToolRegistry(index), DialogConfig(understand="kural", llm_enabled=False))
+
+    async def run() -> list[str]:
+        ses = agent.new_session("t")
+        ses.greeting()
+        out = [(await ses.handle_user(x)).text for x in ("kaymakamla görüşmek istiyorum", "dea kör", "tekrar")]
+        tr = await ses.handle_user("evet")
+        return [*out, *(a.extension for a in tr.actions if a.type == "transfer")]
+    out = asyncio.run(run())
+    assert out[1] == "Dereköy Kaymakamına mı bağlamamı istersiniz?"
+    assert out[2].startswith("Anlayamadım. Dereköy Kaymakamına mı") and out[3] == "52001"
