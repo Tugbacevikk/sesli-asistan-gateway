@@ -185,6 +185,18 @@ def test_konu_listesine_uymayan_tahmin_onerilmez() -> None:
         return asyncio.run(run())
     assert cevap("data/demo_rehber.json", "İl Milli Eğitim Müdürlüğü").startswith("Bu konuyla ilgili birimi bulamadım")
     assert cevap("data/sirket_rehber.json", "Muhasebe") == "Muhasebe'ye mi bağlamamı istersiniz?"
+    # STT konuyu bozdu, LLM düzeltip yazdı: konu listesi LLM'in konusuyla da bakılır (sesli deneme 27.11.2026)
+    bozuk = "cihaye hesap konusunda bilgi almak istiyorum"
+    data = json.loads((ROOT / "data/demo_rehber.json").read_text(encoding="utf-8"))
+    index = DirectoryIndex(Contact.from_api(c) for c in data["contacts"])
+    llm = MapLlm({bozuk: {"niyet": "konu", "konu": "cari hesap", "tahmini_birim": "İl Milli Eğitim Müdürlüğü"}})
+    agent = DialogAgent(llm, ToolRegistry(index, topics=load_topics(None)), DialogConfig(understand="llm"))
+
+    async def run() -> str:
+        ses = agent.new_session("t")
+        ses.greeting()
+        return (await ses.handle_user(bozuk)).text
+    assert asyncio.run(run()).startswith("Bu konuyla ilgili birimi bulamadım")
 
 
 def test_secenek_sorusunda_bozuk_yer_adi_teyitle() -> None:

@@ -646,7 +646,8 @@ class UnderstandMixin:
                      got.tahmini_birim)
             return None
         table = self.tools.topic_table()
-        topic = table.topic_of(u.text) if table is not None else None
+        # sözde ya da LLM'in yazdığı konuda ("cihaye hesap" duyuldu, LLM "cari hesap" yazdı; sesli deneme 27.11.2026)
+        topic = (table.topic_of(u.text) or table.topic_of(got.konu or "")) if table is not None else None
         if table is not None and topic is not None and topic.departments and not table.fits(topic, pick.department):
             # konu listesi bu konunun birimini biliyor ("cari hesap" → muhasebe / mali işler), LLM'in tahmini başka
             # bir birim: rehberde o birim yok demektir, uydurma öneri sorulmaz (deneme 26.11.2026: cari hesap →
