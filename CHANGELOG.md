@@ -150,6 +150,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 
 
 ### Düzeltildi
+- Santral dil modeli varsayılan ağırlığı 0,3 → **0,1** (`STT_LM_SCALE`): gerçek insan sesli FLEURS ölçümünde 0,2'de
+  genel konuşma +8 puan, 0,3'te +18 puan bozuldu (uzun cümle yutuluyor); 0,1'de +3 puan, santral kazancının ~%70'i
+  korunuyor (docs/olcumler.md 27.11.2026).
 - Konu listesi denetimi LLM'in yazdığı konuyla da yapılır: STT "cari hesap"ı "cihaye hesap" duyunca söz listeye
   uymuyor, LLM'in Milli Eğitim tahmini yine soruluyordu (sesli deneme 27.11.2026).
 - Arayan konuştu ama söz anlaşılmadı (STT "u", güven 0,09; gürültü sayılıp atıldı): arayan 8 sn bekleyip "Sizi

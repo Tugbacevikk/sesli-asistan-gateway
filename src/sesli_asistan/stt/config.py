@@ -23,7 +23,8 @@ class SttSettings(BaseSettings):
     # Santral dil modeli (ADR-028): mihu'nun ağırlıklarına dokunmadan, santral cümlelerini öğrenmiş küçük LSTM;
     # çözümlemede akustik skora eklenir. Boş: yok. Ağırlık ölçümle seçilir (tools/stt/karsilastir.py --lm --lm-olcek).
     lm_path: str = ""
-    lm_scale: float = Field(0.3, ge=0, le=2)
+    # 0,1: santral kazancının ~%70'i, genel konuşmada +3 puan; 0,2+ uzun cümleyi yutuyor (olcumler.md 27.11.2026)
+    lm_scale: float = Field(0.1, ge=0, le=2)
 
     # Gateway'in rehber ad ipuçları motora verilsin mi. Kapalı: okuma ölçümünde (03.11.2026, tools/stt/gorev_olc.py,
     # telefon hattı, 23 cümle) ipucu bozuk sesi rehber adına çevirdi ("operatöre bağlanmak istiyorum" → "ayşe
