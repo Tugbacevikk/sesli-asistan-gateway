@@ -9,7 +9,8 @@
 #   sudo deploy/install.sh --kaldir --verilerle    # her şeyi kaldır (önce son bir yedek alınır; yedekler kalır)
 #
 # Seçenekler:
-#   --servisler "gateway stt"   kurulacak servisler (tts: kadın sesi, isteğe bağlı)
+#   --servisler "gateway stt tts"   kurulacak servisler (tts: kadın sesi Seslen, varsayılan; Piper kullanılacaksa
+#                               "gateway stt" ve gateway.env'de TTS_URL=…:5500)
 #   --cpu                       GPU yok: STT işlemcide (yavaş; yalnız deneme), NVIDIA kontrolü atlanır
 #   --onek /opt/sesli-asistan   kurulum kökü
 #   --ollama-yok                Ollama'yı denetleme / model çekme (LLM başka sunucuda)
@@ -29,7 +30,7 @@ ONEK=/opt/sesli-asistan
 # SESLI_* yalnız testler içindir (geçici klasörlerde kurulum / kaldırma denemesi)
 AYAR=${SESLI_AYAR:-/etc/sesli-asistan}
 VERI=${SESLI_VERI:-/var/lib/sesli-asistan}
-SERVISLER="gateway stt"
+SERVISLER="gateway stt tts"     # kadın sesi varsayılan (27.11.2026, demo denemesi)
 PAKET=""
 CPU=0
 OLLAMA=1

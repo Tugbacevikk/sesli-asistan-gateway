@@ -15,6 +15,9 @@ anahtarının bulunduğu makinede `deploy/paket.sh --imza <anahtar>` ile üretil
 ## [Yayımlanmamış]
 
 ### Eklendi
+- **Kadın sesi varsayılan:** kurulum `sesli-tts` (Seslen, :5600) servisini de kurar, `gateway.env` şablonu
+  `TTS_URL=…:5600` ve `TTS_LENGTH_SCALE=0.85` (demo denemesinde seçilen hız). Piper için eski ayar şablonda yazılı.
+  TTS önbellek anahtarına servis adresi eklendi (ses adı boşken servis değişince eski ses çalınmasın).
 - Santral dil modeli derlemi: seçenek sorularının kısa cevapları (yer / kurum adı tek başına: "dereköy", "akçakaya
   kaymakamı"; sayıyla seçim: "iki"). Sesli denemede "Dereköy" defalarca bozuk duyuldu; derlemde yer adı yalnız birim
   adının parçası olarak geçiyordu. `tests/eval/okuma_demo.tsv`: demo rehberi okuma listesi + seçenek cevapları
