@@ -46,12 +46,14 @@ class PiperHttpTts:
                  format: Literal["json", "plain", "query"] = "json", voice: str | None = None,
                  length_scale: float | None = None, timeout_s: float = 3.0, client: httpx.AsyncClient | None = None):
         self.path, self.format, self.voice, self.length_scale = path, format, voice, length_scale
-        self.http = client or httpx.AsyncClient(base_url=base_url.rstrip("/"), timeout=timeout_s)
+        self.base_url = base_url.rstrip("/")
+        self.http = client or httpx.AsyncClient(base_url=self.base_url, timeout=timeout_s)
 
     @property
     def cache_id(self) -> str:
-        """Önbellek anahtarına girer: ses ya da hız değişince eski kayıtlar kullanılmaz."""
-        return f"piper|{self.voice or '-'}|{self.length_scale or 1.0}"
+        """Önbellek anahtarına girer: ses, hız ya da servis değişince eski kayıtlar kullanılmaz. Servis adresi de
+        girer: Piper'dan (:5500) Seslen'e (:5600) geçince ses adı boşsa eski erkek sesi kayıtları çalınıyordu."""
+        return f"piper|{self.base_url}|{self.voice or '-'}|{self.length_scale or 1.0}"
 
     async def aclose(self) -> None:
         await self.http.aclose()
